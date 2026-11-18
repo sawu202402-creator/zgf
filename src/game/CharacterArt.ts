@@ -1,25 +1,49 @@
 import { WEAPONS } from '../data/itemsAndSkills';
 import { SceneNpc } from '../data/worldMap';
-import { EnemyKind, WeaponArchetype } from '../types';
+import { WeaponArchetype } from '../types';
 import { AssetKey, Assets } from './AssetLoader';
 import { ActiveSlash, EnemyEntity, GameEngine, WorldDrop } from './GameEngine';
+import { drawCelShadedWeapon } from './GuofengWorldArt';
 
-const ENEMY_SPRITE_MAP: Record<EnemyKind, AssetKey> = {
-  paper_swordsman: 'mob_paper_swordsman',
-  lantern_ghost: 'mob_lantern_ghost',
-  bronze_guard: 'mob_bronze_guard',
-  scroll_demon: 'mob_scroll_demon',
-  plague_toad: 'mob_plague_toad',
-  opera_puppet: 'mob_opera_puppet',
-  bell_gargoyle: 'mob_bell_gargoyle',
-  boss_scroll_king: 'boss_scroll_king',
-  boss_furnace_titan: 'boss_furnace_titan',
-  boss_xiao_duanshui: 'npc_xiao_boss',
-  boss_opera_god: 'boss_opera_god',
-  boss_thunder_yaksha: 'mob_bell_gargoyle',
-  boss_pei_wuji: 'boss_opera_god',
-  boss_zhuyin: 'boss_zhuyin',
-};
+const ENEMY_METRICS = {
+  canvasW: 360,
+  canvasH: 270,
+  anchorX: 165,
+  footY: 256,
+} as const;
+
+function selectEnemySpriteFrame(e: EnemyEntity, t: number): AssetKey {
+  const kind = e.profile.kind;
+  const isMoving = Math.abs(e.vx) > 12 && e.aiState === 'stalk';
+
+  if (kind === 'boss_scroll_king' || e.profile.isBoss) {
+    if (e.aiState === 'windup') return 'boss_ik_1';
+    if (e.aiState === 'lunge_slash') return 'boss_ik_2';
+    return 'boss_ik_0';
+  }
+
+  if (kind === 'bronze_guard') {
+    if (e.aiState === 'windup') return 'mob_gd_2';
+    if (e.aiState === 'lunge_slash') return 'mob_gd_3';
+    if (isMoving) {
+      return Math.floor(Math.abs(e.animPhase) * 0.65) % 2 === 0 ? 'mob_gd_0' : 'mob_gd_1';
+    }
+    return 'mob_gd_0';
+  }
+
+  if (kind === 'lantern_ghost' || e.profile.flying) {
+    if (e.aiState === 'windup' || e.aiState === 'lunge_slash') return 'mob_wr_2';
+    return Math.floor(t * 2.6 + e.id) % 2 === 0 ? 'mob_wr_0' : 'mob_wr_1';
+  }
+
+  // 默认近战刀客 (paper_swordsman 等) 4帧真实步态与双手举刀/劈斩序列！
+  if (e.aiState === 'windup') return 'mob_sw_2';
+  if (e.aiState === 'lunge_slash') return 'mob_sw_3';
+  if (isMoving) {
+    return Math.floor(Math.abs(e.animPhase) * 0.7) % 2 === 0 ? 'mob_sw_0' : 'mob_sw_1';
+  }
+  return 'mob_sw_0';
+}
 
 /**
  * 18岁少年李逸承 14帧纯手绘逐帧序列图基准锚点（与 slice_hero_sheets.py 严格锁定一致！）
@@ -103,20 +127,15 @@ export function selectHeroSpriteFrame(opts: {
 
 function drawBackCarriedWeapon(
   ctx: CanvasRenderingContext2D,
-  archetype: WeaponArchetype
+  archetype: WeaponArchetype,
+  weaponId = 'sword_1'
 ): void {
-  const isHeavy = archetype === 'greatsword';
-  const img = Assets.get(isHeavy ? 'part_wpn_modao' : 'part_wpn_sword');
-  if (!img) return;
-
   ctx.save();
-  // 斜挎于少年后背肩胛位置，绘制在人物主序列帧底层，绝不遮挡面部与前胸！
-  ctx.translate(-6, -54);
+  // 采用与主角完全一致的浓墨描边赛璐珞神兵矢量绘制，0位图贴纸违和感！
+  ctx.translate(-8, -50);
   ctx.rotate(-2.32);
-  ctx.globalAlpha = 0.92;
-  const w = isHeavy ? 96 : 74;
-  const h = w * (img.height / img.width);
-  ctx.drawImage(img, -w * 0.25, -h * 0.5, w, h);
+  ctx.globalAlpha = 0.94;
+  drawCelShadedWeapon(ctx, archetype, weaponId, archetype === 'greatsword' ? 86 : 72);
   ctx.restore();
 }
 
@@ -173,11 +192,11 @@ export function renderModularLiYichengRig(
   const carryingHeavyWhileMoving =
     isHeavy && !opts.slash && (!opts.onGround || speedRatio > 0.12);
   if (carryingHeavyWhileMoving) {
-    drawBackCarriedWeapon(ctx, 'greatsword');
+    drawBackCarriedWeapon(ctx, 'greatsword', opts.equippedWeaponId);
   } else if (opts.secondaryWeaponId && opts.secondaryWeaponId !== opts.equippedWeaponId) {
     const secW = WEAPONS[opts.secondaryWeaponId];
     if (secW) {
-      drawBackCarriedWeapon(ctx, secW.archetype);
+      drawBackCarriedWeapon(ctx, secW.archetype, secW.id);
     }
   }
 
@@ -386,48 +405,54 @@ export function drawMonsterOrBoss(
   e: EnemyEntity,
   t: number
 ): void {
-  const kind = e.profile.kind;
   const w = e.profile.w;
   const h = e.profile.h;
   const flash = e.hurtFlash > 0;
-  const spriteKey = ENEMY_SPRITE_MAP[kind];
+  const spriteKey = selectEnemySpriteFrame(e, t);
   const img = Assets.get(spriteKey);
 
   ctx.save();
   ctx.translate(e.x, e.y);
 
   if (!e.profile.flying) {
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.52)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.54)';
     ctx.beginPath();
-    ctx.ellipse(0, 2, w * 0.62, 6, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 2, w * 0.65, 5.8, 0, 0, Math.PI * 2);
     ctx.fill();
   }
 
   if (img) {
-    const targetH = e.profile.isBoss ? 142 : h * 1.52;
-    const drawW = img.width * (targetH / img.height);
+    // 全部怪物与妖王现已升级为统一国风赛璐珞逐帧动作序列（迈步/蓄力举刀/挥劈各帧独立，彻底告别单帧纸片平移！）
+    const sc = e.profile.isBoss ? 0.62 : e.profile.kind === 'bronze_guard' ? 0.54 : 0.52;
+    const drawW = ENEMY_METRICS.canvasW * sc;
+    const drawH = ENEMY_METRICS.canvasH * sc;
+    const dx = -ENEMY_METRICS.anchorX * sc;
+    const dy = -ENEMY_METRICS.footY * sc + 2;
 
-    // 根据 AI 状态赋予真实的蓄势后仰、突斩前倾与迈步颠簸！
-    const isMoving = Math.abs(e.vx) > 15 && e.aiState === 'stalk';
-    const stepBob = e.profile.flying
-      ? Math.sin(e.animPhase) * 5
-      : isMoving
-        ? Math.abs(Math.sin(e.animPhase)) * 4.2
-        : 0;
-    const stepRock = isMoving ? Math.sin(e.animPhase) * 0.055 : 0;
-
-    let poseTilt = stepRock;
-    if (e.aiState === 'windup') poseTilt = -0.18;
-    else if (e.aiState === 'lunge_slash') poseTilt = 0.22;
-    else if (e.aiState === 'staggered') poseTilt = -0.15;
+    const hoverY = e.profile.flying ? Math.sin(e.animPhase) * 4 : 0;
 
     ctx.save();
-    ctx.translate(0, -stepBob);
-    ctx.scale(e.facing === -1 ? 1 : -1, 1 + Math.sin(t * 4.5 + e.id) * 0.018);
-    ctx.rotate(-poseTilt);
+    ctx.translate(0, -hoverY);
+    ctx.scale(e.facing, 1 + Math.sin(t * 3.6 + e.id) * 0.012);
 
     const source = flash ? Assets.getWhiteFlash(spriteKey) || img : img;
-    ctx.drawImage(source, -drawW * 0.5, -targetH + 4, drawW, targetH);
+    ctx.drawImage(source, dx, dy, drawW, drawH);
+    ctx.restore();
+  }
+
+  // 提灯冥火鬼灯笼幽青叠加辉光
+  if (e.profile.flying) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const lx = e.facing * 28;
+    const ly = -44;
+    const lg = ctx.createRadialGradient(lx, ly, 2, lx, ly, 36);
+    lg.addColorStop(0, 'rgba(94, 234, 212, 0.45)');
+    lg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = lg;
+    ctx.beginPath();
+    ctx.arc(lx, ly, 36, 0, Math.PI * 2);
+    ctx.fill();
     ctx.restore();
   }
 
@@ -692,22 +717,17 @@ export function drawWorldDrop(
   ctx.restore();
 
   if (d.kind === 'weapon') {
-    // 青石镇剑台基座 + 神兵斜插石中（真实武侠场景奇遇感！）
+    // 青石镇剑台基座 + 赛璐珞黑墨描边神兵斜插石中（0位图贴纸！）
     const isModao = d.itemId.startsWith('greatsword');
-    const wpnImg = Assets.get(isModao ? 'part_wpn_modao' : 'part_wpn_sword');
-    if (wpnImg) {
-      ctx.save();
-      ctx.translate(2, isModao ? -34 : -28);
-      ctx.rotate(isModao ? 1.28 : 1.38); // 刀尖/剑尖朝下深深没入青石剑座！
-      const w = isModao ? 88 : 70;
-      const h = w * (wpnImg.height / wpnImg.width);
-      ctx.drawImage(wpnImg, -w * 0.45, -h * 0.5, w, h);
-      ctx.restore();
-    }
-    // 裂纹青石剑座压在前层遮住入石剑尖，形成真实插石遮挡关系！
+    ctx.save();
+    ctx.translate(-3, isModao ? -40 : -34);
+    ctx.rotate(1.32); // 刀尖朝下深深没入裂纹青石剑座！
+    drawCelShadedWeapon(ctx, isModao ? 'greatsword' : 'sword', d.itemId, isModao ? 88 : 74);
+    ctx.restore();
+
     ctx.fillStyle = '#273449';
-    ctx.strokeStyle = '#070a12';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#060911';
+    ctx.lineWidth = 2.2;
     ctx.beginPath();
     ctx.moveTo(-22, 1);
     ctx.lineTo(-16, -13);
@@ -721,6 +741,31 @@ export function drawWorldDrop(
     ctx.beginPath();
     ctx.moveTo(-15, -12);
     ctx.lineTo(16, -12);
+    ctx.stroke();
+  } else if (d.kind === 'armor') {
+    // 镇军乌木甲胄架（玄铁锁子甲悬于木架之上）
+    ctx.fillStyle = '#451a12';
+    ctx.strokeStyle = '#060911';
+    ctx.lineWidth = 2;
+    ctx.fillRect(-3, -38, 6, 38);
+    ctx.fillRect(-18, -34, 36, 5);
+    ctx.strokeRect(-18, -34, 36, 5);
+
+    ctx.fillStyle = '#1e293b';
+    ctx.beginPath();
+    ctx.moveTo(-14, -33);
+    ctx.lineTo(14, -33);
+    ctx.lineTo(17, -12);
+    ctx.lineTo(-17, -12);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.strokeStyle = '#cfa349';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(-12, -23);
+    ctx.lineTo(12, -23);
     ctx.stroke();
   } else if (d.kind === 'consumable' || d.kind === 'max_up') {
     // 雕漆石托盘 + 精细手绘青瓷药玉瓶 / 荷叶灵食（告别抠图大葫芦贴纸！）

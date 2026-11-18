@@ -505,8 +505,8 @@ function createInterconnectedCastleRooms(): BuiltRoom[] {
     lanterns: [],
     npcs: [],
     spawns: [
-      { kind: 'scroll_demon', x: 560 },
-      { kind: 'paper_swordsman', x: 1140 },
+      { kind: 'lantern_ghost', x: 560 },
+      { kind: 'bronze_guard', x: 1140 },
     ],
     pickups: [
       { id: 'pk_lib_sword2', kind: 'weapon', itemId: 'sword_2', x: 260, y: 268 },
@@ -555,7 +555,7 @@ function createInterconnectedCastleRooms(): BuiltRoom[] {
     lanterns: [],
     npcs: [],
     spawns: [
-      { kind: 'bell_gargoyle', x: 520 },
+      { kind: 'bronze_guard', x: 520 },
       { kind: 'lantern_ghost', x: 920 },
     ],
     pickups: [
@@ -618,7 +618,7 @@ function createInterconnectedCastleRooms(): BuiltRoom[] {
     lanterns: [],
     npcs: [],
     spawns: [
-      { kind: 'plague_toad', x: 320 },
+      { kind: 'paper_swordsman', x: 320 },
       { kind: 'lantern_ghost', x: 1020 },
       { kind: 'paper_swordsman', x: 1350 },
     ],
