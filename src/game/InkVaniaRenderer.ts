@@ -1,6 +1,13 @@
-import { ROOM_COLS, ROOM_ROWS, TILE_SIZE } from '../data/worldMap';
-import { EnemyEntity, GameEngine } from './GameEngine';
+import { BuiltRoom, RoomProp, TILE_SIZE } from '../data/worldMap';
+import { drawHeroCharacter, drawMonsterOrBoss, drawWorldDrop } from './CharacterArt';
+import { GameEngine } from './GameEngine';
 import { InputController } from './MotionInput';
+
+function hash2D(x: number, y: number): number {
+  let h = (Math.imul(x, 374761393) + Math.imul(y, 668265263)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
 
 export class InkVaniaRenderer {
   private roomCanvas: HTMLCanvasElement | null = null;
@@ -19,176 +26,515 @@ export class InkVaniaRenderer {
     this.ambientTime += dt;
 
     if (!engine.room || !engine.slot) {
-      this.renderTitleBackdrop(ctx, viewW, viewH);
+      this.renderEpicTitlePanorama(ctx, viewW, viewH);
       return;
     }
 
     const room = engine.room;
-    const worldW = ROOM_COLS * TILE_SIZE; // 960
-    const worldH = ROOM_ROWS * TILE_SIZE; // 560
 
-    // 自适应等比缩放使 960x560 房间完整清晰呈现在任意手机横屏与电脑视口中
-    const scale = Math.min(viewW / worldW, viewH / worldH);
-    const offsetX = (viewW - worldW * scale) * 0.5;
-    const offsetY = (viewH - worldH * scale) * 0.5;
+    // 全屏无黑边自适应横版卷轴相机（锁定虚拟高度 430px，人物饱满清晰，视野开阔！）
+    const vH = Math.min(room.pixelH, 430);
+    const scale = viewH / vH;
+    const vW = viewW / scale;
 
-    ctx.fillStyle = '#06080d';
-    ctx.fillRect(0, 0, viewW, viewH);
+    let camLeft = engine.camX - vW * 0.5;
+    let camTop = engine.camY - vH * 0.5;
+    if (room.pixelW <= vW) {
+      camLeft = (room.pixelW - vW) * 0.5;
+    } else {
+      camLeft = Math.max(0, Math.min(room.pixelW - vW, camLeft));
+    }
+    if (room.pixelH <= vH) {
+      camTop = (room.pixelH - vH) * 0.5;
+    } else {
+      camTop = Math.max(0, Math.min(room.pixelH - vH, camTop));
+    }
+
+    const shakeX = engine.screenShake > 0 ? (Math.random() - 0.5) * engine.screenShake * 1.5 : 0;
+    const shakeY = engine.screenShake > 0 ? (Math.random() - 0.5) * engine.screenShake * 1.5 : 0;
 
     ctx.save();
-    const shakeX = engine.screenShake > 0 ? (Math.random() - 0.5) * engine.screenShake * 1.6 : 0;
-    const shakeY = engine.screenShake > 0 ? (Math.random() - 0.5) * engine.screenShake * 1.6 : 0;
-    ctx.translate(offsetX + shakeX, offsetY + shakeY);
     ctx.scale(scale, scale);
 
-    ctx.beginPath();
-    ctx.rect(0, 0, worldW, worldH);
-    ctx.clip();
+    // 1. 远景血月/妖月苍穹与层峦飞檐视差背景（铺满全视口）
+    this.renderParallaxSkyAndMountains(ctx, vW, vH, camLeft, camTop, room);
 
-    this.renderParallaxCastleBg(ctx, worldW, worldH, room.realm === 'inverted', room.region);
-    this.ensureBakedRoomLayer(engine);
+    // 2. 世界空间平移渲染
+    ctx.translate(-camLeft + shakeX, -camTop + shakeY);
+
+    this.renderRoomProps(ctx, room);
+    this.ensureBakedRoomTiles(engine);
     if (this.roomCanvas) {
       ctx.drawImage(this.roomCanvas, 0, 0);
     }
 
-    this.renderDynamicGatesAndTraps(ctx, engine);
+    this.renderDynamicGatesAndTraps(ctx, room);
     this.renderRoomFixturesAndNPCs(ctx, engine);
     this.renderGrappleLanterns(ctx, engine);
-    this.renderDrops(ctx, engine);
+
+    for (const d of engine.drops) {
+      drawWorldDrop(ctx, d, this.ambientTime);
+    }
+
     this.renderAfterImages(ctx, engine);
-    this.renderEnemies(ctx, engine);
-    this.renderHero(ctx, engine);
+
+    for (const e of engine.enemies) {
+      drawMonsterOrBoss(ctx, e, this.ambientTime);
+    }
+
+    drawHeroCharacter(ctx, engine, this.ambientTime);
     this.renderActiveSlash(ctx, engine);
     this.renderProjectiles(ctx, engine);
     this.renderParticlesAndFloats(ctx, engine);
-    this.renderSkillOverlays(ctx, worldW, worldH, engine);
 
     ctx.restore();
 
-    // 移动端/触屏手搓摇杆与动作键叠层（带水墨搓招流光轨迹！）
+    // 3. 屏幕空间手搓绝技书法横幅与全屏光效
+    this.renderScreenSkillOverlays(ctx, viewW, viewH, engine);
+
+    // 4. 移动端虚拟摇杆与国风动作轮盘
     if (input.usingTouch && !input.uiBlocked && !engine.paused) {
       this.renderVirtualControls(ctx, input);
     }
   }
 
-  private renderTitleBackdrop(ctx: CanvasRenderingContext2D, viewW: number, viewH: number): void {
-    const grad = ctx.createLinearGradient(0, 0, 0, viewH);
-    grad.addColorStop(0, '#090b12');
-    grad.addColorStop(0.55, '#17121c');
-    grad.addColorStop(1, '#080a0f');
-    ctx.fillStyle = grad;
+  // ==================== 史诗级国风恶魔城标题原画全景 ====================
+  private renderEpicTitlePanorama(
+    ctx: CanvasRenderingContext2D,
+    viewW: number,
+    viewH: number
+  ): void {
+    const sky = ctx.createLinearGradient(0, 0, 0, viewH);
+    sky.addColorStop(0, '#05070e');
+    sky.addColorStop(0.45, '#190d1a');
+    sky.addColorStop(0.82, '#2a1018');
+    sky.addColorStop(1, '#080a10');
+    ctx.fillStyle = sky;
     ctx.fillRect(0, 0, viewW, viewH);
 
-    // 巨大甲子血月
-    const moonX = viewW * 0.72;
-    const moonY = viewH * 0.34;
-    const moonR = Math.min(viewW, viewH) * 0.22;
-    const glow = ctx.createRadialGradient(moonX, moonY, moonR * 0.2, moonX, moonY, moonR * 2.1);
-    glow.addColorStop(0, 'rgba(220, 52, 42, 0.55)');
-    glow.addColorStop(0.5, 'rgba(180, 35, 30, 0.18)');
-    glow.addColorStop(1, 'rgba(9, 11, 18, 0)');
-    ctx.fillStyle = glow;
+    // 苍穹巨型甲子血月与月面暗纹
+    const mx = viewW * 0.66;
+    const my = viewH * 0.36;
+    const mr = Math.min(viewW, viewH) * 0.25;
+
+    const halo = ctx.createRadialGradient(mx, my, mr * 0.4, mx, my, mr * 2.4);
+    halo.addColorStop(0, 'rgba(220, 38, 38, 0.52)');
+    halo.addColorStop(0.45, 'rgba(153, 27, 27, 0.22)');
+    halo.addColorStop(1, 'rgba(5, 7, 14, 0)');
+    ctx.fillStyle = halo;
     ctx.fillRect(0, 0, viewW, viewH);
 
-    ctx.fillStyle = '#c8372d';
+    const moonGrad = ctx.createRadialGradient(mx - mr * 0.2, my - mr * 0.2, mr * 0.1, mx, my, mr);
+    moonGrad.addColorStop(0, '#fca5a5');
+    moonGrad.addColorStop(0.45, '#dc2626');
+    moonGrad.addColorStop(1, '#7f1d1d');
+    ctx.fillStyle = moonGrad;
     ctx.beginPath();
-    ctx.arc(moonX, moonY, moonR, 0, Math.PI * 2);
+    ctx.arc(mx, my, mr, 0, Math.PI * 2);
     ctx.fill();
 
-    // 远景水墨群山与玄城飞檐剪影
-    ctx.fillStyle = '#0c1018';
+    // 远景连绵水墨群峰
+    ctx.fillStyle = '#111320';
     ctx.beginPath();
     ctx.moveTo(0, viewH);
-    ctx.lineTo(0, viewH * 0.72);
-    ctx.lineTo(viewW * 0.28, viewH * 0.56);
-    ctx.lineTo(viewW * 0.52, viewH * 0.68);
-    ctx.lineTo(viewW * 0.72, viewH * 0.42);
-    ctx.lineTo(viewW * 0.9, viewH * 0.62);
-    ctx.lineTo(viewW, viewH * 0.54);
+    ctx.lineTo(0, viewH * 0.68);
+    ctx.lineTo(viewW * 0.18, viewH * 0.54);
+    ctx.lineTo(viewW * 0.36, viewH * 0.66);
+    ctx.lineTo(viewW * 0.54, viewH * 0.48);
+    ctx.lineTo(viewW * 0.78, viewH * 0.64);
+    ctx.lineTo(viewW, viewH * 0.5);
     ctx.lineTo(viewW, viewH);
     ctx.closePath();
     ctx.fill();
 
-    // 玄城主塔剪影
-    const tx = viewW * 0.72;
-    const ty = viewH * 0.42;
-    ctx.fillStyle = '#07090e';
-    for (let tier = 0; tier < 4; tier++) {
-      const w = (4 - tier) * 44;
-      const y = ty - tier * 30;
-      ctx.fillRect(tx - w * 0.4, y, w * 0.8, 32);
-      ctx.beginPath();
-      ctx.moveTo(tx - w * 0.62, y + 6);
-      ctx.quadraticCurveTo(tx, y - 12, tx + w * 0.62, y + 6);
-      ctx.lineTo(tx + w * 0.45, y + 12);
-      ctx.lineTo(tx - w * 0.45, y + 12);
-      ctx.closePath();
-      ctx.fill();
-    }
+    // 血月前恢弘九幽玄城飞檐楼阙群剪影（致敬恶魔城德古拉古堡轮廓！）
+    const drawPagodaTower = (cx: number, baseY: number, tiers: number, scaleW: number) => {
+      ctx.fillStyle = '#090b12';
+      ctx.strokeStyle = 'rgba(226, 182, 89, 0.22)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < tiers; i++) {
+        const w = (tiers - i * 0.62) * scaleW;
+        const y = baseY - i * (scaleW * 0.85);
+        ctx.fillRect(cx - w * 0.42, y - scaleW * 0.8, w * 0.84, scaleW * 0.85);
+        ctx.beginPath();
+        ctx.moveTo(cx - w * 0.68, y - scaleW * 0.72);
+        ctx.quadraticCurveTo(cx, y - scaleW * 1.15, cx + w * 0.68, y - scaleW * 0.72);
+        ctx.lineTo(cx + w * 0.46, y - scaleW * 0.62);
+        ctx.lineTo(cx - w * 0.46, y - scaleW * 0.62);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
 
-    // 飘散火星与竹叶微粒
-    for (let i = 0; i < 26; i++) {
-      const px = ((i * 197 + this.ambientTime * (28 + (i % 5) * 9)) % (viewW + 40)) - 20;
-      const py =
-        ((i * 131 + Math.sin(this.ambientTime * 1.4 + i) * 28 + this.ambientTime * 14) %
-          (viewH + 20)) -
-        10;
-      ctx.fillStyle = i % 3 === 0 ? 'rgba(226, 182, 89, 0.55)' : 'rgba(239, 75, 63, 0.45)';
+        // 宫灯暖窗亮点
+        ctx.fillStyle = 'rgba(251, 191, 36, 0.65)';
+        ctx.fillRect(cx - 3, y - scaleW * 0.5, 6, 10);
+        ctx.fillStyle = '#090b12';
+      }
+      // 塔刹尖顶
       ctx.beginPath();
-      ctx.arc(px, py, 2 + (i % 3), 0, Math.PI * 2);
+      ctx.moveTo(cx - 3, baseY - tiers * scaleW * 0.85);
+      ctx.lineTo(cx, baseY - tiers * scaleW * 0.85 - 32);
+      ctx.lineTo(cx + 3, baseY - tiers * scaleW * 0.85);
+      ctx.fill();
+    };
+
+    drawPagodaTower(mx - mr * 0.55, viewH * 0.74, 4, 28);
+    drawPagodaTower(mx + mr * 0.48, viewH * 0.76, 3, 26);
+    drawPagodaTower(mx, viewH * 0.72, 6, 34);
+
+    // 近景左下飞檐屋脊 + 18岁少年李逸承迎风执剑背影剪影！
+    ctx.fillStyle = '#05070c';
+    ctx.beginPath();
+    ctx.moveTo(viewW * 0.48, viewH);
+    ctx.quadraticCurveTo(viewW * 0.64, viewH * 0.82, viewW * 0.88, viewH * 0.76);
+    ctx.lineTo(viewW * 0.92, viewH * 0.72);
+    ctx.lineTo(viewW * 0.94, viewH);
+    ctx.closePath();
+    ctx.fill();
+
+    // 屋脊上的李逸承剪影与猎猎红披风
+    const hx = viewW * 0.79;
+    const hy = viewH * 0.77;
+    const wave = Math.sin(this.ambientTime * 6) * 10;
+    ctx.fillStyle = '#b91c1c';
+    ctx.beginPath();
+    ctx.moveTo(hx - 4, hy - 44);
+    ctx.quadraticCurveTo(hx - 45, hy - 34 + wave, hx - 68, hy - 12 - wave * 0.6);
+    ctx.lineTo(hx - 32, hy - 6);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = '#090d16';
+    ctx.strokeStyle = '#e2b659';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(hx - 8, hy - 46);
+    ctx.lineTo(hx + 8, hy - 46);
+    ctx.lineTo(hx + 11, hy);
+    ctx.lineTo(hx - 11, hy);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(hx, hy - 54, 7.5, 0, Math.PI * 2);
+    ctx.fill();
+    // 斜指苍穹寒剑
+    ctx.strokeStyle = '#7dd3fc';
+    ctx.lineWidth = 2.6;
+    ctx.beginPath();
+    ctx.moveTo(hx + 6, hy - 28);
+    ctx.lineTo(hx + 46, hy - 58);
+    ctx.stroke();
+
+    // 漫天飞舞流萤火星与雾气带
+    for (let i = 0; i < 34; i++) {
+      const px = ((i * 197 + this.ambientTime * (24 + (i % 5) * 8)) % (viewW + 40)) - 20;
+      const py =
+        viewH -
+        (((i * 131 + this.ambientTime * (18 + (i % 4) * 7)) % (viewH + 30)) - 15);
+      ctx.fillStyle = i % 3 === 0 ? 'rgba(250, 204, 21, 0.62)' : 'rgba(239, 68, 68, 0.52)';
+      ctx.beginPath();
+      ctx.arc(px, py, 1.5 + (i % 2.5), 0, Math.PI * 2);
       ctx.fill();
     }
   }
 
-  private renderParallaxCastleBg(
+  // ==================== 局内多层国风视差城池天幕 ====================
+  private renderParallaxSkyAndMountains(
     ctx: CanvasRenderingContext2D,
-    w: number,
-    h: number,
-    inverted: boolean,
-    region: string
+    vW: number,
+    vH: number,
+    camLeft: number,
+    camTop: number,
+    room: BuiltRoom
   ): void {
-    const grad = ctx.createLinearGradient(0, 0, 0, h);
-    if (inverted) {
-      grad.addColorStop(0, '#1c0b2b');
-      grad.addColorStop(0.5, '#120c1f');
-      grad.addColorStop(1, '#260d1a');
-    } else if (region === 'forge') {
-      grad.addColorStop(0, '#140d10');
-      grad.addColorStop(1, '#2b120c');
-    } else if (region === 'prison') {
-      grad.addColorStop(0, '#09141a');
-      grad.addColorStop(1, '#0c1f24');
+    const inv = room.realm === 'inverted';
+    const grad = ctx.createLinearGradient(0, 0, 0, vH);
+    if (inv) {
+      grad.addColorStop(0, '#160824');
+      grad.addColorStop(0.5, '#251038');
+      grad.addColorStop(1, '#11091c');
+    } else if (room.region === 'forge') {
+      grad.addColorStop(0, '#140a0c');
+      grad.addColorStop(0.6, '#29110d');
+      grad.addColorStop(1, '#3b150c');
+    } else if (room.region === 'prison') {
+      grad.addColorStop(0, '#07121a');
+      grad.addColorStop(1, '#0d232b');
     } else {
-      grad.addColorStop(0, '#0b0f19');
-      grad.addColorStop(0.6, '#131926');
-      grad.addColorStop(1, '#0d111a');
+      grad.addColorStop(0, '#090d18');
+      grad.addColorStop(0.55, '#151c2e');
+      grad.addColorStop(1, '#1c1522');
     }
     ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, w, h);
+    ctx.fillRect(0, 0, vW, vH);
 
-    // 血月/倒悬妖月
-    const mx = inverted ? 220 : 740;
-    const my = inverted ? 410 : 135;
-    ctx.fillStyle = inverted ? 'rgba(168, 85, 247, 0.22)' : 'rgba(200, 55, 45, 0.22)';
+    // 血月/紫蚀妖月视差
+    const mx = vW * 0.72 - camLeft * 0.04;
+    const my = (inv ? vH * 0.72 : vH * 0.24) - camTop * 0.03;
+    const halo = ctx.createRadialGradient(mx, my, 12, mx, my, 125);
+    halo.addColorStop(0, inv ? 'rgba(192, 132, 252, 0.35)' : 'rgba(220, 38, 38, 0.34)');
+    halo.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = halo;
     ctx.beginPath();
-    ctx.arc(mx, my, 92, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = inverted ? 'rgba(216, 180, 254, 0.32)' : 'rgba(239, 68, 68, 0.35)';
-    ctx.beginPath();
-    ctx.arc(mx, my, 52, 0, Math.PI * 2);
+    ctx.arc(mx, my, 125, 0, Math.PI * 2);
     ctx.fill();
 
-    // 古殿朱漆立柱与雕花窗棂剪影
-    ctx.fillStyle = 'rgba(18, 23, 34, 0.65)';
-    for (let x = 120; x < w; x += 240) {
-      ctx.fillRect(x - 16, 40, 32, h - 80);
-      ctx.strokeStyle = 'rgba(226, 182, 89, 0.08)';
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(x + 48, 95, 110, 170);
+    ctx.fillStyle = inv ? 'rgba(216, 180, 254, 0.42)' : 'rgba(239, 68, 68, 0.44)';
+    ctx.beginPath();
+    ctx.arc(mx, my, 46, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 远景群山与宫阙剪影带 (0.18x 视差)
+    const pShift = -(camLeft * 0.18) % 320;
+    ctx.fillStyle = inv ? 'rgba(18, 9, 30, 0.75)' : 'rgba(10, 14, 24, 0.78)';
+    for (let x = pShift - 320; x < vW + 320; x += 320) {
+      ctx.beginPath();
+      ctx.moveTo(x, vH);
+      ctx.lineTo(x, vH * 0.65);
+      ctx.lineTo(x + 95, vH * 0.48);
+      ctx.lineTo(x + 175, vH * 0.62);
+      ctx.lineTo(x + 250, vH * 0.44);
+      ctx.lineTo(x + 320, vH * 0.65);
+      ctx.lineTo(x + 320, vH);
+      ctx.closePath();
+      ctx.fill();
+
+      // 远处楼阁飞檐剪影
+      ctx.fillRect(x + 232, vH * 0.36, 36, 40);
+      ctx.beginPath();
+      ctx.moveTo(x + 220, vH * 0.37);
+      ctx.quadraticCurveTo(x + 250, vH * 0.31, x + 280, vH * 0.37);
+      ctx.fill();
+    }
+
+    // 中景古殿拱廊暗影与窗格底纹 (0.42x 视差)
+    const archShift = -(camLeft * 0.42) % 200;
+    ctx.strokeStyle = 'rgba(226, 182, 89, 0.08)';
+    ctx.lineWidth = 2;
+    for (let x = archShift - 200; x < vW + 200; x += 200) {
+      ctx.fillStyle = 'rgba(8, 11, 18, 0.38)';
+      ctx.fillRect(x, 0, 22, vH);
+      ctx.beginPath();
+      ctx.arc(x + 111, vH * 0.36, 62, Math.PI, 0);
+      ctx.stroke();
     }
   }
 
-  private ensureBakedRoomLayer(engine: GameEngine): void {
+  // ==================== 房间内丰富古风建筑陈设渲染 ====================
+  private renderRoomProps(ctx: CanvasRenderingContext2D, room: BuiltRoom): void {
+    for (const pr of room.props) {
+      this.drawSingleProp(ctx, pr);
+    }
+  }
+
+  private drawSingleProp(ctx: CanvasRenderingContext2D, pr: RoomProp): void {
+    ctx.save();
+    ctx.translate(pr.x, pr.y);
+
+    if (pr.kind === 'palace_pillar') {
+      // 朱红金箍盘龙殿柱 + 须弥石础
+      ctx.fillStyle = '#475569';
+      ctx.fillRect(-20, -14, 40, 14);
+      const pg = ctx.createLinearGradient(-14, 0, 14, 0);
+      pg.addColorStop(0, '#450a0a');
+      pg.addColorStop(0.45, '#991b1b');
+      pg.addColorStop(1, '#3b0808');
+      ctx.fillStyle = pg;
+      ctx.fillRect(-14, -340, 28, 326);
+      ctx.fillStyle = '#e2b659';
+      ctx.fillRect(-15, -280, 30, 5);
+      ctx.fillRect(-15, -160, 30, 5);
+      ctx.fillRect(-15, -36, 30, 4);
+    } else if (pr.kind === 'bamboo_cluster') {
+      // 夜风摇曳青翠苦竹丛
+      const sway = Math.sin(this.ambientTime * 2.2 + pr.x * 0.02) * 8;
+      for (const dx of [-14, -2, 11]) {
+        ctx.strokeStyle = dx === -2 ? '#1f6f5c' : '#134e4a';
+        ctx.lineWidth = dx === -2 ? 4.5 : 3.2;
+        ctx.beginPath();
+        ctx.moveTo(dx, 0);
+        ctx.quadraticCurveTo(dx + sway * 0.4, -110, dx + sway, -220);
+        ctx.stroke();
+        // 竹节与竹叶
+        ctx.fillStyle = '#2dd4bf';
+        for (let h = -55; h >= -200; h -= 48) {
+          ctx.beginPath();
+          ctx.ellipse(dx + sway * (-h / 220) + 10, h, 11, 3, 0.35, 0, Math.PI * 2);
+          ctx.ellipse(dx + sway * (-h / 220) - 9, h - 12, 10, 2.8, -0.4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    } else if (pr.kind === 'torii_gate') {
+      // 沧桑飞檐石牌坊
+      ctx.fillStyle = '#1e293b';
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 1.5;
+      ctx.fillRect(-52, -175, 14, 175);
+      ctx.fillRect(38, -175, 14, 175);
+      ctx.fillStyle = '#7f1d1d';
+      ctx.fillRect(-68, -165, 136, 14);
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.moveTo(-84, -162);
+      ctx.quadraticCurveTo(0, -196, 84, -162);
+      ctx.lineTo(72, -150);
+      ctx.lineTo(-72, -150);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      // 匾额
+      ctx.fillStyle = '#090d16';
+      ctx.strokeStyle = '#e2b659';
+      ctx.fillRect(-24, -164, 48, 18);
+      ctx.strokeRect(-24, -164, 48, 18);
+    } else if (pr.kind === 'lattice_window') {
+      // 暖黄烛光雕花宫窗
+      const glow = ctx.createRadialGradient(0, -60, 8, 0, -60, 85);
+      glow.addColorStop(0, 'rgba(251, 191, 36, 0.24)');
+      glow.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(0, -60, 85, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = 'rgba(245, 158, 11, 0.22)';
+      ctx.strokeStyle = '#78350f';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.roundRect(-28, -110, 56, 95, 6);
+      ctx.fill();
+      ctx.stroke();
+      for (let wy = -90; wy <= -30; wy += 20) {
+        ctx.beginPath();
+        ctx.moveTo(-28, wy);
+        ctx.lineTo(28, wy);
+        ctx.stroke();
+      }
+      ctx.beginPath();
+      ctx.moveTo(0, -110);
+      ctx.lineTo(0, -15);
+      ctx.stroke();
+    } else if (pr.kind === 'wall_torch') {
+      // 铜壁灯动态暖火光池
+      const flick = Math.sin(this.ambientTime * 16 + pr.x) * 3;
+      const g = ctx.createRadialGradient(0, -12, 3, 0, -12, 95 + flick * 2);
+      g.addColorStop(0, 'rgba(251, 146, 60, 0.42)');
+      g.addColorStop(0.5, 'rgba(234, 88, 12, 0.14)');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(0, -12, 96, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#b45309';
+      ctx.fillRect(-3, -6, 6, 20);
+      ctx.fillRect(-8, -8, 16, 4);
+      ctx.fillStyle = '#fde047';
+      ctx.beginPath();
+      ctx.moveTo(-6, -8);
+      ctx.quadraticCurveTo(0, -26 - flick, 6, -8);
+      ctx.fill();
+    } else if (pr.kind === 'bookshelf') {
+      // 藏书阁紫檀万卷高架
+      ctx.fillStyle = '#29150e';
+      ctx.strokeStyle = '#92400e';
+      ctx.lineWidth = 2;
+      ctx.fillRect(-38, -170, 76, 170);
+      ctx.strokeRect(-38, -170, 76, 170);
+      for (let sy = -135; sy <= -35; sy += 34) {
+        ctx.fillStyle = '#78350f';
+        ctx.fillRect(-36, sy, 72, 4);
+        for (let bx = -30; bx <= 24; bx += 9) {
+          ctx.fillStyle = bx % 2 === 0 ? '#1e40af' : '#991b1b';
+          ctx.fillRect(bx, sy - 24, 6, 24);
+        }
+      }
+    } else if (pr.kind === 'forge_furnace') {
+      // 赤火铸剑坊八卦熔炉
+      const fg = ctx.createRadialGradient(0, -50, 8, 0, -50, 110);
+      fg.addColorStop(0, 'rgba(249, 115, 22, 0.46)');
+      fg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = fg;
+      ctx.beginPath();
+      ctx.arc(0, -50, 110, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#431407';
+      ctx.strokeStyle = '#ea580c';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(-34, -110, 68, 110, 12);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#fde047';
+      ctx.beginPath();
+      ctx.arc(0, -45, 16, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (pr.kind === 'weapon_rack') {
+      ctx.strokeStyle = '#92400e';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(-28, -56, 56, 56);
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 2.5;
+      for (const wy of [-44, -28, -14]) {
+        ctx.beginPath();
+        ctx.moveTo(-36, wy);
+        ctx.lineTo(36, wy);
+        ctx.stroke();
+      }
+    } else if (pr.kind === 'stone_statue') {
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(-20, -24, 40, 24);
+      ctx.fillStyle = '#475569';
+      ctx.beginPath();
+      ctx.roundRect(-14, -72, 28, 48, 8);
+      ctx.fill();
+    } else if (pr.kind === 'opera_curtain') {
+      ctx.fillStyle = 'rgba(159, 18, 57, 0.65)';
+      ctx.beginPath();
+      ctx.moveTo(-48, -220);
+      ctx.quadraticCurveTo(-24, -140, -42, 0);
+      ctx.lineTo(-56, 0);
+      ctx.lineTo(-56, -220);
+      ctx.moveTo(48, -220);
+      ctx.quadraticCurveTo(24, -140, 42, 0);
+      ctx.lineTo(56, 0);
+      ctx.lineTo(56, -220);
+      ctx.fill();
+    } else if (pr.kind === 'giant_bell') {
+      ctx.fillStyle = '#854d0e';
+      ctx.strokeStyle = '#fde047';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-24, -90);
+      ctx.lineTo(24, -90);
+      ctx.lineTo(34, -20);
+      ctx.lineTo(-34, -20);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    } else if (pr.kind === 'silk_banner') {
+      const wave = Math.sin(this.ambientTime * 3 + pr.x) * 5;
+      ctx.fillStyle = '#991b1b';
+      ctx.strokeStyle = '#e2b659';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(-14, 0);
+      ctx.lineTo(14, 0);
+      ctx.lineTo(14 + wave, 95);
+      ctx.lineTo(wave, 112);
+      ctx.lineTo(-14 + wave, 95);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  // ==================== 离屏烘焙高细节立体青石城砖与朱漆雕栏跳台 ====================
+  private ensureBakedRoomTiles(engine: GameEngine): void {
     const room = engine.room!;
     const brokenCnt = engine.slot?.brokenSecretWalls.length || 0;
     const key = `${room.realm}:${room.id}`;
@@ -200,68 +546,109 @@ export class InkVaniaRenderer {
     this.cachedBrokenCount = brokenCnt;
     if (!this.roomCanvas) {
       this.roomCanvas = document.createElement('canvas');
-      this.roomCanvas.width = ROOM_COLS * TILE_SIZE;
-      this.roomCanvas.height = ROOM_ROWS * TILE_SIZE;
     }
+    this.roomCanvas.width = room.pixelW;
+    this.roomCanvas.height = room.pixelH;
 
     const bctx = this.roomCanvas.getContext('2d')!;
-    bctx.clearRect(0, 0, this.roomCanvas.width, this.roomCanvas.height);
+    bctx.clearRect(0, 0, room.pixelW, room.pixelH);
 
-    const isInv = room.realm === 'inverted';
-    for (let r = 0; r < ROOM_ROWS; r++) {
-      for (let c = 0; c < ROOM_COLS; c++) {
+    const inv = room.realm === 'inverted';
+    for (let r = 0; r < room.rows; r++) {
+      for (let c = 0; c < room.cols; c++) {
         const t = room.tiles[r][c];
         const x = c * TILE_SIZE;
         const y = r * TILE_SIZE;
 
         if (t === 1 || t === 6) {
-          // 青灰城砖墙（隐藏暗墙6带极细微暗金裂痕提示细心玩家！）
-          bctx.fillStyle = isInv ? '#241b35' : '#1b2230';
+          const n = hash2D(c, r);
+          // 立体青灰条石底座
+          bctx.fillStyle = inv
+            ? n > 0.5
+              ? '#261a38'
+              : '#1f1530'
+            : n > 0.5
+              ? '#1e2736'
+              : '#171f2c';
           bctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-          bctx.strokeStyle = isInv ? '#3b2d54' : '#2c374b';
-          bctx.lineWidth = 1.5;
-          bctx.strokeRect(x + 1, y + 1, TILE_SIZE - 2, TILE_SIZE - 2);
 
-          // 顶面青金釉边条
+          // 错缝砖纹刻线（奇偶行错开半砖，彻底消除呆板方格感！）
+          bctx.strokeStyle = 'rgba(7, 10, 16, 0.72)';
+          bctx.lineWidth = 1.5;
+          bctx.beginPath();
+          bctx.moveTo(x, y + 20);
+          bctx.lineTo(x + TILE_SIZE, y + 20);
+          const split1 = r % 2 === 0 ? 18 : 8;
+          const split2 = r % 2 === 0 ? 8 : 28;
+          bctx.moveTo(x + split1, y);
+          bctx.lineTo(x + split1, y + 20);
+          bctx.moveTo(x + split2, y + 20);
+          bctx.lineTo(x + split2, y + TILE_SIZE);
+          bctx.stroke();
+
+          // 砖面上沿微高光
+          bctx.fillStyle = 'rgba(148, 163, 184, 0.09)';
+          bctx.fillRect(x + 2, y + 2, TILE_SIZE - 4, 3);
+          bctx.fillRect(x + 2, y + 22, TILE_SIZE - 4, 3);
+
+          // 暴露顶面：铺设厚重青石压顶石板 + 琉璃苔金边！
           if (r > 0 && room.tiles[r - 1][c] === 0) {
-            bctx.fillStyle = isInv ? '#a855f7' : '#3c5a6b';
-            bctx.fillRect(x, y, TILE_SIZE, 4);
+            bctx.fillStyle = inv ? '#4c1d95' : '#334155';
+            bctx.fillRect(x, y, TILE_SIZE, 8);
+            bctx.fillStyle = inv ? '#c084fc' : '#64748b';
+            bctx.fillRect(x, y, TILE_SIZE, 2.5);
           }
 
+          // 底部阴影遮蔽 AO
+          if (r < room.rows - 1 && room.tiles[r + 1][c] === 0) {
+            bctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+            bctx.fillRect(x, y + TILE_SIZE - 5, TILE_SIZE, 5);
+          }
+
+          // 隐藏可破坏宝墙裂纹
           if (t === 6) {
-            bctx.strokeStyle = 'rgba(226, 182, 89, 0.42)';
+            bctx.strokeStyle = 'rgba(250, 204, 21, 0.52)';
+            bctx.lineWidth = 1.6;
             bctx.beginPath();
-            bctx.moveTo(x + 8, y + 10);
+            bctx.moveTo(x + 6, y + 8);
             bctx.lineTo(x + 22, y + 20);
-            bctx.lineTo(x + 15, y + 32);
+            bctx.lineTo(x + 14, y + 34);
             bctx.stroke();
           }
         } else if (t === 2) {
-          // 单向朱漆描金阁楼木跳台
-          bctx.fillStyle = '#5c241d';
-          bctx.fillRect(x, y, TILE_SIZE, 10);
+          // 朱漆描金雕栏木阁楼平台（含下挂雀替斗拱与上沿矮栏杆！）
+          bctx.fillStyle = '#451a03';
+          bctx.fillRect(x, y + 8, TILE_SIZE, 6);
+          bctx.fillStyle = '#7f1d1d';
+          bctx.fillRect(x, y, TILE_SIZE, 9);
           bctx.fillStyle = '#e2b659';
-          bctx.fillRect(x, y, TILE_SIZE, 3);
+          bctx.fillRect(x, y, TILE_SIZE, 2.5);
+          // 斗拱斜撑
+          bctx.fillStyle = '#78350f';
+          bctx.fillRect(x + 6, y + 14, 5, 7);
+          bctx.fillRect(x + TILE_SIZE - 11, y + 14, 5, 7);
+          // 装饰矮护栏纹
+          bctx.strokeStyle = 'rgba(226, 182, 89, 0.32)';
+          bctx.lineWidth = 1.2;
+          bctx.strokeRect(x + 4, y - 9, TILE_SIZE - 8, 9);
         }
       }
     }
   }
 
-  private renderDynamicGatesAndTraps(ctx: CanvasRenderingContext2D, engine: GameEngine): void {
-    const room = engine.room!;
-    for (let r = 0; r < ROOM_ROWS; r++) {
-      for (let c = 0; c < ROOM_COLS; c++) {
+  private renderDynamicGatesAndTraps(ctx: CanvasRenderingContext2D, room: BuiltRoom): void {
+    for (let r = 0; r < room.rows; r++) {
+      for (let c = 0; c < room.cols; c++) {
         const t = room.tiles[r][c];
         if (t < 3 || t === 6) continue;
         const x = c * TILE_SIZE;
         const y = r * TILE_SIZE;
 
         if (t === 3) {
-          // 裂纹青石地砖（需千斤坠！）
-          ctx.fillStyle = '#2d241e';
+          ctx.fillStyle = '#292018';
           ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
           ctx.strokeStyle = '#fb923c';
-          ctx.lineWidth = 2;
+          ctx.lineWidth = 2.2;
           ctx.beginPath();
           ctx.moveTo(x + 4, y + 6);
           ctx.lineTo(x + 20, y + 22);
@@ -270,25 +657,22 @@ export class InkVaniaRenderer {
           ctx.lineTo(x + 14, y + 36);
           ctx.stroke();
         } else if (t === 4) {
-          // 玄铁栅栏门（需缩地化雾穿过！）
-          ctx.fillStyle = '#64748b';
-          for (let bx = 6; bx < TILE_SIZE; bx += 12) {
+          ctx.fillStyle = '#475569';
+          for (let bx = 6; bx < TILE_SIZE; bx += 11) {
             ctx.fillRect(x + bx, y, 4, TILE_SIZE);
           }
-          ctx.fillStyle = '#94a3b8';
+          ctx.fillStyle = '#e2b659';
           ctx.fillRect(x, y + 18, TILE_SIZE, 4);
         } else if (t === 5) {
-          // 九幽剧毒瘴气墙
           const pulse = 0.45 + Math.sin(this.ambientTime * 4 + r) * 0.2;
           ctx.fillStyle = `rgba(168, 85, 247, ${pulse})`;
-          ctx.fillRect(x + 4, y, TILE_SIZE - 8, TILE_SIZE);
+          ctx.fillRect(x + 3, y, TILE_SIZE - 6, TILE_SIZE);
         } else if (t === 7) {
-          // 冥渊赤火尖刺
           ctx.fillStyle = '#dc2626';
           ctx.beginPath();
           for (let sx = 0; sx < TILE_SIZE; sx += 10) {
             ctx.moveTo(x + sx, y + TILE_SIZE);
-            ctx.lineTo(x + sx + 5, y + 12);
+            ctx.lineTo(x + sx + 5, y + 10);
             ctx.lineTo(x + sx + 10, y + TILE_SIZE);
           }
           ctx.fill();
@@ -299,61 +683,74 @@ export class InkVaniaRenderer {
 
   private renderRoomFixturesAndNPCs(ctx: CanvasRenderingContext2D, engine: GameEngine): void {
     const room = engine.room!;
-    const cx = 12 * TILE_SIZE;
-    const gy = 12 * TILE_SIZE;
+    const cx = room.focalX;
+    const gy = room.focalY;
 
     if (room.special === 'save_shrine') {
-      // 镇魂土地祠与朱红长明灯
-      const halo = ctx.createRadialGradient(cx, gy - 44, 6, cx, gy - 44, 95);
-      halo.addColorStop(0, 'rgba(250, 204, 21, 0.36)');
-      halo.addColorStop(1, 'rgba(250, 204, 21, 0)');
+      // 精致国风飞檐镇魂土地祠 + 青铜香炉袅袅青烟！
+      const halo = ctx.createRadialGradient(cx, gy - 55, 10, cx, gy - 55, 130);
+      halo.addColorStop(0, 'rgba(250, 204, 21, 0.34)');
+      halo.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = halo;
-      ctx.fillRect(cx - 100, gy - 140, 200, 150);
-
-      ctx.fillStyle = '#334155';
-      ctx.fillRect(cx - 26, gy - 54, 52, 54);
-      ctx.fillStyle = '#7c2d12';
       ctx.beginPath();
-      ctx.moveTo(cx - 38, gy - 52);
-      ctx.lineTo(cx, gy - 76);
-      ctx.lineTo(cx + 38, gy - 52);
+      ctx.arc(cx, gy - 55, 130, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 石砌神龛基座与朱柱
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(cx - 38, gy - 14, 76, 14);
+      ctx.fillStyle = '#7f1d1d';
+      ctx.fillRect(cx - 28, gy - 72, 8, 58);
+      ctx.fillRect(cx + 20, gy - 72, 8, 58);
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(cx - 20, gy - 68, 40, 54);
+
+      // 琉璃飞檐宝顶
+      ctx.fillStyle = '#0f766e';
+      ctx.strokeStyle = '#e2b659';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(cx - 50, gy - 68);
+      ctx.quadraticCurveTo(cx, gy - 104, cx + 50, gy - 68);
+      ctx.lineTo(cx + 38, gy - 60);
+      ctx.lineTo(cx - 38, gy - 60);
       ctx.closePath();
       ctx.fill();
+      ctx.stroke();
 
+      // 龛中长明镇魂灯
       ctx.fillStyle = '#fde047';
       ctx.beginPath();
-      ctx.arc(cx, gy - 32, 7 + Math.sin(this.ambientTime * 6) * 1.5, 0, Math.PI * 2);
+      ctx.arc(cx, gy - 38, 7 + Math.sin(this.ambientTime * 6) * 1.5, 0, Math.PI * 2);
       ctx.fill();
     } else if (room.special === 'warp_bagua') {
-      // 太极八卦传送阵
       ctx.save();
-      ctx.translate(cx, gy - 8);
-      ctx.scale(1, 0.32);
+      ctx.translate(cx, gy - 6);
+      ctx.scale(1, 0.3);
       ctx.rotate(this.ambientTime * 1.4);
       ctx.strokeStyle = '#48c9b0';
       ctx.lineWidth = 4;
       ctx.beginPath();
-      ctx.arc(0, 0, 48, 0, Math.PI * 2);
+      ctx.arc(0, 0, 56, 0, Math.PI * 2);
       ctx.stroke();
       ctx.strokeStyle = '#e2b659';
-      ctx.strokeRect(-32, -32, 64, 64);
+      ctx.strokeRect(-38, -38, 76, 76);
       ctx.restore();
     } else if (room.special === 'npc_smith') {
-      this.drawNpcFigure(ctx, cx, gy, '#fb923c', '欧冶残 · 铸剑宗师');
+      this.drawDetailedNpc(ctx, cx, gy, '#ea580c', '#fed7aa', '欧冶残 · 独臂神匠');
     } else if (room.special === 'npc_merchant') {
-      this.drawNpcFigure(ctx, cx, gy, '#facc15', '白掌柜 · 鬼市狐商');
+      this.drawDetailedNpc(ctx, cx, gy, '#ca8a04', '#fef08a', '白掌柜 · 子夜鬼市');
     } else if (room.special === 'npc_su_qingyan') {
-      this.drawNpcFigure(ctx, cx, gy, '#7dd3fc', '苏清晏 · 钦天监司辰');
+      this.drawDetailedNpc(ctx, cx, gy, '#0284c7', '#bae6fd', '苏清晏 · 钦天监司辰');
     }
 
-    // 祭天坛往返表里双城乾坤裂隙
     if (
       room.id === 'altar_save' &&
       engine.slot?.defeatedBosses.includes('normal:boss_pei_wuji')
     ) {
-      const px = 6 * TILE_SIZE;
+      const px = 5 * TILE_SIZE;
       ctx.save();
-      ctx.translate(px, gy - 44);
+      ctx.translate(px, gy - 46);
       ctx.rotate(this.ambientTime * 2.2);
       ctx.strokeStyle = '#c084fc';
       ctx.lineWidth = 3;
@@ -362,24 +759,47 @@ export class InkVaniaRenderer {
     }
   }
 
-  private drawNpcFigure(
+  private drawDetailedNpc(
     ctx: CanvasRenderingContext2D,
     x: number,
     y: number,
-    color: string,
+    robeColor: string,
+    trimColor: string,
     label: string
   ): void {
-    ctx.fillStyle = color;
-    ctx.fillRect(x - 11, y - 44, 22, 44);
-    ctx.fillStyle = '#fde8d0';
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
     ctx.beginPath();
-    ctx.arc(x, y - 52, 9, 0, Math.PI * 2);
+    ctx.ellipse(0, 1, 16, 4, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.font = 'bold 12px serif';
+    ctx.fillStyle = robeColor;
+    ctx.strokeStyle = trimColor;
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(-10, -44);
+    ctx.lineTo(10, -44);
+    ctx.lineTo(15, 0);
+    ctx.lineTo(-15, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#f6dac0';
+    ctx.beginPath();
+    ctx.arc(0, -52, 8.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath();
+    ctx.arc(0, -55, 8.8, Math.PI * 0.9, Math.PI * 2.1);
+    ctx.fill();
+
+    ctx.font = 'bold 12px "STKaiti", "KaiTi", serif';
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#f7d788';
-    ctx.fillText(label, x, y - 70);
+    ctx.fillStyle = '#fde047';
+    ctx.fillText(label, 0, -70);
+    ctx.restore();
   }
 
   private renderGrappleLanterns(ctx: CanvasRenderingContext2D, engine: GameEngine): void {
@@ -389,27 +809,33 @@ export class InkVaniaRenderer {
       ctx.strokeStyle = '#78716c';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(l.x, 0);
+      ctx.moveTo(l.x, Math.max(0, l.y - 180));
       ctx.lineTo(l.x, l.y);
       ctx.stroke();
 
-      const glow = ctx.createRadialGradient(l.x, l.y, 4, l.x, l.y, 46);
-      glow.addColorStop(0, 'rgba(239, 68, 68, 0.55)');
+      const glow = ctx.createRadialGradient(l.x, l.y, 4, l.x, l.y, 58);
+      glow.addColorStop(0, 'rgba(239, 68, 68, 0.52)');
       glow.addColorStop(1, 'rgba(239, 68, 68, 0)');
       ctx.fillStyle = glow;
       ctx.beginPath();
-      ctx.arc(l.x, l.y, 46, 0, Math.PI * 2);
+      ctx.arc(l.x, l.y, 58, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.fillStyle = '#dc2626';
+      ctx.strokeStyle = '#facc15';
+      ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.ellipse(l.x, l.y, 13, 16, 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.strokeStyle = '#facc15';
-      ctx.lineWidth = 2;
+      ctx.stroke();
+      // 灯穗
+      ctx.strokeStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.moveTo(l.x, l.y + 16);
+      ctx.lineTo(l.x, l.y + 26);
       ctx.stroke();
 
-      if (unlocked && Math.hypot(l.x - engine.player.x, l.y - (engine.player.y - 28)) <= 245) {
+      if (unlocked && Math.hypot(l.x - engine.player.x, l.y - (engine.player.y - 32)) <= 290) {
         ctx.strokeStyle = '#48c9b0';
         ctx.setLineDash([4, 4]);
         ctx.beginPath();
@@ -420,203 +846,16 @@ export class InkVaniaRenderer {
     }
   }
 
-  private renderDrops(ctx: CanvasRenderingContext2D, engine: GameEngine): void {
-    for (const d of engine.drops) {
-      const bob = Math.sin(this.ambientTime * 4.5 + d.x) * 4;
-      const dy = d.y - 14 + bob;
-
-      ctx.fillStyle = d.color;
-      ctx.beginPath();
-      ctx.arc(d.x, dy, d.isStaticPickup ? 11 : 7, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-
-      if (d.isStaticPickup || d.kind === 'yao_core') {
-        ctx.font = 'bold 11px serif';
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#fef08a';
-        ctx.fillText(d.label, d.x, dy - 16);
-      }
-    }
-  }
-
   private renderAfterImages(ctx: CanvasRenderingContext2D, engine: GameEngine): void {
     for (const ai of engine.afterImages) {
       ctx.save();
-      ctx.globalAlpha = ai.alpha * 0.6;
+      ctx.globalAlpha = ai.alpha * 0.5;
       ctx.fillStyle = ai.color;
-      ctx.fillRect(ai.x - 11, ai.y - 50, 22, 50);
-      ctx.restore();
-    }
-  }
-
-  private renderEnemies(ctx: CanvasRenderingContext2D, engine: GameEngine): void {
-    for (const e of engine.enemies) {
-      this.drawSingleEnemy(ctx, e);
-    }
-  }
-
-  private drawSingleEnemy(ctx: CanvasRenderingContext2D, e: EnemyEntity): void {
-    const w = e.profile.w;
-    const h = e.profile.h;
-    const flash = e.hurtFlash > 0;
-
-    ctx.save();
-    ctx.translate(e.x, e.y);
-
-    // 躯干与国风怪物特征剪影
-    ctx.fillStyle = flash ? '#ffffff' : e.profile.primaryColor;
-    ctx.strokeStyle = e.profile.accentColor;
-    ctx.lineWidth = 2;
-    ctx.fillRect(-w * 0.5, -h, w, h);
-    ctx.strokeRect(-w * 0.5, -h, w, h);
-
-    // 妖目高光
-    ctx.fillStyle = flash ? '#ef4444' : e.profile.accentColor;
-    ctx.beginPath();
-    ctx.arc(e.facing * (w * 0.22), -h * 0.74, e.profile.isBoss ? 5 : 3.2, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 玄甲重盾傀儡正面大盾视觉提示
-    if (e.profile.shieldedFront) {
-      ctx.fillStyle = '#f59e0b';
-      const sx = e.facing === 1 ? w * 0.5 - 3 : -w * 0.5 - 5;
-      ctx.fillRect(sx, -h * 0.85, 8, h * 0.78);
-    }
-
-    // 头顶小怪血条
-    if (!e.profile.isBoss && e.hp < e.maxHp) {
-      ctx.fillStyle = '#090d16';
-      ctx.fillRect(-20, -h - 11, 40, 5);
-      ctx.fillStyle = '#ef4444';
-      ctx.fillRect(-20, -h - 11, 40 * Math.max(0, e.hp / e.maxHp), 5);
-    }
-
-    if (e.stunTimer > 0) {
-      ctx.fillStyle = '#fde047';
-      ctx.font = 'bold 12px serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('眩晕', 0, -h - 16);
-    }
-
-    ctx.restore();
-
-    // 裴无极头顶显形的【九幽蚀心蛊】！
-    if (e.hasGuParasite && e.guHp && e.guHp > 0 && e.guX !== undefined && e.guY !== undefined) {
-      ctx.save();
-      ctx.translate(e.guX, e.guY);
-      ctx.fillStyle = 'rgba(192, 132, 252, 0.32)';
       ctx.beginPath();
-      ctx.arc(0, 0, 24 + Math.sin(this.ambientTime * 8) * 4, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = '#a855f7';
-      ctx.beginPath();
-      ctx.arc(0, 0, 14, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#fde047';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      ctx.font = 'bold 11px serif';
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#f5d0fe';
-      ctx.fillText(`九幽蚀心蛊 (${e.guHp})`, 0, -20);
-      ctx.restore();
-    }
-  }
-
-  private renderHero(ctx: CanvasRenderingContext2D, engine: GameEngine): void {
-    const p = engine.player;
-    const isXiao = engine.slot?.mode === 'xiaoduanshui';
-
-    if (p.invulnTimer > 0 && Math.floor(p.invulnTimer * 18) % 2 === 0 && p.mistDashTimer <= 0) {
-      return;
-    }
-
-    ctx.save();
-    ctx.translate(p.x, p.y);
-
-    // 缩地化雾形态：青紫烟云灵体
-    if (p.mistDashTimer > 0) {
-      const g = ctx.createRadialGradient(0, -26, 4, 0, -26, 32);
-      g.addColorStop(0, '#e9d5ff');
-      g.addColorStop(0.5, 'rgba(168, 85, 247, 0.75)');
-      g.addColorStop(1, 'rgba(72, 201, 176, 0)');
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(0, -26, 32, 0, Math.PI * 2);
+      ctx.roundRect(ai.x - 10, ai.y - 54, 20, 54, 6);
       ctx.fill();
       ctx.restore();
-      return;
     }
-
-    // 飘逸侠客披风/发带飘带（随移动与风向摆动！）
-    const ribbonWave = Math.sin(p.animTime * 10) * 5;
-    ctx.strokeStyle = isXiao ? '#c084fc' : '#c8372d';
-    ctx.lineWidth = 3.5;
-    ctx.beginPath();
-    ctx.moveTo(-p.facing * 4, -44);
-    ctx.quadraticCurveTo(-p.facing * 18, -42 + ribbonWave, -p.facing * 28, -35 - ribbonWave);
-    ctx.stroke();
-
-    // 腿部动作摆幅
-    const stride = Math.abs(p.vx) > 20 && p.onGround ? Math.sin(p.animTime * 16) * 7 : 0;
-    ctx.strokeStyle = '#cbd5e1';
-    ctx.lineWidth = 5;
-    ctx.beginPath();
-    ctx.moveTo(-4, -18);
-    ctx.lineTo(-5 + stride, 0);
-    ctx.moveTo(4, -18);
-    ctx.lineTo(5 - stride, 0);
-    ctx.stroke();
-
-    // 18岁少年李逸承 / 大师兄萧断水劲装衣袍
-    ctx.fillStyle = isXiao ? '#312e81' : '#132a38';
-    ctx.strokeStyle = isXiao ? '#c084fc' : '#48c9b0';
-    ctx.lineWidth = 1.8;
-    ctx.beginPath();
-    ctx.roundRect(-11, -40, 22, 25, 4);
-    ctx.fill();
-    ctx.stroke();
-
-    // 腰封金扣
-    ctx.fillStyle = '#e2b659';
-    ctx.fillRect(-11, -24, 22, 4);
-
-    // 少年头部与高马尾发髻
-    ctx.fillStyle = '#f6dec5';
-    ctx.beginPath();
-    ctx.arc(0, -46, 8.5, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = '#0f172a';
-    ctx.beginPath();
-    ctx.arc(-p.facing * 2, -49, 8.5, Math.PI * 0.85, Math.PI * 2.15);
-    ctx.fill();
-    // 高马尾
-    ctx.beginPath();
-    ctx.arc(-p.facing * 9, -53, 5, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 子母护体灵剑环绕特效
-    if (p.orbitSwordTimer > 0) {
-      for (let i = 0; i < 3; i++) {
-        const ang = p.orbitAngle + (i * Math.PI * 2) / 3;
-        const sx = Math.cos(ang) * 58;
-        const sy = -28 + Math.sin(ang) * 58;
-        ctx.save();
-        ctx.translate(sx, sy);
-        ctx.rotate(ang + Math.PI * 0.5);
-        ctx.fillStyle = '#60a5fa';
-        ctx.fillRect(-3, -14, 6, 28);
-        ctx.restore();
-      }
-    }
-
-    ctx.restore();
   }
 
   private renderActiveSlash(ctx: CanvasRenderingContext2D, engine: GameEngine): void {
@@ -627,35 +866,32 @@ export class InkVaniaRenderer {
     ctx.translate(sl.x, sl.y);
 
     if (sl.pogoDown) {
-      // 空中斜下劈剑芒
       ctx.strokeStyle = sl.glowColor;
       ctx.lineWidth = 8;
       ctx.beginPath();
       ctx.moveTo(0, 0);
-      ctx.lineTo(sl.facing * 22, 48);
+      ctx.lineTo(sl.facing * 24, 52);
       ctx.stroke();
       ctx.restore();
       return;
     }
 
     if (sl.archetype === 'greatsword') {
-      // 240°过肩巨弧水墨烈焰刀光！
       ctx.scale(sl.facing, 1);
       const startAng = -Math.PI * 0.88;
-      const endAng = startAng + Math.PI * 1.28 * Math.min(1, sl.progress * 1.25);
+      const endAng = startAng + Math.PI * 1.3 * Math.min(1, sl.progress * 1.25);
       ctx.strokeStyle = sl.glowColor;
-      ctx.lineWidth = 22 * (1 - sl.progress * 0.45);
+      ctx.lineWidth = 24 * (1 - sl.progress * 0.45);
       ctx.beginPath();
       ctx.arc(0, 4, sl.reachX * 0.88, startAng, endAng);
       ctx.stroke();
 
-      ctx.strokeStyle = sl.color;
-      ctx.lineWidth = 9 * (1 - sl.progress * 0.4);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 8 * (1 - sl.progress * 0.4);
       ctx.beginPath();
-      ctx.arc(0, 4, sl.reachX * 0.92, startAng + 0.15, endAng);
+      ctx.arc(0, 4, sl.reachX * 0.92, startAng + 0.18, endAng);
       ctx.stroke();
     } else if (sl.archetype === 'spear') {
-      // 银龙穿云直线/斜上突刺枪芒！
       const ang = sl.aimY < -0.5 ? -Math.PI * 0.28 * sl.facing : 0;
       ctx.rotate(ang);
       const len = sl.reachX * Math.sin(Math.min(1, sl.progress * 1.35) * Math.PI * 0.65);
@@ -668,13 +904,12 @@ export class InkVaniaRenderer {
 
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.moveTo(sl.facing * (len + 14), 0);
+      ctx.moveTo(sl.facing * (len + 16), 0);
       ctx.lineTo(sl.facing * (len - 10), -7);
       ctx.lineTo(sl.facing * (len - 10), 7);
       ctx.closePath();
       ctx.fill();
     } else if (sl.archetype === 'daggers') {
-      // 双刺疾风交叉残影斩
       ctx.scale(sl.facing, 1);
       ctx.strokeStyle = sl.glowColor;
       ctx.lineWidth = 5;
@@ -685,7 +920,6 @@ export class InkVaniaRenderer {
       ctx.lineTo(sl.reachX, -18);
       ctx.stroke();
     } else if (sl.archetype === 'whip') {
-      // 八向乌金雷音软鞭波形！
       const dx = (sl.aimX !== 0 ? sl.aimX : sl.facing) * sl.reachX;
       const dy = sl.aimY * sl.reachX * 0.72;
       const extend = Math.sin(Math.min(1, sl.progress * 1.2) * Math.PI * 0.8);
@@ -698,23 +932,22 @@ export class InkVaniaRenderer {
       ctx.quadraticCurveTo(tx * 0.5, ty * 0.5 - 22, tx, ty);
       ctx.stroke();
 
-      ctx.fillStyle = sl.color;
+      ctx.fillStyle = '#ffffff';
       ctx.beginPath();
       ctx.arc(tx, ty, 7, 0, Math.PI * 2);
       ctx.fill();
     } else {
-      // 轻剑灵动新月剑弧
       ctx.scale(sl.facing, sl.comboStep === 1 ? -1 : 1);
       ctx.strokeStyle = sl.glowColor;
-      ctx.lineWidth = 14 * (1 - sl.progress * 0.45);
+      ctx.lineWidth = 15 * (1 - sl.progress * 0.45);
       ctx.beginPath();
-      ctx.arc(6, 0, sl.reachX * 0.85, -Math.PI * 0.45, Math.PI * 0.42);
+      ctx.arc(6, 0, sl.reachX * 0.86, -Math.PI * 0.45, Math.PI * 0.42);
       ctx.stroke();
 
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 5;
       ctx.beginPath();
-      ctx.arc(8, 0, sl.reachX * 0.88, -Math.PI * 0.3, Math.PI * 0.38);
+      ctx.arc(8, 0, sl.reachX * 0.89, -Math.PI * 0.3, Math.PI * 0.38);
       ctx.stroke();
     }
 
@@ -729,20 +962,25 @@ export class InkVaniaRenderer {
         const dir = pr.vx >= 0 ? 1 : -1;
         ctx.scale(dir, 1);
         ctx.strokeStyle = pr.color;
-        ctx.lineWidth = 9;
+        ctx.lineWidth = 10;
         ctx.beginPath();
         ctx.arc(-10, 0, pr.r, -Math.PI * 0.42, Math.PI * 0.42);
         ctx.stroke();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(-8, 0, pr.r + 2, -Math.PI * 0.35, Math.PI * 0.35);
+        ctx.stroke();
       } else if (pr.kind === 'fire_pillar') {
-        ctx.fillStyle = 'rgba(249, 115, 22, 0.82)';
+        ctx.fillStyle = 'rgba(249, 115, 22, 0.86)';
         ctx.beginPath();
         ctx.moveTo(-12, 0);
-        ctx.quadraticCurveTo(0, -48 - Math.sin(this.ambientTime * 22) * 8, 12, 0);
+        ctx.quadraticCurveTo(0, -52 - Math.sin(this.ambientTime * 22) * 8, 12, 0);
         ctx.fill();
       } else if (pr.kind === 'bagua') {
         ctx.rotate(this.ambientTime * 14);
         ctx.strokeStyle = pr.color;
-        ctx.lineWidth = 4;
+        ctx.lineWidth = 3.5;
         ctx.strokeRect(-13, -13, 26, 26);
         ctx.beginPath();
         ctx.arc(0, 0, 16, 0, Math.PI * 2);
@@ -751,6 +989,10 @@ export class InkVaniaRenderer {
         ctx.fillStyle = pr.color;
         ctx.beginPath();
         ctx.arc(0, 0, pr.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(0, 0, pr.r * 0.45, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.restore();
@@ -768,71 +1010,58 @@ export class InkVaniaRenderer {
     ctx.globalAlpha = 1;
 
     for (const fl of engine.floats) {
-      ctx.font = `bold ${fl.size}px serif`;
+      ctx.font = `bold ${fl.size}px "STKaiti", "KaiTi", serif`;
       ctx.textAlign = 'center';
       ctx.fillStyle = '#000';
-      ctx.fillText(fl.text, fl.x + 1, fl.y + 1);
+      ctx.fillText(fl.text, fl.x + 1.5, fl.y + 1.5);
       ctx.fillStyle = fl.color;
       ctx.fillText(fl.text, fl.x, fl.y);
     }
   }
 
-  private renderSkillOverlays(
+  private renderScreenSkillOverlays(
     ctx: CanvasRenderingContext2D,
-    w: number,
-    h: number,
+    viewW: number,
+    viewH: number,
     engine: GameEngine
   ): void {
-    if (engine.taijiFlashTimer > 0) {
-      ctx.save();
-      ctx.translate(engine.player.x, engine.player.y - 28);
-      ctx.globalAlpha = engine.taijiFlashTimer * 2;
-      ctx.strokeStyle = '#fde047';
-      ctx.lineWidth = 6;
-      ctx.beginPath();
-      ctx.arc(0, 0, (0.45 - engine.taijiFlashTimer) * 380, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.restore();
-    }
-
     if (engine.soulStealFlashTimer > 0) {
-      ctx.fillStyle = `rgba(185, 28, 28, ${engine.soulStealFlashTimer * 0.42})`;
-      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = `rgba(185, 28, 28, ${engine.soulStealFlashTimer * 0.36})`;
+      ctx.fillRect(0, 0, viewW, viewH);
     }
 
-    // 手搓绝技书法残印横幅
     if (engine.skillBanner) {
       const sb = engine.skillBanner;
       ctx.save();
       ctx.globalAlpha = Math.min(1, sb.timer * 1.8);
       ctx.font = '900 28px "STKaiti", "KaiTi", serif';
       ctx.textAlign = 'center';
-      ctx.fillStyle = 'rgba(8, 10, 16, 0.72)';
-      ctx.fillRect(w * 0.5 - 135, 68, 270, 42);
+      const y = viewH * 0.18;
+      ctx.fillStyle = 'rgba(7, 9, 15, 0.85)';
       ctx.strokeStyle = sb.color;
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(w * 0.5 - 135, 68, 270, 42);
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.roundRect(viewW * 0.5 - 140, y - 28, 280, 42, 4);
+      ctx.fill();
+      ctx.stroke();
       ctx.fillStyle = sb.color;
-      ctx.fillText(sb.name, w * 0.5, 98);
+      ctx.fillText(sb.name, viewW * 0.5, y + 2);
       ctx.restore();
     }
   }
 
   private renderVirtualControls(ctx: CanvasRenderingContext2D, input: InputController): void {
     ctx.save();
-
-    // 左侧八向手搓摇杆底盘
     const bx = input.stickBaseX;
     const by = input.stickBaseY;
-    ctx.fillStyle = 'rgba(12, 16, 24, 0.52)';
-    ctx.strokeStyle = 'rgba(226, 182, 89, 0.45)';
+    ctx.fillStyle = 'rgba(10, 14, 22, 0.54)';
+    ctx.strokeStyle = 'rgba(226, 182, 89, 0.48)';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(bx, by, 56, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
-    // 八向刻度暗纹提示搓招方位
     for (let i = 0; i < 8; i++) {
       const a = (i * Math.PI) / 4;
       ctx.fillStyle = 'rgba(226, 182, 89, 0.35)';
@@ -841,12 +1070,11 @@ export class InkVaniaRenderer {
       ctx.fill();
     }
 
-    // 手搓青金真气滑动轨迹
     if (input.touchTrail.length > 1) {
       for (let i = 1; i < input.touchTrail.length; i++) {
         const p0 = input.touchTrail[i - 1];
         const p1 = input.touchTrail[i];
-        ctx.strokeStyle = `rgba(72, 201, 176, ${p1.alpha * 0.85})`;
+        ctx.strokeStyle = `rgba(72, 201, 176, ${p1.alpha * 0.88})`;
         ctx.lineWidth = 5;
         ctx.beginPath();
         ctx.moveTo(p0.x, p0.y);
@@ -855,15 +1083,13 @@ export class InkVaniaRenderer {
       }
     }
 
-    // 摇杆推球
-    ctx.fillStyle = input.stickActive ? 'rgba(72, 201, 176, 0.82)' : 'rgba(226, 182, 89, 0.65)';
+    ctx.fillStyle = input.stickActive ? 'rgba(72, 201, 176, 0.85)' : 'rgba(226, 182, 89, 0.7)';
     ctx.beginPath();
     ctx.arc(input.stickKnobX, input.stickKnobY, 23, 0, Math.PI * 2);
     ctx.fill();
 
-    // 右侧国风动作圆键群
     for (const b of input.buttons) {
-      ctx.fillStyle = b.pressed ? b.color : 'rgba(16, 21, 32, 0.68)';
+      ctx.fillStyle = b.pressed ? b.color : 'rgba(12, 16, 26, 0.72)';
       ctx.strokeStyle = b.color;
       ctx.lineWidth = b.pressed ? 3.5 : 2.2;
       ctx.beginPath();
@@ -872,12 +1098,12 @@ export class InkVaniaRenderer {
       ctx.stroke();
 
       ctx.fillStyle = '#fff8eb';
-      ctx.font = `bold ${Math.round(b.r * 0.56)}px serif`;
+      ctx.font = `bold ${Math.round(b.r * 0.56)}px "STKaiti", "KaiTi", serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(b.label, b.cx, b.cy - 2);
 
-      ctx.fillStyle = 'rgba(243, 234, 216, 0.72)';
+      ctx.fillStyle = 'rgba(243, 234, 216, 0.75)';
       ctx.font = '10px sans-serif';
       ctx.fillText(b.subLabel, b.cx, b.cy + b.r * 0.52);
     }
