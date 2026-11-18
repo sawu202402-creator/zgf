@@ -16,10 +16,21 @@ export function drawCelShadedWeapon(
   _weaponId = 'sword_1',
   lengthPx = 88
 ): void {
-  const isHeavy = archetype === 'greatsword';
-  const img = Assets.get(isHeavy ? 'part_wpn_modao' : 'part_wpn_sword');
+  let key: AssetKey = 'part_wpn_sword';
+  if (archetype === 'greatsword') key = 'part_wpn_modao';
+  else if (archetype === 'spear') key = 'part_wpn_spear';
+  else if (archetype === 'daggers') key = 'part_wpn_daggers';
+  else if (archetype === 'whip') key = 'part_wpn_whip';
+
+  const img = Assets.get(key);
   if (!img) return;
-  const w = lengthPx;
+  if (archetype === 'daggers' || archetype === 'whip') {
+    const dim = lengthPx * 0.56;
+    const w = dim * (img.width / img.height);
+    ctx.drawImage(img, -w * 0.5, -dim * 0.5, w, dim);
+    return;
+  }
+  const w = archetype === 'spear' ? lengthPx * 1.18 : lengthPx;
   const h = w * (img.height / img.width);
   ctx.drawImage(img, -w * 0.24, -h * 0.5, w, h);
 }
@@ -87,15 +98,31 @@ export function drawSeamlessParallaxBackdrop(
     const px = -u * (drawW - vW);
     const py = -(drawH - vH) * 0.42;
 
-    ctx.drawImage(bg, px, py, drawW, drawH);
+    if (room.realm === 'inverted') {
+      // 【九幽倒悬里城】：整幅 16:9 手绘亭台城阙上下180°倒悬于血月苍穹之上，致敬月下夜想曲逆城奇观！
+      ctx.save();
+      ctx.translate(0, vH);
+      ctx.scale(1, -1);
+      ctx.drawImage(bg, px, py, drawW, drawH);
+      ctx.restore();
 
-    // 柔和暗部景深融合层，使近景手绘青石古桥/人物与远景手绘城池层次分明！
-    const depthGrad = ctx.createLinearGradient(0, 0, 0, vH);
-    depthGrad.addColorStop(0, 'rgba(5, 8, 15, 0.14)');
-    depthGrad.addColorStop(0.68, 'rgba(5, 8, 15, 0.24)');
-    depthGrad.addColorStop(1, 'rgba(4, 6, 12, 0.68)');
-    ctx.fillStyle = depthGrad;
-    ctx.fillRect(0, 0, vW, vH);
+      const invGrad = ctx.createLinearGradient(0, 0, 0, vH);
+      invGrad.addColorStop(0, 'rgba(88, 12, 36, 0.34)');
+      invGrad.addColorStop(0.55, 'rgba(30, 10, 42, 0.28)');
+      invGrad.addColorStop(1, 'rgba(5, 6, 14, 0.72)');
+      ctx.fillStyle = invGrad;
+      ctx.fillRect(0, 0, vW, vH);
+    } else {
+      ctx.drawImage(bg, px, py, drawW, drawH);
+
+      // 柔和暗部景深融合层，使近景手绘青石古桥/人物与远景手绘城池层次分明！
+      const depthGrad = ctx.createLinearGradient(0, 0, 0, vH);
+      depthGrad.addColorStop(0, 'rgba(5, 8, 15, 0.14)');
+      depthGrad.addColorStop(0.68, 'rgba(5, 8, 15, 0.24)');
+      depthGrad.addColorStop(1, 'rgba(4, 6, 12, 0.68)');
+      ctx.fillStyle = depthGrad;
+      ctx.fillRect(0, 0, vW, vH);
+    }
   } else {
     ctx.fillStyle = '#070b14';
     ctx.fillRect(0, 0, vW, vH);
@@ -208,6 +235,24 @@ export function bakeOrthographicRoomTerrain(bctx: CanvasRenderingContext2D, room
   };
   bakeSideThreshold('left');
   bakeSideThreshold('right');
+
+  // 5. 蹬墙古武石壁井道（截取手绘青石砌体 `env_ground_slab` 竖筑而成，供【壁虎游墙功】连跳攀登！）
+  if (room.climbWalls && slabImg) {
+    const masonryY = Math.floor(slabImg.height * 0.28);
+    const masonryH = slabImg.height - masonryY;
+    for (const cw of room.climbWalls) {
+      const wallW = 36;
+      const wx = cw.x - wallW * 0.5;
+      bctx.fillStyle = '#0b101c';
+      bctx.fillRect(wx, cw.topY, wallW, cw.bottomY - cw.topY);
+      for (let y = cw.topY; y < cw.bottomY; y += masonryH - 4) {
+        const hClip = Math.min(masonryH, cw.bottomY - y);
+        bctx.drawImage(slabImg, 24, masonryY, wallW, hClip, wx, y, wallW, hClip);
+      }
+      // 顶部石檐盖板
+      bctx.drawImage(slabImg, 12, 0, wallW + 8, 22, wx - 4, cw.topY - 4, wallW + 8, 20);
+    }
+  }
 }
 
 /**

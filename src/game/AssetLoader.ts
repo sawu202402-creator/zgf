@@ -16,6 +16,10 @@ export type AssetKey =
   | 'prop_stone_arch'
   | 'part_wpn_sword'
   | 'part_wpn_modao'
+  | 'part_wpn_spear'
+  | 'part_wpn_daggers'
+  | 'part_wpn_whip'
+  | 'item_relic_pedestal'
   | 'bust_liyicheng'
   | 'bust_su_qingyan'
   | 'bust_ouye_can'
@@ -53,9 +57,15 @@ export type AssetKey =
   | 'mob_wr_2'
   | 'boss_ik_0'
   | 'boss_ik_1'
-  | 'boss_ik_2';
+  | 'boss_ik_2'
+  | 'boss_xiao_0'
+  | 'boss_xiao_1'
+  | 'boss_xiao_2'
+  | 'boss_pei_0'
+  | 'boss_pei_1'
+  | 'boss_pei_2';
 
-const ASSET_VERSION = 'painted_v4';
+const ASSET_VERSION = 'painted_v5';
 
 const ASSET_FILES: Record<AssetKey, string> = {
   bg_title: './assets/bg_title.webp',
@@ -75,6 +85,10 @@ const ASSET_FILES: Record<AssetKey, string> = {
   prop_stone_arch: './assets/prop_stone_arch.webp',
   part_wpn_sword: './assets/part_wpn_sword.webp',
   part_wpn_modao: './assets/part_wpn_modao.webp',
+  part_wpn_spear: './assets/part_wpn_spear.webp',
+  part_wpn_daggers: './assets/part_wpn_daggers.webp',
+  part_wpn_whip: './assets/part_wpn_whip.webp',
+  item_relic_pedestal: './assets/item_relic_pedestal.webp',
   bust_liyicheng: './assets/bust_liyicheng.webp',
   bust_su_qingyan: './assets/bust_su_qingyan.webp',
   bust_ouye_can: './assets/bust_ouye_can.webp',
@@ -113,6 +127,12 @@ const ASSET_FILES: Record<AssetKey, string> = {
   boss_ik_0: './assets/boss_ik_0.webp',
   boss_ik_1: './assets/boss_ik_1.webp',
   boss_ik_2: './assets/boss_ik_2.webp',
+  boss_xiao_0: './assets/boss_xiao_0.webp',
+  boss_xiao_1: './assets/boss_xiao_1.webp',
+  boss_xiao_2: './assets/boss_xiao_2.webp',
+  boss_pei_0: './assets/boss_pei_0.webp',
+  boss_pei_1: './assets/boss_pei_1.webp',
+  boss_pei_2: './assets/boss_pei_2.webp',
 };
 
 const CRITICAL_ASSETS: AssetKey[] = Object.keys(ASSET_FILES) as AssetKey[];

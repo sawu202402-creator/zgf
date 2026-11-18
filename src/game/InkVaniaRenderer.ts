@@ -69,7 +69,7 @@ export class InkVaniaRenderer {
     ctx.translate(-camLeft + shakeX, -camTop + shakeY);
 
     this.renderMoonlitWater(ctx, room);
-    this.renderMidgroundArchwaysAndTorches(ctx, room);
+    this.renderMidgroundArchwaysAndTorches(ctx, room, engine);
     this.renderPavilionStructures(ctx, room);
 
     this.ensureBakedStoneContour(room);
@@ -98,6 +98,7 @@ export class InkVaniaRenderer {
     }
 
     drawHeroCharacter(ctx, engine, this.ambientTime);
+    this.renderOrbitingSwordsAndLevelUp(ctx, engine);
     this.renderActiveSlashRibbon(ctx, engine);
     this.renderProjectiles(ctx, engine);
     this.renderSlashImpacts(ctx, engine);
@@ -181,14 +182,16 @@ export class InkVaniaRenderer {
 
   private renderMidgroundArchwaysAndTorches(
     ctx: CanvasRenderingContext2D,
-    room: BuiltRoom
+    room: BuiltRoom,
+    engine: GameEngine
   ): void {
     for (const ar of room.archways) {
       const gy = sampleSolidGroundY(room, ar.x);
       drawOrthographicStoneArchway(ctx, ar.x, gy, ar.title, this.ambientTime);
     }
 
-    for (const tc of room.torches) {
+    for (const tc of engine.liveLanterns) {
+      if (tc.broken) continue;
       const gy = sampleSolidGroundY(room, tc.x);
       drawOrthographicLanternPost(ctx, tc.x, tc.y, gy, this.ambientTime);
     }
@@ -205,7 +208,7 @@ export class InkVaniaRenderer {
   }
 
   private ensureBakedStoneContour(room: BuiltRoom): void {
-    const readyKey = `${room.id}:${Boolean(Assets.get('env_ground_slab'))}:${Boolean(Assets.get('env_bridge'))}`;
+    const readyKey = `${room.realm}:${room.id}:${Boolean(Assets.get('env_ground_slab'))}:${Boolean(Assets.get('env_bridge'))}`;
     if (this.terrainCanvas && this.cachedTerrainKey === readyKey) return;
 
     this.cachedTerrainKey = readyKey;
@@ -279,42 +282,133 @@ export class InkVaniaRenderer {
       }
     }
 
-    // 2. 可被重刃【赤炎斩马陌刀】劈碎的玄铁千斤锁链闸门！
+    // 2. 可破坏【玄铁千斤闸门】或需缩地化雾穿过的【九幽紫瘴封魔栅】！
     if (room.ironGate && engine.slot && !engine.slot.brokenSecretWalls.includes(room.ironGate.id)) {
       const g = room.ironGate;
+      const isMistGate = g.gateKind === 'mist_only';
       ctx.save();
-      ctx.fillStyle = '#1e293b';
+      ctx.fillStyle = isMistGate ? '#1e1b4b' : '#1e293b';
       ctx.strokeStyle = '#090d16';
       ctx.lineWidth = 2;
       for (let bar = -9; bar <= 9; bar += 6) {
         ctx.fillRect(g.x + bar - 2, g.topY, 4, g.bottomY - g.topY);
         ctx.strokeRect(g.x + bar - 2, g.topY, 4, g.bottomY - g.topY);
       }
-      // 横向赤铜锁链与中央兽首铁锁
       const midY = (g.topY + g.bottomY) * 0.56;
-      ctx.strokeStyle = '#fb923c';
-      ctx.lineWidth = 3.5;
-      ctx.beginPath();
-      ctx.moveTo(g.x - 14, midY - 12);
-      ctx.lineTo(g.x + 14, midY + 12);
-      ctx.moveTo(g.x - 14, midY + 12);
-      ctx.lineTo(g.x + 14, midY - 12);
-      ctx.stroke();
+      if (isMistGate) {
+        ctx.globalCompositeOperation = 'lighter';
+        const mg = ctx.createRadialGradient(g.x, midY, 4, g.x, midY, 64);
+        mg.addColorStop(0, 'rgba(192, 132, 252, 0.45)');
+        mg.addColorStop(1, 'rgba(192, 132, 252, 0)');
+        ctx.fillStyle = mg;
+        ctx.fillRect(g.x - 36, g.topY, 72, g.bottomY - g.topY);
+        ctx.globalCompositeOperation = 'source-over';
+      } else {
+        ctx.strokeStyle = '#fb923c';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.moveTo(g.x - 14, midY - 12);
+        ctx.lineTo(g.x + 14, midY + 12);
+        ctx.moveTo(g.x - 14, midY + 12);
+        ctx.lineTo(g.x + 14, midY - 12);
+        ctx.stroke();
 
-      ctx.fillStyle = '#7c2d12';
-      ctx.strokeStyle = '#fde047';
-      ctx.lineWidth = 1.8;
-      ctx.beginPath();
-      ctx.arc(g.x, midY, 10, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
+        ctx.fillStyle = '#7c2d12';
+        ctx.strokeStyle = '#fde047';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.arc(g.x, midY, 10, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
 
-      if (Math.abs(engine.player.x - g.x) < 150) {
+      if (Math.abs(engine.player.x - g.x) < 155) {
         ctx.font = 'bold 12px "STKaiti", "KaiTi", serif';
         ctx.textAlign = 'center';
-        ctx.fillStyle = '#fdba74';
-        ctx.fillText('玄铁千斤闸（需重刃劈锁）', g.x, g.topY + 46);
+        ctx.fillStyle = isMistGate ? '#e9d5ff' : '#fdba74';
+        ctx.fillText(
+          isMistGate ? '九幽紫瘴封魔栅（需缩地化雾穿过）' : '玄铁千斤闸（需重刃劈锁）',
+          g.x,
+          g.topY + 46
+        );
       }
+      ctx.restore();
+    }
+
+    // 2B. 恶魔城经典【可击碎隐藏砖墙 / 墙中烤鸡夹层】（截取手绘青石砖并绘出隐秘微光暗裂纹！）
+    if (room.secretWalls && engine.slot) {
+      const slabImg = Assets.get('env_ground_slab');
+      for (const sw of room.secretWalls) {
+        if (engine.slot.brokenSecretWalls.includes(sw.id)) continue;
+        ctx.save();
+        if (slabImg) {
+          ctx.drawImage(slabImg, 18, 28, sw.w, 84, sw.x, sw.y, sw.w, sw.h);
+        }
+        // 金色微光暗裂纹提示细心探索的恶魔城玩家挥剑试探！
+        ctx.strokeStyle = 'rgba(253, 224, 71, 0.55)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(sw.x + sw.w * 0.28, sw.y + sw.h * 0.22);
+        ctx.lineTo(sw.x + sw.w * 0.55, sw.y + sw.h * 0.48);
+        ctx.lineTo(sw.x + sw.w * 0.36, sw.y + sw.h * 0.76);
+        ctx.moveTo(sw.x + sw.w * 0.55, sw.y + sw.h * 0.48);
+        ctx.lineTo(sw.x + sw.w * 0.78, sw.y + sw.h * 0.64);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    // 2C. 凌霄祭天坛【乾坤倒悬裂隙】（通往 180° 九幽倒悬里城！）
+    if (
+      room.id === 'sky_altar' &&
+      engine.slot?.invertedUnlocked &&
+      !engine.enemies.some((e) => e.profile.isBoss)
+    ) {
+      const cx = room.focalX;
+      const cy = sampleSolidGroundY(room, cx) - 58;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const pg = ctx.createRadialGradient(cx, cy, 6, cx, cy, 78 + Math.sin(this.ambientTime * 5) * 6);
+      pg.addColorStop(0, 'rgba(254, 240, 138, 0.85)');
+      pg.addColorStop(0.4, 'rgba(244, 63, 94, 0.55)');
+      pg.addColorStop(0.75, 'rgba(168, 85, 247, 0.32)');
+      pg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = pg;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, 46, 72, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.translate(cx, cy);
+      ctx.rotate(-this.ambientTime * 2.2);
+      ctx.strokeStyle = '#fde047';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(-26, -26, 52, 52);
+      ctx.restore();
+    }
+
+    // 2D. 若集齐【破妄古镜 + 完整玄鸟佩】决战裴无极，镜光照出其头顶盘踞的【九幽蚀心蛊】真身！
+    const peiBoss = engine.enemies.find((e) => e.profile.kind === 'boss_pei_wuji');
+    if (
+      peiBoss &&
+      engine.hasAbility('mirror_truth') &&
+      engine.hasAbility('jade_pendant_full')
+    ) {
+      const gx = peiBoss.x + Math.sin(this.ambientTime * 5) * 18;
+      const gy = peiBoss.y - 118 + Math.cos(this.ambientTime * 6.5) * 8;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const gg = ctx.createRadialGradient(gx, gy, 2, gx, gy, 24);
+      gg.addColorStop(0, '#ffffff');
+      gg.addColorStop(0.45, '#c084fc');
+      gg.addColorStop(1, 'rgba(168, 85, 247, 0)');
+      ctx.fillStyle = gg;
+      ctx.beginPath();
+      ctx.arc(gx, gy, 24, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.font = 'bold 11px "STKaiti", "KaiTi", serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#f5d0fe';
+      ctx.fillText('✦ 破妄显影 · 九幽蚀心蛊 ✦', peiBoss.x, gy - 20);
       ctx.restore();
     }
 
@@ -433,6 +527,56 @@ export class InkVaniaRenderer {
     ctx.restore();
   }
 
+  private renderOrbitingSwordsAndLevelUp(ctx: CanvasRenderingContext2D, engine: GameEngine): void {
+    const p = engine.player;
+
+    // 1. 奇门副器【子母护体灵剑】：三柄青冥飞剑环绕周身旋转斩邪！
+    if (p.orbitSwordTimer > 0) {
+      const swordImg = Assets.get('part_wpn_sword');
+      ctx.save();
+      ctx.translate(p.x, p.y - 42);
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 3; i++) {
+        const ang = p.orbitAngle + (i * Math.PI * 2) / 3;
+        const ox = Math.cos(ang) * 66;
+        const oy = Math.sin(ang) * 52;
+        ctx.save();
+        ctx.translate(ox, oy);
+        ctx.rotate(ang + Math.PI * 0.5);
+        if (swordImg) {
+          ctx.drawImage(swordImg, -26, -6, 52, 12);
+        }
+        ctx.strokeStyle = 'rgba(96, 165, 250, 0.72)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-34, 0);
+        ctx.lineTo(28, 0);
+        ctx.stroke();
+        ctx.restore();
+      }
+      ctx.restore();
+    }
+
+    // 2. 致敬《恶魔城：月下夜想曲》经典升级演出：真阳通天金光柱 + LEVEL UP！
+    if (engine.levelUpPillarTimer > 0) {
+      const a = Math.min(1, engine.levelUpPillarTimer * 1.1);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const lg = ctx.createLinearGradient(p.x - 42, 0, p.x + 42, 0);
+      lg.addColorStop(0, 'rgba(253, 224, 71, 0)');
+      lg.addColorStop(0.5, `rgba(253, 224, 71, ${0.55 * a})`);
+      lg.addColorStop(1, 'rgba(253, 224, 71, 0)');
+      ctx.fillStyle = lg;
+      ctx.fillRect(p.x - 42, p.y - 340, 84, 345);
+
+      ctx.font = '900 18px "STKaiti", "KaiTi", serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = `rgba(254, 249, 195, ${a})`;
+      ctx.fillText('✦ LEVEL UP · 武道破境 ✦', p.x, p.y - 102 - (1.45 - engine.levelUpPillarTimer) * 28);
+      ctx.restore();
+    }
+  }
+
   private renderActiveSlashRibbon(ctx: CanvasRenderingContext2D, engine: GameEngine): void {
     const sl = engine.activeSlash;
     if (!sl) return;
@@ -455,7 +599,6 @@ export class InkVaniaRenderer {
     }
 
     if (sl.archetype === 'greatsword') {
-      // 斩马陌刀：蓄力阶段(0..0.32)凝聚赤金火星，挥劈阶段(0.32..1)爆发230°巨幅浓墨赤金月牙罡气！
       if (sl.progress < 0.3) return;
       const p = Math.min(1, (sl.progress - 0.3) / 0.68);
       const flip = sl.comboStep === 0;
@@ -471,9 +614,109 @@ export class InkVaniaRenderer {
         36 * (1 - p * 0.35),
         sAng,
         eAng,
-        '#f97316',
+        sl.glowColor || '#f97316',
         1 - p * 0.55
       );
+    } else if (sl.archetype === 'spear') {
+      // 长枪：凌厉银龙突刺寒芒束 + 破风气环！
+      if (sl.progress < 0.14) return;
+      const p = Math.min(1, (sl.progress - 0.14) / 0.78);
+      const thrustExt = Math.sin(p * Math.PI);
+      const len = sl.reachX * (0.45 + thrustExt * 0.62);
+      const aimAng = sl.aimY < -0.35 ? -0.46 : 0;
+      ctx.save();
+      ctx.translate(sl.x, sl.y - 4);
+      ctx.scale(sl.facing, 1);
+      ctx.rotate(aimAng);
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = (1 - p * 0.55) * 0.92;
+
+      const sg = ctx.createLinearGradient(10, 0, len, 0);
+      sg.addColorStop(0, 'rgba(56, 189, 248, 0)');
+      sg.addColorStop(0.55, sl.glowColor || '#38bdf8');
+      sg.addColorStop(1, '#ffffff');
+      ctx.fillStyle = sg;
+      ctx.beginPath();
+      ctx.moveTo(12, -8);
+      ctx.lineTo(len, 0);
+      ctx.lineTo(12, 8);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = '#e0f2fe';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.ellipse(len * 0.58, 0, 6, 18 * thrustExt, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    } else if (sl.archetype === 'daggers') {
+      // 分水双刺：零前摇极速交叉双月刃光！
+      const p = sl.progress;
+      drawInkSlashRibbon(
+        ctx,
+        sl.x + sl.facing * 12,
+        sl.y - 2,
+        sl.facing,
+        false,
+        sl.reachX * 0.92,
+        15,
+        -1.25 + p * 0.3,
+        0.95,
+        sl.glowColor || '#10b981',
+        1 - p * 0.45
+      );
+      drawInkSlashRibbon(
+        ctx,
+        sl.x + sl.facing * 14,
+        sl.y + 4,
+        sl.facing,
+        true,
+        sl.reachX * 0.85,
+        13,
+        -1.15 + p * 0.3,
+        0.85,
+        '#ffffff',
+        (1 - p * 0.5) * 0.78
+      );
+    } else if (sl.archetype === 'whip') {
+      // 致敬恶魔城本命兵刃【乌金九节鞭】：九节乌金链环破空抖直 + 八向雷火鞭梢炸裂！
+      if (sl.progress < 0.14) return;
+      const p = Math.min(1, (sl.progress - 0.14) / 0.82);
+      const snap = Math.sin(Math.min(1, p * 1.25) * Math.PI);
+      const aimAng = sl.aimY < -0.35 ? -0.62 : sl.aimY > 0.35 ? 0.38 : 0;
+      const maxLen = sl.reachX * (0.35 + snap * 0.72);
+
+      ctx.save();
+      ctx.translate(sl.x + sl.facing * 14, sl.y - 4);
+      ctx.scale(sl.facing, 1);
+      ctx.rotate(aimAng);
+
+      // 乌金九节铁链主体
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 4.5;
+      ctx.beginPath();
+      const links = 9;
+      for (let i = 0; i <= links; i++) {
+        const u = i / links;
+        const lx = u * maxLen;
+        const wave = Math.sin(u * Math.PI * 2.5 - p * 9) * (1 - snap * 0.78) * 14;
+        if (i === 0) ctx.moveTo(0, 0);
+        else ctx.lineTo(lx, wave);
+      }
+      ctx.stroke();
+
+      // 叠加态赤金雷音链芒与鞭梢爆闪
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = sl.glowColor || '#eab308';
+      ctx.lineWidth = 2.2;
+      ctx.stroke();
+
+      const tipWave = Math.sin(Math.PI * 2.5 - p * 9) * (1 - snap * 0.78) * 14;
+      ctx.fillStyle = '#fef08a';
+      ctx.beginPath();
+      ctx.arc(maxLen, tipWave, 5.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
     } else {
       // 轻剑：三式水墨翡翠弯月剑气绸带！
       const p = sl.progress;
@@ -491,7 +734,7 @@ export class InkVaniaRenderer {
         24 * (1 - p * 0.4),
         sAng,
         eAng,
-        '#2dd4bf',
+        sl.glowColor || '#2dd4bf',
         1 - p * 0.5
       );
     }
@@ -545,6 +788,18 @@ export class InkVaniaRenderer {
         ctx.quadraticCurveTo(4 * hMul, -22 * hMul, 8 * hMul, 2);
         ctx.closePath();
         ctx.fill();
+        ctx.restore();
+      } else if (pr.kind === 'seal') {
+        // 镇岳金印（高抛翻转重印 + 金色流光残影）
+        ctx.save();
+        ctx.rotate(this.ambientTime * 11);
+        ctx.fillStyle = '#92400e';
+        ctx.strokeStyle = '#fde047';
+        ctx.lineWidth = 2;
+        ctx.fillRect(-13, -11, 26, 22);
+        ctx.strokeRect(-13, -11, 26, 22);
+        ctx.fillStyle = '#fef08a';
+        ctx.fillRect(-5, -16, 10, 5);
         ctx.restore();
       } else if (pr.kind === 'bagua') {
         // 乾坤流光八卦盘（正八边形金青法阵 + 破风流光环）

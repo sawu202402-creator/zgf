@@ -1,4 +1,5 @@
 import { AudioFX } from '../audio/GuofengAudio';
+import { ENEMY_PROFILES } from '../data/enemies';
 import {
   ABILITIES_META,
   ARMORS,
@@ -16,11 +17,12 @@ import {
   MAP_GRID_TOTAL_W,
   WorldMap,
 } from '../data/worldMap';
+import { AssetKey, Assets } from '../game/AssetLoader';
 import { drawInkSlashRibbon, renderModularLiYichengRig } from '../game/CharacterArt';
 import { ActiveSlash, GameEngine } from '../game/GameEngine';
 import { createFreshSaveSlot, SaveManager } from '../meta/SaveManager';
 import { NativeApp } from '../platform/NativeAppBridge';
-import { SkillId, StoryScene, SubWeaponId } from '../types';
+import { CastleRealm, EnemyKind, SkillId, StoryScene, SubWeaponId } from '../types';
 import {
   getSlotCategorySvg,
   getSpeakerPortraitSvg,
@@ -56,7 +58,8 @@ export class UIManager {
     interactBtn?: HTMLElement;
   } = {};
 
-  private pauseTab: 'equip' | 'skills' | 'map' | 'lore' | 'settings' = 'equip';
+  private pauseTab: 'equip' | 'skills' | 'map' | 'bestiary' | 'lore' | 'settings' = 'equip';
+  private mapViewRealm: CastleRealm = 'normal';
   private selectedEquipSlot: EquipSlotCategory = 'weapon';
   private previewItemId: string | null = null;
   private lastHudWpnKey = '';
@@ -91,6 +94,7 @@ export class UIManager {
     this.engine.stopSession();
 
     const slot1 = SaveManager.getSlot(1);
+    const meta = SaveManager.getMeta();
     const root = document.createElement('div');
     root.className = 'zx-title-screen';
 
@@ -99,7 +103,7 @@ export class UIManager {
         <div class="zx-red-stamp">镇妖司密录</div>
         <div>
           <h1 class="zx-main-title">玄城夜行</h1>
-          <div class="zx-subtitle">卷 壹 · 血 月 瓮 城</div>
+          <div class="zx-subtitle">阴阳双城 · 最高探索 ${meta.bestExplorationPct}% / 200%</div>
         </div>
       </div>
 
@@ -108,17 +112,25 @@ export class UIManager {
           slot1
             ? `<button class="zx-menu-item" id="btn-continue-slot">
                  <span>再续前尘</span>
-                 <span class="zx-menu-sub">${slot1.heroName} · 境界 ${slot1.level}</span>
+                 <span class="zx-menu-sub">${slot1.heroName} · 境界 ${slot1.level}${slot1.currentRealm === 'inverted' ? ' · 倒悬里城' : ''}</span>
                </button>`
             : ''
         }
         <button class="zx-menu-item" id="btn-new-journey">
           <span>踏入玄城</span>
-          <span class="zx-menu-sub">新启卷壹 · 少年李逸承</span>
+          <span class="zx-menu-sub">正篇 · 18岁少年李逸承</span>
+        </button>
+        <button class="zx-menu-item" id="btn-xiao-mode">
+          <span>少统领传</span>
+          <span class="zx-menu-sub">${meta.unlockedXiaoMode ? '已解锁 · 操控21岁萧断水' : '特别篇 · 寒星银枪萧断水'}</span>
+        </button>
+        <button class="zx-menu-item" id="btn-boss-rush">
+          <span>百鬼试炼</span>
+          <span class="zx-menu-sub">${meta.bestBossRushSec ? `镇妖塔最快 ${meta.bestBossRushSec}s` : '七大妖王宿敌连战'}</span>
         </button>
         <button class="zx-menu-item" id="btn-title-moves">
           <span>剑诀要术</span>
-          <span class="zx-menu-sub">手搓真气绝学与键位</span>
+          <span class="zx-menu-sub">五系神兵与手搓绝学</span>
         </button>
         <button class="zx-menu-item" id="btn-title-fs">
           <span>全屏视界</span>
@@ -141,6 +153,27 @@ export class UIManager {
       const fresh = createFreshSaveSlot(1, 'story');
       SaveManager.saveSlot(fresh);
       this.launchGame(fresh);
+    });
+
+    root.querySelector('#btn-xiao-mode')?.addEventListener('click', () => {
+      AudioFX.resume();
+      const xiaoSlot = createFreshSaveSlot(2, 'xiaoduanshui');
+      SaveManager.saveSlot(xiaoSlot);
+      this.launchGame(xiaoSlot);
+    });
+
+    root.querySelector('#btn-boss-rush')?.addEventListener('click', () => {
+      AudioFX.resume();
+      const rushSlot = createFreshSaveSlot(3, 'boss_rush');
+      rushSlot.level = 14;
+      rushSlot.ownedWeapons = ['sword_2', 'greatsword_2', 'spear_2', 'daggers_2', 'whip_2'];
+      rushSlot.equippedWeapon = 'sword_2';
+      rushSlot.ownedArmors = ['mingguang_armor', 'tiger_tally'];
+      rushSlot.equippedArmor = 'mingguang_armor';
+      rushSlot.equippedAccessory = 'tiger_tally';
+      rushSlot.abilities = ['double_jump', 'mist_dash', 'wall_jump'];
+      rushSlot.consumables = { beggar_chicken: 3, osmanthus_wine: 2 };
+      this.launchGame(rushSlot);
     });
 
     root.querySelector('#btn-title-moves')?.addEventListener('click', () => {
@@ -324,7 +357,8 @@ export class UIManager {
     }
     if (this.hudRefs.resRow) {
       const potCnt = Object.values(s.consumables).reduce((a, b) => a + b, 0);
-      this.hudRefs.resRow.innerHTML = `<span style="color:#fde68a;">纹银 ${s.gold}</span><span style="color:#fb923c;">灵符 ${s.talismanHearts}</span><span style="color:#5eead4;">灵药 ${potCnt} [H]</span>`;
+      const sub = SUB_WEAPONS[s.equippedSubWeapon] || SUB_WEAPONS.dagger_throw;
+      this.hudRefs.resRow.innerHTML = `<span style="color:#fde68a;">纹银 ${s.gold}</span><span style="color:#fb923c;">灵符 ${s.talismanHearts} (${sub.name})</span><span style="color:#5eead4;">灵药 ${potCnt} [H]</span>`;
     }
 
     const hpPct = Math.max(0, Math.min(100, (p.hp / Math.max(1, p.maxHp)) * 100));
@@ -395,6 +429,7 @@ export class UIManager {
       this.closeModal();
       return;
     }
+    this.mapViewRealm = this.engine.room?.realm || 'normal';
     this.pauseTab = 'map';
     this.renderArsenalModal();
   }
@@ -427,15 +462,22 @@ export class UIManager {
       mainHtml = built.html;
       footerLeft = built.footer;
     } else if (this.pauseTab === 'skills') {
-      const abCards = (['double_jump'] as const)
+      const relicKeys = [
+        'double_jump',
+        'mist_dash',
+        'wall_jump',
+        'mirror_truth',
+        'jade_pendant_full',
+      ] as const;
+      const abCards = relicKeys
         .map((key) => {
           const meta = ABILITIES_META[key];
           const owned = s.abilities.includes(key);
           return `
-          <div class="zx-item-row ${owned ? 'equipped' : ''}" style="opacity:${owned ? 1 : 0.5};cursor:default;">
+          <div class="zx-item-row ${owned ? 'equipped' : ''}" style="opacity:${owned ? 1 : 0.48};cursor:default;">
             <div>
-              <strong style="font-size:15px;color:var(--bronze-light);">${owned ? '✦ ' : '未破封 · '}${meta.name}</strong>
-              <div style="font-size:12.5px;color:#cbd5e1;margin-top:4px;">${meta.desc}</div>
+              <strong style="font-size:15px;color:${owned ? meta.color : 'var(--bronze-light)'};">${owned ? '✦ 已觉醒 · ' : '未寻获 · '}${meta.name}</strong>
+              <div style="font-size:12px;color:#cbd5e1;margin-top:4px;">${meta.desc}</div>
             </div>
           </div>`;
         })
@@ -443,40 +485,51 @@ export class UIManager {
 
       mainHtml = `
         <div style="flex:1;overflow-y:auto;padding:16px 0;">
-          <div style="font-size:14px;color:var(--bronze);letter-spacing:3px;margin-bottom:10px;">真气手搓武学（摇杆/方向键划出轨迹紧接【斩】瞬发）</div>
+          <div style="font-size:14px;color:var(--bronze);letter-spacing:3px;margin-bottom:10px;">真气手搓武学（摇杆/方向键划出轨迹紧接【斩】瞬发；按【↑+斩】或 [U] 催动奇门副器）</div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;">
             ${this.buildSkillCardsHtml()}
           </div>
-          <div style="font-size:14px;color:var(--bronze);letter-spacing:3px;margin:20px 0 10px;">卷壹 · 轻功秘传</div>
-          <div style="max-width:540px;">${abCards}</div>
+          <div style="font-size:14px;color:var(--bronze);letter-spacing:3px;margin:20px 0 10px;">恶魔城探索圣遗物 · 轻功与破妄双信物</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px;">${abCards}</div>
         </div>
       `;
-      footerLeft = '老练剑客亦可在未拾得秘卷时直接凭指令盲搓释放奥义';
+      footerLeft =
+        '集齐【破妄古镜】（禁书天机阁）与【完整玄鸟合璧佩】（玄鸟西密室）登临凌霄祭天坛，方可开启 180° 九幽倒悬里城！';
     } else if (this.pauseTab === 'map') {
       const pct = WorldMap.calcExplorationPct(s.visitedRooms);
+      const realmSwitchHtml = s.invertedUnlocked
+        ? `<div style="display:flex;gap:8px;">
+             <button class="zx-seal-btn" id="btn-map-normal" style="${this.mapViewRealm === 'normal' ? 'border-color:#fde047;color:#fde047;' : ''}">阳表玄城</button>
+             <button class="zx-seal-btn" id="btn-map-inverted" style="${this.mapViewRealm === 'inverted' ? 'border-color:#f43f5e;color:#fda4af;' : ''}">180° 九幽倒悬里城</button>
+           </div>`
+        : '';
       mainHtml = `
-        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;">
-          <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;justify-content:center;">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;">
+          <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;justify-content:center;">
             <span style="font-size:18px;font-weight:900;letter-spacing:4px;color:var(--bronze-light);">
-              九幽玄城 · 三层立体连通堪舆图
+              ${this.mapViewRealm === 'inverted' ? '九幽倒悬里城 · 逆乱堪舆图' : '九幽玄城 · 阳表立体连通堪舆图'}
             </span>
             <span style="font-size:14px;color:var(--jade);font-weight:800;">
-              当前城池探索度：${pct}%
+              双城总探索度：${pct}% / 200%
             </span>
+            ${realmSwitchHtml}
           </div>
-          <canvas id="full-castle-map-canvas" width="760" height="295" style="max-width:100%;height:auto;border:1px solid var(--bronze-line);background:rgba(4,7,14,0.9);"></canvas>
+          <canvas id="full-castle-map-canvas" width="840" height="295" style="max-width:100%;height:auto;border:1px solid var(--bronze-line);background:rgba(4,7,14,0.92);"></canvas>
           <div style="display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:#cbd5e1;">
             <span><b style="color:#3b82f6;">■</b> 已探厅堂连廊</span>
             <span><b style="color:#f59e0b;">■</b> 镇魂祠存档点</span>
             <span><b style="color:#10b981;">■</b> 太极八卦传送阵</span>
-            <span><b style="color:#a855f7;">■</b> 藏剑/藏甲秘宝室</span>
-            <span><b style="color:#ef4444;">■</b> 守关妖宗殿</span>
-            <span><b style="color:#fde047;">━</b> 未探门廊/上下竖井缺口</span>
+            <span><b style="color:#a855f7;">■</b> 秘宝/圣遗物室</span>
+            <span><b style="color:#ef4444;">■</b> 守关妖王/宿敌殿</span>
+            <span><b style="color:#fde047;">━</b> 门廊与上下竖井缺口</span>
           </div>
         </div>
       `;
       footerLeft =
-        '恶魔城立体回环结构：古祠暗井可下潜【九曲幽冥暗渠】（重刃破铁闸夺宝甲）；习得【踏云步】可从前殿/洗墨堂天井跃入二楼【万卷藏书飞阁】！';
+        '对标《恶魔城：月下夜想曲》200% 探索结构：阳表 15 厅 + 180° 倒悬里城 15 厅，四条纵向立井上下贯通！';
+    } else if (this.pauseTab === 'bestiary') {
+      mainHtml = this.buildBestiaryTabHtml();
+      footerLeft = '镇妖司百鬼图鉴：记录已交锋妖邪之气血抗性、斩讨数与本命妖丹掉落（佩戴紫金葫芦提升福缘可倍增爆率）';
     } else if (this.pauseTab === 'lore') {
       mainHtml = `
         <div style="flex:1;overflow-y:auto;padding:16px 0;display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:16px;">
@@ -508,9 +561,9 @@ export class UIManager {
           </div>
 
           <div class="zx-item-row" style="cursor:default;flex-direction:column;align-items:flex-start;gap:10px;">
-            <strong style="color:var(--bronze-light);letter-spacing:2px;">快速试兵台（方便直接测试双武器与二段跳）</strong>
+            <strong style="color:var(--bronze-light);letter-spacing:2px;">武库全开试演（方便直接品鉴五系神兵、全圣遗物与倒悬里城）</strong>
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
-              <button class="zx-seal-btn" id="dev-grant-pack">一键配齐双系名剑+斩马陌刀+踏云步</button>
+              <button class="zx-seal-btn" id="dev-grant-pack">一键配齐五系神兵 + 全奇门副器 + 全城圣遗物</button>
             </div>
           </div>
 
@@ -528,6 +581,7 @@ export class UIManager {
           <button class="zx-atab ${this.pauseTab === 'equip' ? 'active' : ''}" data-ptab="equip">兵匣</button>
           <button class="zx-atab ${this.pauseTab === 'skills' ? 'active' : ''}" data-ptab="skills">剑诀</button>
           <button class="zx-atab ${this.pauseTab === 'map' ? 'active' : ''}" data-ptab="map">堪舆</button>
+          <button class="zx-atab ${this.pauseTab === 'bestiary' ? 'active' : ''}" data-ptab="bestiary">百鬼录</button>
           <button class="zx-atab ${this.pauseTab === 'lore' ? 'active' : ''}" data-ptab="lore">列传</button>
           <button class="zx-atab ${this.pauseTab === 'settings' ? 'active' : ''}" data-ptab="settings">系统</button>
         </div>
@@ -556,11 +610,25 @@ export class UIManager {
     if (this.pauseTab === 'equip') {
       this.bindEquipEventsAndLiveStage(overlay);
     } else if (this.pauseTab === 'map') {
+      overlay.querySelector('#btn-map-normal')?.addEventListener('click', () => {
+        this.mapViewRealm = 'normal';
+        this.renderArsenalModal();
+      });
+      overlay.querySelector('#btn-map-inverted')?.addEventListener('click', () => {
+        this.mapViewRealm = 'inverted';
+        this.renderArsenalModal();
+      });
       const mapCanvas = overlay.querySelector('#full-castle-map-canvas') as HTMLCanvasElement | null;
       if (mapCanvas) {
         const mctx = mapCanvas.getContext('2d');
         if (mctx) {
-          this.drawCastlevaniaBlueprint(mctx, mapCanvas.width, mapCanvas.height, true);
+          this.drawCastlevaniaBlueprint(
+            mctx,
+            mapCanvas.width,
+            mapCanvas.height,
+            true,
+            this.mapViewRealm
+          );
         }
       }
     } else if (this.pauseTab === 'settings') {
@@ -568,25 +636,86 @@ export class UIManager {
     }
   }
 
+  private buildBestiaryTabHtml(): string {
+    const s = this.engine.slot!;
+    const kills = s.bestiaryKills || {};
+    const getThumbKey = (kind: EnemyKind): AssetKey => {
+      if (kind === 'boss_xiao_duanshui') return 'boss_xiao_0';
+      if (kind === 'boss_pei_wuji' || kind === 'boss_zhuyin' || kind === 'boss_furnace_titan') {
+        return 'boss_pei_0';
+      }
+      if (ENEMY_PROFILES[kind].isBoss) return 'boss_ik_0';
+      if (kind === 'bronze_guard') return 'mob_gd_0';
+      if (ENEMY_PROFILES[kind].flying) return 'mob_wr_0';
+      return 'mob_sw_0';
+    };
+
+    const cards = (Object.keys(ENEMY_PROFILES) as EnemyKind[])
+      .map((kind) => {
+        const pr = ENEMY_PROFILES[kind];
+        const cnt = kills[kind] || 0;
+        const core = pr.yaoCoreId ? YAO_CORES[pr.yaoCoreId] : null;
+        const hasCore = core ? s.ownedYaoCores.includes(core.id) : false;
+        const seen =
+          cnt > 0 ||
+          s.defeatedBosses.some((k) => k.endsWith(kind)) ||
+          this.engine.enemies.some((e) => e.profile.kind === kind);
+
+        return `
+          <div class="zx-item-row" style="gap:12px;cursor:default;opacity:${seen ? 1 : 0.45};">
+            <img src="${Assets.getUrl(getThumbKey(kind))}" style="width:68px;height:54px;object-fit:contain;flex-shrink:0;filter:${seen ? 'drop-shadow(0 2px 5px #000)' : 'brightness(0)'};" alt="${pr.name}" />
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <strong style="font-size:14.5px;color:${pr.isBoss ? '#fca5a5' : 'var(--bronze-light)'};">${seen ? pr.name : '？？？· 未知妖邪'}</strong>
+                <span style="font-size:11.5px;color:var(--ash);">斩讨 ${cnt}</span>
+              </div>
+              <div style="font-size:11.5px;color:#cbd5e1;margin-top:3px;">
+                ${seen ? `气血 ${pr.hp} · 杀伐 ${pr.atk} · 护体 ${pr.def} · 银两 ${pr.gold}` : '行踪隐秘，尚未交锋'}
+              </div>
+              <div style="font-size:11px;margin-top:3px;color:${hasCore ? '#d8b4fe' : 'var(--jade)'};">
+                ${
+                  core
+                    ? hasCore
+                      ? `✦ 已夺本命妖丹：【${core.name}】`
+                      : `可夺妖丹：${seen ? core.name : '？？？'}`
+                    : pr.rewardAbility
+                      ? `镇守圣遗物：【${ABILITIES_META[pr.rewardAbility].name}】`
+                      : '镇守九幽要冲'
+                }
+              </div>
+            </div>
+          </div>`;
+      })
+      .join('');
+
+    return `
+      <div style="flex:1;overflow-y:auto;padding:14px 0;display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px;">
+        ${cards}
+      </div>
+    `;
+  }
+
   /**
    * 经典《恶魔城：月下夜想曲 / 晓月圆舞曲》2D 连通方格地图渲染器：
-   * 支持分格点亮、房间外墙合并、左右门廊豁口、上下天井竖井通道缺口与李逸承实时闪烁坐标！
+   * 支持阳表玄城 & 180° 九幽倒悬里城双城分格点亮、外墙合并、门廊与竖井缺口！
    */
   private drawCastlevaniaBlueprint(
     ctx: CanvasRenderingContext2D,
     w: number,
     h: number,
-    detailed: boolean
+    detailed: boolean,
+    realmOverride?: CastleRealm
   ): void {
     const s = this.engine.slot;
     const curRoom = this.engine.room;
     if (!s || !curRoom) return;
 
+    const targetRealm = realmOverride || curRoom.realm;
     ctx.clearRect(0, 0, w, h);
 
     // 背景坐标暗格网
-    const padX = detailed ? 42 : 6;
-    const padY = detailed ? 32 : 5;
+    const padX = detailed ? 36 : 5;
+    const padY = detailed ? 28 : 5;
     const cellW = Math.floor((w - padX * 2) / MAP_GRID_TOTAL_W);
     const cellH = Math.floor((h - padY * 2) / MAP_GRID_TOTAL_H);
     const ox = Math.floor((w - cellW * MAP_GRID_TOTAL_W) * 0.5);
@@ -609,51 +738,57 @@ export class UIManager {
       }
     }
 
-    const rooms = WorldMap.getAllRooms('normal');
+    const rooms = WorldMap.getAllRooms(targetRealm);
     const visitedSet = new Set(s.visitedRooms);
 
     for (const rm of rooms) {
-      const roomVisited = visitedSet.has(`normal:${rm.id}`);
+      const roomVisited = visitedSet.has(`${targetRealm}:${rm.id}`);
       let anyCellVisited = roomVisited;
       for (let dx = 0; dx < rm.gridW; dx++) {
-        if (visitedSet.has(`cell:${rm.mapX + dx},${rm.mapY}`)) {
+        if (
+          visitedSet.has(`cell:${targetRealm}:${rm.mapX + dx},${rm.mapY}`) ||
+          (targetRealm === 'normal' && visitedSet.has(`cell:${rm.mapX + dx},${rm.mapY}`))
+        ) {
           anyCellVisited = true;
         }
       }
       if (!anyCellVisited) continue;
 
-      // 恶魔城经典功能房配色
       let fillCol =
-        rm.mapY === 0
-          ? 'rgba(13, 148, 136, 0.82)'
-          : rm.mapY === 2
-            ? 'rgba(30, 58, 138, 0.86)'
-            : 'rgba(29, 78, 216, 0.84)';
+        targetRealm === 'inverted'
+          ? 'rgba(127, 29, 29, 0.84)'
+          : rm.mapY === 0
+            ? 'rgba(13, 148, 136, 0.82)'
+            : rm.mapY === 2
+              ? 'rgba(30, 58, 138, 0.86)'
+              : 'rgba(29, 78, 216, 0.84)';
       if (rm.special === 'save_shrine') fillCol = 'rgba(217, 119, 6, 0.9)';
       else if (rm.special === 'warp_bagua') fillCol = 'rgba(5, 150, 105, 0.9)';
-      else if (rm.special === 'boss_room') fillCol = 'rgba(185, 28, 28, 0.9)';
+      else if (rm.special === 'boss_room') fillCol = 'rgba(185, 28, 28, 0.92)';
       else if (rm.special === 'relic_pedestal') fillCol = 'rgba(109, 40, 217, 0.88)';
 
-      // 填充已踏足的网格单元（未踏足的半边房间显示暗影轮廓）
       for (let dx = 0; dx < rm.gridW; dx++) {
         const gx = rm.mapX + dx;
         const gy = rm.mapY;
-        const cellVis = visitedSet.has(`cell:${gx},${gy}`) || roomVisited;
+        const cellVis =
+          visitedSet.has(`cell:${targetRealm}:${gx},${gy}`) ||
+          (targetRealm === 'normal' && visitedSet.has(`cell:${gx},${gy}`)) ||
+          roomVisited;
         ctx.fillStyle = cellVis ? fillCol : 'rgba(30, 41, 59, 0.45)';
         ctx.fillRect(ox + gx * cellW + 1, oy + gy * cellH + 1, cellW - 2, cellH - 2);
       }
 
-      // 绘制房间连通外框白线（在左门、右门、上天井、下暗井处留出真实豁口与金色连廊短线！）
       const rx = ox + rm.mapX * cellW + 1;
       const ry = oy + rm.mapY * cellH + 1;
       const rw = rm.gridW * cellW - 2;
       const rh = rm.gridH * cellH - 2;
       const doorGap = Math.max(4, Math.floor(cellH * 0.34));
+      const isHere = rm.id === curRoom.id && rm.realm === curRoom.realm;
 
-      ctx.strokeStyle = rm.id === curRoom.id ? '#fef08a' : '#e2e8f0';
+      ctx.strokeStyle = isHere ? '#fef08a' : '#e2e8f0';
       ctx.lineWidth = detailed ? 2 : 1.3;
 
-      // 上边墙（检测是否有向上竖井开口）
+      // 上边墙
       const upShaft = rm.shafts.find((sh) => sh.dir === 'up');
       ctx.beginPath();
       if (upShaft) {
@@ -664,7 +799,6 @@ export class UIManager {
         ctx.moveTo(gapCx + halfG, ry);
         ctx.lineTo(rx + rw, ry);
         ctx.stroke();
-        // 绘制向上贯通竖井双导轨标记
         ctx.strokeStyle = '#fde047';
         ctx.beginPath();
         ctx.moveTo(gapCx - halfG, ry - 3);
@@ -672,14 +806,14 @@ export class UIManager {
         ctx.moveTo(gapCx + halfG, ry - 3);
         ctx.lineTo(gapCx + halfG, ry + 3);
         ctx.stroke();
-        ctx.strokeStyle = rm.id === curRoom.id ? '#fef08a' : '#e2e8f0';
+        ctx.strokeStyle = isHere ? '#fef08a' : '#e2e8f0';
       } else {
         ctx.moveTo(rx, ry);
         ctx.lineTo(rx + rw, ry);
         ctx.stroke();
       }
 
-      // 下边墙（检测是否有向下暗井开口）
+      // 下边墙
       const downShaft = rm.shafts.find((sh) => sh.dir === 'down');
       ctx.beginPath();
       if (downShaft) {
@@ -697,14 +831,14 @@ export class UIManager {
         ctx.moveTo(gapCx + halfG, ry + rh - 3);
         ctx.lineTo(gapCx + halfG, ry + rh + 3);
         ctx.stroke();
-        ctx.strokeStyle = rm.id === curRoom.id ? '#fef08a' : '#e2e8f0';
+        ctx.strokeStyle = isHere ? '#fef08a' : '#e2e8f0';
       } else {
         ctx.moveTo(rx, ry + rh);
         ctx.lineTo(rx + rw, ry + rh);
         ctx.stroke();
       }
 
-      // 左边墙（有左门则居中留出连廊缺口！）
+      // 左边墙
       const midY = ry + rh * 0.58;
       ctx.beginPath();
       if (rm.leftRoomId) {
@@ -721,7 +855,7 @@ export class UIManager {
         ctx.stroke();
       }
 
-      // 右边墙（有右门则居中留出连廊缺口！）
+      // 右边墙
       ctx.beginPath();
       if (rm.rightRoomId) {
         ctx.moveTo(rx + rw, ry);
@@ -737,31 +871,31 @@ export class UIManager {
         ctx.stroke();
       }
 
-      // 大地图模式下渲染厅堂汉字名称与特殊印记
       if (detailed) {
-        ctx.font = 'bold 12px "STKaiti", "KaiTi", serif';
+        ctx.font = 'bold 11.5px "STKaiti", "KaiTi", serif';
         ctx.textAlign = 'center';
         ctx.fillStyle = '#fffbeb';
-        ctx.fillText(rm.name, rx + rw * 0.5, ry + rh * 0.54);
+        ctx.fillText(rm.name.replace(/^(里 · )/, ''), rx + rw * 0.5, ry + rh * 0.54);
       }
     }
 
-    // 绘制李逸承当前精确连续世界坐标闪烁光点！
-    const p = this.engine.player;
-    const dotX = ox + (curRoom.mapX + p.x / CELL_PIXEL_W) * cellW;
-    const dotY = oy + (curRoom.mapY + p.y / CELL_PIXEL_H) * cellH;
-    const pulse = 0.55 + 0.45 * Math.sin(performance.now() * 0.01);
+    if (curRoom.realm === targetRealm && curRoom.id !== 'boss_rush_arena') {
+      const p = this.engine.player;
+      const dotX = ox + (curRoom.mapX + p.x / CELL_PIXEL_W) * cellW;
+      const dotY = oy + (curRoom.mapY + p.y / CELL_PIXEL_H) * cellH;
+      const pulse = 0.55 + 0.45 * Math.sin(performance.now() * 0.01);
 
-    ctx.fillStyle = `rgba(255, 255, 255, ${pulse})`;
-    ctx.beginPath();
-    ctx.arc(dotX, dotY, detailed ? 5 : 2.8, 0, Math.PI * 2);
-    ctx.fill();
-    if (detailed) {
-      ctx.strokeStyle = '#fde047';
-      ctx.lineWidth = 2;
+      ctx.fillStyle = `rgba(255, 255, 255, ${pulse})`;
       ctx.beginPath();
-      ctx.arc(dotX, dotY, 8.5, 0, Math.PI * 2);
-      ctx.stroke();
+      ctx.arc(dotX, dotY, detailed ? 5 : 2.8, 0, Math.PI * 2);
+      ctx.fill();
+      if (detailed) {
+        ctx.strokeStyle = '#fde047';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(dotX, dotY, 8.5, 0, Math.PI * 2);
+        ctx.stroke();
+      }
     }
   }
 
@@ -800,17 +934,28 @@ export class UIManager {
     if (this.selectedEquipSlot === 'weapon') {
       const focusW = WEAPONS[this.previewItemId || s.equippedWeapon] || curWpn;
       footerTxt = `【${focusW.name}】${focusW.traitDesc} —— ${focusW.desc}`;
+      const archTag = (a: string) =>
+        a === 'greatsword'
+          ? '重刃破盾'
+          : a === 'spear'
+            ? '长枪寸劲'
+            : a === 'daggers'
+              ? '双刺背爆'
+              : a === 'whip'
+                ? '八向雷鞭'
+                : '轻剑连斩';
       rowsHtml = s.ownedWeapons
         .map((id) => {
           const w = WEAPONS[id];
           const eq = s.equippedWeapon === id;
+          const tLv = s.weaponTemperLv?.[id] || 0;
           return `
           <div class="zx-item-row ${eq ? 'equipped' : ''}" data-pick-id="${id}">
             <div style="display:flex;align-items:center;gap:14px;">
               ${getWeaponArtHtml(w.archetype, 82)}
               <div>
-                <div style="font-size:15px;font-weight:900;color:var(--rice);">${w.name}</div>
-                <div style="font-size:11.5px;color:var(--ash);">杀伤 +${w.atk} · ${w.archetype === 'greatsword' ? '重刃破盾' : '轻灵连斩'}</div>
+                <div style="font-size:15px;font-weight:900;color:var(--rice);">${w.name} ${tLv > 0 ? `<span style="color:#fb923c;">+${tLv}</span>` : ''}</div>
+                <div style="font-size:11.5px;color:var(--ash);">杀伤 +${w.atk + tLv * 6} · ${archTag(w.archetype)}</div>
               </div>
             </div>
             ${eq ? `<span class="zx-eq-seal">佩挂中</span>` : ''}
@@ -1010,6 +1155,7 @@ export class UIManager {
           secondaryWeaponId: secWpn,
           slash: this.stageSlash,
           scale: 1.4,
+          isXiaoMode: s.mode === 'xiaoduanshui',
         });
 
         if (this.stageSlash) {
@@ -1118,12 +1264,35 @@ export class UIManager {
       NativeApp.requestFullscreenAndLandscape();
     });
     overlay.querySelector('#dev-grant-pack')?.addEventListener('click', () => {
-      for (const id of ['sword_1', 'sword_2', 'greatsword_1', 'greatsword_2']) {
+      for (const id of [
+        'sword_1',
+        'sword_2',
+        'greatsword_1',
+        'spear_2',
+        'daggers_2',
+        'whip_1',
+      ]) {
         if (!s.ownedWeapons.includes(id)) s.ownedWeapons.push(id);
       }
-      if (!s.abilities.includes('double_jump')) s.abilities.push('double_jump');
-      s.ownedSubWeapons = ['dagger_throw', 'holy_fire', 'bagua_cross'];
-      s.talismanHearts = 50;
+      for (const ab of [
+        'double_jump',
+        'mist_dash',
+        'wall_jump',
+        'mirror_truth',
+        'jade_pendant_full',
+      ] as const) {
+        if (!s.abilities.includes(ab)) s.abilities.push(ab);
+      }
+      s.ownedSubWeapons = [
+        'dagger_throw',
+        'holy_fire',
+        'bagua_cross',
+        'mountain_seal',
+        'sword_orbit',
+      ];
+      s.talismanHearts = 80;
+      s.invertedUnlocked = true;
+      this.engine.recalcStats(true);
       AudioFX.playRelicBell();
       this.pauseTab = 'equip';
       this.renderArsenalModal();
@@ -1137,10 +1306,6 @@ export class UIManager {
   public openInteractModal(kind: 'smith' | 'merchant' | 'warp'): void {
     const s = this.engine.slot;
     if (!s) return;
-    if (kind === 'warp') {
-      this.togglePauseModal();
-      return;
-    }
 
     this.closeModal();
     const overlay = document.createElement('div');
@@ -1148,6 +1313,46 @@ export class UIManager {
     this.modalEl = overlay;
     this.uiLayer.appendChild(overlay);
     this.syncBlockState();
+
+    if (kind === 'warp') {
+      const stops = this.engine.getUnlockedWarpStops();
+      const rows = stops
+        .map((st) => {
+          const isCur = this.engine.room?.id === st.roomId && this.engine.room?.realm === st.realm;
+          return `
+            <div class="zx-item-row ${isCur ? 'equipped' : ''}" data-warp-realm="${st.realm}" data-warp-room="${st.roomId}">
+              <div>
+                <div style="font-size:15.5px;font-weight:900;color:${st.realm === 'inverted' ? '#fda4af' : 'var(--bronze-light)'};">${st.name}</div>
+                <div style="font-size:12px;color:var(--ash);">${st.realm === 'inverted' ? '180° 九幽倒悬里城 · 地脉逆行阵' : '阳表玄城 · 镇魂龙脉节点'}</div>
+              </div>
+              <span class="zx-eq-seal" style="background:${isCur ? '#1e293b' : '#115e59'};border-color:#2dd4bf;">
+                ${isCur ? '当前驻地' : '乾坤瞬移'}
+              </span>
+            </div>`;
+        })
+        .join('');
+
+      overlay.innerHTML = `
+        <div class="zx-arsenal-topbar">
+          <span style="font-size:20px;font-weight:900;letter-spacing:4px;color:var(--jade);">太极八卦传送阵 · 卷宗已留档</span>
+          <button class="zx-seal-btn" id="btn-close-npc">留在原处 [ESC]</button>
+        </div>
+        <div style="flex:1;max-width:680px;width:100%;margin:0 auto;padding:20px 0;display:flex;flex-direction:column;gap:10px;overflow-y:auto;">
+          <div style="font-size:13px;color:#cbd5e1;margin-bottom:6px;">气血与真气已完全充盈。选择已点亮的镇魂古祠或灵泉即可瞬间跨越城池：</div>
+          ${rows}
+        </div>
+      `;
+      overlay.querySelector('#btn-close-npc')?.addEventListener('click', () => this.closeModal());
+      overlay.querySelectorAll<HTMLElement>('[data-warp-room]').forEach((el) => {
+        el.onclick = () => {
+          const realm = el.dataset.warpRealm as CastleRealm;
+          const roomId = el.dataset.warpRoom!;
+          this.closeModal();
+          this.engine.warpToRoom(realm, roomId);
+        };
+      });
+      return;
+    }
 
     const renderShopOrSmith = () => {
       if (kind === 'smith') {
@@ -1157,18 +1362,32 @@ export class UIManager {
             const tLv = s.weaponTemperLv?.[id] || 0;
             const cost = 45 + tLv * 40;
             const curAtk = w.atk + tLv * 6;
+            const nextId = w.upgradeTo;
+            const nextW = nextId ? WEAPONS[nextId] : null;
+            const evoCost = w.upgradeCost || 320;
+            const canEvo = nextW && !s.ownedWeapons.includes(nextW.id);
+
             return `
-              <div class="zx-item-row" data-temper-id="${id}">
+              <div class="zx-item-row" style="cursor:default;flex-wrap:wrap;gap:10px;">
                 <div style="display:flex;align-items:center;gap:14px;">
                   ${getWeaponArtHtml(w.archetype, 76)}
                   <div>
                     <div style="font-size:15.5px;font-weight:900;color:var(--rice);">${w.name} ${tLv > 0 ? `<span style="color:#fb923c;">+${tLv}</span>` : ''}</div>
-                    <div style="font-size:12px;color:var(--ash);">兵刃杀伤 ${curAtk} <span class="stat-up">➔ ${curAtk + 6}</span></div>
+                    <div style="font-size:12px;color:var(--ash);">杀伤 ${curAtk} ${tLv < 5 ? `<span class="stat-up">➔ 淬炼 ${curAtk + 6}</span>` : '(已满阶)'}${canEvo ? ` · 可升阶铸为【${nextW.name}】` : ''}</div>
                   </div>
                 </div>
-                <span class="zx-eq-seal" style="background:${s.gold >= cost && tLv < 5 ? '#7c2d12' : '#1e293b'};border-color:#fb923c;">
-                  ${tLv >= 5 ? '已臻极境' : `淬炼 (${cost} 文银)`}
-                </span>
+                <div style="display:flex;gap:8px;align-items:center;">
+                  <button class="zx-seal-btn" data-temper-id="${id}" style="padding:4px 10px;font-size:12px;border-color:#fb923c;opacity:${tLv >= 5 ? 0.45 : 1};">
+                    ${tLv >= 5 ? '淬炼已满' : `淬炼 +1 (${cost}银)`}
+                  </button>
+                  ${
+                    canEvo
+                      ? `<button class="zx-seal-btn" data-evolve-id="${id}" style="padding:4px 10px;font-size:12px;border-color:#fde047;color:#fde047;">
+                           升阶【${nextW.name}】(${evoCost}银)
+                         </button>`
+                      : ''
+                  }
+                </div>
               </div>`;
           })
           .join('');
@@ -1184,7 +1403,7 @@ export class UIManager {
           <div style="flex:1;display:grid;grid-template-columns:280px 1fr;gap:24px;min-height:0;padding:18px 0;">
             <div class="zx-stage-col" style="justify-content:flex-end;padding-bottom:0;overflow:hidden;">
               <div style="font-size:13px;color:#cbd5e1;line-height:1.65;padding:8px 6px 14px;">
-                “裴魁首当年救过老夫一命。小子，把剑递过来——老夫剩这一条右臂，照样替你锤出斩妖寒芒！”
+                “裴魁首当年救过老夫一命。小子，把兵刃递过来——无论是赤火淬锋还是重铸升阶成前朝名器，老夫这一条右臂皆给你办妥！”
               </div>
               ${getSpeakerPortraitSvg('欧冶残', 255)}
             </div>
@@ -1209,8 +1428,35 @@ export class UIManager {
             renderShopOrSmith();
           };
         });
+
+        overlay.querySelectorAll<HTMLElement>('[data-evolve-id]').forEach((el) => {
+          el.onclick = () => {
+            const wid = el.dataset.evolveId!;
+            const w = WEAPONS[wid];
+            const evoCost = w.upgradeCost || 320;
+            if (!w.upgradeTo || s.gold < evoCost) {
+              AudioFX.playHurt();
+              return;
+            }
+            s.gold -= evoCost;
+            if (!s.ownedWeapons.includes(w.upgradeTo)) {
+              s.ownedWeapons.push(w.upgradeTo);
+            }
+            s.equippedWeapon = w.upgradeTo;
+            this.engine.recalcStats(false);
+            AudioFX.playRelicBell();
+            renderShopOrSmith();
+          };
+        });
       } else {
-        const goods: { id: string; kind: 'pot' | 'sub' | 'heart'; name: string; desc: string; price: number; icon: string }[] = [
+        const goods: {
+          id: string;
+          kind: 'pot' | 'sub' | 'heart' | 'wpn' | 'arm';
+          name: string;
+          desc: string;
+          price: number;
+          icon: string;
+        }[] = [
           {
             id: 'jinchuang_yao',
             kind: 'pot',
@@ -1222,7 +1468,7 @@ export class UIManager {
           {
             id: 'huiqi_dan',
             kind: 'pot',
-            name: '回气凝神丹',
+            name: '紫阳回气丹',
             desc: '立复 55 点真气（手搓剑诀必备）',
             price: 32,
             icon: getSlotCategorySvg('potion', 'huiqi_dan'),
@@ -1231,39 +1477,66 @@ export class UIManager {
             id: 'beggar_chicken',
             kind: 'pot',
             name: '荷叶叫花鸡',
-            desc: '大幅恢复 160 点气血',
+            desc: '大幅恢复 150 点气血与 25 点真气',
             price: 68,
             icon: getSlotCategorySvg('potion', 'beggar_chicken'),
-          },
-          {
-            id: 'holy_fire',
-            kind: 'sub',
-            name: '奇门 · 三昧火油瓶',
-            desc: '掷出落地化作三道持续灼烧真火柱',
-            price: 75,
-            icon: getSubWeaponSvg('holy_fire'),
-          },
-          {
-            id: 'bagua_cross',
-            kind: 'sub',
-            name: '奇门 · 天罡八卦镖',
-            desc: '回旋穿透敌阵的镇妖法器',
-            price: 90,
-            icon: getSubWeaponSvg('bagua_cross'),
           },
           {
             id: 'hearts_10',
             kind: 'heart',
             name: '朱砂灵符 ×10',
             desc: '补充奇门副器催动灵符',
-            price: 25,
+            price: 24,
             icon: getSubWeaponSvg('dagger_throw'),
+          },
+          {
+            id: 'daggers_1',
+            kind: 'wpn',
+            name: '短兵 · 分水峨眉双刺',
+            desc: '零前摇极速双月连打 · 绕背必定暴击',
+            price: 110,
+            icon: getWeaponArtHtml('daggers', 54),
+          },
+          {
+            id: 'whip_1',
+            kind: 'wpn',
+            name: '软鞭 · 乌金九节鞭',
+            desc: '致敬恶魔城本命长鞭 · 八向雷音抽击控场',
+            price: 135,
+            icon: getWeaponArtHtml('whip', 54),
+          },
+          {
+            id: 'cloud_brocade',
+            kind: 'arm',
+            name: '宝甲 · 云纹蚕丝内甲',
+            desc: '护体 +11 · 气血 +25 · 真气 +15',
+            price: 150,
+            icon: getSlotCategorySvg('armor'),
+          },
+          {
+            id: 'holy_fire',
+            kind: 'sub',
+            name: '奇门 · 三昧净火符',
+            desc: '抛投落地燃起三道持续灼烧朱砂火柱',
+            price: 75,
+            icon: getSubWeaponSvg('holy_fire'),
+          },
+          {
+            id: 'bagua_cross',
+            kind: 'sub',
+            name: '奇门 · 乾坤八卦盘',
+            desc: '飞出后折返横贯全屏切割群妖（十字回旋镖）',
+            price: 90,
+            icon: getSubWeaponSvg('bagua_cross'),
           },
         ];
 
         const rows = goods
           .map((g) => {
-            const ownedSub = g.kind === 'sub' && s.ownedSubWeapons.includes(g.id as SubWeaponId);
+            const owned =
+              (g.kind === 'sub' && s.ownedSubWeapons.includes(g.id as SubWeaponId)) ||
+              (g.kind === 'wpn' && s.ownedWeapons.includes(g.id)) ||
+              (g.kind === 'arm' && s.ownedArmors.includes(g.id));
             return `
               <div class="zx-item-row" data-buy-id="${g.id}" data-buy-kind="${g.kind}" data-buy-price="${g.price}">
                 <div style="display:flex;align-items:center;gap:14px;">
@@ -1273,8 +1546,8 @@ export class UIManager {
                     <div style="font-size:12px;color:var(--ash);">${g.desc}</div>
                   </div>
                 </div>
-                <span class="zx-eq-seal" style="background:${ownedSub ? '#115e59' : s.gold >= g.price ? '#881313' : '#1e293b'};">
-                  ${ownedSub ? '已习得' : `${g.price} 文银`}
+                <span class="zx-eq-seal" style="background:${owned ? '#115e59' : s.gold >= g.price ? '#881313' : '#1e293b'};">
+                  ${owned ? '已收入囊中' : `${g.price} 文银`}
                 </span>
               </div>`;
           })
@@ -1291,7 +1564,7 @@ export class UIManager {
           <div style="flex:1;display:grid;grid-template-columns:280px 1fr;gap:24px;min-height:0;padding:18px 0;">
             <div class="zx-stage-col" style="justify-content:flex-end;padding-bottom:0;overflow:hidden;">
               <div style="font-size:13px;color:#cbd5e1;line-height:1.65;padding:8px 6px 14px;">
-                “呵呵呵……血月当空，青灯引路。小客官，只要纹银管够，救命的灵丹与烧妖的三昧真火皆可拿去。”
+                “呵呵呵……血月当空，青灯引路。无论是峨眉分水刺、乌金九节鞭，还是烧妖的三昧真火，只要纹银管够皆可拿去。”
               </div>
               ${getSpeakerPortraitSvg('白掌柜', 255)}
             </div>
@@ -1302,10 +1575,24 @@ export class UIManager {
         overlay.querySelectorAll<HTMLElement>('[data-buy-id]').forEach((el) => {
           el.onclick = () => {
             const id = el.dataset.buyId!;
-            const bKind = el.dataset.buyKind as 'pot' | 'sub' | 'heart';
+            const bKind = el.dataset.buyKind as 'pot' | 'sub' | 'heart' | 'wpn' | 'arm';
             const price = Number(el.dataset.buyPrice || 30);
             if (bKind === 'sub' && s.ownedSubWeapons.includes(id as SubWeaponId)) {
               s.equippedSubWeapon = id as SubWeaponId;
+              AudioFX.playHit(false);
+              renderShopOrSmith();
+              return;
+            }
+            if (bKind === 'wpn' && s.ownedWeapons.includes(id)) {
+              s.equippedWeapon = id;
+              this.engine.recalcStats(false);
+              AudioFX.playHit(false);
+              renderShopOrSmith();
+              return;
+            }
+            if (bKind === 'arm' && s.ownedArmors.includes(id)) {
+              s.equippedArmor = id;
+              this.engine.recalcStats(false);
               AudioFX.playHit(false);
               renderShopOrSmith();
               return;
@@ -1320,6 +1607,14 @@ export class UIManager {
             } else if (bKind === 'sub') {
               s.ownedSubWeapons.push(id as SubWeaponId);
               s.equippedSubWeapon = id as SubWeaponId;
+            } else if (bKind === 'wpn') {
+              s.ownedWeapons.push(id);
+              s.equippedWeapon = id;
+              this.engine.recalcStats(false);
+            } else if (bKind === 'arm') {
+              s.ownedArmors.push(id);
+              s.equippedArmor = id;
+              this.engine.recalcStats(false);
             } else {
               s.talismanHearts = Math.min(99, s.talismanHearts + 10);
             }
@@ -1437,7 +1732,59 @@ export class UIManager {
     });
   }
 
-  public showEndingModal(_kind: 'normal' | 'true' | 'boss_rush', _timeSec: number): void {
-    this.showTitleScreen();
+  public showEndingModal(kind: 'normal' | 'true' | 'boss_rush', timeSec: number): void {
+    this.closeModal();
+    const s = this.engine.slot;
+    const pct = s ? WorldMap.calcExplorationPct(s.visitedRooms) : 100;
+    const mins = Math.floor(timeSec / 60);
+    const secs = timeSec % 60;
+    const timeStr = `${mins}分${secs < 10 ? '0' : ''}${secs}秒`;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'zx-arsenal-overlay';
+    overlay.style.justifyContent = 'center';
+    overlay.style.alignItems = 'center';
+
+    const title =
+      kind === 'true'
+        ? '真 结 局 · 破 晓 斩 冥'
+        : kind === 'boss_rush'
+          ? '百 鬼 试 炼 · 踏 破 镇 妖 塔'
+          : '结 局 一 · 折 剑 归 尘';
+    const desc =
+      kind === 'true'
+        ? `十八岁少年剑破九幽，太古尸仙烛阴伏诛，血月终散！<br/>双城探索度：<strong style="color:#fde047;">${pct}% / 200%</strong> · 历时：<strong>${timeStr}</strong><br/><span style="color:#2dd4bf;">已永久解锁标题画面【少统领传·萧断水】与【百鬼试炼·镇妖塔】！</span>`
+        : kind === 'boss_rush'
+          ? `七大妖王与宿敌尽败于枪剑之下！通关用时：<strong style="color:#fde047;">${timeStr}</strong>`
+          : `未能识破恩师眉心的九幽蚀心蛊，里城真凶尚未授首……<br/>提示：前往藏书阁极西【禁书天机阁】寻【破妄古镜】，再赴水牢极西【玄鸟秘冢】取【完整玄鸟合璧佩】，重登祭天坛即可开启 <strong>180° 九幽倒悬里城</strong>！`;
+
+    overlay.innerHTML = `
+      <div style="text-align:center;max-width:560px;display:flex;flex-direction:column;gap:18px;padding:24px;">
+        <div style="font-size:32px;font-weight:900;letter-spacing:6px;color:${kind === 'normal' ? '#fca5a5' : 'var(--bronze-light)'};">${title}</div>
+        <p style="color:#e2e8f0;line-height:1.85;font-size:14.5px;">${desc}</p>
+        <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
+          ${
+            kind === 'normal' && s
+              ? `<button class="zx-seal-btn" id="btn-resume-altar" style="border-color:#2dd4bf;color:#5eead4;">折返东宫偏殿 · 寻齐双信物改写命数</button>`
+              : ''
+          }
+          <button class="zx-seal-btn" id="btn-ending-title" style="border-color:var(--bronze-light);color:var(--bronze-light);">返回标题画卷</button>
+        </div>
+      </div>
+    `;
+
+    this.uiLayer.appendChild(overlay);
+    this.modalEl = overlay;
+    this.syncBlockState();
+
+    overlay.querySelector('#btn-resume-altar')?.addEventListener('click', () => {
+      if (!s) return;
+      this.closeModal();
+      this.engine.recalcStats(true);
+      this.engine.warpToRoom('normal', 'east_sanctum');
+    });
+    overlay.querySelector('#btn-ending-title')?.addEventListener('click', () => {
+      this.showTitleScreen();
+    });
   }
 }

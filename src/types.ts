@@ -227,7 +227,9 @@ export interface SaveSlotData {
   abilities: AbilityKey[];
   consumables: Record<string, number>;
   weaponTemperLv?: Record<string, number>;
-  visitedRooms: string[]; // 'normal:room_id' | 'inverted:room_id'
+  bestiaryKills?: Record<string, number>;
+  invertedUnlocked?: boolean;
+  visitedRooms: string[]; // 'normal:room_id' | 'inverted:room_id' | 'cell:normal:x,y' | 'cell:inverted:x,y'
   collectedPickups: string[];
   defeatedBosses: string[];
   triggeredStories: string[];

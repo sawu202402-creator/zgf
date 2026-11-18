@@ -16,6 +16,18 @@ function selectEnemySpriteFrame(e: EnemyEntity, t: number): AssetKey {
   const kind = e.profile.kind;
   const isMoving = Math.abs(e.vx) > 12 && e.aiState === 'stalk';
 
+  if (kind === 'boss_xiao_duanshui') {
+    if (e.aiState === 'windup') return 'boss_xiao_1';
+    if (e.aiState === 'lunge_slash') return 'boss_xiao_2';
+    return 'boss_xiao_0';
+  }
+
+  if (kind === 'boss_pei_wuji' || kind === 'boss_zhuyin' || kind === 'boss_furnace_titan') {
+    if (e.aiState === 'windup') return 'boss_pei_1';
+    if (e.aiState === 'lunge_slash') return 'boss_pei_2';
+    return 'boss_pei_0';
+  }
+
   if (kind === 'boss_scroll_king' || e.profile.isBoss) {
     if (e.aiState === 'windup') return 'boss_ik_1';
     if (e.aiState === 'lunge_slash') return 'boss_ik_2';
@@ -36,7 +48,7 @@ function selectEnemySpriteFrame(e: EnemyEntity, t: number): AssetKey {
     return Math.floor(t * 2.6 + e.id) % 2 === 0 ? 'mob_wr_0' : 'mob_wr_1';
   }
 
-  // 默认近战刀客 (paper_swordsman 等) 4帧真实步态与双手举刀/劈斩序列！
+  // 默认近战刀客 (paper_swordsman / opera_puppet / plague_toad) 4帧真实步态与双手举刀/劈斩序列！
   if (e.aiState === 'windup') return 'mob_sw_2';
   if (e.aiState === 'lunge_slash') return 'mob_sw_3';
   if (isMoving) {
@@ -74,6 +86,7 @@ export interface HeroRenderState {
   secondaryWeaponId?: string;
   slash: ActiveSlash | null;
   scale?: number;
+  isXiaoMode?: boolean;
 }
 
 export function selectHeroSpriteFrame(opts: {
@@ -84,14 +97,30 @@ export function selectHeroSpriteFrame(opts: {
   animTime: number;
   isHeavy: boolean;
   slash: ActiveSlash | null;
+  isXiaoMode?: boolean;
 }): AssetKey {
-  const { vx, vy, onGround, runCycle, animTime, isHeavy, slash } = opts;
+  const { vx, vy, onGround, runCycle, animTime, isHeavy, slash, isXiaoMode } = opts;
 
-  // 1. 挥兵斩击帧（轻剑三连招 vs 重型斩马陌刀蓄力重劈）
+  if (isXiaoMode) {
+    if (slash) {
+      return slash.progress < 0.25 ? 'boss_xiao_1' : 'boss_xiao_2';
+    }
+    return Math.abs(vx) > 30 && Math.floor(runCycle * 0.6) % 2 === 1
+      ? 'boss_xiao_1'
+      : 'boss_xiao_0';
+  }
+
+  // 1. 挥兵斩击帧（五系神兵各自呈现凌厉出招身姿！）
   if (slash) {
     const pr = slash.progress;
     if (isHeavy) {
       return pr < 0.34 ? 'h18_modao_windup' : 'h18_modao_cleave';
+    }
+    if (slash.archetype === 'spear' || slash.archetype === 'whip') {
+      return pr < 0.22 ? 'h18_sword_0' : 'h18_sword_2';
+    }
+    if (slash.archetype === 'daggers') {
+      return slash.comboStep % 2 === 0 ? 'h18_sword_1' : 'h18_sword_0';
     }
     if (slash.pogoDown) {
       return 'h18_sword_2';
@@ -102,7 +131,6 @@ export function selectHeroSpriteFrame(opts: {
     if (slash.comboStep === 2) {
       return pr < 0.24 ? 'h18_sword_0' : 'h18_sword_1';
     }
-    // 第三式终结技 / 手搓剑诀突刺：蓄势收剑 -> 弓步破空直刺！
     return pr < 0.2 ? 'h18_sword_0' : 'h18_sword_2';
   }
 
@@ -158,6 +186,7 @@ export function renderModularLiYichengRig(
     animTime: opts.animTime,
     isHeavy,
     slash: opts.slash,
+    isXiaoMode: opts.isXiaoMode,
   });
 
   ctx.save();
@@ -200,15 +229,38 @@ export function renderModularLiYichengRig(
     }
   }
 
-  // 绘制纯手绘 18 岁少年侠客序列帧
+  // 绘制纯手绘 18 岁少年李逸承 / 21 岁少统领萧断水序列帧
   const spriteImg = Assets.get(frameKey) || Assets.get('h18_idle_0');
   if (spriteImg) {
-    const s = HERO_SPRITE_METRICS.baseScale;
-    const drawW = HERO_SPRITE_METRICS.canvasW * s;
-    const drawH = HERO_SPRITE_METRICS.canvasH * s;
-    const dx = -HERO_SPRITE_METRICS.anchorX * s;
-    const dy = -HERO_SPRITE_METRICS.footY * s + 2;
-    ctx.drawImage(spriteImg, dx, dy, drawW, drawH);
+    if (opts.isXiaoMode) {
+      const s = 0.53;
+      const drawW = ENEMY_METRICS.canvasW * s;
+      const drawH = ENEMY_METRICS.canvasH * s;
+      const dx = -ENEMY_METRICS.anchorX * s;
+      const dy = -ENEMY_METRICS.footY * s + 2;
+      ctx.drawImage(spriteImg, dx, dy, drawW, drawH);
+    } else {
+      const s = HERO_SPRITE_METRICS.baseScale;
+      const drawW = HERO_SPRITE_METRICS.canvasW * s;
+      const drawH = HERO_SPRITE_METRICS.canvasH * s;
+      const dx = -HERO_SPRITE_METRICS.anchorX * s;
+      const dy = -HERO_SPRITE_METRICS.footY * s + 2;
+      ctx.drawImage(spriteImg, dx, dy, drawW, drawH);
+
+      // 当李逸承挥使长枪出刺时，叠加手绘寒星龙胆枪身随前刺突进！
+      if (wDef.archetype === 'spear' && opts.slash && opts.slash.progress >= 0.18) {
+        const spImg = Assets.get('part_wpn_spear');
+        if (spImg) {
+          ctx.save();
+          const thrust = Math.sin(Math.min(1, (opts.slash.progress - 0.18) / 0.7) * Math.PI) * 34;
+          const aimAng = opts.slash.aimY < -0.35 ? -0.46 : 0;
+          ctx.translate(16 + thrust, -46);
+          ctx.rotate(aimAng);
+          ctx.drawImage(spImg, -42, -9, 134, 20);
+          ctx.restore();
+        }
+      }
+    }
   }
 
   // 斩马陌刀举刀过顶蓄力阶段：刀身凝聚赤金烈焰罡气微光！
@@ -276,6 +328,7 @@ export function drawHeroCharacter(
     equippedWeaponId: s.equippedWeapon,
     secondaryWeaponId: secondaryId,
     slash: engine.activeSlash,
+    isXiaoMode: s.mode === 'xiaoduanshui',
   });
 }
 
@@ -423,7 +476,16 @@ export function drawMonsterOrBoss(
 
   if (img) {
     // 全部怪物与妖王现已升级为统一国风赛璐珞逐帧动作序列（迈步/蓄力举刀/挥劈各帧独立，彻底告别单帧纸片平移！）
-    const sc = e.profile.isBoss ? 0.62 : e.profile.kind === 'bronze_guard' ? 0.54 : 0.52;
+    const sc =
+      e.profile.kind === 'boss_zhuyin'
+        ? 0.72
+        : e.profile.kind === 'boss_xiao_duanshui'
+          ? 0.56
+          : e.profile.isBoss
+            ? 0.62
+            : e.profile.kind === 'bronze_guard'
+              ? 0.54
+              : 0.52;
     const drawW = ENEMY_METRICS.canvasW * sc;
     const drawH = ENEMY_METRICS.canvasH * sc;
     const dx = -ENEMY_METRICS.anchorX * sc;
@@ -437,6 +499,21 @@ export function drawMonsterOrBoss(
 
     const source = flash ? Assets.getWhiteFlash(spriteKey) || img : img;
     ctx.drawImage(source, dx, dy, drawW, drawH);
+    ctx.restore();
+  }
+
+  // 九幽冥主·烛阴专属太古尸仙紫金血煞光环
+  if (e.profile.kind === 'boss_zhuyin') {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const zg = ctx.createRadialGradient(0, -68, 8, 0, -68, 92 + Math.sin(t * 7) * 10);
+    zg.addColorStop(0, 'rgba(244, 63, 94, 0.36)');
+    zg.addColorStop(0.55, 'rgba(168, 85, 247, 0.2)');
+    zg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = zg;
+    ctx.beginPath();
+    ctx.arc(0, -68, 98, 0, Math.PI * 2);
+    ctx.fill();
     ctx.restore();
   }
 
@@ -706,6 +783,13 @@ export function drawWorldDrop(
       const h = 88;
       const w = armorImg.width * (h / armorImg.height);
       ctx.drawImage(armorImg, -w * 0.5, -h + 3, w, h);
+    }
+  } else if (d.kind === 'ability' || d.kind === 'skill_scroll') {
+    const relicImg = Assets.get('item_relic_pedestal');
+    if (relicImg) {
+      const h = 94;
+      const w = relicImg.width * (h / relicImg.height);
+      ctx.drawImage(relicImg, -w * 0.5, -h + 3, w, h);
     }
   } else if (d.kind === 'consumable' || d.kind === 'max_up') {
     if (d.itemId === 'beggar_chicken') {

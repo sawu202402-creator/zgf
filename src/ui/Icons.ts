@@ -2,8 +2,14 @@ import { AssetKey, Assets } from '../game/AssetLoader';
 import { WeaponArchetype } from '../types';
 
 export function getWeaponArtHtml(archetype: WeaponArchetype, width = 68): string {
-  const key: AssetKey = archetype === 'greatsword' ? 'part_wpn_modao' : 'part_wpn_sword';
-  return `<img src="${Assets.getUrl(key)}" style="width:${width}px;height:22px;object-fit:contain;display:block;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.9));" alt="兵刃" />`;
+  let key: AssetKey = 'part_wpn_sword';
+  if (archetype === 'greatsword') key = 'part_wpn_modao';
+  else if (archetype === 'spear') key = 'part_wpn_spear';
+  else if (archetype === 'daggers') key = 'part_wpn_daggers';
+  else if (archetype === 'whip') key = 'part_wpn_whip';
+
+  const h = archetype === 'daggers' || archetype === 'whip' ? 30 : 22;
+  return `<img src="${Assets.getUrl(key)}" style="width:${width}px;height:${h}px;object-fit:contain;display:block;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.9));" alt="兵刃" />`;
 }
 
 export function getSubWeaponSvg(id: string): string {
@@ -21,6 +27,21 @@ export function getSubWeaponSvg(id: string): string {
       <circle cx="18" cy="18" r="2.2" fill="#fef08a"/>
     </svg>`;
   }
+  if (id === 'mountain_seal') {
+    return `<svg viewBox="0 0 36 36" width="26" height="26">
+      <rect x="7" y="15" width="22" height="14" rx="2" fill="#92400e" stroke="#fde047" stroke-width="1.8"/>
+      <path d="M13 15 L15 8 L21 8 L23 15 Z" fill="#facc15" stroke="#78350f" stroke-width="1.3"/>
+      <line x1="10" y1="22" x2="26" y2="22" stroke="#fef08a" stroke-width="1.4"/>
+    </svg>`;
+  }
+  if (id === 'sword_orbit') {
+    return `<svg viewBox="0 0 36 36" width="26" height="26">
+      <circle cx="18" cy="18" r="12" fill="none" stroke="#38bdf8" stroke-width="1.3" stroke-dasharray="4 3"/>
+      <polygon points="18,3 20.5,14 18,16 15.5,14" fill="#bae6fd" stroke="#0284c7" stroke-width="0.9"/>
+      <polygon points="7,26 16,19 17,22 10,28" fill="#bae6fd" stroke="#0284c7" stroke-width="0.9"/>
+      <polygon points="29,26 20,19 19,22 26,28" fill="#bae6fd" stroke="#0284c7" stroke-width="0.9"/>
+    </svg>`;
+  }
   return `<svg viewBox="0 0 36 36" width="26" height="26">
     <polygon points="31,7 16,19 12,16" fill="#e2e8f0" stroke="#cfa349" stroke-width="1.1"/>
     <polygon points="29,16 14,28 10,25" fill="#94a3b8" stroke="#2dd4bf" stroke-width="1.1"/>
@@ -35,11 +56,7 @@ export function getSlotCategorySvg(
     return `<img src="${Assets.getUrl('item_armor_stand')}" width="28" height="28" style="object-fit:contain;display:block;" alt="衣甲" />`;
   }
   if (slot === 'accessory') {
-    return `<svg viewBox="0 0 36 36" width="26" height="26">
-      <path d="M18 4 L18 10" stroke="#dc2626" stroke-width="2" stroke-linecap="round"/>
-      <circle cx="18" cy="20" r="9.5" fill="none" stroke="#2dd4bf" stroke-width="3.4"/>
-      <circle cx="18" cy="20" r="4.2" fill="none" stroke="#ccfbf1" stroke-width="1.1"/>
-    </svg>`;
+    return `<img src="${Assets.getUrl('item_relic_pedestal')}" width="26" height="30" style="object-fit:contain;display:block;" alt="佩玉" />`;
   }
   if (slot === 'core') {
     return `<svg viewBox="0 0 36 36" width="26" height="26">
