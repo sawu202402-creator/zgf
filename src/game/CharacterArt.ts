@@ -22,7 +22,17 @@ function selectEnemySpriteFrame(e: EnemyEntity, t: number): AssetKey {
     return 'boss_xiao_0';
   }
 
-  if (kind === 'boss_pei_wuji' || kind === 'boss_zhuyin' || kind === 'boss_furnace_titan') {
+  if (kind === 'boss_furnace_titan') {
+    if (e.aiState === 'windup' || e.aiState === 'lunge_slash') return 'boss_ft_1';
+    return 'boss_ft_0';
+  }
+
+  if (kind === 'boss_opera_god') {
+    if (e.aiState === 'windup' || e.aiState === 'lunge_slash') return 'boss_op_1';
+    return 'boss_op_0';
+  }
+
+  if (kind === 'boss_pei_wuji' || kind === 'boss_zhuyin') {
     if (e.aiState === 'windup') return 'boss_pei_1';
     if (e.aiState === 'lunge_slash') return 'boss_pei_2';
     return 'boss_pei_0';

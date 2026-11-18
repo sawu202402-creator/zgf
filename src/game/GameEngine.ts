@@ -12,8 +12,8 @@ import {
 import { STORY_SCENES } from '../data/storyAndNpcs';
 import {
   BuiltRoom,
-  CELL_PIXEL_H,
   CELL_PIXEL_W,
+  getRoomSideDoors,
   sampleCeilingY,
   sampleGroundY,
   sampleSolidGroundY,
@@ -265,6 +265,8 @@ export class GameEngine {
   public taijiFlashTimer = 0;
   public soulStealFlashTimer = 0;
   public levelUpPillarTimer = 0;
+  public grappleLineTimer = 0;
+  public grappleTarget: { x: number; y: number } | null = null;
 
   public enemies: EnemyEntity[] = [];
   public dyingSouls: DyingEnemySoul[] = [];
@@ -419,7 +421,7 @@ export class GameEngine {
       AudioFX.setMood('boss');
     } else if (room.realm === 'inverted') {
       AudioFX.setMood('inverted');
-    } else if (room.region === 'library') {
+    } else if (room.region === 'library' || room.region === 'opera') {
       AudioFX.setMood('library');
     } else if (room.region === 'clock_tower') {
       AudioFX.setMood('clock');
@@ -443,11 +445,11 @@ export class GameEngine {
     if (!this.slot || !this.room || this.room.id === 'boss_rush_arena') return;
     const localGx = Math.max(
       0,
-      Math.min(this.room.gridW - 1, Math.floor(this.player.x / CELL_PIXEL_W))
+      Math.min(this.room.gridW - 1, Math.floor((this.player.x / Math.max(1, this.room.pixelW)) * this.room.gridW))
     );
     const localGy = Math.max(
       0,
-      Math.min(this.room.gridH - 1, Math.floor(this.player.y / CELL_PIXEL_H))
+      Math.min(this.room.gridH - 1, Math.floor((this.player.y / Math.max(1, this.room.pixelH)) * this.room.gridH))
     );
     const cellKey = `cell:${this.room.realm}:${this.room.mapX + localGx},${this.room.mapY + localGy}`;
     if (!this.slot.visitedRooms.includes(cellKey)) {
@@ -536,7 +538,7 @@ export class GameEngine {
     }
 
     for (const sp of nextRoom.spawns) {
-      this.spawnEnemy(sp.kind, sp.x, sampleGroundY(nextRoom, sp.x));
+      this.spawnEnemy(sp.kind, sp.x, sp.y ?? sampleGroundY(nextRoom, sp.x));
     }
 
     if (nextRoom.bossKind) {
@@ -661,6 +663,10 @@ export class GameEngine {
     }
     if (this.levelUpPillarTimer > 0) {
       this.levelUpPillarTimer = Math.max(0, this.levelUpPillarTimer - dt);
+    }
+    if (this.grappleLineTimer > 0) {
+      this.grappleLineTimer = Math.max(0, this.grappleLineTimer - dt);
+      if (this.grappleLineTimer <= 0) this.grappleTarget = null;
     }
     if (this.skillBanner) {
       this.skillBanner.timer -= dt;
@@ -810,6 +816,8 @@ export class GameEngine {
         p.jumpBuffer = 0;
         AudioFX.playJump();
         this.spawnInkBurst(p.x, p.y - 18, '#2dd4bf', '#0f172a', 12);
+      } else if (!p.onGround && this.hasAbility('grapple_hook') && this.tryGrappleOverheadLantern()) {
+        p.jumpBuffer = 0;
       } else if (
         !p.onGround &&
         inp.moveY > 0.5 &&
@@ -1834,7 +1842,47 @@ export class GameEngine {
           if (e.stateTimer <= 0) {
             e.bossMoveIdx = (e.bossMoveIdx + 1) % 3;
             if (e.bossMoveIdx === 1) {
-              if (
+              if (e.profile.kind === 'boss_furnace_titan') {
+                // 赤铜镇火巨灵：连续抛射三枚高爆熔金岩浆火弹！
+                for (let m = -1; m <= 1; m++) {
+                  this.projectiles.push({
+                    fromPlayer: false,
+                    kind: 'holy_fire',
+                    x: e.x + e.facing * 26,
+                    y: e.y - 54,
+                    vx: e.facing * (220 + (m + 1) * 95),
+                    vy: -340 - m * 55,
+                    r: 13,
+                    dmg: e.profile.atk,
+                    color: '#fb923c',
+                    life: 1.7,
+                    maxLife: 1.7,
+                    pierce: 1,
+                    hitIds: new Set(),
+                  });
+                }
+              } else if (e.profile.kind === 'boss_opera_god') {
+                // 惊梦百戏傩神：凌空扇面齐射五道赤金傀儡飞针！
+                for (let n = -2; n <= 2; n++) {
+                  const baseAng = Math.atan2(p.y - 40 - (e.y - 42), p.x - e.x);
+                  const ang = baseAng + n * 0.16;
+                  this.projectiles.push({
+                    fromPlayer: false,
+                    kind: 'dagger',
+                    x: e.x + e.facing * 22,
+                    y: e.y - 42,
+                    vx: Math.cos(ang) * 365,
+                    vy: Math.sin(ang) * 365,
+                    r: 10,
+                    dmg: e.profile.atk,
+                    color: '#f472b6',
+                    life: 1.7,
+                    maxLife: 1.7,
+                    pierce: 1,
+                    hitIds: new Set(),
+                  });
+                }
+              } else if (
                 e.profile.kind === 'boss_xiao_duanshui' ||
                 e.profile.kind === 'boss_pei_wuji' ||
                 e.profile.kind === 'boss_zhuyin'
@@ -2625,28 +2673,26 @@ export class GameEngine {
       }
     }
 
-    // 0B. 左右边界实心城墙与门洞上沿门楣碰撞（必须在门洞高度内穿过，绝不穿墙！）
-    if (!room.leftRoomId && p.x < 32) {
-      p.x = 32;
-      p.vx = 0;
-      p.onWall = -1;
-    } else if (room.leftRoomId && p.x < 30) {
-      const doorFloor = room.leftDoorFloorY ?? 400;
-      if (p.y < doorFloor - 118) {
-        p.x = 30;
+    // 0B. 左右边界实心城墙与多层竖塔分标高门廊碰撞（精准判定每一层门洞开启区间！）
+    if (p.x < 32) {
+      const leftDoors = getRoomSideDoors(room, 'left');
+      const inOpenLeftDoor = leftDoors.some(
+        (d) => p.y >= d.floorY - 120 && p.y <= d.floorY + 26
+      );
+      if (!inOpenLeftDoor) {
+        p.x = 32;
         p.vx = 0;
         p.onWall = -1;
       }
     }
 
-    if (!room.rightRoomId && p.x > room.pixelW - 32) {
-      p.x = room.pixelW - 32;
-      p.vx = 0;
-      p.onWall = 1;
-    } else if (room.rightRoomId && p.x > room.pixelW - 30) {
-      const doorFloor = room.rightDoorFloorY ?? 400;
-      if (p.y < doorFloor - 118) {
-        p.x = room.pixelW - 30;
+    if (p.x > room.pixelW - 32) {
+      const rightDoors = getRoomSideDoors(room, 'right');
+      const inOpenRightDoor = rightDoors.some(
+        (d) => p.y >= d.floorY - 120 && p.y <= d.floorY + 26
+      );
+      if (!inOpenRightDoor) {
+        p.x = room.pixelW - 32;
         p.vx = 0;
         p.onWall = 1;
       }
@@ -2726,14 +2772,48 @@ export class GameEngine {
       }
     }
 
-    // 阿鲁卡多灵魂手感：跳斩落地瞬间自动取消空中挥剑后摇（Short-Hop Double Slash Cancel）！
+    // 阿鲁卡多灵魂手感：跳斩落地瞬间自动取消空中挥剑后摇 + 【千斤坠 ground_slam】震地火环！
     if (!wasGrounded && p.onGround) {
+      if (p.diveKicking && this.hasAbility('ground_slam')) {
+        this.screenShake = Math.max(this.screenShake, 7);
+        AudioFX.playSlash('heavy');
+        this.spawnInkBurst(p.x, p.y - 8, '#fb923c', '#090d16', 22);
+        this.damageEnemiesInBox(p.x - 105, p.y - 68, 210, 74, Math.round(p.atk * 1.25), true, 45);
+      }
       p.diveKicking = false;
       if (this.activeSlash && this.activeSlash.archetype !== 'greatsword') {
         this.activeSlash = null;
         p.attackCooldown = Math.min(p.attackCooldown, 0.04);
       }
     }
+  }
+
+  private tryGrappleOverheadLantern(): boolean {
+    if (!this.room) return false;
+    const p = this.player;
+    let best: { x: number; y: number } | null = null;
+    let bestDist = 235;
+    for (const ln of this.room.lanterns) {
+      if (ln.y >= p.y - 14) continue;
+      const d = Math.hypot(ln.x - p.x, ln.y - (p.y - 40));
+      if (d < bestDist) {
+        bestDist = d;
+        best = ln;
+      }
+    }
+    if (!best) return false;
+
+    const dx = best.x - p.x;
+    p.facing = dx >= 0 ? 1 : -1;
+    p.vx = Math.max(-420, Math.min(420, dx * 3.1));
+    p.vy = -645;
+    p.diveKicking = false;
+    p.doubleJumpSpinTimer = 0.34;
+    this.grappleTarget = { x: best.x, y: best.y };
+    this.grappleLineTimer = 0.24;
+    AudioFX.playJump();
+    this.spawnInkBurst(best.x, best.y, '#fde047', '#ef4444', 14);
+    return true;
   }
 
   private checkRoomTransition(): void {
@@ -2748,9 +2828,9 @@ export class GameEngine {
     const p = this.player;
     const bossCleared = this.isBossClearedInRoom(room);
 
-    // 1. 左右门廊无缝跨房（完美保留跳跃离地高度与横向速度！）
+    // 1. 左右多层竖塔门廊无缝跨房（自动按当前身位高度匹配所穿过的那扇门，完美保留跳跃高度！）
     if (p.x < 12) {
-      const tr = WorldMap.resolveTransition(room, 'left');
+      const tr = WorldMap.resolveTransition(room, 'left', p.y);
       if (tr) {
         const lift = Math.min(0, p.y - tr.curFloorY);
         this.loadRoom(tr.nextRoom, tr.nextX, tr.nextFloorY + lift, true);
@@ -2758,7 +2838,7 @@ export class GameEngine {
       }
       p.x = 32;
     } else if (p.x > room.pixelW - 12) {
-      const tr = WorldMap.resolveTransition(room, 'right');
+      const tr = WorldMap.resolveTransition(room, 'right', p.y);
       if (tr) {
         const lift = Math.min(0, p.y - tr.curFloorY);
         this.loadRoom(tr.nextRoom, tr.nextX, tr.nextFloorY + lift, true);

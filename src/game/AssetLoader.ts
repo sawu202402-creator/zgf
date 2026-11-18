@@ -4,6 +4,10 @@ export type AssetKey =
   | 'bg_main_hall'
   | 'bg_library_opera'
   | 'bg_forge_prison'
+  | 'bg_opera_market'
+  | 'bg_molten_forge'
+  | 'bg_chapel_spire'
+  | 'bg_cavern_waterfall'
   | 'env_ground_slab'
   | 'env_palace_floor'
   | 'env_bridge'
@@ -13,6 +17,14 @@ export type AssetKey =
   | 'prop_chandelier'
   | 'prop_clock_gear'
   | 'prop_lattice_window'
+  | 'prop_dragon_brazier'
+  | 'prop_silk_banner'
+  | 'prop_weapon_rack'
+  | 'prop_guardian_statue'
+  | 'prop_coiled_pillar'
+  | 'prop_incense_burner'
+  | 'prop_giant_bell'
+  | 'prop_stone_wall_tex'
   | 'item_sword_altar'
   | 'item_armor_stand'
   | 'item_celadon_gourd'
@@ -80,9 +92,13 @@ export type AssetKey =
   | 'boss_xiao_2'
   | 'boss_pei_0'
   | 'boss_pei_1'
-  | 'boss_pei_2';
+  | 'boss_pei_2'
+  | 'boss_ft_0'
+  | 'boss_ft_1'
+  | 'boss_op_0'
+  | 'boss_op_1';
 
-const ASSET_VERSION = 'painted_v6';
+const ASSET_VERSION = 'painted_v7';
 
 const ASSET_FILES: Record<AssetKey, string> = {
   bg_title: './assets/bg_title.webp',
@@ -90,6 +106,10 @@ const ASSET_FILES: Record<AssetKey, string> = {
   bg_main_hall: './assets/bg_main_hall.webp',
   bg_library_opera: './assets/bg_library_opera.webp',
   bg_forge_prison: './assets/bg_forge_prison.webp',
+  bg_opera_market: './assets/bg_opera_market.webp',
+  bg_molten_forge: './assets/bg_molten_forge.webp',
+  bg_chapel_spire: './assets/bg_chapel_spire.webp',
+  bg_cavern_waterfall: './assets/bg_cavern_waterfall.webp',
   env_ground_slab: './assets/env_ground_slab.webp',
   env_palace_floor: './assets/env_palace_floor.webp',
   env_bridge: './assets/env_bridge.webp',
@@ -99,6 +119,14 @@ const ASSET_FILES: Record<AssetKey, string> = {
   prop_chandelier: './assets/prop_chandelier.webp',
   prop_clock_gear: './assets/prop_clock_gear.webp',
   prop_lattice_window: './assets/prop_lattice_window.webp',
+  prop_dragon_brazier: './assets/prop_dragon_brazier.webp',
+  prop_silk_banner: './assets/prop_silk_banner.webp',
+  prop_weapon_rack: './assets/prop_weapon_rack.webp',
+  prop_guardian_statue: './assets/prop_guardian_statue.webp',
+  prop_coiled_pillar: './assets/prop_coiled_pillar.webp',
+  prop_incense_burner: './assets/prop_incense_burner.webp',
+  prop_giant_bell: './assets/prop_giant_bell.webp',
+  prop_stone_wall_tex: './assets/prop_stone_wall_tex.webp',
   item_sword_altar: './assets/item_sword_altar.webp',
   item_armor_stand: './assets/item_armor_stand.webp',
   item_celadon_gourd: './assets/item_celadon_gourd.webp',
@@ -167,6 +195,10 @@ const ASSET_FILES: Record<AssetKey, string> = {
   boss_pei_0: './assets/boss_pei_0.webp',
   boss_pei_1: './assets/boss_pei_1.webp',
   boss_pei_2: './assets/boss_pei_2.webp',
+  boss_ft_0: './assets/boss_ft_0.webp',
+  boss_ft_1: './assets/boss_ft_1.webp',
+  boss_op_0: './assets/boss_op_0.webp',
+  boss_op_1: './assets/boss_op_1.webp',
 };
 
 const CRITICAL_ASSETS: AssetKey[] = Object.keys(ASSET_FILES) as AssetKey[];

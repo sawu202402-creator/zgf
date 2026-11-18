@@ -111,13 +111,13 @@ export class InkVaniaRenderer {
 
     ctx.restore();
 
-    // 3. 前景遮挡视差层 (1.24x)：暗影苦竹与盘龙巨柱掠过镜头（《胧村正/斩妖行》灵魂景深层次！）
+    // 3. 前景遮挡视差层 (1.25x)：手绘盘龙暗影巨柱与近景红绸大宫灯掠过镜头（《胧村正/斩妖行》纵深层次！）
     this.renderForegroundParallax(ctx, vW, vH, camLeft, room);
 
-    // 4. 四周暗角电影级水墨晕影 Vignette
-    const vig = ctx.createRadialGradient(vW * 0.5, vH * 0.48, vH * 0.35, vW * 0.5, vH * 0.5, vW * 0.72);
+    // 4. 柔和电影晕影 Vignette（保留边缘灯火与熔炉色彩温度）
+    const vig = ctx.createRadialGradient(vW * 0.5, vH * 0.48, vH * 0.42, vW * 0.5, vH * 0.5, vW * 0.78);
     vig.addColorStop(0, 'rgba(0,0,0,0)');
-    vig.addColorStop(1, 'rgba(3, 5, 10, 0.52)');
+    vig.addColorStop(1, 'rgba(4, 6, 12, 0.34)');
     ctx.fillStyle = vig;
     ctx.fillRect(0, 0, vW, vH);
 
@@ -149,35 +149,65 @@ export class InkVaniaRenderer {
     vW: number,
     vH: number,
     camLeft: number,
-    _camTop: number,
+    camTop: number,
     room: BuiltRoom
   ): void {
-    drawSeamlessParallaxBackdrop(ctx, vW, vH, camLeft, room, this.ambientTime);
+    drawSeamlessParallaxBackdrop(ctx, vW, vH, camLeft, room, this.ambientTime, camTop);
   }
 
   private renderMoonlitWater(ctx: CanvasRenderingContext2D, room: BuiltRoom): void {
     for (const wz of room.waterZones) {
       const w = wz.x2 - wz.x1;
       const h = room.pixelH - wz.surfaceY;
+
+      if (wz.liquidKind === 'lava') {
+        // 赤火古窖熔金铁渠：炽烈橙金岩浆河流 + 热浪辉光！
+        const lg = ctx.createLinearGradient(0, wz.surfaceY, 0, room.pixelH);
+        lg.addColorStop(0, '#fef08a');
+        lg.addColorStop(0.22, '#f97316');
+        lg.addColorStop(0.65, '#991b1b');
+        lg.addColorStop(1, '#450a0a');
+        ctx.fillStyle = lg;
+        ctx.fillRect(wz.x1, wz.surfaceY, w, h);
+
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const glow = ctx.createLinearGradient(0, wz.surfaceY - 88, 0, wz.surfaceY + 24);
+        glow.addColorStop(0, 'rgba(249, 115, 22, 0)');
+        glow.addColorStop(1, 'rgba(251, 146, 60, 0.35)');
+        ctx.fillStyle = glow;
+        ctx.fillRect(wz.x1, wz.surfaceY - 88, w, 112);
+
+        for (let i = 0; i < 12; i++) {
+          const rx = wz.x1 + ((i * 97 + this.ambientTime * 28) % Math.max(40, w - 20)) + 10;
+          const ry = wz.surfaceY + 4 + (i % 3) * 6;
+          ctx.fillStyle = 'rgba(254, 249, 195, 0.72)';
+          ctx.fillRect(rx - 14, ry, 28, 2.5);
+        }
+        ctx.restore();
+        continue;
+      }
+
       const wg = ctx.createLinearGradient(0, wz.surfaceY, 0, room.pixelH);
-      wg.addColorStop(0, '#0d1b2a');
-      wg.addColorStop(0.4, '#132438');
-      wg.addColorStop(1, '#050811');
+      wg.addColorStop(0, '#0e293c');
+      wg.addColorStop(0.4, '#112a40');
+      wg.addColorStop(1, '#050914');
       ctx.fillStyle = wg;
       ctx.fillRect(wz.x1, wz.surfaceY, w, h);
 
-      // 血月与灯火在水面的动态波光倒影
+      const isCavern = room.region === 'prison';
       for (let i = 0; i < 16; i++) {
         const ry = wz.surfaceY + 6 + i * 5;
         const rx = wz.x1 + w * 0.52 + Math.sin(this.ambientTime * 3.5 + i * 0.8) * (18 + i * 2);
-        const rw = Math.max(12, 74 - i * 3.5);
-        ctx.fillStyle = `rgba(220, 55, 45, ${0.26 - i * 0.014})`;
+        const rw = Math.max(12, 82 - i * 3.5);
+        ctx.fillStyle = isCavern
+          ? `rgba(45, 212, 191, ${0.28 - i * 0.015})`
+          : `rgba(248, 113, 113, ${0.28 - i * 0.015})`;
         ctx.fillRect(rx - rw * 0.5, ry, rw, 2.2);
       }
 
-      // 水面银色涟漪微光
-      ctx.strokeStyle = 'rgba(148, 163, 184, 0.32)';
-      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = isCavern ? 'rgba(94, 234, 212, 0.42)' : 'rgba(148, 163, 184, 0.36)';
+      ctx.lineWidth = 1.4;
       ctx.beginPath();
       ctx.moveTo(wz.x1, wz.surfaceY);
       ctx.lineTo(wz.x2, wz.surfaceY);
@@ -201,8 +231,44 @@ export class InkVaniaRenderer {
       drawOrthographicLanternPost(ctx, tc.x, tc.y, gy, this.ambientTime);
     }
 
+    const canGrapple = engine.hasAbility('grapple_hook');
     for (const ln of room.lanterns) {
-      drawHangingSilkLantern(ctx, ln.x, ln.y - 26, this.ambientTime, 1.05);
+      // 高空飞燕钩锁红灯笼：散发暖橙辉光，习得【飞燕钩锁】靠近时浮现金色锁环引导！
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const lg = ctx.createRadialGradient(ln.x, ln.y, 4, ln.x, ln.y, 92);
+      lg.addColorStop(0, 'rgba(251, 146, 60, 0.38)');
+      lg.addColorStop(1, 'rgba(239, 68, 68, 0)');
+      ctx.fillStyle = lg;
+      ctx.beginPath();
+      ctx.arc(ln.x, ln.y, 92, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      drawHangingSilkLantern(ctx, ln.x, ln.y - 26, this.ambientTime, 1.12);
+
+      if (canGrapple && Math.hypot(engine.player.x - ln.x, engine.player.y - 40 - ln.y) < 235) {
+        ctx.save();
+        ctx.strokeStyle = '#fde047';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.arc(ln.x, ln.y, 20 + Math.sin(this.ambientTime * 7) * 3, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    // 飞燕钩锁飞掠瞬间的赤金丝索连线！
+    if (engine.grappleLineTimer > 0 && engine.grappleTarget) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = '#fde047';
+      ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      ctx.moveTo(engine.player.x, engine.player.y - 44);
+      ctx.lineTo(engine.grappleTarget.x, engine.grappleTarget.y);
+      ctx.stroke();
+      ctx.restore();
     }
   }
 
@@ -213,7 +279,7 @@ export class InkVaniaRenderer {
   }
 
   private ensureBakedStoneContour(room: BuiltRoom): void {
-    const readyKey = `${room.realm}:${room.id}:${Boolean(Assets.get('env_ground_slab'))}:${Boolean(Assets.get('env_palace_floor'))}:${Boolean(Assets.get('env_bridge'))}`;
+    const readyKey = `${room.realm}:${room.id}:${Boolean(Assets.get('env_ground_slab'))}:${Boolean(Assets.get('env_palace_floor'))}:${Boolean(Assets.get('prop_stone_wall_tex'))}:${Boolean(Assets.get('env_bridge'))}`;
     if (this.terrainCanvas && this.cachedTerrainKey === readyKey) return;
 
     this.cachedTerrainKey = readyKey;
@@ -997,23 +1063,75 @@ export class InkVaniaRenderer {
   }
 
   /**
-   * 1.24x 前景漂浮余烬与流萤微尘（彻底移除死板的黑色代码线条假竹子！）
+   * 1.25x 前景视差遮挡层：手绘盘龙暗影巨柱、近景暖红宫灯与区域专属飘散火星/流萤！
    */
   private renderForegroundParallax(
     ctx: CanvasRenderingContext2D,
     vW: number,
     vH: number,
     camLeft: number,
-    _room: BuiltRoom
+    room: BuiltRoom
   ): void {
+    const pillarImg = Assets.get('prop_coiled_pillar');
+    const lanternImg = Assets.get('prop_lantern');
+
+    for (const fg of room.foregrounds) {
+      const sx = (fg.x - camLeft) * fg.parallax;
+      if (sx < -160 || sx > vW + 160) continue;
+
+      if (fg.kind === 'dragon_pillar' && pillarImg) {
+        const ph = vH * 1.12;
+        const pw = pillarImg.width * (ph / pillarImg.height);
+        ctx.save();
+        ctx.globalAlpha = 0.42;
+        ctx.filter = 'brightness(0.42) contrast(1.15)';
+        ctx.drawImage(pillarImg, sx - pw * 0.5, -vH * 0.06, pw, ph);
+        ctx.restore();
+      } else if (fg.kind === 'hanging_lantern' && lanternImg) {
+        const sway = Math.sin(this.ambientTime * 2.1 + fg.x * 0.02) * 0.05;
+        const lh = 94;
+        const lw = lanternImg.width * (lh / lanternImg.height);
+        ctx.save();
+        ctx.translate(sx, -6);
+        ctx.rotate(sway);
+        ctx.globalAlpha = 0.78;
+        ctx.drawImage(lanternImg, -lw * 0.5, 0, lw, lh);
+
+        ctx.globalCompositeOperation = 'lighter';
+        const g = ctx.createRadialGradient(0, lh * 0.58, 4, 0, lh * 0.58, 118);
+        g.addColorStop(0, 'rgba(251, 146, 60, 0.28)');
+        g.addColorStop(1, 'rgba(220, 38, 38, 0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(0, lh * 0.58, 118, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    const warmRegion =
+      room.region === 'opera' || room.region === 'forge' || room.region === 'main_hall';
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    for (let i = 0; i < 14; i++) {
-      const wx = ((i * 277 - camLeft * 1.22 + this.ambientTime * (12 + (i % 4) * 5)) % (vW + 120) + (vW + 120)) % (vW + 120) - 60;
-      const wy = ((i * 173 - this.ambientTime * (9 + (i % 3) * 4)) % (vH + 80) + (vH + 80)) % (vH + 80) - 40;
-      ctx.fillStyle = i % 2 === 0 ? 'rgba(253, 224, 71, 0.42)' : 'rgba(45, 212, 191, 0.35)';
+    for (let i = 0; i < 20; i++) {
+      const wx =
+        (((i * 277 - camLeft * 1.24 + this.ambientTime * (14 + (i % 4) * 5)) % (vW + 120)) +
+          (vW + 120)) %
+          (vW + 120) -
+        60;
+      const wy =
+        (((i * 173 - this.ambientTime * (11 + (i % 3) * 4)) % (vH + 80)) + (vH + 80)) %
+          (vH + 80) -
+        40;
+      ctx.fillStyle = warmRegion
+        ? i % 2 === 0
+          ? 'rgba(253, 224, 71, 0.55)'
+          : 'rgba(251, 113, 133, 0.45)'
+        : i % 2 === 0
+          ? 'rgba(253, 224, 71, 0.48)'
+          : 'rgba(45, 212, 191, 0.42)';
       ctx.beginPath();
-      ctx.arc(wx, wy, 1.6 + (i % 2), 0, Math.PI * 2);
+      ctx.arc(wx, wy, 1.7 + (i % 2), 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.restore();

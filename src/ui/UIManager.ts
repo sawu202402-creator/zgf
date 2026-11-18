@@ -11,8 +11,7 @@ import {
 } from '../data/itemsAndSkills';
 import { CHARACTER_BIOS } from '../data/storyAndNpcs';
 import {
-  CELL_PIXEL_H,
-  CELL_PIXEL_W,
+  getRoomSideDoors,
   MAP_GRID_TOTAL_H,
   MAP_GRID_TOTAL_W,
   WorldMap,
@@ -522,19 +521,21 @@ export class UIManager {
             </span>
             ${realmSwitchHtml}
           </div>
-          <canvas id="full-castle-map-canvas" width="840" height="295" style="max-width:100%;height:auto;border:1px solid var(--bronze-line);background:rgba(4,7,14,0.92);"></canvas>
-          <div style="display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:#cbd5e1;">
-            <span><b style="color:#3b82f6;">■</b> 已探厅堂连廊</span>
-            <span><b style="color:#f59e0b;">■</b> 镇魂祠存档点</span>
-            <span><b style="color:#10b981;">■</b> 太极八卦传送阵</span>
+          <canvas id="full-castle-map-canvas" width="920" height="406" style="max-width:100%;height:auto;border:1px solid var(--bronze-line);background:rgba(4,7,14,0.94);"></canvas>
+          <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:#cbd5e1;">
+            <span><b style="color:#3b82f6;">■</b> 正殿/瓮城</span>
+            <span><b style="color:#0d9488;">■</b> 藏书/星阁</span>
+            <span><b style="color:#db2777;">■</b> 百戏梨园</span>
+            <span><b style="color:#ea580c;">■</b> 赤火古窖</span>
+            <span><b style="color:#f59e0b;">■</b> 镇魂存档祠</span>
+            <span><b style="color:#10b981;">■</b> 八卦传送阵</span>
             <span><b style="color:#a855f7;">■</b> 秘宝/圣遗物室</span>
-            <span><b style="color:#ef4444;">■</b> 守关妖王/宿敌殿</span>
-            <span><b style="color:#fde047;">━</b> 门廊与上下竖井缺口</span>
+            <span><b style="color:#ef4444;">■</b> 妖王决战殿</span>
           </div>
         </div>
       `;
       footerLeft =
-        '对标《恶魔城：月下夜想曲》200% 探索结构：阳表 15 厅 + 180° 倒悬里城 15 厅，四条纵向立井上下贯通！';
+        '八大城域 · 17×7 立体迷宫：阳表 36 厅 + 180° 九幽倒悬里城 36 厅（共 72 座立体厅堂，多层通天竖井纵横咬合！）';
     } else if (this.pauseTab === 'bestiary') {
       mainHtml = this.buildBestiaryTabHtml();
       footerLeft = '镇妖司百鬼图鉴：记录已交锋妖邪之气血抗性、斩讨数与本命妖丹掉落（佩戴紫金葫芦提升福缘可倍增爆率）';
@@ -569,9 +570,10 @@ export class UIManager {
           </div>
 
           <div class="zx-item-row" style="cursor:default;flex-direction:column;align-items:flex-start;gap:10px;">
-            <strong style="color:var(--bronze-light);letter-spacing:2px;">武库全开试演（方便直接品鉴五系神兵、全圣遗物与倒悬里城）</strong>
+            <strong style="color:var(--bronze-light);letter-spacing:2px;">武库与全城堪舆试演（方便直接品鉴五系神兵、八大城域72厅蓝图与倒悬里城）</strong>
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
               <button class="zx-seal-btn" id="dev-grant-pack">一键配齐五系神兵 + 全奇门副器 + 全城圣遗物</button>
+              <button class="zx-seal-btn" id="dev-reveal-map">一键点亮双城 72 厅全境堪舆蓝图</button>
             </div>
           </div>
 
@@ -650,7 +652,9 @@ export class UIManager {
     const getThumbKey = (kind: EnemyKind): AssetKey => {
       if (kind === 'boss_xiao_duanshui') return 'boss_xiao_0';
       if (kind === 'boss_thunder_yaksha') return 'boss_yk_0';
-      if (kind === 'boss_pei_wuji' || kind === 'boss_zhuyin' || kind === 'boss_furnace_titan') {
+      if (kind === 'boss_furnace_titan') return 'boss_ft_0';
+      if (kind === 'boss_opera_god') return 'boss_op_0';
+      if (kind === 'boss_pei_wuji' || kind === 'boss_zhuyin') {
         return 'boss_pei_0';
       }
       if (ENEMY_PROFILES[kind].isBoss) return 'boss_ik_0';
@@ -726,15 +730,23 @@ export class UIManager {
     const targetRealm = realmOverride || curRoom.realm;
     ctx.clearRect(0, 0, w, h);
 
-    // 背景坐标暗格网
-    const padX = detailed ? 36 : 5;
-    const padY = detailed ? 28 : 5;
-    const cellW = Math.floor((w - padX * 2) / MAP_GRID_TOTAL_W);
-    const cellH = Math.floor((h - padY * 2) / MAP_GRID_TOTAL_H);
-    const ox = Math.floor((w - cellW * MAP_GRID_TOTAL_W) * 0.5);
-    const oy = Math.floor((h - cellH * MAP_GRID_TOTAL_H) * 0.5);
+    // 大地图完整铺展 17×7 全城蓝图；右上角 HUD 小地图自动以玩家为中心平滑取景！
+    let cellW: number;
+    let cellH: number;
+    let ox: number;
+    let oy: number;
+    const p = this.engine.player;
+    const playerGridX = curRoom.mapX + (p.x / Math.max(1, curRoom.pixelW)) * curRoom.gridW;
+    const playerGridY = curRoom.mapY + (p.y / Math.max(1, curRoom.pixelH)) * curRoom.gridH;
 
     if (detailed) {
+      const padX = 24;
+      const padY = 18;
+      cellW = Math.floor((w - padX * 2) / MAP_GRID_TOTAL_W);
+      cellH = Math.floor((h - padY * 2) / MAP_GRID_TOTAL_H);
+      ox = Math.floor((w - cellW * MAP_GRID_TOTAL_W) * 0.5);
+      oy = Math.floor((h - cellH * MAP_GRID_TOTAL_H) * 0.5);
+
       ctx.strokeStyle = 'rgba(148, 163, 184, 0.08)';
       ctx.lineWidth = 1;
       for (let gx = 0; gx <= MAP_GRID_TOTAL_W; gx++) {
@@ -749,6 +761,15 @@ export class UIManager {
         ctx.lineTo(ox + MAP_GRID_TOTAL_W * cellW, oy + gy * cellH);
         ctx.stroke();
       }
+    } else {
+      cellW = 14;
+      cellH = 11;
+      const totalPxW = MAP_GRID_TOTAL_W * cellW;
+      const totalPxH = MAP_GRID_TOTAL_H * cellH;
+      const idealOx = Math.round(w * 0.5 - playerGridX * cellW);
+      const idealOy = Math.round(h * 0.5 - playerGridY * cellH);
+      ox = totalPxW <= w - 8 ? Math.floor((w - totalPxW) * 0.5) : Math.max(w - totalPxW - 4, Math.min(4, idealOx));
+      oy = totalPxH <= h - 8 ? Math.floor((h - totalPxH) * 0.5) : Math.max(h - totalPxH - 4, Math.min(4, idealOy));
     }
 
     const rooms = WorldMap.getAllRooms(targetRealm);
@@ -757,145 +778,144 @@ export class UIManager {
     for (const rm of rooms) {
       const roomVisited = visitedSet.has(`${targetRealm}:${rm.id}`);
       let anyCellVisited = roomVisited;
-      for (let dx = 0; dx < rm.gridW; dx++) {
-        if (
-          visitedSet.has(`cell:${targetRealm}:${rm.mapX + dx},${rm.mapY}`) ||
-          (targetRealm === 'normal' && visitedSet.has(`cell:${rm.mapX + dx},${rm.mapY}`))
-        ) {
-          anyCellVisited = true;
+      for (let dy = 0; dy < rm.gridH; dy++) {
+        for (let dx = 0; dx < rm.gridW; dx++) {
+          const key = `${rm.mapX + dx},${rm.mapY + dy}`;
+          if (
+            visitedSet.has(`cell:${targetRealm}:${key}`) ||
+            (targetRealm === 'normal' && visitedSet.has(`cell:${key}`))
+          ) {
+            anyCellVisited = true;
+          }
         }
       }
       if (!anyCellVisited) continue;
 
-      let fillCol =
-        targetRealm === 'inverted'
-          ? 'rgba(127, 29, 29, 0.84)'
-          : rm.mapY === 0
-            ? 'rgba(13, 148, 136, 0.82)'
-            : rm.mapY === 2
-              ? 'rgba(30, 58, 138, 0.86)'
-              : 'rgba(29, 78, 216, 0.84)';
-      if (rm.special === 'save_shrine') fillCol = 'rgba(217, 119, 6, 0.9)';
-      else if (rm.special === 'warp_bagua') fillCol = 'rgba(5, 150, 105, 0.9)';
-      else if (rm.special === 'boss_room') fillCol = 'rgba(185, 28, 28, 0.92)';
-      else if (rm.special === 'relic_pedestal') fillCol = 'rgba(109, 40, 217, 0.88)';
+      let fillCol = 'rgba(29, 78, 216, 0.85)';
+      if (targetRealm === 'inverted') {
+        fillCol = 'rgba(136, 19, 55, 0.84)';
+      } else if (rm.region === 'opera') {
+        fillCol = 'rgba(190, 24, 93, 0.84)';
+      } else if (rm.region === 'forge') {
+        fillCol = 'rgba(194, 65, 12, 0.84)';
+      } else if (rm.region === 'library' || rm.region === 'clock_tower') {
+        fillCol = 'rgba(13, 148, 136, 0.84)';
+      } else if (rm.region === 'prison') {
+        fillCol = 'rgba(30, 64, 175, 0.86)';
+      }
+      if (rm.special === 'save_shrine') fillCol = 'rgba(217, 119, 6, 0.92)';
+      else if (rm.special === 'warp_bagua') fillCol = 'rgba(5, 150, 105, 0.92)';
+      else if (rm.special === 'boss_room') fillCol = 'rgba(185, 28, 28, 0.94)';
+      else if (rm.special === 'relic_pedestal') fillCol = 'rgba(109, 40, 217, 0.9)';
 
-      for (let dx = 0; dx < rm.gridW; dx++) {
-        const gx = rm.mapX + dx;
-        const gy = rm.mapY;
-        const cellVis =
-          visitedSet.has(`cell:${targetRealm}:${gx},${gy}`) ||
-          (targetRealm === 'normal' && visitedSet.has(`cell:${gx},${gy}`)) ||
-          roomVisited;
-        ctx.fillStyle = cellVis ? fillCol : 'rgba(30, 41, 59, 0.45)';
-        ctx.fillRect(ox + gx * cellW + 1, oy + gy * cellH + 1, cellW - 2, cellH - 2);
+      for (let dy = 0; dy < rm.gridH; dy++) {
+        for (let dx = 0; dx < rm.gridW; dx++) {
+          const gx = rm.mapX + dx;
+          const gy = rm.mapY + dy;
+          const cellVis =
+            visitedSet.has(`cell:${targetRealm}:${gx},${gy}`) ||
+            (targetRealm === 'normal' && visitedSet.has(`cell:${gx},${gy}`)) ||
+            (rm.gridH === 1 && roomVisited);
+          ctx.fillStyle = cellVis ? fillCol : 'rgba(30, 41, 59, 0.42)';
+          ctx.fillRect(ox + gx * cellW + 0.5, oy + gy * cellH + 0.5, cellW - 1, cellH - 1);
+        }
       }
 
-      const rx = ox + rm.mapX * cellW + 1;
-      const ry = oy + rm.mapY * cellH + 1;
-      const rw = rm.gridW * cellW - 2;
-      const rh = rm.gridH * cellH - 2;
-      const doorGap = Math.max(4, Math.floor(cellH * 0.34));
+      const rx = ox + rm.mapX * cellW + 0.5;
+      const ry = oy + rm.mapY * cellH + 0.5;
+      const rw = rm.gridW * cellW - 1;
+      const rh = rm.gridH * cellH - 1;
+      const doorGap = Math.max(3, Math.floor(cellH * 0.36));
       const isHere = rm.id === curRoom.id && rm.realm === curRoom.realm;
 
       ctx.strokeStyle = isHere ? '#fef08a' : '#e2e8f0';
-      ctx.lineWidth = detailed ? 2 : 1.3;
+      ctx.lineWidth = detailed ? 1.8 : 1.1;
 
-      // 上边墙
-      const upShaft = rm.shafts.find((sh) => sh.dir === 'up');
+      // 上边墙（支持多天井缺口）
+      const upShafts = rm.shafts
+        .filter((sh) => sh.dir === 'up')
+        .sort((a, b) => a.x1 - b.x1);
       ctx.beginPath();
-      if (upShaft) {
-        const gapCx = rx + ((upShaft.x1 + upShaft.x2) * 0.5 / rm.pixelW) * rw;
-        const halfG = Math.max(3, cellW * 0.16);
-        ctx.moveTo(rx, ry);
-        ctx.lineTo(gapCx - halfG, ry);
-        ctx.moveTo(gapCx + halfG, ry);
-        ctx.lineTo(rx + rw, ry);
-        ctx.stroke();
-        ctx.strokeStyle = '#fde047';
-        ctx.beginPath();
-        ctx.moveTo(gapCx - halfG, ry - 3);
-        ctx.lineTo(gapCx - halfG, ry + 3);
-        ctx.moveTo(gapCx + halfG, ry - 3);
-        ctx.lineTo(gapCx + halfG, ry + 3);
-        ctx.stroke();
+      let curTopX = rx;
+      const halfG = Math.max(2.5, cellW * 0.16);
+      for (const ush of upShafts) {
+        const gapCx = rx + (((ush.x1 + ush.x2) * 0.5) / rm.pixelW) * rw;
+        ctx.moveTo(curTopX, ry);
+        ctx.lineTo(Math.max(curTopX, gapCx - halfG), ry);
+        curTopX = Math.min(rx + rw, gapCx + halfG);
+      }
+      ctx.moveTo(curTopX, ry);
+      ctx.lineTo(rx + rw, ry);
+      ctx.stroke();
+
+      // 下边墙（支持多暗井缺口）
+      const downShafts = rm.shafts
+        .filter((sh) => sh.dir === 'down')
+        .sort((a, b) => a.x1 - b.x1);
+      ctx.beginPath();
+      let curBotX = rx;
+      for (const dsh of downShafts) {
+        const gapCx = rx + (((dsh.x1 + dsh.x2) * 0.5) / rm.pixelW) * rw;
+        ctx.moveTo(curBotX, ry + rh);
+        ctx.lineTo(Math.max(curBotX, gapCx - halfG), ry + rh);
+        curBotX = Math.min(rx + rw, gapCx + halfG);
+      }
+      ctx.moveTo(curBotX, ry + rh);
+      ctx.lineTo(rx + rw, ry + rh);
+      ctx.stroke();
+
+      // 左右多层侧壁与门廊缺口（精准绘制每一层 SideDoor！）
+      const drawSideWallWithDoors = (side: 'left' | 'right') => {
+        const wallX = side === 'left' ? rx : rx + rw;
+        const doors = getRoomSideDoors(rm, side)
+          .map((d) => {
+            const rOff =
+              d.rowOffset ??
+              Math.min(
+                rm.gridH - 1,
+                Math.max(0, Math.floor((d.floorY / Math.max(1, rm.pixelH)) * rm.gridH))
+              );
+            return ry + (rOff + 0.54) * cellH;
+          })
+          .sort((a, b) => a - b);
+
         ctx.strokeStyle = isHere ? '#fef08a' : '#e2e8f0';
-      } else {
-        ctx.moveTo(rx, ry);
-        ctx.lineTo(rx + rw, ry);
-        ctx.stroke();
-      }
-
-      // 下边墙
-      const downShaft = rm.shafts.find((sh) => sh.dir === 'down');
-      ctx.beginPath();
-      if (downShaft) {
-        const gapCx = rx + ((downShaft.x1 + downShaft.x2) * 0.5 / rm.pixelW) * rw;
-        const halfG = Math.max(3, cellW * 0.16);
-        ctx.moveTo(rx, ry + rh);
-        ctx.lineTo(gapCx - halfG, ry + rh);
-        ctx.moveTo(gapCx + halfG, ry + rh);
-        ctx.lineTo(rx + rw, ry + rh);
-        ctx.stroke();
-        ctx.strokeStyle = '#fde047';
         ctx.beginPath();
-        ctx.moveTo(gapCx - halfG, ry + rh - 3);
-        ctx.lineTo(gapCx - halfG, ry + rh + 3);
-        ctx.moveTo(gapCx + halfG, ry + rh - 3);
-        ctx.lineTo(gapCx + halfG, ry + rh + 3);
+        let cy = ry;
+        for (const dyCenter of doors) {
+          ctx.moveTo(wallX, cy);
+          ctx.lineTo(wallX, Math.max(cy, dyCenter - doorGap * 0.5));
+          cy = Math.min(ry + rh, dyCenter + doorGap * 0.5);
+        }
+        ctx.moveTo(wallX, cy);
+        ctx.lineTo(wallX, ry + rh);
         ctx.stroke();
-        ctx.strokeStyle = isHere ? '#fef08a' : '#e2e8f0';
-      } else {
-        ctx.moveTo(rx, ry + rh);
-        ctx.lineTo(rx + rw, ry + rh);
-        ctx.stroke();
-      }
 
-      // 左边墙
-      const midY = ry + rh * 0.58;
-      ctx.beginPath();
-      if (rm.leftRoomId) {
-        ctx.moveTo(rx, ry);
-        ctx.lineTo(rx, midY - doorGap * 0.5);
-        ctx.moveTo(rx, midY + doorGap * 0.5);
-        ctx.lineTo(rx, ry + rh);
-        ctx.stroke();
         ctx.fillStyle = '#fde047';
-        ctx.fillRect(rx - 3, midY - doorGap * 0.35, 4, doorGap * 0.7);
-      } else {
-        ctx.moveTo(rx, ry);
-        ctx.lineTo(rx, ry + rh);
-        ctx.stroke();
-      }
+        for (const dyCenter of doors) {
+          ctx.fillRect(
+            side === 'left' ? wallX - 2 : wallX - 1.5,
+            dyCenter - doorGap * 0.36,
+            3.5,
+            doorGap * 0.72
+          );
+        }
+      };
+      drawSideWallWithDoors('left');
+      drawSideWallWithDoors('right');
 
-      // 右边墙
-      ctx.beginPath();
-      if (rm.rightRoomId) {
-        ctx.moveTo(rx + rw, ry);
-        ctx.lineTo(rx + rw, midY - doorGap * 0.5);
-        ctx.moveTo(rx + rw, midY + doorGap * 0.5);
-        ctx.lineTo(rx + rw, ry + rh);
-        ctx.stroke();
-        ctx.fillStyle = '#fde047';
-        ctx.fillRect(rx + rw - 1, midY - doorGap * 0.35, 4, doorGap * 0.7);
-      } else {
-        ctx.moveTo(rx + rw, ry);
-        ctx.lineTo(rx + rw, ry + rh);
-        ctx.stroke();
-      }
-
-      if (detailed) {
-        ctx.font = 'bold 11.5px "STKaiti", "KaiTi", serif';
+      if (detailed && rw >= 44) {
+        ctx.font = 'bold 10px "STKaiti", "KaiTi", serif';
         ctx.textAlign = 'center';
         ctx.fillStyle = '#fffbeb';
-        ctx.fillText(rm.name.replace(/^(里 · )/, ''), rx + rw * 0.5, ry + rh * 0.54);
+        const cleanName = rm.name.replace(/^(里 · )/, '').split(' · ')[0];
+        ctx.fillText(cleanName, rx + rw * 0.5, ry + rh * 0.54);
       }
     }
 
     if (curRoom.realm === targetRealm && curRoom.id !== 'boss_rush_arena') {
-      const p = this.engine.player;
-      const dotX = ox + (curRoom.mapX + (p.x / curRoom.pixelW) * curRoom.gridW) * cellW;
-      const dotY = oy + (curRoom.mapY + (p.y / curRoom.pixelH) * curRoom.gridH) * cellH;
+      const dotX = ox + playerGridX * cellW;
+      const dotY = oy + playerGridY * cellH;
       const pulse = 0.55 + 0.45 * Math.sin(performance.now() * 0.01);
 
       ctx.fillStyle = `rgba(255, 255, 255, ${pulse})`;
@@ -1292,6 +1312,8 @@ export class UIManager {
         'double_jump',
         'mist_dash',
         'wall_jump',
+        'grapple_hook',
+        'ground_slam',
         'mirror_truth',
         'jade_pendant_full',
       ] as const) {
@@ -1309,6 +1331,24 @@ export class UIManager {
       this.engine.recalcStats(true);
       AudioFX.playRelicBell();
       this.pauseTab = 'equip';
+      this.renderArsenalModal();
+    });
+    overlay.querySelector('#dev-reveal-map')?.addEventListener('click', () => {
+      for (const realm of ['normal', 'inverted'] as const) {
+        for (const rm of WorldMap.getAllRooms(realm)) {
+          const rk = `${realm}:${rm.id}`;
+          if (!s.visitedRooms.includes(rk)) s.visitedRooms.push(rk);
+          for (let dy = 0; dy < rm.gridH; dy++) {
+            for (let dx = 0; dx < rm.gridW; dx++) {
+              const ck = `cell:${realm}:${rm.mapX + dx},${rm.mapY + dy}`;
+              if (!s.visitedRooms.includes(ck)) s.visitedRooms.push(ck);
+            }
+          }
+        }
+      }
+      s.invertedUnlocked = true;
+      AudioFX.playRelicBell();
+      this.pauseTab = 'map';
       this.renderArsenalModal();
     });
     overlay.querySelector('#btn-quit-title')?.addEventListener('click', () => {
