@@ -10,7 +10,6 @@ import {
 } from '../data/itemsAndSkills';
 import { CHARACTER_BIOS } from '../data/storyAndNpcs';
 import { WorldMap } from '../data/worldMap';
-import { Assets } from '../game/AssetLoader';
 import { drawInkSlashRibbon, renderModularLiYichengRig } from '../game/CharacterArt';
 import { ActiveSlash, GameEngine } from '../game/GameEngine';
 import { createFreshSaveSlot, SaveManager } from '../meta/SaveManager';
@@ -38,6 +37,7 @@ export class UIManager {
     hpTrail?: HTMLElement;
     hpFill?: HTMLElement;
     mpFill?: HTMLElement;
+    resRow?: HTMLElement;
     wpnIconWrap?: HTMLElement;
     wpnName?: HTMLElement;
     swapHint?: HTMLElement;
@@ -210,15 +210,15 @@ export class UIManager {
     this.lastHudWpnKey = '';
   }
 
-  // ==================== 《斩妖行 / 暖雪》主机级国风左上角 HUD ====================
+  // ==================== 《斩妖行 / 只狼》无圆框主机级国风左上角 HUD ====================
   private buildActionGameHud(): void {
     const hud = document.createElement('div');
     hud.className = 'zx-hud';
     hud.innerHTML = `
       <div class="zx-hud-left">
-        <div class="zx-medallion">
-          <img src="${Assets.getUrl('portrait_liyicheng')}" alt="李逸承" />
-          <span class="zx-lv-seal" id="hud-lv-seal">境·壹</span>
+        <div class="zx-realm-stamp" id="hud-lv-seal">
+          <span>境</span>
+          <span>壹</span>
         </div>
         <div class="zx-gauges">
           <div class="zx-hp-track">
@@ -228,6 +228,7 @@ export class UIManager {
           <div class="zx-mp-track">
             <div class="zx-mp-fill" id="hud-mp-fill" style="width:100%"></div>
           </div>
+          <div class="zx-hud-res-row" id="hud-res-row"></div>
           <div class="zx-weapon-sheath" id="hud-wpn-sheath" title="点击或按 [Q] 瞬间切换主手神兵">
             <span id="hud-wpn-icon"></span>
             <span class="zx-wpn-name" id="hud-wpn-name">青竹寒铁剑</span>
@@ -268,6 +269,7 @@ export class UIManager {
       hpTrail: hud.querySelector('#hud-hp-trail') as HTMLElement,
       hpFill: hud.querySelector('#hud-hp-fill') as HTMLElement,
       mpFill: hud.querySelector('#hud-mp-fill') as HTMLElement,
+      resRow: hud.querySelector('#hud-res-row') as HTMLElement,
       wpnIconWrap: hud.querySelector('#hud-wpn-icon') as HTMLElement,
       wpnName: hud.querySelector('#hud-wpn-name') as HTMLElement,
       swapHint: hud.querySelector('#hud-swap-hint') as HTMLElement,
@@ -298,7 +300,13 @@ export class UIManager {
     const p = this.engine.player;
     const w = WEAPONS[s.equippedWeapon] || WEAPONS.sword_1;
 
-    if (this.hudRefs.lvSeal) this.hudRefs.lvSeal.textContent = `Lv.${s.level}`;
+    if (this.hudRefs.lvSeal) {
+      this.hudRefs.lvSeal.innerHTML = `<span>境</span><span>${s.level}</span>`;
+    }
+    if (this.hudRefs.resRow) {
+      const potCnt = Object.values(s.consumables).reduce((a, b) => a + b, 0);
+      this.hudRefs.resRow.innerHTML = `<span style="color:#fde68a;">纹银 ${s.gold}</span><span style="color:#fb923c;">灵符 ${s.talismanHearts}</span><span style="color:#5eead4;">灵药 ${potCnt} [H]</span>`;
+    }
 
     const hpPct = Math.max(0, Math.min(100, (p.hp / Math.max(1, p.maxHp)) * 100));
     const trailPct = Math.max(0, Math.min(100, (p.hpTrail / Math.max(1, p.maxHp)) * 100));
@@ -444,23 +452,21 @@ export class UIManager {
       footerLeft = '击败奉天残殿【万卷妖宗·墨千秋】习得二段跳后，可折返瓮城镇魂古祠跃上谯楼高阁取名剑';
     } else if (this.pauseTab === 'lore') {
       mainHtml = `
-        <div style="flex:1;overflow-y:auto;padding:16px 0;display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;">
-          ${CHARACTER_BIOS.slice(0, 4)
-            .map(
-              (b) => `
-              <div class="zx-item-row" style="gap:14px;align-items:center;cursor:default;">
-                <div class="cv-dlg-portrait">${getSpeakerPortraitSvg(b.name)}</div>
-                <div>
+        <div style="flex:1;overflow-y:auto;padding:16px 0;display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:16px;">
+          ${CHARACTER_BIOS.map(
+            (b) => `
+              <div class="zx-item-row" style="gap:16px;align-items:flex-end;cursor:default;overflow:hidden;padding-bottom:0;">
+                <div style="flex-shrink:0;line-height:0;">${getSpeakerPortraitSvg(b.name, 132)}</div>
+                <div style="padding-bottom:12px;">
                   <div style="font-size:16px;font-weight:900;color:${b.color};letter-spacing:2px;">${b.name}</div>
                   <div style="font-size:11.5px;color:var(--bronze);margin:3px 0 6px;">${b.ageTitle}</div>
                   <div style="font-size:12.5px;color:#cbd5e1;line-height:1.55;">${b.summary}</div>
                 </div>
               </div>`
-            )
-            .join('')}
+          ).join('')}
         </div>
       `;
-      footerLeft = '镇妖司人物密档';
+      footerLeft = '镇妖司人物密档（皆为无框水墨半身立绘）';
     } else {
       const mute = AudioFX.getMuteState();
       mainHtml = `
@@ -657,7 +663,7 @@ export class UIManager {
                 return `
               <div class="zx-item-row" data-pick-id="${id}">
                 <div style="display:flex;align-items:center;gap:12px;">
-                  ${getSlotCategorySvg('potion')}
+                  ${getSlotCategorySvg('potion', id)}
                   <div>
                     <div style="font-size:15px;font-weight:900;color:var(--rice);">${c.name} ×${cnt}</div>
                     <div style="font-size:11.5px;color:var(--jade);">气血 +${c.hpRestore} · 真气 +${c.mpRestore}</div>
@@ -896,8 +902,205 @@ export class UIManager {
     });
   }
 
-  public openInteractModal(_kind: 'smith' | 'merchant' | 'warp'): void {
-    this.togglePauseModal();
+  public openInteractModal(kind: 'smith' | 'merchant' | 'warp'): void {
+    const s = this.engine.slot;
+    if (!s) return;
+    if (kind === 'warp') {
+      this.togglePauseModal();
+      return;
+    }
+
+    this.closeModal();
+    const overlay = document.createElement('div');
+    overlay.className = 'zx-arsenal-overlay';
+    this.modalEl = overlay;
+    this.uiLayer.appendChild(overlay);
+    this.syncBlockState();
+
+    const renderShopOrSmith = () => {
+      if (kind === 'smith') {
+        const rows = s.ownedWeapons
+          .map((id) => {
+            const w = WEAPONS[id];
+            const tLv = s.weaponTemperLv?.[id] || 0;
+            const cost = 45 + tLv * 40;
+            const curAtk = w.atk + tLv * 6;
+            return `
+              <div class="zx-item-row" data-temper-id="${id}">
+                <div style="display:flex;align-items:center;gap:14px;">
+                  ${getWeaponArtHtml(w.archetype, 76)}
+                  <div>
+                    <div style="font-size:15.5px;font-weight:900;color:var(--rice);">${w.name} ${tLv > 0 ? `<span style="color:#fb923c;">+${tLv}</span>` : ''}</div>
+                    <div style="font-size:12px;color:var(--ash);">兵刃杀伤 ${curAtk} <span class="stat-up">➔ ${curAtk + 6}</span></div>
+                  </div>
+                </div>
+                <span class="zx-eq-seal" style="background:${s.gold >= cost && tLv < 5 ? '#7c2d12' : '#1e293b'};border-color:#fb923c;">
+                  ${tLv >= 5 ? '已臻极境' : `淬炼 (${cost} 文银)`}
+                </span>
+              </div>`;
+          })
+          .join('');
+
+        overlay.innerHTML = `
+          <div class="zx-arsenal-topbar">
+            <span style="font-size:20px;font-weight:900;letter-spacing:4px;color:#fb923c;">赤火淬兵台 · 独臂宗师欧冶残</span>
+            <div style="display:flex;align-items:center;gap:16px;">
+              <span style="color:#fde68a;font-weight:800;">持有纹银：${s.gold}</span>
+              <button class="zx-seal-btn" id="btn-close-npc">收剑告辞 [ESC]</button>
+            </div>
+          </div>
+          <div style="flex:1;display:grid;grid-template-columns:280px 1fr;gap:24px;min-height:0;padding:18px 0;">
+            <div class="zx-stage-col" style="justify-content:flex-end;padding-bottom:0;overflow:hidden;">
+              <div style="font-size:13px;color:#cbd5e1;line-height:1.65;padding:8px 6px 14px;">
+                “裴魁首当年救过老夫一命。小子，把剑递过来——老夫剩这一条右臂，照样替你锤出斩妖寒芒！”
+              </div>
+              ${getSpeakerPortraitSvg('欧冶残', 255)}
+            </div>
+            <div class="zx-item-list">${rows}</div>
+          </div>
+        `;
+
+        overlay.querySelectorAll<HTMLElement>('[data-temper-id]').forEach((el) => {
+          el.onclick = () => {
+            const wid = el.dataset.temperId!;
+            if (!s.weaponTemperLv) s.weaponTemperLv = {};
+            const lv = s.weaponTemperLv[wid] || 0;
+            const cost = 45 + lv * 40;
+            if (lv >= 5 || s.gold < cost) {
+              AudioFX.playHurt();
+              return;
+            }
+            s.gold -= cost;
+            s.weaponTemperLv[wid] = lv + 1;
+            this.engine.recalcStats(false);
+            AudioFX.playParryClang();
+            renderShopOrSmith();
+          };
+        });
+      } else {
+        const goods: { id: string; kind: 'pot' | 'sub' | 'heart'; name: string; desc: string; price: number; icon: string }[] = [
+          {
+            id: 'jinchuang_yao',
+            kind: 'pot',
+            name: '金疮止血散',
+            desc: '立复 65 点气血（行囊常备救命药）',
+            price: 28,
+            icon: getSlotCategorySvg('potion', 'jinchuang_yao'),
+          },
+          {
+            id: 'huiqi_dan',
+            kind: 'pot',
+            name: '回气凝神丹',
+            desc: '立复 55 点真气（手搓剑诀必备）',
+            price: 32,
+            icon: getSlotCategorySvg('potion', 'huiqi_dan'),
+          },
+          {
+            id: 'beggar_chicken',
+            kind: 'pot',
+            name: '荷叶叫花鸡',
+            desc: '大幅恢复 160 点气血',
+            price: 68,
+            icon: getSlotCategorySvg('potion', 'beggar_chicken'),
+          },
+          {
+            id: 'holy_fire',
+            kind: 'sub',
+            name: '奇门 · 三昧火油瓶',
+            desc: '掷出落地化作三道持续灼烧真火柱',
+            price: 75,
+            icon: getSubWeaponSvg('holy_fire'),
+          },
+          {
+            id: 'bagua_cross',
+            kind: 'sub',
+            name: '奇门 · 天罡八卦镖',
+            desc: '回旋穿透敌阵的镇妖法器',
+            price: 90,
+            icon: getSubWeaponSvg('bagua_cross'),
+          },
+          {
+            id: 'hearts_10',
+            kind: 'heart',
+            name: '朱砂灵符 ×10',
+            desc: '补充奇门副器催动灵符',
+            price: 25,
+            icon: getSubWeaponSvg('dagger_throw'),
+          },
+        ];
+
+        const rows = goods
+          .map((g) => {
+            const ownedSub = g.kind === 'sub' && s.ownedSubWeapons.includes(g.id as SubWeaponId);
+            return `
+              <div class="zx-item-row" data-buy-id="${g.id}" data-buy-kind="${g.kind}" data-buy-price="${g.price}">
+                <div style="display:flex;align-items:center;gap:14px;">
+                  ${g.icon}
+                  <div>
+                    <div style="font-size:15px;font-weight:900;color:var(--rice);">${g.name}</div>
+                    <div style="font-size:12px;color:var(--ash);">${g.desc}</div>
+                  </div>
+                </div>
+                <span class="zx-eq-seal" style="background:${ownedSub ? '#115e59' : s.gold >= g.price ? '#881313' : '#1e293b'};">
+                  ${ownedSub ? '已习得' : `${g.price} 文银`}
+                </span>
+              </div>`;
+          })
+          .join('');
+
+        overlay.innerHTML = `
+          <div class="zx-arsenal-topbar">
+            <span style="font-size:20px;font-weight:900;letter-spacing:4px;color:var(--jade);">子夜鬼市 · 狐商白掌柜</span>
+            <div style="display:flex;align-items:center;gap:16px;">
+              <span style="color:#fde68a;font-weight:800;">持有纹银：${s.gold}</span>
+              <button class="zx-seal-btn" id="btn-close-npc">收囊离开 [ESC]</button>
+            </div>
+          </div>
+          <div style="flex:1;display:grid;grid-template-columns:280px 1fr;gap:24px;min-height:0;padding:18px 0;">
+            <div class="zx-stage-col" style="justify-content:flex-end;padding-bottom:0;overflow:hidden;">
+              <div style="font-size:13px;color:#cbd5e1;line-height:1.65;padding:8px 6px 14px;">
+                “呵呵呵……血月当空，青灯引路。小客官，只要纹银管够，救命的灵丹与烧妖的三昧真火皆可拿去。”
+              </div>
+              ${getSpeakerPortraitSvg('白掌柜', 255)}
+            </div>
+            <div class="zx-item-list">${rows}</div>
+          </div>
+        `;
+
+        overlay.querySelectorAll<HTMLElement>('[data-buy-id]').forEach((el) => {
+          el.onclick = () => {
+            const id = el.dataset.buyId!;
+            const bKind = el.dataset.buyKind as 'pot' | 'sub' | 'heart';
+            const price = Number(el.dataset.buyPrice || 30);
+            if (bKind === 'sub' && s.ownedSubWeapons.includes(id as SubWeaponId)) {
+              s.equippedSubWeapon = id as SubWeaponId;
+              AudioFX.playHit(false);
+              renderShopOrSmith();
+              return;
+            }
+            if (s.gold < price) {
+              AudioFX.playHurt();
+              return;
+            }
+            s.gold -= price;
+            if (bKind === 'pot') {
+              s.consumables[id] = (s.consumables[id] || 0) + 1;
+            } else if (bKind === 'sub') {
+              s.ownedSubWeapons.push(id as SubWeaponId);
+              s.equippedSubWeapon = id as SubWeaponId;
+            } else {
+              s.talismanHearts = Math.min(99, s.talismanHearts + 10);
+            }
+            AudioFX.playRelicBell();
+            renderShopOrSmith();
+          };
+        });
+      }
+
+      overlay.querySelector('#btn-close-npc')?.addEventListener('click', () => this.closeModal());
+    };
+
+    renderShopOrSmith();
   }
 
   public closeModal(): void {
@@ -921,8 +1124,10 @@ export class UIManager {
 
     const renderLine = () => {
       const ln = scene.lines[idx];
+      const isHero = ln.speaker.includes('李逸承');
+      box.classList.toggle('npc-right', !isHero);
       box.innerHTML = `
-        <div class="cv-dlg-portrait">${getSpeakerPortraitSvg(ln.speaker)}</div>
+        <div class="cv-dlg-bust-slot">${getSpeakerPortraitSvg(ln.speaker, 224)}</div>
         <div class="cv-dlg-content">
           <div class="dialogue-speaker-row">
             <div>
@@ -932,7 +1137,7 @@ export class UIManager {
             <span style="font-size:11px;color:var(--ash);">${scene.title} (${idx + 1}/${scene.lines.length})</span>
           </div>
           <div class="dialogue-text">${ln.text}</div>
-          <div class="dialogue-next">点击继续 ▸</div>
+          <div class="dialogue-next">点击任意处继续 ▸</div>
         </div>
       `;
     };

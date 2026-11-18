@@ -1,4 +1,5 @@
 import { WEAPONS } from '../data/itemsAndSkills';
+import { SceneNpc } from '../data/worldMap';
 import { EnemyKind, WeaponArchetype } from '../types';
 import { AssetKey, Assets } from './AssetLoader';
 import { ActiveSlash, EnemyEntity, GameEngine, WorldDrop } from './GameEngine';
@@ -260,7 +261,7 @@ export function drawHeroCharacter(
 }
 
 /**
- * 《斩妖行 / 胧村正》风格水墨重彩渐变收尖刀光绸带（Tapered Ink & Flame Crescent Mesh）！
+ * 流体分段水墨飞白 + 叠加态流光剑气刀罡（0贴图感：尾部渐隐消散、中段发光透景、多缕飞白丝线、刀尖破空星芒！）
  */
 export function drawInkSlashRibbon(
   ctx: CanvasRenderingContext2D,
@@ -275,61 +276,106 @@ export function drawInkSlashRibbon(
   coreColor: string,
   fadeAlpha: number
 ): void {
-  if (fadeAlpha <= 0.02) return;
-  const steps = 20;
+  if (fadeAlpha <= 0.02 || Math.abs(endAng - startAng) < 0.05) return;
+  const segs = 18;
 
   ctx.save();
   ctx.translate(cx, cy);
   ctx.scale(facing, flipVert ? -1 : 1);
-  ctx.globalAlpha = fadeAlpha;
 
-  const buildRibbonPath = (rOuterOff: number, rInnerOff: number) => {
+  // 1. 分段渐隐水墨气痕底衬（从尾端0透明度平滑过渡到锋端浓墨，彻底消除死板纯色块！）
+  for (let i = 0; i < segs; i++) {
+    const u0 = i / segs;
+    const u1 = (i + 1) / segs;
+    const a0 = startAng + (endAng - startAng) * u0;
+    const a1 = startAng + (endAng - startAng) * u1;
+    const w0 = Math.sin(u0 * Math.PI);
+    const w1 = Math.sin(u1 * Math.PI);
+    // 沿挥砍方向尾部迅速消散，头部凝聚
+    const segAlpha = fadeAlpha * Math.pow(u1, 1.45) * 0.58;
+    if (segAlpha < 0.015) continue;
+
+    const rOut0 = radius + 5 * w0;
+    const rOut1 = radius + 5 * w1;
+    const rIn0 = radius - (thickness + 8) * Math.pow(w0, 0.72);
+    const rIn1 = radius - (thickness + 8) * Math.pow(w1, 0.72);
+
+    ctx.globalAlpha = segAlpha;
+    ctx.fillStyle = '#050811';
     ctx.beginPath();
-    for (let i = 0; i <= steps; i++) {
-      const u = i / steps;
+    ctx.moveTo(Math.cos(a0) * rOut0, Math.sin(a0) * rOut0 * 0.86);
+    ctx.lineTo(Math.cos(a1) * rOut1, Math.sin(a1) * rOut1 * 0.86);
+    ctx.lineTo(Math.cos(a1) * rIn1, Math.sin(a1) * rIn1 * 0.86);
+    ctx.lineTo(Math.cos(a0) * rIn0, Math.sin(a0) * rIn0 * 0.86);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // 2. 叠加态（lighter）真气发光刃流：透出背景光影，绝不遮盖成贴纸！
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 1; i < segs; i++) {
+    const u0 = i / segs;
+    const u1 = (i + 1) / segs;
+    const a0 = startAng + (endAng - startAng) * u0;
+    const a1 = startAng + (endAng - startAng) * u1;
+    const w0 = Math.sin(u0 * Math.PI);
+    const w1 = Math.sin(u1 * Math.PI);
+    const glowAlpha = fadeAlpha * Math.pow(u1, 1.75) * 0.68;
+    if (glowAlpha < 0.015) continue;
+
+    const rOut0 = radius + 1.5 * w0;
+    const rOut1 = radius + 1.5 * w1;
+    const rIn0 = radius - thickness * 0.82 * w0;
+    const rIn1 = radius - thickness * 0.82 * w1;
+
+    ctx.globalAlpha = glowAlpha;
+    ctx.fillStyle = coreColor;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a0) * rOut0, Math.sin(a0) * rOut0 * 0.86);
+    ctx.lineTo(Math.cos(a1) * rOut1, Math.sin(a1) * rOut1 * 0.86);
+    ctx.lineTo(Math.cos(a1) * rIn1, Math.sin(a1) * rIn1 * 0.86);
+    ctx.lineTo(Math.cos(a0) * rIn0, Math.sin(a0) * rIn0 * 0.86);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // 3. 多缕书法枯笔飞白剑丝（4道错落弧线营造高速撕裂空气感！）
+  const filaments = [
+    { rMul: 1.03, uStart: 0.28, uEnd: 1.0, width: 2.2, col: '#ffffff', al: 0.92 },
+    { rMul: 0.95, uStart: 0.14, uEnd: 0.96, width: 1.5, col: coreColor, al: 0.78 },
+    { rMul: 0.85, uStart: 0.35, uEnd: 0.92, width: 1.1, col: '#f8fafc', al: 0.55 },
+    { rMul: 0.74, uStart: 0.22, uEnd: 0.82, width: 0.9, col: coreColor, al: 0.42 },
+  ];
+  ctx.lineCap = 'round';
+  for (const fl of filaments) {
+    ctx.globalAlpha = fadeAlpha * fl.al;
+    ctx.strokeStyle = fl.col;
+    ctx.lineWidth = fl.width;
+    ctx.beginPath();
+    const fSteps = 12;
+    for (let j = 0; j <= fSteps; j++) {
+      const u = fl.uStart + (fl.uEnd - fl.uStart) * (j / fSteps);
       const a = startAng + (endAng - startAng) * u;
-      const taper = Math.sin(u * Math.PI);
-      const r = radius + rOuterOff * taper;
+      const r = radius * fl.rMul;
       const px = Math.cos(a) * r;
       const py = Math.sin(a) * r * 0.86;
-      if (i === 0) ctx.moveTo(px, py);
+      if (j === 0) ctx.moveTo(px, py);
       else ctx.lineTo(px, py);
     }
-    for (let i = steps; i >= 0; i--) {
-      const u = i / steps;
-      const a = startAng + (endAng - startAng) * u;
-      const taper = Math.pow(Math.sin(u * Math.PI), 0.75);
-      const r = radius - (thickness + rInnerOff) * taper;
-      const px = Math.cos(a) * r;
-      const py = Math.sin(a) * r * 0.86;
-      ctx.lineTo(px, py);
-    }
-    ctx.closePath();
-  };
-
-  // 第一层：浓墨枯笔外晕底衬（赋予纯正东方水墨厚重感！）
-  buildRibbonPath(7, 10);
-  ctx.fillStyle = 'rgba(7, 10, 16, 0.86)';
-  ctx.fill();
-
-  // 第二层：流火/翡翠真气主刃带
-  buildRibbonPath(2, 0);
-  ctx.fillStyle = coreColor;
-  ctx.fill();
-
-  // 第三层：外缘极锐炽白寒芒锋线
-  ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = 2.6;
-  ctx.beginPath();
-  for (let i = 3; i <= steps - 1; i++) {
-    const u = i / steps;
-    const a = startAng + (endAng - startAng) * u;
-    const r = radius + 2 * Math.sin(u * Math.PI);
-    const px = Math.cos(a) * r;
-    const py = Math.sin(a) * r * 0.86;
-    if (i === 3) ctx.moveTo(px, py);
-    else ctx.lineTo(px, py);
+    ctx.stroke();
   }
+
+  // 4. 刀尖破空十字寒芒与尾迹碎星
+  const tipX = Math.cos(endAng) * (radius + 1);
+  const tipY = Math.sin(endAng) * (radius + 1) * 0.86;
+  ctx.globalAlpha = fadeAlpha * 0.9;
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(tipX - 9, tipY);
+  ctx.lineTo(tipX + 9, tipY);
+  ctx.moveTo(tipX, tipY - 9);
+  ctx.lineTo(tipX, tipY + 9);
   ctx.stroke();
 
   ctx.restore();
@@ -452,84 +498,328 @@ export function drawMonsterOrBoss(
   ctx.restore();
 }
 
-export function drawWorldDrop(ctx: CanvasRenderingContext2D, d: WorldDrop, t: number): void {
-  const bob = Math.sin(t * 3.8 + d.x * 0.05) * 3.5;
-  ctx.save();
-  ctx.translate(d.x, d.y);
+/**
+ * 绘制驻立在玄城古道与祠堂中的全身手绘动态 NPC（苏清晏 / 欧冶残·赤火砧 / 白掌柜·鬼市灯）
+ * 彻底告别“空街无人物、只有圆框头像弹窗”！
+ */
+export function drawSceneNpc(
+  ctx: CanvasRenderingContext2D,
+  npc: SceneNpc,
+  groundY: number,
+  playerX: number,
+  t: number
+): void {
+  const dist = Math.abs(playerX - npc.x);
+  const facing: 1 | -1 = dist < 240 ? (playerX >= npc.x ? 1 : -1) : npc.defaultFacing;
 
-  if (d.isStaticPickup) {
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.save();
+  ctx.translate(npc.x, groundY);
+
+  // 1. 专属场景陈设与环境光影（让 NPC 与大地严丝合缝融为一体）
+  if (npc.id === 'ouye_can') {
+    // 独臂铸剑师身旁的【赤火铸剑铁砧与炭火炉】
+    const bx = -36;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
     ctx.beginPath();
-    ctx.ellipse(0, 2, 24, 5, 0, 0, Math.PI * 2);
+    ctx.ellipse(bx, 2, 24, 5, 0, 0, Math.PI * 2);
     ctx.fill();
+
+    // 玄铁剑砧底座
+    ctx.fillStyle = '#1e293b';
+    ctx.strokeStyle = '#090d16';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(bx - 18, 0);
+    ctx.lineTo(bx + 18, 0);
+    ctx.lineTo(bx + 13, -18);
+    ctx.lineTo(bx + 22, -24);
+    ctx.lineTo(bx - 20, -24);
+    ctx.lineTo(bx - 13, -18);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // 砧面通红剑坯与跃动炉火微光
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const fg = ctx.createRadialGradient(bx, -28, 2, bx, -28, 54 + Math.sin(t * 11) * 6);
+    fg.addColorStop(0, 'rgba(253, 224, 71, 0.55)');
+    fg.addColorStop(0.45, 'rgba(249, 115, 22, 0.26)');
+    fg.addColorStop(1, 'rgba(249, 115, 22, 0)');
+    ctx.fillStyle = fg;
+    ctx.beginPath();
+    ctx.arc(bx, -28, 58, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fb923c';
+    ctx.fillRect(bx - 12, -26.5, 24, 2.5);
+    ctx.restore();
+  } else if (npc.id === 'bai_zhanggui') {
+    // 白掌柜身下青冥灯影光晕
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const cg = ctx.createRadialGradient(facing * 26, -54, 3, facing * 26, -54, 62);
+    cg.addColorStop(0, 'rgba(45, 212, 191, 0.34)');
+    cg.addColorStop(0.55, 'rgba(56, 189, 248, 0.12)');
+    cg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = cg;
+    ctx.beginPath();
+    ctx.arc(facing * 26, -54, 62, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
   }
 
-  if (d.kind === 'weapon' && d.itemId === 'greatsword_1') {
-    const modao = Assets.get('part_wpn_modao');
-    const glow = ctx.createRadialGradient(0, -34, 4, 0, -34, 48);
-    glow.addColorStop(0, 'rgba(249, 115, 22, 0.48)');
-    glow.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = glow;
-    ctx.beginPath();
-    ctx.arc(0, -34, 48, 0, Math.PI * 2);
-    ctx.fill();
+  // 人物脚下接触浓墨接地影
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.54)';
+  ctx.beginPath();
+  ctx.ellipse(0, 2, 22, 5.2, 0, 0, Math.PI * 2);
+  ctx.fill();
 
-    if (modao) {
-      ctx.save();
-      ctx.translate(0, -38 + bob * 0.6);
-      ctx.rotate(-1.18);
-      ctx.drawImage(modao, -48, -16, 96, 32);
-      ctx.restore();
-    }
+  // 2. 选择手绘全身序列帧并呼吸微动
+  let frameKey: AssetKey = 'npc_su_0';
+  if (npc.id === 'su_qingyan') {
+    frameKey = t % 4.6 > 2.6 ? 'npc_su_1' : 'npc_su_0';
+  } else if (npc.id === 'ouye_can') {
+    frameKey = 'npc_ouye';
   } else {
-    ctx.save();
-    ctx.translate(0, -18 + bob);
-    const chestImg = Assets.get('prop_chest');
-    const gourdImg = Assets.get('prop_gourd');
+    frameKey = 'npc_bai';
+  }
 
-    if ((d.kind === 'weapon' || d.kind === 'armor') && chestImg) {
-      const h = 38;
-      const w = chestImg.width * (h / chestImg.height);
-      ctx.drawImage(chestImg, -w * 0.5, -h * 0.42, w, h);
-    } else if ((d.kind === 'consumable' || d.kind === 'max_up') && gourdImg) {
-      const h = 36;
-      const w = gourdImg.width * (h / gourdImg.height);
-      ctx.drawImage(gourdImg, -w * 0.5, -h * 0.5, w, h);
-    } else if (d.kind === 'gold') {
-      ctx.fillStyle = '#fde047';
-      ctx.strokeStyle = '#92400e';
-      ctx.lineWidth = 1.5;
+  const img = Assets.get(frameKey);
+  if (img) {
+    const breath = 1 + Math.sin(t * 2.8 + npc.x * 0.02) * 0.013;
+    ctx.save();
+    ctx.scale(facing, breath);
+    const s = HERO_SPRITE_METRICS.baseScale;
+    const dw = HERO_SPRITE_METRICS.canvasW * s;
+    const dh = HERO_SPRITE_METRICS.canvasH * s;
+    const dx = -HERO_SPRITE_METRICS.anchorX * s;
+    const dy = -HERO_SPRITE_METRICS.footY * s + 2;
+    ctx.drawImage(img, dx, dy, dw, dh);
+    ctx.restore();
+  }
+
+  // 苏清晏指尖环绕的钦天监星芒灵尘（程序化微粒，灵动无框）
+  if (npc.id === 'su_qingyan') {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 3; i++) {
+      const a = t * 2.2 + i * 2.1;
+      const sx = facing * 16 + Math.cos(a) * 14;
+      const sy = -62 + Math.sin(a * 1.4) * 10;
+      ctx.fillStyle = 'rgba(253, 224, 71, 0.72)';
       ctx.beginPath();
-      ctx.moveTo(-8, -2);
-      ctx.quadraticCurveTo(0, 5, 8, -2);
-      ctx.lineTo(5, 5);
-      ctx.lineTo(-5, 5);
-      ctx.closePath();
+      ctx.arc(sx, sy, 1.8, 0, Math.PI * 2);
       ctx.fill();
-      ctx.stroke();
-    } else {
-      ctx.fillStyle = '#dc2626';
-      ctx.strokeStyle = '#fde047';
-      ctx.lineWidth = 1.3;
-      ctx.fillRect(-5, -8, 10, 16);
-      ctx.strokeRect(-5, -8, 10, 16);
     }
     ctx.restore();
   }
 
-  if (d.isStaticPickup || d.kind === 'yao_core') {
-    ctx.font = 'bold 12px "STKaiti", "KaiTi", serif';
-    ctx.textAlign = 'center';
-    const tw = ctx.measureText(d.label).width + 16;
-    ctx.fillStyle = 'rgba(6, 8, 14, 0.88)';
-    ctx.strokeStyle = 'rgba(207, 163, 73, 0.65)';
-    ctx.lineWidth = 1;
+  // 3. 头顶无框书法轻题名（绝不画方框/圆框背景贴条！）
+  const nearAlpha = dist < 150 ? 0.96 : 0.62;
+  ctx.globalAlpha = nearAlpha;
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 13px "STKaiti", "KaiTi", serif';
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+  ctx.fillText(npc.name, 1.2, -105.8);
+  ctx.fillStyle = '#f6dc8d';
+  ctx.fillText(npc.name, 0, -107);
+
+  if (dist < 135) {
+    ctx.font = '10.5px "STKaiti", "KaiTi", serif';
+    ctx.fillStyle = '#7dd3fc';
+    ctx.fillText(npc.title, 0, -121);
+  }
+
+  ctx.restore();
+}
+
+/**
+ * 接地祭剑石座与手绘灵韵器物渲染（彻底淘汰漂浮宝箱/葫芦抠图贴纸与方框文字签！）
+ */
+export function drawWorldDrop(
+  ctx: CanvasRenderingContext2D,
+  d: WorldDrop,
+  t: number,
+  playerX = -9999
+): void {
+  ctx.save();
+  ctx.translate(d.x, d.y);
+
+  // 地面接触暗影（所有器物稳稳立于地面石台或散落地面，绝不悬空贴图式乱飘！）
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.56)';
+  ctx.beginPath();
+  ctx.ellipse(0, 2, d.isStaticPickup ? 24 : 13, 4.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  const auraCol =
+    d.kind === 'weapon'
+      ? d.itemId.startsWith('greatsword')
+        ? 'rgba(249, 115, 22,'
+        : 'rgba(45, 212, 191,'
+      : d.kind === 'yao_core'
+        ? 'rgba(192, 132, 252,'
+        : d.kind === 'consumable'
+          ? 'rgba(74, 222, 128,'
+          : 'rgba(250, 204, 21,';
+
+  // 柔和向天空消散的垂直灵韵微光丝（lighter 叠加，0硬边）
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const beamH = d.isStaticPickup ? 68 : 38;
+  const bg = ctx.createLinearGradient(0, 0, 0, -beamH);
+  bg.addColorStop(0, `${auraCol} 0.36)`);
+  bg.addColorStop(0.55, `${auraCol} 0.12)`);
+  bg.addColorStop(1, `${auraCol} 0)`);
+  ctx.fillStyle = bg;
+  ctx.beginPath();
+  ctx.moveTo(-12, 0);
+  ctx.lineTo(12, 0);
+  ctx.lineTo(5, -beamH);
+  ctx.lineTo(-5, -beamH);
+  ctx.closePath();
+  ctx.fill();
+
+  // 升腾灵尘微粒
+  for (let i = 0; i < 3; i++) {
+    const prog = (t * 0.75 + i * 0.33 + d.x * 0.01) % 1;
+    const mx = Math.sin(t * 3 + i * 2) * 8;
+    const my = -4 - prog * (beamH - 8);
+    ctx.fillStyle = `${auraCol} ${(1 - prog) * 0.8})`;
     ctx.beginPath();
-    ctx.roundRect(-tw * 0.5, -72 + bob, tw, 19, 2);
+    ctx.arc(mx, my, 1.6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  if (d.kind === 'weapon') {
+    // 青石镇剑台基座 + 神兵斜插石中（真实武侠场景奇遇感！）
+    const isModao = d.itemId.startsWith('greatsword');
+    const wpnImg = Assets.get(isModao ? 'part_wpn_modao' : 'part_wpn_sword');
+    if (wpnImg) {
+      ctx.save();
+      ctx.translate(2, isModao ? -34 : -28);
+      ctx.rotate(isModao ? 1.28 : 1.38); // 刀尖/剑尖朝下深深没入青石剑座！
+      const w = isModao ? 88 : 70;
+      const h = w * (wpnImg.height / wpnImg.width);
+      ctx.drawImage(wpnImg, -w * 0.45, -h * 0.5, w, h);
+      ctx.restore();
+    }
+    // 裂纹青石剑座压在前层遮住入石剑尖，形成真实插石遮挡关系！
+    ctx.fillStyle = '#273449';
+    ctx.strokeStyle = '#070a12';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-22, 1);
+    ctx.lineTo(-16, -13);
+    ctx.lineTo(17, -13);
+    ctx.lineTo(23, 1);
+    ctx.closePath();
     ctx.fill();
     ctx.stroke();
+    ctx.strokeStyle = 'rgba(207, 163, 73, 0.45)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(-15, -12);
+    ctx.lineTo(16, -12);
+    ctx.stroke();
+  } else if (d.kind === 'consumable' || d.kind === 'max_up') {
+    // 雕漆石托盘 + 精细手绘青瓷药玉瓶 / 荷叶灵食（告别抠图大葫芦贴纸！）
+    ctx.fillStyle = '#3b1514';
+    ctx.strokeStyle = '#c69a45';
+    ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    ctx.ellipse(0, -2, 14, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    if (d.itemId === 'beggar_chicken') {
+      // 荷叶金缕叫花鸡包裹
+      ctx.fillStyle = '#365314';
+      ctx.strokeStyle = '#090d16';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.ellipse(0, -10, 11, 8, -0.1, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.strokeStyle = '#eab308';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(-8, -10);
+      ctx.lineTo(8, -10);
+      ctx.moveTo(0, -17);
+      ctx.lineTo(0, -3);
+      ctx.stroke();
+    } else {
+      // 龙泉青釉丹药玉净瓶
+      const pg = ctx.createLinearGradient(-7, -22, 7, -4);
+      pg.addColorStop(0, '#99f6e4');
+      pg.addColorStop(0.5, '#14b8a6');
+      pg.addColorStop(1, '#115e59');
+      ctx.fillStyle = pg;
+      ctx.strokeStyle = '#070a12';
+      ctx.lineWidth = 1.7;
+      ctx.beginPath();
+      ctx.arc(0, -10, 7.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillRect(-3, -21, 6, 6);
+      ctx.strokeRect(-3, -21, 6, 6);
+      // 朱红木塞
+      ctx.fillStyle = '#dc2626';
+      ctx.fillRect(-2.5, -24, 5, 3);
+    }
+  } else if (d.kind === 'yao_core') {
+    const floatY = -18 + Math.sin(t * 4.5) * 3;
+    const cg = ctx.createRadialGradient(0, floatY, 2, 0, floatY, 14);
+    cg.addColorStop(0, '#ffffff');
+    cg.addColorStop(0.4, '#d8b4fe');
+    cg.addColorStop(1, 'rgba(147, 51, 234, 0)');
+    ctx.fillStyle = cg;
+    ctx.beginPath();
+    ctx.arc(0, floatY, 14, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (d.kind === 'gold') {
+    // 纹银元宝锭
     ctx.fillStyle = '#fef08a';
-    ctx.fillText(d.label, 0, -58 + bob);
+    ctx.strokeStyle = '#78350f';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(-9, -6);
+    ctx.quadraticCurveTo(0, 0, 9, -6);
+    ctx.lineTo(6, -1);
+    ctx.lineTo(-6, -1);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  } else {
+    // 随风微颤的朱砂黄纸灵符
+    const tilt = Math.sin(t * 5 + d.x) * 0.12;
+    ctx.save();
+    ctx.translate(0, -11);
+    ctx.rotate(tilt);
+    ctx.fillStyle = '#fde047';
+    ctx.strokeStyle = '#92400e';
+    ctx.lineWidth = 1.3;
+    ctx.fillRect(-4.5, -8, 9, 16);
+    ctx.strokeRect(-4.5, -8, 9, 16);
+    ctx.strokeStyle = '#dc2626';
+    ctx.beginPath();
+    ctx.moveTo(0, -5);
+    ctx.lineTo(0, 5);
+    ctx.moveTo(-2.5, -1);
+    ctx.lineTo(2.5, 1);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // 仅当少年靠近时浮现无框水墨金字题名（彻底取消丑陋的半透明黑方框标签！）
+  if ((d.isStaticPickup || d.kind === 'yao_core') && Math.abs(playerX - d.x) < 175) {
+    ctx.font = 'bold 12.5px "STKaiti", "KaiTi", serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.92)';
+    ctx.fillText(d.label, 1.2, -56.8);
+    ctx.fillStyle = '#fef08a';
+    ctx.fillText(d.label, 0, -58);
   }
 
   ctx.restore();

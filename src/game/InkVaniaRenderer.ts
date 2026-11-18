@@ -5,6 +5,7 @@ import {
   drawHeroCharacter,
   drawInkSlashRibbon,
   drawMonsterOrBoss,
+  drawSceneNpc,
   drawWorldDrop,
   HERO_SPRITE_METRICS,
   selectHeroSpriteFrame,
@@ -67,10 +68,15 @@ export class InkVaniaRenderer {
     }
 
     this.renderSaveShrine(ctx, room);
+
+    for (const npc of room.npcs) {
+      drawSceneNpc(ctx, npc, sampleGroundY(room, npc.x), engine.player.x, this.ambientTime);
+    }
+
     this.renderGroundMist(ctx, room, camLeft, vW);
 
     for (const d of engine.drops) {
-      drawWorldDrop(ctx, d, this.ambientTime);
+      drawWorldDrop(ctx, d, this.ambientTime, engine.player.x);
     }
 
     this.renderSkyStrikeTelegraphs(ctx, engine);
@@ -83,6 +89,7 @@ export class InkVaniaRenderer {
     drawHeroCharacter(ctx, engine, this.ambientTime);
     this.renderActiveSlashRibbon(ctx, engine);
     this.renderProjectiles(ctx, engine);
+    this.renderSlashImpacts(ctx, engine);
     this.renderParticlesAndFloats(ctx, engine);
 
     ctx.restore();
@@ -417,6 +424,11 @@ export class InkVaniaRenderer {
     if (shrineImg) {
       const sh = 165;
       const sw = shrineImg.width * (sh / shrineImg.height);
+      // 接地环境遮蔽暗影（消除建筑底座生硬感）
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.62)';
+      ctx.beginPath();
+      ctx.ellipse(cx, gy + 3, sw * 0.52, 8, 0, 0, Math.PI * 2);
+      ctx.fill();
       ctx.drawImage(shrineImg, cx - sw * 0.5, gy - sh + 5, sw, sh);
     }
   }
@@ -478,8 +490,6 @@ export class InkVaniaRenderer {
       isHeavy: wDef.archetype === 'greatsword',
       slash: engine.activeSlash,
     });
-    const ghostImg = Assets.getWhiteFlash(frameKey) || Assets.get(frameKey);
-    if (!ghostImg) return;
 
     const s = HERO_SPRITE_METRICS.baseScale;
     const drawW = HERO_SPRITE_METRICS.canvasW * s;
@@ -487,14 +497,19 @@ export class InkVaniaRenderer {
     const dx = -HERO_SPRITE_METRICS.anchorX * s;
     const dy = -HERO_SPRITE_METRICS.footY * s + 2;
 
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
     for (const ai of engine.afterImages) {
+      const ghostImg = Assets.getTintedSilhouette(frameKey, ai.color || '#2dd4bf');
+      if (!ghostImg) continue;
       ctx.save();
-      ctx.globalAlpha = ai.alpha * 0.32;
+      ctx.globalAlpha = ai.alpha * 0.34;
       ctx.translate(ai.x, ai.y);
       ctx.scale(ai.facing, 1);
       ctx.drawImage(ghostImg, dx, dy, drawW, drawH);
       ctx.restore();
     }
+    ctx.restore();
   }
 
   private renderActiveSlashRibbon(ctx: CanvasRenderingContext2D, engine: GameEngine): void {
@@ -567,46 +582,198 @@ export class InkVaniaRenderer {
       ctx.translate(pr.x, pr.y);
       if (pr.kind === 'qi_wave') {
         const dir = pr.vx >= 0 ? 1 : -1;
-        drawInkSlashRibbon(ctx, 0, 0, dir, false, pr.r * 1.15, 22, -1.05, 1.05, pr.color, 0.94);
-      } else if (pr.kind === 'fire_pillar') {
-        ctx.fillStyle = 'rgba(249, 115, 22, 0.88)';
-        ctx.beginPath();
-        ctx.moveTo(-13, 0);
-        ctx.quadraticCurveTo(0, -56 - Math.sin(this.ambientTime * 22) * 9, 13, 0);
-        ctx.fill();
-      } else if (pr.kind === 'bagua') {
-        ctx.rotate(this.ambientTime * 14);
+        // 朔风破空斩：叠加态双层流光风刃 + 3道蜿蜒拖尾气丝（0贴图感！）
+        drawInkSlashRibbon(ctx, 0, 0, dir, false, pr.r * 1.18, 22, -1.08, 1.08, pr.color, 0.95);
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
         ctx.strokeStyle = pr.color;
-        ctx.lineWidth = 3.5;
-        ctx.strokeRect(-14, -14, 28, 28);
+        for (let k = -1; k <= 1; k++) {
+          ctx.globalAlpha = 0.55 - Math.abs(k) * 0.15;
+          ctx.lineWidth = 2.2 - Math.abs(k) * 0.5;
+          ctx.beginPath();
+          ctx.moveTo(dir * 8, k * 14);
+          ctx.quadraticCurveTo(
+            -dir * 32,
+            k * 16 + Math.sin(this.ambientTime * 24 + k) * 8,
+            -dir * 68,
+            k * 10
+          );
+          ctx.stroke();
+        }
+        ctx.restore();
+      } else if (pr.kind === 'fire_pillar' || pr.kind === 'holy_fire') {
+        // 多层跃动三昧真火（浓烟暗红底 -> 烈焰赤橙 -> 炽白火芯）
+        const hMul = pr.kind === 'fire_pillar' ? 1 : 0.42;
+        const sway1 = Math.sin(this.ambientTime * 24 + pr.x * 0.1) * 8 * hMul;
+        const sway2 = Math.cos(this.ambientTime * 31 + pr.x * 0.2) * 5 * hMul;
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        // 外焰
+        ctx.fillStyle = 'rgba(234, 88, 12, 0.65)';
         ctx.beginPath();
-        ctx.arc(0, 0, 17, 0, Math.PI * 2);
-        ctx.stroke();
-      } else {
-        ctx.fillStyle = pr.color;
-        ctx.beginPath();
-        ctx.ellipse(0, 0, pr.r * 1.6, pr.r * 0.55, 0, 0, Math.PI * 2);
+        ctx.moveTo(-16 * hMul, 2);
+        ctx.quadraticCurveTo(-8 * hMul, -36 * hMul, sway1, -68 * hMul);
+        ctx.quadraticCurveTo(10 * hMul, -34 * hMul, 16 * hMul, 2);
+        ctx.closePath();
         ctx.fill();
+        // 内焰白金火芯
+        ctx.fillStyle = 'rgba(254, 240, 138, 0.85)';
+        ctx.beginPath();
+        ctx.moveTo(-8 * hMul, 2);
+        ctx.quadraticCurveTo(-3 * hMul, -22 * hMul, sway2, -44 * hMul);
+        ctx.quadraticCurveTo(4 * hMul, -22 * hMul, 8 * hMul, 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      } else if (pr.kind === 'bagua') {
+        // 乾坤流光八卦盘（正八边形金青法阵 + 破风流光环）
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.rotate(this.ambientTime * 15);
+        ctx.strokeStyle = pr.color;
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        for (let s = 0; s < 8; s++) {
+          const a = (s * Math.PI) / 4;
+          const px = Math.cos(a) * 16;
+          const py = Math.sin(a) * 16;
+          if (s === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.stroke();
+        ctx.strokeStyle = '#fde047';
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.arc(0, 0, 8, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      } else {
+        // 柳叶寒铁飞刀 + 破空银芒尾线
+        const ang = Math.atan2(pr.vy, pr.vx);
+        ctx.rotate(ang);
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const tailG = ctx.createLinearGradient(-38, 0, 10, 0);
+        tailG.addColorStop(0, 'rgba(45, 212, 191, 0)');
+        tailG.addColorStop(1, 'rgba(226, 232, 240, 0.85)');
+        ctx.strokeStyle = tailG;
+        ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        ctx.moveTo(-38, 0);
+        ctx.lineTo(6, 0);
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.fillStyle = '#f8fafc';
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(12, 0);
+        ctx.lineTo(-4, -3.2);
+        ctx.lineTo(-8, 0);
+        ctx.lineTo(-4, 3.2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
       }
       ctx.restore();
     }
   }
 
+  /**
+   * 命中瞬间【破空寒芒裂痕 + 扩散气浪环】（《斩妖行/只狼》灵魂刀刀入肉反馈！）
+   */
+  private renderSlashImpacts(ctx: CanvasRenderingContext2D, engine: GameEngine): void {
+    if (engine.slashImpacts.length === 0) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+
+    for (const si of engine.slashImpacts) {
+      const prog = 1 - si.life / si.maxLife;
+      const alpha = Math.max(0, 1 - prog);
+
+      ctx.save();
+      ctx.translate(si.x, si.y);
+
+      // 瞬时扩散真气波纹环
+      ctx.globalAlpha = alpha * 0.55;
+      ctx.strokeStyle = si.color;
+      ctx.lineWidth = Math.max(0.8, 2.8 * (1 - prog));
+      ctx.beginPath();
+      ctx.arc(0, 0, si.ringRadius * (0.35 + prog * 0.85), 0, Math.PI * 2);
+      ctx.stroke();
+
+      // 锐利菱形斩裂寒芒主线
+      ctx.rotate(si.angle);
+      const len = si.length * (0.7 + prog * 0.45);
+      const th = si.thickness * (1 - prog * 0.72);
+
+      ctx.globalAlpha = alpha * 0.88;
+      ctx.fillStyle = si.color;
+      ctx.beginPath();
+      ctx.moveTo(-len, 0);
+      ctx.quadraticCurveTo(0, -th * 1.6, len, 0);
+      ctx.quadraticCurveTo(0, th * 1.6, -len, 0);
+      ctx.fill();
+
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(-len * 0.82, 0);
+      ctx.quadraticCurveTo(0, -th * 0.65, len * 0.82, 0);
+      ctx.quadraticCurveTo(0, th * 0.65, -len * 0.82, 0);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
   private renderParticlesAndFloats(ctx: CanvasRenderingContext2D, engine: GameEngine): void {
     for (const pt of engine.particles) {
-      ctx.globalAlpha = Math.max(0, pt.life / pt.maxLife);
-      ctx.fillStyle = pt.color;
-      ctx.beginPath();
-      ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
-      ctx.fill();
+      const alpha = Math.max(0, pt.life / pt.maxLife);
+      const spd = Math.hypot(pt.vx, pt.vy);
+      const ang = Math.atan2(pt.vy, pt.vx);
+
+      ctx.save();
+      ctx.translate(pt.x, pt.y);
+      ctx.rotate(ang);
+      ctx.globalAlpha = alpha;
+
+      if (pt.kind === 'spark') {
+        // 刀锋金铁火星：沿速度方向拉长的发光流火细针！
+        ctx.globalCompositeOperation = 'lighter';
+        const slen = Math.min(18, Math.max(4, spd * 0.055));
+        ctx.strokeStyle = pt.color;
+        ctx.lineWidth = pt.size * 0.9;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(-slen, 0);
+        ctx.lineTo(slen * 0.45, 0);
+        ctx.stroke();
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(slen * 0.3, 0, pt.size * 0.45, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        // 浓墨飞白水滴：沿飞溅方向拉伸的水墨笔触，绝非死板正圆点！
+        const stretch = 1 + Math.min(2.2, spd * 0.008);
+        ctx.fillStyle = pt.color;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, pt.size * stretch, pt.size * 0.62, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
     }
     ctx.globalAlpha = 1;
 
     for (const fl of engine.floats) {
       ctx.font = `900 ${fl.size}px "STKaiti", "KaiTi", serif`;
       ctx.textAlign = 'center';
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
-      ctx.fillText(fl.text, fl.x + 1.8, fl.y + 1.8);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.88)';
+      ctx.fillText(fl.text, fl.x + 1.6, fl.y + 1.6);
       ctx.fillStyle = fl.color;
       ctx.fillText(fl.text, fl.x, fl.y);
     }

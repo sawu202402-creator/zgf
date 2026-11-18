@@ -97,6 +97,44 @@ export const STORY_SCENES: Record<string, StoryScene> = {
     ],
   },
 
+  su_gate_chat: {
+    id: 'su_gate_chat',
+    title: '苦竹桥头 · 破招心印',
+    lines: [
+      {
+        speaker: '苏清晏',
+        role: '17岁 · 钦天监司辰女官',
+        portraitColor: '#7dd3fc',
+        text: '李少侠，前方石桥上的剪纸刀客出刀前刀尖会迸发猩红【危】字寒芒——切莫贪刀硬拼，若在此时划出 ↓↙←+斩 催动太极震气，便可将其当场震至破招失衡！',
+      },
+      {
+        speaker: '李逸承',
+        role: '18岁 · 镇妖司少年',
+        portraitColor: '#48c9b0',
+        text: '多谢清晏姑娘指点！待我扫清桥头妖邪，我们便在前方瓮城镇魂古祠会合。',
+      },
+    ],
+  },
+
+  su_shrine_guide: {
+    id: 'su_shrine_guide',
+    title: '古祠飞檐 · 轻功秘闻',
+    lines: [
+      {
+        speaker: '苏清晏',
+        role: '17岁 · 钦天监司辰女官',
+        portraitColor: '#7dd3fc',
+        text: '逸承，抬头看西侧那座高悬的【谯楼藏兵秘阁】——寻常纵跃绝难企及。唯有进入东侧奉天残殿，斩灭画皮书妖·墨千秋夺回【踏云步（二段跳）】，方能折返跃上高阁取走前朝名剑！',
+      },
+      {
+        speaker: '苏清晏',
+        role: '17岁 · 钦天监司辰女官',
+        portraitColor: '#7dd3fc',
+        text: '另外，祠堂西侧的独臂欧冶老前辈可为你赤火淬兵，东侧戴白狐面具的白掌柜手里也有救命灵药与三昧火符，不妨上前一叙。',
+      },
+    ],
+  },
+
   meet_library_su: {
     id: 'meet_library_su',
     title: '藏书古卷 · 破妄之秘',

@@ -226,6 +226,7 @@ export interface SaveSlotData {
   learnedSkills: SkillId[];
   abilities: AbilityKey[];
   consumables: Record<string, number>;
+  weaponTemperLv?: Record<string, number>;
   visitedRooms: string[]; // 'normal:room_id' | 'inverted:room_id'
   collectedPickups: string[];
   defeatedBosses: string[];

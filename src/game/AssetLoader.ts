@@ -8,6 +8,16 @@ export type AssetKey =
   | 'portrait_su_qingyan'
   | 'portrait_xiao_duanshui'
   | 'portrait_peiwuji'
+  | 'bust_liyicheng'
+  | 'bust_su_qingyan'
+  | 'bust_ouye_can'
+  | 'bust_bai_zhanggui'
+  | 'bust_xiao_duanshui'
+  | 'bust_peiwuji'
+  | 'npc_su_0'
+  | 'npc_su_1'
+  | 'npc_ouye'
+  | 'npc_bai'
   | 'tile_stone_wall'
   | 'h18_idle_0'
   | 'h18_idle_1'
@@ -44,7 +54,7 @@ export type AssetKey =
   | 'prop_lantern'
   | 'prop_gourd';
 
-const ASSET_VERSION = 'h18_1';
+const ASSET_VERSION = 'vfx_npc_2';
 
 const ASSET_FILES: Record<AssetKey, string> = {
   bg_title: './assets/bg_title.webp',
@@ -56,6 +66,16 @@ const ASSET_FILES: Record<AssetKey, string> = {
   portrait_su_qingyan: './assets/portrait_su_qingyan.webp',
   portrait_xiao_duanshui: './assets/portrait_xiao_duanshui.webp',
   portrait_peiwuji: './assets/portrait_peiwuji.webp',
+  bust_liyicheng: './assets/bust_liyicheng.webp',
+  bust_su_qingyan: './assets/bust_su_qingyan.webp',
+  bust_ouye_can: './assets/bust_ouye_can.webp',
+  bust_bai_zhanggui: './assets/bust_bai_zhanggui.webp',
+  bust_xiao_duanshui: './assets/bust_xiao_duanshui.webp',
+  bust_peiwuji: './assets/bust_peiwuji.webp',
+  npc_su_0: './assets/npc_su_0.webp',
+  npc_su_1: './assets/npc_su_1.webp',
+  npc_ouye: './assets/npc_ouye.webp',
+  npc_bai: './assets/npc_bai.webp',
   tile_stone_wall: './assets/tile_stone_wall.webp',
   h18_idle_0: './assets/h18_idle_0.webp',
   h18_idle_1: './assets/h18_idle_1.webp',
@@ -97,8 +117,14 @@ const CRITICAL_ASSETS: AssetKey[] = [
   'bg_title',
   'bg_gatehouse',
   'bg_main_hall',
-  'portrait_liyicheng',
-  'portrait_su_qingyan',
+  'bust_liyicheng',
+  'bust_su_qingyan',
+  'bust_ouye_can',
+  'bust_bai_zhanggui',
+  'npc_su_0',
+  'npc_su_1',
+  'npc_ouye',
+  'npc_bai',
   'tile_stone_wall',
   'h18_idle_0',
   'h18_idle_1',
@@ -131,6 +157,7 @@ const CRITICAL_ASSETS: AssetKey[] = [
 class GameAssetRegistry {
   private images = new Map<AssetKey, HTMLImageElement>();
   private whiteFlashes = new Map<AssetKey, HTMLCanvasElement>();
+  private tintedSilhouettes = new Map<string, HTMLCanvasElement>();
   private patterns = new Map<string, CanvasPattern>();
   private inflight = new Map<AssetKey, Promise<void>>();
 
@@ -186,7 +213,12 @@ class GameAssetRegistry {
   }
 
   public getWhiteFlash(key: AssetKey): HTMLCanvasElement | undefined {
-    const cached = this.whiteFlashes.get(key);
+    return this.getTintedSilhouette(key, '#ffffff');
+  }
+
+  public getTintedSilhouette(key: AssetKey, hexColor: string): HTMLCanvasElement | undefined {
+    const cacheKey = `${key}@${hexColor}`;
+    const cached = this.tintedSilhouettes.get(cacheKey);
     if (cached) return cached;
     const img = this.images.get(key);
     if (!img) return undefined;
@@ -196,9 +228,17 @@ class GameAssetRegistry {
     const cctx = c.getContext('2d')!;
     cctx.drawImage(img, 0, 0);
     cctx.globalCompositeOperation = 'source-in';
-    cctx.fillStyle = '#ffffff';
+    cctx.fillStyle = hexColor;
     cctx.fillRect(0, 0, c.width, c.height);
-    this.whiteFlashes.set(key, c);
+    // Vertical alpha fade at feet & edges so afterimages look like misty qi, never paper cutouts!
+    cctx.globalCompositeOperation = 'destination-in';
+    const grad = cctx.createLinearGradient(0, 40, 0, c.height);
+    grad.addColorStop(0, 'rgba(255,255,255,0.95)');
+    grad.addColorStop(0.75, 'rgba(255,255,255,0.65)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    cctx.fillStyle = grad;
+    cctx.fillRect(0, 0, c.width, c.height);
+    this.tintedSilhouettes.set(cacheKey, c);
     return c;
   }
 

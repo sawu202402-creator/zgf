@@ -55,6 +55,14 @@ export interface ScenePickup {
   y?: number; // 若省略则自动贴合地面或阁楼台面
 }
 
+export interface SceneNpc {
+  id: 'su_qingyan' | 'ouye_can' | 'bai_zhanggui';
+  name: string;
+  title: string;
+  x: number;
+  defaultFacing: 1 | -1;
+}
+
 export interface BuiltRoom {
   id: string;
   name: string;
@@ -82,6 +90,7 @@ export interface BuiltRoom {
   torches: { x: number; y: number }[];
   foregrounds: ForegroundProp[];
   lanterns: LanternAnchor[];
+  npcs: SceneNpc[];
   spawns: SceneSpawn[];
   pickups: ScenePickup[];
 }
@@ -174,6 +183,15 @@ function createShowcaseScenes(): BuiltRoom[] {
       { x: 1960, kind: 'bamboo', parallax: 1.22 },
     ],
     lanterns: [],
+    npcs: [
+      {
+        id: 'su_qingyan',
+        name: '苏清晏',
+        title: '钦天监司辰女官',
+        x: 345,
+        defaultFacing: -1,
+      },
+    ],
     spawns: [
       { kind: 'paper_swordsman', x: 940 },
       { kind: 'lantern_ghost', x: 1320 },
@@ -244,6 +262,29 @@ function createShowcaseScenes(): BuiltRoom[] {
       { x: 1580, kind: 'dragon_pillar', parallax: 1.22 },
     ],
     lanterns: [],
+    npcs: [
+      {
+        id: 'ouye_can',
+        name: '欧冶残',
+        title: '赤火坊独臂铸剑师',
+        x: 795,
+        defaultFacing: -1,
+      },
+      {
+        id: 'su_qingyan',
+        name: '苏清晏',
+        title: '钦天监司辰女官',
+        x: 1295,
+        defaultFacing: -1,
+      },
+      {
+        id: 'bai_zhanggui',
+        name: '白掌柜',
+        title: '子夜鬼市狐商',
+        x: 1515,
+        defaultFacing: -1,
+      },
+    ],
     spawns: [
       { kind: 'paper_swordsman', x: 420 },
       { kind: 'bronze_guard', x: 1840 }, // 重盾甲士守门：正好测试重刃【赤炎斩马陌刀】破盾威力！
@@ -299,6 +340,7 @@ function createShowcaseScenes(): BuiltRoom[] {
       { x: 1520, kind: 'dragon_pillar', parallax: 1.24 },
     ],
     lanterns: [{ x: 980, y: 175 }],
+    npcs: [],
     spawns: [],
     pickups: [],
   };

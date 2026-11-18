@@ -130,6 +130,19 @@ export interface Particle {
   color: string;
   life: number;
   maxLife: number;
+  kind?: 'ink' | 'spark';
+}
+
+export interface SlashImpact {
+  x: number;
+  y: number;
+  angle: number;
+  length: number;
+  thickness: number;
+  color: string;
+  ringRadius: number;
+  life: number;
+  maxLife: number;
 }
 
 export interface AfterImage {
@@ -214,6 +227,7 @@ export class GameEngine {
   public drops: WorldDrop[] = [];
   public floats: FloatingText[] = [];
   public particles: Particle[] = [];
+  public slashImpacts: SlashImpact[] = [];
   public afterImages: AfterImage[] = [];
 
   public screenShake = 0;
@@ -285,7 +299,8 @@ export class GameEngine {
 
     const maxHp = 95 + lv * 16 + s.maxHpBonus + armor.hpBonus + acc.hpBonus;
     const maxMp = 60 + lv * 9 + s.maxMpBonus + armor.mpBonus + acc.mpBonus;
-    let atk = Math.round((weapon.atk + str * 1.55) * (1 + (core?.atkPct || 0)));
+    const temperBonus = (s.weaponTemperLv?.[wId] || 0) * 6;
+    let atk = Math.round((weapon.atk + temperBonus + str * 1.55) * (1 + (core?.atkPct || 0)));
     if (s.mode === 'xiaoduanshui') atk = Math.round(atk * 1.2);
     const def = 3 + Math.floor(lv * 1.2) + armor.def + acc.def;
 
@@ -361,6 +376,7 @@ export class GameEngine {
     this.projectiles = [];
     this.skyStrikes = [];
     this.drops = [];
+    this.slashImpacts = [];
     this.activeSlash = null;
 
     for (const pk of nextRoom.pickups) {
@@ -778,6 +794,17 @@ export class GameEngine {
       }
       p.x = endX;
       p.y = Math.min(p.y, sampleGroundY(this.room!, p.x));
+      this.slashImpacts.push({
+        x: (startX + endX) * 0.5,
+        y: p.y - 42,
+        angle: 0,
+        length: Math.abs(endX - startX) * 0.68,
+        thickness: 9,
+        color: '#fde68a',
+        ringRadius: 52,
+        life: 0.26,
+        maxLife: 0.26,
+      });
       const minX = Math.min(startX, endX) - 24;
       const maxX = Math.max(startX, endX) + 24;
       this.damageEnemiesInBox(minX, p.y - 84, maxX - minX, 92, skillDmg, true, 50);
@@ -786,6 +813,17 @@ export class GameEngine {
       p.vy = -660;
       p.onGround = false;
       p.invulnTimer = Math.max(p.invulnTimer, 0.42);
+      this.slashImpacts.push({
+        x: p.x + p.facing * 18,
+        y: p.y - 68,
+        angle: -Math.PI * 0.46 * p.facing,
+        length: 96,
+        thickness: 11,
+        color: '#38bdf8',
+        ringRadius: 48,
+        life: 0.28,
+        maxLife: 0.28,
+      });
       this.damageEnemiesInBox(p.x - 66, p.y - 140, 132, 146, skillDmg, true, 50);
       this.spawnInkBurst(p.x, p.y - 48, '#38bdf8', '#090d16', 22);
       this.screenShake = 5;
@@ -1366,12 +1404,28 @@ export class GameEngine {
 
     AudioFX.playHit(isCrit);
     this.hitstopTimer = isCrit ? 0.042 : 0.022;
+    const wCur = WEAPONS[this.slot.equippedWeapon] || WEAPONS.sword_1;
+    const hitAngle =
+      (this.player.comboStep === 2 ? -0.62 : this.player.comboStep === 1 ? 0.48 : 0.08) *
+        this.player.facing +
+      (Math.random() - 0.5) * 0.25;
+    this.slashImpacts.push({
+      x: e.x + (Math.random() - 0.5) * 12,
+      y: e.y - e.profile.h * 0.58,
+      angle: hitAngle,
+      length: isCrit ? 68 : wCur.archetype === 'greatsword' ? 62 : 48,
+      thickness: isCrit ? 7.5 : wCur.archetype === 'greatsword' ? 6.5 : 4.5,
+      color: isCrit ? '#fde047' : wCur.glowColor,
+      ringRadius: isCrit ? 44 : 28,
+      life: 0.19,
+      maxLife: 0.19,
+    });
     this.spawnInkBurst(
       e.x,
       e.y - e.profile.h * 0.6,
-      isCrit ? '#fbbf24' : '#dc2626',
-      '#090d16',
-      isCrit ? 14 : 9
+      isCrit ? '#fbbf24' : wCur.glowColor,
+      '#060911',
+      isCrit ? 16 : 10
     );
 
     this.floats.push({
@@ -1724,10 +1778,43 @@ export class GameEngine {
   private updateNearbyInteract(): void {
     this.nearbyInteract = null;
     if (!this.room || !this.slot) return;
+    const p = this.player;
+
+    // 1. 优先检测场景内驻场真人 NPC（苏清晏 / 独臂铸剑师·欧冶残 / 狐商·白掌柜）
+    for (const npc of this.room.npcs) {
+      const ny = sampleGroundY(this.room, npc.x);
+      if (Math.abs(p.x - npc.x) < 68 && Math.abs(p.y - ny) < 76) {
+        if (npc.id === 'ouye_can') {
+          this.nearbyInteract = {
+            kind: 'smith',
+            label: `${npc.name} · 赤火淬炼神兵 [E / 点击]`,
+            x: npc.x,
+            y: ny,
+          };
+        } else if (npc.id === 'bai_zhanggui') {
+          this.nearbyInteract = {
+            kind: 'merchant',
+            label: `${npc.name} · 子夜鬼市交易 [E / 点击]`,
+            x: npc.x,
+            y: ny,
+          };
+        } else {
+          this.nearbyInteract = {
+            kind: 'su_qingyan',
+            label: `与 ${npc.name}（${npc.title}）交谈 [E / 点击]`,
+            x: npc.x,
+            y: ny,
+          };
+        }
+        return;
+      }
+    }
+
+    // 2. 镇魂土地祠焚香留档
     if (this.room.special === 'save_shrine') {
       const cx = this.room.focalX;
       const gy = this.room.focalY;
-      if (Math.abs(this.player.x - cx) < 92 && Math.abs(this.player.y - gy) < 76) {
+      if (Math.abs(p.x - cx) < 88 && Math.abs(p.y - gy) < 76) {
         this.nearbyInteract = {
           kind: 'save',
           label: '镇魂土地祠 · 焚香调息留档 [E / 点击]',
@@ -1739,7 +1826,7 @@ export class GameEngine {
   }
 
   private executeInteract(kind: NonNullable<GameEngine['nearbyInteract']>['kind']): void {
-    if (!this.slot) return;
+    if (!this.slot || !this.room) return;
     if (kind === 'save') {
       this.recalcStats(true);
       SaveManager.saveSlot(this.slot);
@@ -1747,10 +1834,18 @@ export class GameEngine {
       NativeApp.haptic('medium');
       this.spawnInkBurst(this.player.x, this.player.y - 36, '#fde047', '#090d16', 22);
       this.cb.onShowBanner('镇魂香燃 · 卷宗已铭刻', '气血与真气已完全充盈');
+    } else if (kind === 'su_qingyan') {
+      const sceneKey = this.room.id === 'gate_1' ? 'su_gate_chat' : 'su_shrine_guide';
+      const sc = STORY_SCENES[sceneKey];
+      if (sc) {
+        this.cb.onStartStory(sc);
+      }
+    } else if (kind === 'smith' || kind === 'merchant' || kind === 'warp') {
+      this.cb.onOpenInteractModal(kind);
     }
   }
 
-  // 喷溅浓墨与流火双重水墨粒子（《斩妖行/胧村正》核心打击质感！）
+  // 喷溅定向拉长水墨飞白与刀锋金铁火星（彻底告别廉价圆点粒子！）
   public spawnInkBurst(
     x: number,
     y: number,
@@ -1760,17 +1855,18 @@ export class GameEngine {
   ): void {
     for (let i = 0; i < count; i++) {
       const ang = Math.random() * Math.PI * 2;
-      const spd = 65 + Math.random() * 220;
       const isInk = i % 2 === 0;
+      const spd = isInk ? 70 + Math.random() * 190 : 120 + Math.random() * 290;
       this.particles.push({
         x,
         y,
         vx: Math.cos(ang) * spd,
-        vy: Math.sin(ang) * spd - 45,
-        size: isInk ? 3.5 + Math.random() * 5 : 2 + Math.random() * 3.5,
+        vy: Math.sin(ang) * spd - (isInk ? 35 : 55),
+        size: isInk ? 3.5 + Math.random() * 4.5 : 2.2 + Math.random() * 2.8,
         color: isInk ? inkColor : accentColor,
-        life: 0.32 + Math.random() * 0.36,
-        maxLife: 0.65,
+        life: isInk ? 0.28 + Math.random() * 0.28 : 0.2 + Math.random() * 0.24,
+        maxLife: 0.56,
+        kind: isInk ? 'ink' : 'spark',
       });
     }
   }
@@ -1785,7 +1881,14 @@ export class GameEngine {
       }
       pt.x += pt.vx * dt;
       pt.y += pt.vy * dt;
-      pt.vy += 360 * dt;
+      pt.vx *= Math.pow(0.22, dt);
+      pt.vy += 420 * dt;
+    }
+    for (let i = this.slashImpacts.length - 1; i >= 0; i--) {
+      this.slashImpacts[i].life -= dt;
+      if (this.slashImpacts[i].life <= 0) {
+        this.slashImpacts.splice(i, 1);
+      }
     }
     for (let i = this.floats.length - 1; i >= 0; i--) {
       const fl = this.floats[i];
