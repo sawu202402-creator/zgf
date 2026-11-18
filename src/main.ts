@@ -1,5 +1,6 @@
 import './style.css';
 import { AudioFX } from './audio/GuofengAudio';
+import { Assets } from './game/AssetLoader';
 import { GameEngine } from './game/GameEngine';
 import { InkVaniaRenderer } from './game/InkVaniaRenderer';
 import { InputController } from './game/MotionInput';
@@ -10,18 +11,24 @@ import { UIManager } from './ui/UIManager';
 async function bootstrap() {
   const bootFill = document.getElementById('boot-bar-fill');
   const bootPct = document.getElementById('boot-pct');
+  const bootStatus = document.getElementById('boot-status');
   const bootLoader = document.getElementById('boot-loader');
 
-  const setProgress = (pct: number) => {
+  const setProgress = (pct: number, status?: string) => {
     if (bootFill) bootFill.style.width = `${pct}%`;
     if (bootPct) bootPct.textContent = `${pct}%`;
+    if (status && bootStatus) bootStatus.textContent = status;
   };
 
-  setProgress(45);
+  setProgress(18, '正在唤醒原生环境与音律...');
   await NativeApp.init();
   const meta = SaveManager.loadMeta();
   AudioFX.init(meta.sfxMuted, meta.bgmMuted);
-  setProgress(85);
+
+  await Assets.preloadCritical((loaded, total) => {
+    const pct = Math.min(96, 20 + Math.round((loaded / Math.max(1, total)) * 76));
+    setProgress(pct, `正在铺展玄城画卷 (${loaded}/${total})...`);
+  });
 
   const gameRoot = document.getElementById('game-root') as HTMLElement;
   const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
@@ -47,7 +54,6 @@ async function bootstrap() {
   ui = new UIManager(uiLayer, engine);
   const renderer = new InkVaniaRenderer();
 
-  // 原生 Android 返回键联动游戏行囊菜单
   NativeApp.onBackButton(() => {
     if (engine.slot) {
       ui.togglePauseModal();
@@ -90,7 +96,10 @@ async function bootstrap() {
   syncViewport();
 
   ui.showTitleScreen();
-  setProgress(100);
+  setProgress(100, '画卷已成');
+
+  // 静默后台预热剩余百鬼妖王与深层城池画卷
+  Assets.preloadRemainingInBackground().catch(() => {});
 
   if (bootLoader) {
     bootLoader.classList.add('fade-out');

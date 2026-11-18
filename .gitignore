@@ -1,4 +1,5 @@
 node_modules/
+raw_assets/
 android/
 ios/
 .DS_Store

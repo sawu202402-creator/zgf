@@ -1,3 +1,4 @@
+import { Assets } from '../game/AssetLoader';
 import { WeaponArchetype } from '../types';
 
 export function getWeaponSvg(archetype: WeaponArchetype, color: string, glow: string): string {
@@ -95,74 +96,16 @@ export function getSlotCategorySvg(slot: 'armor' | 'accessory' | 'core' | 'potio
       <path d="M15 15 Q18 11 21 16 Q19 22 15 20 Z" fill="#f5d0fe"/>
     </svg>`;
   }
-  return `<svg viewBox="0 0 36 36" width="22" height="22">
-    <path d="M15 7 L21 7 L20 12 C25 14 26 22 24 27 C22 30 14 30 12 27 C10 22 11 14 16 12 Z" fill="#14532d" stroke="#4ade80" stroke-width="1.6"/>
-    <rect x="14" y="5" width="8" height="3" rx="1" fill="#e2b659"/>
-  </svg>`;
+  return `<img src="${Assets.getUrl('prop_gourd')}" width="22" height="22" style="object-fit:contain;" alt="灵药" />`;
 }
 
 export function getSpeakerPortraitSvg(speaker: string): string {
-  if (speaker.includes('苏清晏')) {
-    return `<svg viewBox="0 0 110 124" width="84" height="96">
-      <rect width="110" height="124" rx="3" fill="#08111e"/>
-      <circle cx="55" cy="48" r="42" fill="#0ea5e9" opacity="0.16"/>
-      <path d="M20 124 L30 74 L55 86 L80 74 L90 124 Z" fill="#0c4a6e" stroke="#7dd3fc" stroke-width="1.6"/>
-      <path d="M36 42 C34 22, 46 14, 55 14 C64 14, 76 22, 74 42 L78 82 L32 82 Z" fill="#0f172a"/>
-      <rect x="49" y="56" width="12" height="12" fill="#f6dec8"/>
-      <path d="M40 38 C40 54, 47 61, 55 61 C63 61, 70 54, 70 38 Z" fill="#fae3cf"/>
-      <path d="M39 38 C42 26, 68 26, 71 38 C64 32, 46 32, 39 38 Z" fill="#0f172a"/>
-      <!-- 步摇金簪 -->
-      <line x1="28" y1="26" x2="46" y2="30" stroke="#fde047" stroke-width="2.2"/>
-      <circle cx="28" cy="26" r="3" fill="#48c9b0"/>
-      <circle cx="49" cy="45" r="2" fill="#0f172a"/>
-      <circle cx="61" cy="45" r="2" fill="#0f172a"/>
-      <path d="M52 53 Q55 55 58 53" fill="none" stroke="#e11d48" stroke-width="1.5"/>
-    </svg>`;
+  let key: 'portrait_liyicheng' | 'portrait_su_qingyan' | 'portrait_xiao_duanshui' | 'portrait_peiwuji' =
+    'portrait_liyicheng';
+  if (speaker.includes('苏清晏')) key = 'portrait_su_qingyan';
+  else if (speaker.includes('萧断水')) key = 'portrait_xiao_duanshui';
+  else if (speaker.includes('裴无极') || speaker.includes('烛阴') || speaker.includes('欧冶')) {
+    key = 'portrait_peiwuji';
   }
-  if (speaker.includes('萧断水')) {
-    return `<svg viewBox="0 0 110 124" width="84" height="96">
-      <rect width="110" height="124" rx="3" fill="#100a20"/>
-      <circle cx="55" cy="48" r="42" fill="#a855f7" opacity="0.18"/>
-      <path d="M18 124 L26 72 L55 84 L84 72 L92 124 Z" fill="#2e1065" stroke="#c084fc" stroke-width="1.8"/>
-      <path d="M36 74 L55 96 L74 74" fill="none" stroke="#e2b659" stroke-width="2.5"/>
-      <rect x="49" y="56" width="12" height="12" fill="#edd0b4"/>
-      <path d="M39 38 C39 55, 46 62, 55 62 C64 62, 71 55, 71 38 Z" fill="#f3d5b8"/>
-      <path d="M37 40 C37 20, 50 15, 58 16 C69 17, 74 26, 73 40 C66 32, 45 32, 37 40 Z" fill="#1e1b4b"/>
-      <rect x="49" y="13" width="12" height="6" fill="#e2e8f0"/>
-      <path d="M44 42 L52 45" stroke="#0f172a" stroke-width="2.2"/>
-      <path d="M66 42 L58 45" stroke="#0f172a" stroke-width="2.2"/>
-      <circle cx="49" cy="47" r="1.8" fill="#0f172a"/>
-      <circle cx="61" cy="47" r="1.8" fill="#0f172a"/>
-    </svg>`;
-  }
-  if (speaker.includes('裴无极') || speaker.includes('烛阴')) {
-    return `<svg viewBox="0 0 110 124" width="84" height="96">
-      <rect width="110" height="124" rx="3" fill="#18070b"/>
-      <circle cx="55" cy="48" r="44" fill="#ef4444" opacity="0.22"/>
-      <path d="M16 124 L26 72 L55 86 L84 72 L94 124 Z" fill="#450a0a" stroke="#ef4444" stroke-width="1.8"/>
-      <path d="M32 36 C32 16, 78 16, 78 36 L84 86 L26 86 Z" fill="#cbd5e1"/>
-      <path d="M40 38 C40 55, 46 63, 55 63 C64 63, 70 55, 70 38 Z" fill="#e2c6b0"/>
-      <circle cx="49" cy="46" r="2.5" fill="#dc2626"/>
-      <circle cx="61" cy="46" r="2.5" fill="#dc2626"/>
-    </svg>`;
-  }
-  // 默认：18岁男主角 李逸承 高清立绘
-  return `<svg viewBox="0 0 110 124" width="84" height="96">
-    <rect width="110" height="124" rx="3" fill="#080c14"/>
-    <circle cx="55" cy="48" r="42" fill="#48c9b0" opacity="0.18"/>
-    <path d="M62 34 C82 28, 94 38, 106 32 C94 44, 82 42, 64 41 Z" fill="#dc2626"/>
-    <line x1="25" y1="16" x2="42" y2="52" stroke="#e2b659" stroke-width="3.2" stroke-linecap="round"/>
-    <path d="M20 124 L28 72 L45 64 L55 78 L65 64 L82 72 L90 124 Z" fill="#123042" stroke="#48c9b0" stroke-width="1.6"/>
-    <path d="M43 65 L55 90 L67 65" fill="none" stroke="#e2b659" stroke-width="2"/>
-    <rect x="49" y="54" width="12" height="12" fill="#f1d2b6"/>
-    <path d="M40 37 C40 53, 46 60, 55 60 C64 60, 70 53, 70 37 Z" fill="#f6dac0"/>
-    <path d="M37 40 C36 22, 48 16, 57 17 C68 18, 74 26, 73 41 C68 32, 60 30, 51 31 C44 32, 40 35, 37 40 Z" fill="#0f172a"/>
-    <path d="M52 17 C60 7, 73 9, 78 20 C70 18, 63 19, 57 22 Z" fill="#0f172a"/>
-    <path d="M39 33 Q55 30 71 33 L71 37 Q55 34 39 37 Z" fill="#dc2626"/>
-    <path d="M45 42 L52 43" stroke="#0f172a" stroke-width="2" stroke-linecap="round"/>
-    <path d="M58 43 L65 42" stroke="#0f172a" stroke-width="2" stroke-linecap="round"/>
-    <circle cx="49" cy="45.5" r="1.8" fill="#0f172a"/>
-    <circle cx="61" cy="45.5" r="1.8" fill="#0f172a"/>
-    <path d="M52 53 Q55 55 58 53" fill="none" stroke="#b45309" stroke-width="1.3" stroke-linecap="round"/>
-  </svg>`;
+  return `<img src="${Assets.getUrl(key)}" width="88" height="88" style="display:block;object-fit:cover;" alt="${speaker}" />`;
 }
