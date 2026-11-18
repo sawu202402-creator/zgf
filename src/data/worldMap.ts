@@ -106,12 +106,28 @@ export interface SceneNpc {
   defaultFacing: 1 | -1;
 }
 
+export interface CastleDecorProp {
+  kind: 'bookshelf' | 'chandelier' | 'lattice_window';
+  x: number;
+  y: number;
+  scale?: number;
+}
+
+export interface ClockworkGear {
+  x: number;
+  y: number;
+  radius: number;
+  speed: number; // rad/s (+ 顺时针, - 逆时针)
+  hasOrbitPlatforms?: boolean;
+}
+
 export interface BuiltRoom {
   id: string;
   name: string;
   subtitle: string;
   region: RegionId;
   realm: CastleRealm;
+  indoor?: boolean;
   mapX: number;
   mapY: number;
   gridW: number;
@@ -134,6 +150,8 @@ export interface BuiltRoom {
   ironGate?: BreakableIronGate;
   secretWalls?: BreakableSecretWall[];
   climbWalls?: ClimbableWall[];
+  decorProps?: CastleDecorProp[];
+  clockGears?: ClockworkGear[];
   pavilions: PavilionPlatform[];
   waterZones: WaterZone[];
   archways: ArchwayProp[];
@@ -353,47 +371,61 @@ function createNormalCastleRooms(): BuiltRoom[] {
     ],
   };
 
-  // 3. [4,1 .. 5,1] 奉天前殿 · 盘龙廊
+  // 3. [4,1 .. 5,1] 奉天前殿 · 盘龙廊（挑高 560px 宏伟室内礼拜堂级正殿：破窗斜射月光柱 + 青铜百烛吊灯 + 雕栏二层回廊 + 青冥剑灵使魔！）
   const hallCorridor: BuiltRoom = {
     id: 'hall_corridor',
     name: '奉天前殿 · 盘龙廊',
-    subtitle: '奉天正殿 · 室内穿斗宫廊',
+    subtitle: '奉天正殿 · 破窗月华与百烛长廊',
     region: 'main_hall',
     realm: 'normal',
+    indoor: true,
     mapX: 4,
     mapY: 1,
     gridW: 2,
     gridH: 1,
     pixelW: 1600,
-    pixelH: 480,
+    pixelH: 560,
     special: 'none',
     focalX: 800,
-    focalY: 392,
+    focalY: 472,
     leftRoomId: 'gate_2',
-    leftDoorFloorY: 392,
+    leftDoorFloorY: 472,
     rightRoomId: 'lib_boss',
-    rightDoorFloorY: 392,
+    rightDoorFloorY: 472,
     groundNodes: [
-      { x: 0, y: 392, style: 'marble' },
-      { x: 1600, y: 392, style: 'marble' },
+      { x: 0, y: 472, style: 'marble' },
+      { x: 520, y: 472, style: 'stairs' },
+      { x: 660, y: 448, style: 'marble' },
+      { x: 940, y: 448, style: 'marble' },
+      { x: 1080, y: 472, style: 'stairs' },
+      { x: 1600, y: 472, style: 'marble' },
     ],
     ceilingSpans: [
-      { x1: 0, x2: 680, bottomY: 84, style: 'palace_timber' },
-      { x1: 860, x2: 1600, bottomY: 84, style: 'palace_timber' },
+      { x1: 0, x2: 680, bottomY: 64, style: 'palace_timber' },
+      { x1: 860, x2: 1600, bottomY: 64, style: 'palace_timber' },
     ],
     shafts: [{ x1: 680, x2: 860, dir: 'up', targetRoomId: 'upper_library' }],
+    decorProps: [
+      { kind: 'lattice_window', x: 260, y: 370, scale: 1.05 },
+      { kind: 'lattice_window', x: 560, y: 350, scale: 1.05 },
+      { kind: 'lattice_window', x: 1040, y: 350, scale: 1.05 },
+      { kind: 'lattice_window', x: 1340, y: 370, scale: 1.05 },
+      { kind: 'chandelier', x: 410, y: 62, scale: 0.95 },
+      { kind: 'chandelier', x: 1190, y: 62, scale: 0.95 },
+    ],
     waterZones: [],
     pavilions: [
-      { x: 430, y: 292, w: 220, hasPillars: true },
-      { x: 890, y: 292, w: 220, hasPillars: true },
-      { x: 695, y: 110, w: 150, hasPillars: false, label: '藏书阁接引飞梯（需踏云步）' },
+      { x: 220, y: 352, w: 250, hasPillars: false, label: '西侧御剑廊（藏有剑灵使魔）' },
+      { x: 480, y: 244, w: 190, hasPillars: false },
+      { x: 910, y: 352, w: 250, hasPillars: false },
+      { x: 695, y: 118, w: 150, hasPillars: false, label: '藏书阁接引飞梯（需踏云步）' },
     ],
     archways: [],
     torches: [
-      { x: 220, y: 312 },
-      { x: 640, y: 312 },
-      { x: 960, y: 312 },
-      { x: 1380, y: 312 },
+      { x: 180, y: 392 },
+      { x: 640, y: 372 },
+      { x: 960, y: 372 },
+      { x: 1420, y: 392 },
     ],
     foregrounds: [
       { x: 340, kind: 'dragon_pillar', parallax: 1.2 },
@@ -403,12 +435,13 @@ function createNormalCastleRooms(): BuiltRoom[] {
     npcs: [],
     spawns: [
       { kind: 'paper_swordsman', x: 380 },
-      { kind: 'lantern_ghost', x: 770 },
-      { kind: 'bronze_guard', x: 1240 },
+      { kind: 'scroll_demon', x: 770 },
+      { kind: 'bronze_guard', x: 1260 },
     ],
     pickups: [
-      // 前殿东侧雕栏阁台供奉【白蜡点钢枪】，让玩家尽早体验枪尖寸劲贯穿！
-      { id: 'pk_hall_spear1', kind: 'weapon', itemId: 'spear_1', x: 1000, y: 292 },
+      // 致敬《月下夜想曲》使魔系统：前殿西侧二层木廊直接唤醒【本命使魔·青冥剑灵】随身助战！
+      { id: 'pk_hall_familiar', kind: 'ability', itemId: 'familiar_sword', x: 315, y: 352 },
+      { id: 'pk_hall_spear1', kind: 'weapon', itemId: 'spear_1', x: 1035, y: 352 },
     ],
   };
 
@@ -419,27 +452,28 @@ function createNormalCastleRooms(): BuiltRoom[] {
     subtitle: '奉天正殿 · 万卷妖宗死斗堂',
     region: 'main_hall',
     realm: 'normal',
+    indoor: true,
     mapX: 6,
     mapY: 1,
     gridW: 2,
     gridH: 1,
     pixelW: 1600,
-    pixelH: 480,
+    pixelH: 540,
     special: 'boss_room',
     focalX: 800,
-    focalY: 392,
+    focalY: 452,
     bossKind: 'boss_scroll_king',
     leftRoomId: 'hall_corridor',
-    leftDoorFloorY: 392,
+    leftDoorFloorY: 452,
     rightRoomId: 'east_sanctum',
-    rightDoorFloorY: 392,
+    rightDoorFloorY: 452,
     groundNodes: [
-      { x: 0, y: 392, style: 'marble' },
-      { x: 1600, y: 392, style: 'marble' },
+      { x: 0, y: 452, style: 'marble' },
+      { x: 1600, y: 452, style: 'marble' },
     ],
     ceilingSpans: [
-      { x1: 0, x2: 1280, bottomY: 78, style: 'palace_timber' },
-      { x1: 1440, x2: 1600, bottomY: 78, style: 'palace_timber' },
+      { x1: 0, x2: 1280, bottomY: 64, style: 'palace_timber' },
+      { x1: 1440, x2: 1600, bottomY: 64, style: 'palace_timber' },
     ],
     shafts: [
       {
@@ -450,61 +484,71 @@ function createNormalCastleRooms(): BuiltRoom[] {
         requireBossClear: true,
       },
     ],
+    decorProps: [
+      { kind: 'lattice_window', x: 460, y: 360, scale: 1.05 },
+      { kind: 'lattice_window', x: 960, y: 360, scale: 1.05 },
+      { kind: 'chandelier', x: 710, y: 62, scale: 1.0 },
+    ],
     waterZones: [],
     pavilions: [
-      { x: 240, y: 282, w: 220, hasPillars: true },
-      { x: 1040, y: 266, w: 210, hasPillars: true },
-      { x: 1295, y: 112, w: 130, hasPillars: false, label: '晨钟阁天梯' },
+      { x: 220, y: 336, w: 230, hasPillars: false },
+      { x: 1050, y: 292, w: 220, hasPillars: false },
+      { x: 1295, y: 126, w: 130, hasPillars: false, label: '晨钟机关楼天梯' },
     ],
     archways: [],
     torches: [
-      { x: 380, y: 312 },
-      { x: 800, y: 312 },
-      { x: 1220, y: 312 },
+      { x: 380, y: 372 },
+      { x: 800, y: 372 },
+      { x: 1220, y: 372 },
     ],
     foregrounds: [{ x: 620, kind: 'dragon_pillar', parallax: 1.22 }],
-    lanterns: [{ x: 800, y: 175 }],
+    lanterns: [],
     npcs: [],
     spawns: [],
     pickups: [],
   };
 
-  // 5. [8,1 .. 9,1] 东宫镇魂偏殿（祭天坛下方的恶魔城经典王座前存档祠 + 连通上下三层立井！）
+  // 5. [8,1 .. 9,1] 东宫镇魂偏殿
   const eastSanctum: BuiltRoom = {
     id: 'east_sanctum',
     name: '东宫镇魂偏殿',
     subtitle: '奉天东翼 · 登坛镇魂祠与乾坤井',
     region: 'main_hall',
     realm: 'normal',
+    indoor: true,
     mapX: 8,
     mapY: 1,
     gridW: 2,
     gridH: 1,
     pixelW: 1600,
-    pixelH: 480,
+    pixelH: 520,
     special: 'save_shrine',
     warpName: '东宫镇魂偏殿',
     focalX: 780,
-    focalY: 392,
+    focalY: 432,
     leftRoomId: 'lib_boss',
-    leftDoorFloorY: 392,
+    leftDoorFloorY: 432,
     groundNodes: [
-      { x: 0, y: 392, style: 'marble' },
-      { x: 1600, y: 392, style: 'marble' },
+      { x: 0, y: 432, style: 'marble' },
+      { x: 1600, y: 432, style: 'marble' },
     ],
     ceilingSpans: [
-      { x1: 0, x2: 220, bottomY: 82, style: 'palace_timber' },
-      { x1: 368, x2: 1600, bottomY: 82, style: 'palace_timber' },
+      { x1: 0, x2: 220, bottomY: 68, style: 'palace_timber' },
+      { x1: 368, x2: 1600, bottomY: 68, style: 'palace_timber' },
     ],
     shafts: [
       { x1: 220, x2: 368, dir: 'up', targetRoomId: 'sky_altar' },
       { x1: 1180, x2: 1320, dir: 'down', targetRoomId: 'prison_treasure' },
     ],
+    decorProps: [
+      { kind: 'lattice_window', x: 600, y: 345, scale: 1.0 },
+      { kind: 'chandelier', x: 980, y: 66, scale: 0.92 },
+    ],
     secretWalls: [
       {
         id: 'sw_east_chicken',
         x: 1500,
-        y: 274,
+        y: 314,
         w: 58,
         h: 118,
         dropKind: 'consumable',
@@ -513,16 +557,16 @@ function createNormalCastleRooms(): BuiltRoom[] {
     ],
     waterZones: [],
     pavilions: [
-      { x: 160, y: 274, w: 220, hasPillars: true },
-      { x: 228, y: 116, w: 132, hasPillars: false, label: '凌霄祭天坛（需踏云步）' },
-      { x: 1178, y: 392, w: 144, hasPillars: false, label: '赤火古窖井（↓+跃 下潜）' },
+      { x: 160, y: 294, w: 220, hasPillars: false },
+      { x: 228, y: 122, w: 132, hasPillars: false, label: '凌霄祭天坛（需踏云步）' },
+      { x: 1178, y: 432, w: 144, hasPillars: false, label: '赤火古窖井（↓+跃 下潜）' },
     ],
     archways: [],
     torches: [
-      { x: 480, y: 312 },
-      { x: 780, y: 312 },
-      { x: 1080, y: 312 },
-      { x: 1410, y: 312 },
+      { x: 480, y: 352 },
+      { x: 780, y: 352 },
+      { x: 1080, y: 352 },
+      { x: 1410, y: 352 },
     ],
     foregrounds: [],
     lanterns: [],
@@ -532,99 +576,114 @@ function createNormalCastleRooms(): BuiltRoom[] {
   };
 
   // =========================================================================
-  // 【上层 Row 0 (mapY=0)：禁书天机阁 ⬍➔ 万卷藏书飞阁 ⬍➔ 晨钟飞虹天桥 ⬍➔ 凌霄祭天坛】
+  // 【上层 Row 0 (mapY=0)：禁书天机阁 ⬍➔ 万卷藏书飞阁 ⬍➔ 百丈晨钟机关楼(740px纵深齿轮塔!) ⬍➔ 凌霄祭天坛(皇家登坛长阶!)】
   // =========================================================================
 
-  // 6. [2,0 .. 3,0] 禁书天机阁（左端绝顶秘阁：底层供奉乌金九节鞭，高处蹬墙石壁顶供奉真相法器一【破妄古镜】！）
+  // 6. [2,0 .. 3,0] 禁书天机阁
   const secretArchive: BuiltRoom = {
     id: 'secret_archive',
     name: '禁书天机阁',
-    subtitle: '藏书绝顶 · 钦天监破妄秘室',
+    subtitle: '藏书绝顶 · 万卷书架与破妄秘室',
     region: 'library',
     realm: 'normal',
+    indoor: true,
     mapX: 2,
     mapY: 0,
     gridW: 2,
     gridH: 1,
     pixelW: 1600,
-    pixelH: 480,
+    pixelH: 580,
     special: 'relic_pedestal',
     focalX: 300,
-    focalY: 142,
+    focalY: 192,
     rightRoomId: 'upper_library',
-    rightDoorFloorY: 392,
+    rightDoorFloorY: 492,
     groundNodes: [
-      { x: 0, y: 392, style: 'marble' },
-      { x: 1600, y: 392, style: 'marble' },
+      { x: 0, y: 492, style: 'marble' },
+      { x: 1600, y: 492, style: 'marble' },
     ],
-    ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 64, style: 'palace_timber' }],
+    ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 60, style: 'palace_timber' }],
     shafts: [],
-    // 两侧立起百丈书阁石壁（x=520 与 x=710 形成恶魔城经典蹬墙井道：需【壁虎游墙功】连蹬跃上 y=142 天机台夺取破妄古镜！）
     climbWalls: [
-      { x: 520, topY: 136, bottomY: 340 },
-      { x: 710, topY: 136, bottomY: 392 },
+      { x: 530, topY: 186, bottomY: 430 },
+      { x: 720, topY: 186, bottomY: 492 },
+    ],
+    decorProps: [
+      { kind: 'bookshelf', x: 160, y: 492, scale: 1.0 },
+      { kind: 'bookshelf', x: 340, y: 492, scale: 1.0 },
+      { kind: 'bookshelf', x: 920, y: 492, scale: 1.05 },
+      { kind: 'bookshelf', x: 1120, y: 492, scale: 1.05 },
+      { kind: 'bookshelf', x: 1320, y: 492, scale: 1.05 },
+      { kind: 'chandelier', x: 1080, y: 58, scale: 0.95 },
     ],
     waterZones: [],
     pavilions: [
-      { x: 160, y: 142, w: 360, hasPillars: true, label: '天机破妄坛（需壁虎游墙功攀登）' },
-      { x: 960, y: 278, w: 260, hasPillars: true },
+      { x: 150, y: 192, w: 380, hasPillars: false, label: '天机破妄坛（需壁虎游墙功攀登）' },
+      { x: 940, y: 368, w: 280, hasPillars: false },
     ],
     archways: [],
     torches: [
-      { x: 260, y: 312 },
-      { x: 840, y: 312 },
-      { x: 1360, y: 312 },
+      { x: 260, y: 412 },
+      { x: 840, y: 412 },
+      { x: 1420, y: 412 },
     ],
-    foregrounds: [{ x: 1180, kind: 'dragon_pillar', parallax: 1.18 }],
+    foregrounds: [],
     lanterns: [],
     npcs: [],
     spawns: [
       { kind: 'scroll_demon', x: 880 },
-      { kind: 'bell_gargoyle', x: 1220 },
-      { kind: 'bronze_guard', x: 1380 },
+      { kind: 'bell_gargoyle', x: 1180 },
+      { kind: 'opera_puppet', x: 1380 },
     ],
     pickups: [
-      // 真相法器之一：【破妄古镜】（高踞 y=142 天机坛，唯有击败大鹏王习得壁虎游墙功后蹬墙可达！）
-      { id: 'pk_mirror_truth', kind: 'ability', itemId: 'mirror_truth', x: 280, y: 142 },
-      // 禁术秘卷：【九幽噬魂引】
-      { id: 'pk_scroll_soulsteal', kind: 'skill_scroll', itemId: 'jiuyou_soulsteal', x: 410, y: 142 },
-      // 底层可直接拾得恶魔城灵魂兵刃：【乌金九节鞭】！
-      { id: 'pk_whip_1', kind: 'weapon', itemId: 'whip_1', x: 1090, y: 278 },
+      { id: 'pk_mirror_truth', kind: 'ability', itemId: 'mirror_truth', x: 270, y: 192 },
+      { id: 'pk_scroll_soulsteal', kind: 'skill_scroll', itemId: 'jiuyou_soulsteal', x: 420, y: 192 },
+      { id: 'pk_whip_1', kind: 'weapon', itemId: 'whip_1', x: 1080, y: 368 },
     ],
   };
 
-  // 7. [4,0 .. 5,0] 万卷藏书飞阁
+  // 7. [4,0 .. 5,0] 万卷藏书飞阁（双层巨型书库：致敬月下夜想曲藏书馆！）
   const upperLibrary: BuiltRoom = {
     id: 'upper_library',
     name: '万卷藏书飞阁',
-    subtitle: '高阁秘境 · 前朝镇妖典籍楼',
+    subtitle: '高阁秘境 · 双层典籍长廊',
     region: 'library',
     realm: 'normal',
+    indoor: true,
     mapX: 4,
     mapY: 0,
     gridW: 2,
     gridH: 1,
     pixelW: 1600,
-    pixelH: 480,
+    pixelH: 600,
     special: 'relic_pedestal',
     storyTriggerId: 'meet_library_su',
     focalX: 420,
-    focalY: 392,
+    focalY: 508,
     leftRoomId: 'secret_archive',
-    leftDoorFloorY: 392,
+    leftDoorFloorY: 508,
     rightRoomId: 'clock_balcony',
-    rightDoorFloorY: 392,
+    rightDoorFloorY: 508,
     groundNodes: [
-      { x: 0, y: 392, style: 'marble' },
-      { x: 1600, y: 392, style: 'marble' },
+      { x: 0, y: 508, style: 'marble' },
+      { x: 1600, y: 508, style: 'marble' },
     ],
-    ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 76, style: 'palace_timber' }],
+    ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 64, style: 'palace_timber' }],
     shafts: [{ x1: 680, x2: 860, dir: 'down', targetRoomId: 'hall_corridor' }],
+    decorProps: [
+      { kind: 'bookshelf', x: 180, y: 508, scale: 1.05 },
+      { kind: 'bookshelf', x: 370, y: 508, scale: 1.05 },
+      { kind: 'bookshelf', x: 1040, y: 508, scale: 1.05 },
+      { kind: 'bookshelf', x: 1240, y: 508, scale: 1.05 },
+      { kind: 'bookshelf', x: 260, y: 366, scale: 0.88 },
+      { kind: 'bookshelf', x: 1120, y: 366, scale: 0.88 },
+      { kind: 'chandelier', x: 770, y: 62, scale: 1.0 },
+    ],
     secretWalls: [
       {
         id: 'sw_lib_wallmeat',
-        x: 590,
-        y: 280,
+        x: 585,
+        y: 396,
         w: 54,
         h: 112,
         dropKind: 'consumable',
@@ -633,18 +692,19 @@ function createNormalCastleRooms(): BuiltRoom[] {
     ],
     waterZones: [],
     pavilions: [
-      { x: 180, y: 268, w: 280, hasPillars: true, label: '御书藏剑台' },
-      { x: 678, y: 392, w: 184, hasPillars: false, label: '前殿天井（↓+跃 下落）' },
-      { x: 1020, y: 278, w: 240, hasPillars: true },
+      { x: 160, y: 366, w: 310, hasPillars: false, label: '御书二层藏剑廊' },
+      { x: 520, y: 242, w: 220, hasPillars: false },
+      { x: 678, y: 508, w: 184, hasPillars: false, label: '前殿天井（↓+跃 下落）' },
+      { x: 980, y: 366, w: 300, hasPillars: false },
     ],
-    archways: [{ x: 1470, title: '飞虹天桥门' }],
+    archways: [],
     torches: [
-      { x: 260, y: 312 },
-      { x: 640, y: 312 },
-      { x: 920, y: 312 },
-      { x: 1340, y: 312 },
+      { x: 260, y: 428 },
+      { x: 640, y: 428 },
+      { x: 920, y: 428 },
+      { x: 1380, y: 428 },
     ],
-    foregrounds: [{ x: 520, kind: 'dragon_pillar', parallax: 1.18 }],
+    foregrounds: [],
     lanterns: [],
     npcs: [
       {
@@ -656,67 +716,87 @@ function createNormalCastleRooms(): BuiltRoom[] {
       },
     ],
     spawns: [
+      { kind: 'scroll_demon', x: 620 },
       { kind: 'scroll_demon', x: 960 },
-      { kind: 'bronze_guard', x: 1210 },
+      { kind: 'opera_puppet', x: 1260 },
     ],
     pickups: [
-      { id: 'pk_lib_sword2', kind: 'weapon', itemId: 'sword_2', x: 265, y: 268 },
-      { id: 'pk_lib_bell', kind: 'armor', itemId: 'qingxin_bell', x: 1140, y: 278 },
+      { id: 'pk_lib_sword2', kind: 'weapon', itemId: 'sword_2', x: 245, y: 366 },
+      { id: 'pk_lib_bell', kind: 'armor', itemId: 'qingxin_bell', x: 1140, y: 366 },
     ],
   };
 
-  // 8. [6,0 .. 7,0] 晨钟飞虹天桥（守桥妖王：雷音金翅大鹏王 -> 壁虎游墙功 wall_jump！）
+  // 8. [6,0 .. 7,0] 百丈晨钟机关楼（740px 超高纵向齿轮钟塔！旋转青铜巨齿轮 + 飞天金翅夜叉 + 雷音金翅大鹏王！）
   const clockBalcony: BuiltRoom = {
     id: 'clock_balcony',
-    name: '晨钟飞虹天桥',
-    subtitle: '晨钟飞虹阁 · 雷音金翅大鹏守御桥',
+    name: '百丈晨钟机关楼',
+    subtitle: '晨钟暮鼓楼 · 旋转青铜齿轮与大鹏王座',
     region: 'clock_tower',
     realm: 'normal',
+    indoor: true,
     mapX: 6,
     mapY: 0,
     gridW: 2,
     gridH: 1,
     pixelW: 1600,
-    pixelH: 480,
+    pixelH: 740,
     special: 'boss_room',
     bossKind: 'boss_thunder_yaksha',
-    focalX: 800,
-    focalY: 392,
+    focalX: 1080,
+    focalY: 280,
     leftRoomId: 'upper_library',
-    leftDoorFloorY: 392,
+    leftDoorFloorY: 648,
     rightRoomId: 'sky_altar',
-    rightDoorFloorY: 392,
+    rightDoorFloorY: 280,
     groundNodes: [
-      { x: 0, y: 392, style: 'marble' },
-      { x: 360, y: 392, style: 'arch_bridge' },
-      { x: 960, y: 392, style: 'arch_bridge' },
-      { x: 1600, y: 392, style: 'marble' },
+      { x: 0, y: 648, style: 'marble' },
+      { x: 920, y: 648, style: 'marble' },
+      { x: 1180, y: 648, style: 'marble' },
+      { x: 1600, y: 648, style: 'marble' },
     ],
-    ceilingSpans: [{ x1: 0, x2: 180, bottomY: 96, style: 'palace_timber' }],
+    ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 56, style: 'palace_timber' }],
     shafts: [{ x1: 1280, x2: 1440, dir: 'down', targetRoomId: 'lib_boss' }],
+    // 五座持续咬合旋转的巨型青铜八卦机关齿轮（其中两座附带旋转升降踏台，还原恶魔城钟塔攀爬精髓！）
+    clockGears: [
+      { x: 380, y: 515, radius: 112, speed: 0.55, hasOrbitPlatforms: true },
+      { x: 565, y: 390, radius: 96, speed: -0.68 },
+      { x: 760, y: 355, radius: 118, speed: 0.52, hasOrbitPlatforms: true },
+      { x: 1120, y: 470, radius: 105, speed: -0.48 },
+      { x: 1360, y: 220, radius: 88, speed: 0.72 },
+    ],
+    decorProps: [
+      { kind: 'lattice_window', x: 240, y: 540, scale: 1.05 },
+      { kind: 'lattice_window', x: 960, y: 210, scale: 1.05 },
+    ],
     waterZones: [],
     pavilions: [
-      { x: 540, y: 266, w: 260, hasPillars: true, label: '望月钟亭' },
-      { x: 1278, y: 392, w: 164, hasPillars: false, label: '洗墨堂天梯（↓+跃 下落）' },
+      { x: 160, y: 530, w: 200, hasPillars: false },
+      { x: 450, y: 418, w: 210, hasPillars: false, label: '钟楼中层枢机台' },
+      { x: 920, y: 280, w: 680, hasPillars: false, label: '晨钟顶层飞虹台（通往凌霄祭天坛 ▸）' },
+      { x: 1278, y: 648, w: 164, hasPillars: false, label: '洗墨堂天梯（↓+跃 下落）' },
     ],
-    archways: [{ x: 1120, title: '凌霄飞虹' }],
+    archways: [],
     torches: [
-      { x: 320, y: 322 },
-      { x: 980, y: 322 },
-      { x: 1480, y: 322 },
+      { x: 260, y: 572 },
+      { x: 720, y: 572 },
+      { x: 1040, y: 208 },
+      { x: 1460, y: 208 },
     ],
     foregrounds: [],
     lanterns: [],
     npcs: [],
-    spawns: [],
-    pickups: [{ id: 'pk_roof_hp_up', kind: 'max_up', itemId: 'hp_vessel', x: 670, y: 266 }],
+    spawns: [
+      { kind: 'bell_gargoyle', x: 460 },
+      { kind: 'bell_gargoyle', x: 820 },
+    ],
+    pickups: [{ id: 'pk_roof_hp_up', kind: 'max_up', itemId: 'hp_vessel', x: 555, y: 418 }],
   };
 
-  // 9. [8,0 .. 9,0] 凌霄祭天坛（表城王座之巅：恩师·堕魔剑魁裴无极！集齐双信物斩碎蚀心蛊即可开启 180° 九幽倒悬里城！）
+  // 9. [8,0 .. 9,0] 凌霄祭天坛（致敬《月下夜想曲》伯爵王座前的血月通天大理石长阶梯！）
   const skyAltar: BuiltRoom = {
     id: 'sky_altar',
     name: '凌霄祭天坛',
-    subtitle: '表城绝巅 · 血月镇脉阵眼（裴无极）',
+    subtitle: '表城绝巅 · 血月登坛长阶与镇脉阵眼',
     region: 'altar',
     realm: 'normal',
     mapX: 8,
@@ -724,34 +804,32 @@ function createNormalCastleRooms(): BuiltRoom[] {
     gridW: 2,
     gridH: 1,
     pixelW: 1600,
-    pixelH: 480,
+    pixelH: 580,
     special: 'boss_room',
     bossKind: 'boss_pei_wuji',
-    focalX: 820,
-    focalY: 392,
+    focalX: 1080,
+    focalY: 318,
     leftRoomId: 'clock_balcony',
-    leftDoorFloorY: 392,
+    leftDoorFloorY: 492,
     groundNodes: [
-      { x: 0, y: 392, style: 'marble' },
-      { x: 520, y: 392, style: 'stairs' },
-      { x: 620, y: 376, style: 'marble' },
-      { x: 1020, y: 376, style: 'marble' },
-      { x: 1120, y: 392, style: 'stairs' },
-      { x: 1600, y: 392, style: 'marble' },
+      { x: 0, y: 492, style: 'marble' },
+      { x: 390, y: 492, style: 'stairs' },
+      { x: 820, y: 318, style: 'marble' },
+      { x: 1600, y: 318, style: 'marble' },
     ],
     ceilingSpans: [],
     shafts: [{ x1: 220, x2: 368, dir: 'down', targetRoomId: 'east_sanctum' }],
     waterZones: [],
     pavilions: [
-      { x: 218, y: 392, w: 152, hasPillars: false, label: '东宫偏殿天阶（↓+跃 下落）' },
-      { x: 1180, y: 268, w: 230, hasPillars: true, label: '镇脉望星台' },
+      { x: 218, y: 492, w: 152, hasPillars: false, label: '东宫偏殿天阶（↓+跃 下落）' },
+      { x: 1220, y: 206, w: 220, hasPillars: true, label: '镇脉望星台' },
     ],
-    archways: [{ x: 480, title: '凌霄祭天门' }],
+    archways: [{ x: 830, title: '凌霄祭天门' }],
     torches: [
-      { x: 560, y: 318 },
-      { x: 820, y: 306 },
-      { x: 1080, y: 318 },
-      { x: 1440, y: 322 },
+      { x: 440, y: 416 },
+      { x: 640, y: 336 },
+      { x: 940, y: 248 },
+      { x: 1320, y: 248 },
     ],
     foregrounds: [],
     lanterns: [],
@@ -771,6 +849,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
     subtitle: '水牢极西 · 镇族玉佩封藏室',
     region: 'prison',
     realm: 'normal',
+    indoor: true,
     mapX: 0,
     mapY: 2,
     gridW: 1,
@@ -820,6 +899,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
     subtitle: '幽冥地下水牢 · 玄铁封锁秘库',
     region: 'prison',
     realm: 'normal',
+    indoor: true,
     mapX: 1,
     mapY: 2,
     gridW: 1,
@@ -870,6 +950,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
     subtitle: '幽冥地下水牢 · 瓮城地底水道',
     region: 'prison',
     realm: 'normal',
+    indoor: true,
     mapX: 2,
     mapY: 2,
     gridW: 2,
@@ -927,6 +1008,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
     subtitle: '地脉镇魂坛 · 太极八卦传送阵',
     region: 'altar',
     realm: 'normal',
+    indoor: true,
     mapX: 4,
     mapY: 2,
     gridW: 2,
@@ -972,6 +1054,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
     subtitle: '幽冥水牢深处 · 少统领萧断水试剑处',
     region: 'prison',
     realm: 'normal',
+    indoor: true,
     mapX: 6,
     mapY: 2,
     gridW: 2,
@@ -1018,6 +1101,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
     subtitle: '地底铸兵秘窟 · 护体灵剑与兵符藏处',
     region: 'forge',
     realm: 'normal',
+    indoor: true,
     mapX: 8,
     mapY: 2,
     gridW: 2,
@@ -1097,8 +1181,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
 function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
   const invertedUpgradePickups: Record<string, ScenePickup[]> = {
     gate_2: [{ id: 'inv_pk_robe', kind: 'armor', itemId: 'xuanniao_robe', x: 520, y: 392 }],
-    upper_library: [{ id: 'inv_pk_sword3', kind: 'weapon', itemId: 'sword_3', x: 1280, y: 268 }],
-    secret_archive: [{ id: 'inv_pk_whip3', kind: 'weapon', itemId: 'whip_3', x: 510, y: 278 }],
+    upper_library: [{ id: 'inv_pk_sword3', kind: 'weapon', itemId: 'sword_3', x: 1280, y: 366 }],
+    secret_archive: [{ id: 'inv_pk_whip3', kind: 'weapon', itemId: 'whip_3', x: 510, y: 368 }],
     crypt_vault: [
       { id: 'inv_pk_gs3', kind: 'weapon', itemId: 'greatsword_3', x: 540, y: 294 },
     ],
@@ -1112,10 +1196,10 @@ function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
       { id: 'inv_pk_gourd', kind: 'armor', itemId: 'fortune_gourd', x: 520, y: 292 },
     ],
     clock_balcony: [
-      { id: 'inv_pk_hp2', kind: 'max_up', itemId: 'hp_vessel', x: 930, y: 266 },
+      { id: 'inv_pk_hp2', kind: 'max_up', itemId: 'hp_vessel', x: 1020, y: 418 },
     ],
     hall_corridor: [
-      { id: 'inv_pk_wine', kind: 'consumable', itemId: 'osmanthus_wine', x: 600, y: 292 },
+      { id: 'inv_pk_wine', kind: 'consumable', itemId: 'osmanthus_wine', x: 560, y: 352 },
     ],
   };
 
@@ -1147,23 +1231,24 @@ function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
       requireBossClear: false,
     }));
 
+    const baseFloorY = flippedNodes[0]?.y || 396;
     const flippedPavilions: PavilionPlatform[] = rm.pavilions
-      .filter((pv) => pv.hasPillars)
+      .filter((pv) => Math.abs(pv.y - baseFloorY) > 16 && pv.y > 140)
       .map((pv) => ({
         x: W - pv.x - pv.w,
         y: pv.y,
         w: pv.w,
-        hasPillars: true,
+        hasPillars: pv.hasPillars,
         label: pv.label,
       }));
 
-    // 为翻转后的上下天井自动补齐单向井盖与攀升踏台，保证里城 100% 畅通无阻！
     for (const sh of flippedShafts) {
       const sw = sh.x2 - sh.x1;
+      const shFloor = sampleSolidGroundY({ ...rm, groundNodes: flippedNodes }, (sh.x1 + sh.x2) * 0.5);
       if (sh.dir === 'down') {
         flippedPavilions.push({
           x: sh.x1 - 4,
-          y: 392,
+          y: shFloor,
           w: sw + 8,
           hasPillars: false,
           label: '里城暗井（↓+跃 下潜）',
@@ -1178,9 +1263,9 @@ function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
         });
         flippedPavilions.push({
           x: Math.max(80, sh.x1 - 140),
-          y: 256,
+          y: Math.min(shFloor - 120, 276),
           w: 170,
-          hasPillars: true,
+          hasPillars: false,
         });
       }
     }
@@ -1205,6 +1290,7 @@ function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
         : `九幽倒悬里城 · 阴阳逆乱之境`,
       region: rm.region,
       realm: 'inverted',
+      indoor: rm.indoor,
       mapX: invMapX,
       mapY: invMapY,
       gridW: rm.gridW,
@@ -1228,6 +1314,8 @@ function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
       groundNodes: flippedNodes,
       ceilingSpans: isTrueFinalRoom ? [] : flippedCeilings,
       shafts: flippedShafts,
+      decorProps: rm.decorProps?.map((dp) => ({ ...dp, x: W - dp.x })),
+      clockGears: rm.clockGears?.map((cg) => ({ ...cg, x: W - cg.x, speed: -cg.speed })),
       waterZones: rm.waterZones.map((wz) => ({
         x1: W - wz.x2,
         x2: W - wz.x1,

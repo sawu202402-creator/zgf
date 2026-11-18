@@ -135,6 +135,9 @@ export function drawSeamlessParallaxBackdrop(
 export function bakeOrthographicRoomTerrain(bctx: CanvasRenderingContext2D, room: BuiltRoom): void {
   bctx.clearRect(0, 0, room.pixelW, room.pixelH);
 
+  const usePalaceMarble = Boolean(room.indoor && room.region !== 'prison' && room.region !== 'forge');
+  const floorImg =
+    (usePalaceMarble ? Assets.get('env_palace_floor') : undefined) || Assets.get('env_ground_slab');
   const slabImg = Assets.get('env_ground_slab');
   const bridgeImg = Assets.get('env_bridge');
 
@@ -142,13 +145,13 @@ export function bakeOrthographicRoomTerrain(bctx: CanvasRenderingContext2D, room
     room.waterZones.length > 0 && room.groundNodes.some((n) => n.style === 'arch_bridge');
   const wz = isArchBridgeRoom ? room.waterZones[0] : null;
 
-  // 1. 绘制连续 AI 手绘青石古道横截面 (`env_ground_slab.webp`)
-  if (slabImg) {
-    const sw = slabImg.width;
-    const sh = slabImg.height;
+  // 1. 绘制连续 AI 手绘殿宇墨玉地砖 (`env_palace_floor`) 或露天青石古道 (`env_ground_slab`)
+  if (floorImg) {
+    const sw = floorImg.width;
+    const sh = floorImg.height;
+    const surfaceTopOffset = usePalaceMarble ? 20 : 6;
 
-    // 先在底层填深色石基防露底（跳过石拱桥镂空水面段与向下敞开的暗井口）
-    bctx.fillStyle = '#0d1320';
+    bctx.fillStyle = '#090e19';
     for (let x = 0; x < room.pixelW; x += 8) {
       if (isInsideDownShaft(room, x + 4)) continue;
       if (wz && x >= wz.x1 + 24 && x <= wz.x2 - 24) continue;
@@ -156,17 +159,15 @@ export function bakeOrthographicRoomTerrain(bctx: CanvasRenderingContext2D, room
       bctx.fillRect(x, gy + 16, 9, room.pixelH - gy);
     }
 
-    // 沿地面高度逐段贴合手绘青石板条带（斜坡/台阶处按 24px 切片细腻顺应坡度！）
     const sliceW = 24;
     for (let x = 0; x < room.pixelW; x += sliceW) {
       if (isInsideDownShaft(room, x + 4) || isInsideDownShaft(room, x + sliceW - 4)) continue;
-      // 石拱桥主体段交由完整手绘三孔石拱桥 `env_bridge.webp` 呈现！
       if (wz && x >= wz.x1 + 12 && x <= wz.x2 - sliceW - 12) continue;
 
       const gy = sampleSolidGroundY(room, x + sliceW * 0.5);
       const sx = ((x % sw) + sw) % sw;
       const grabW = Math.min(sliceW, sw - sx);
-      bctx.drawImage(slabImg, sx, 0, grabW, sh, x, gy - 6, sliceW + 0.6, sh);
+      bctx.drawImage(floorImg, sx, 0, grabW, sh, x, gy - surfaceTopOffset, sliceW + 0.6, sh);
     }
   }
 
@@ -256,7 +257,120 @@ export function bakeOrthographicRoomTerrain(bctx: CanvasRenderingContext2D, room
 }
 
 /**
- * 绘制正侧视 AI 手绘雕栏朱漆木阁台 (`env_pavilion.webp`)
+ * 计算钟塔旋转青铜齿轮附带的实时动态升降踏板（供渲染器与物理引擎严格同步！）
+ */
+export function getClockGearOrbitPlatforms(
+  room: BuiltRoom,
+  t: number
+): { x: number; y: number; w: number; vx: number; vy: number }[] {
+  if (!room.clockGears) return [];
+  const list: { x: number; y: number; w: number; vx: number; vy: number }[] = [];
+  for (const g of room.clockGears) {
+    if (!g.hasOrbitPlatforms) continue;
+    const orbitR = g.radius * 0.86;
+    const pw = 88;
+    for (let i = 0; i < 3; i++) {
+      const ang = t * g.speed + (i * Math.PI * 2) / 3;
+      const cx = g.x + Math.cos(ang) * orbitR;
+      const cy = g.y + Math.sin(ang) * orbitR;
+      const vx = -Math.sin(ang) * orbitR * g.speed;
+      const vy = Math.cos(ang) * orbitR * g.speed;
+      list.push({ x: cx - pw * 0.5, y: cy, w: pw, vx, vy });
+    }
+  }
+  return list;
+}
+
+/**
+ * 绘制《月下夜想曲》级室内陈设：破窗斜射体积月光柱、万卷藏书巨架、青铜百烛吊灯与旋转钟塔巨齿轮！
+ */
+export function drawCastleInteriorPropsAndGears(
+  ctx: CanvasRenderingContext2D,
+  room: BuiltRoom,
+  t: number
+): void {
+  // 1. 藏书巨架、雕花高窗（含斜射体积月光束！）与百烛吊灯
+  if (room.decorProps) {
+    const shelfImg = Assets.get('prop_bookshelf');
+    const winImg = Assets.get('prop_lattice_window');
+    const chanImg = Assets.get('prop_chandelier');
+
+    for (const dp of room.decorProps) {
+      const sc = dp.scale ?? 1;
+      if (dp.kind === 'lattice_window' && winImg) {
+        const h = 235 * sc;
+        const w = winImg.width * (h / winImg.height);
+        ctx.drawImage(winImg, dp.x - w * 0.5, dp.y - h, w, h);
+
+        // 礼拜堂/正殿灵魂意境：透窗斜射而下的清冷月华体积光柱！
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const beamG = ctx.createLinearGradient(dp.x, dp.y - h * 0.8, dp.x + 135, dp.y + 120);
+        beamG.addColorStop(0, 'rgba(125, 211, 252, 0.22)');
+        beamG.addColorStop(0.55, 'rgba(186, 230, 253, 0.09)');
+        beamG.addColorStop(1, 'rgba(56, 189, 248, 0)');
+        ctx.fillStyle = beamG;
+        ctx.beginPath();
+        ctx.moveTo(dp.x - w * 0.36, dp.y - h * 0.72);
+        ctx.lineTo(dp.x + w * 0.36, dp.y - h * 0.72);
+        ctx.lineTo(dp.x + w * 0.36 + 150, dp.y + 115);
+        ctx.lineTo(dp.x - w * 0.36 + 95, dp.y + 115);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      } else if (dp.kind === 'bookshelf' && shelfImg) {
+        const h = 248 * sc;
+        const w = shelfImg.width * (h / shelfImg.height);
+        ctx.drawImage(shelfImg, dp.x - w * 0.5, dp.y - h + 4, w, h);
+      } else if (dp.kind === 'chandelier' && chanImg) {
+        const sway = Math.sin(t * 1.6 + dp.x * 0.02) * 0.035;
+        const h = 186 * sc;
+        const w = chanImg.width * (h / chanImg.height);
+        ctx.save();
+        ctx.translate(dp.x, dp.y);
+        ctx.rotate(sway);
+        ctx.drawImage(chanImg, -w * 0.5, 0, w, h);
+
+        ctx.globalCompositeOperation = 'lighter';
+        const cg = ctx.createRadialGradient(0, h * 0.72, 4, 0, h * 0.72, 115);
+        cg.addColorStop(0, 'rgba(251, 191, 36, 0.28)');
+        cg.addColorStop(1, 'rgba(251, 191, 36, 0)');
+        ctx.fillStyle = cg;
+        ctx.beginPath();
+        ctx.arc(0, h * 0.72, 115, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+  }
+
+  // 2. 晨钟机关楼：实时咬合旋转的手绘青铜八卦巨齿轮与升降踏台！
+  if (room.clockGears) {
+    const gearImg = Assets.get('prop_clock_gear');
+    const ledgeImg = Assets.get('env_indoor_ledge') || Assets.get('env_pavilion');
+    if (gearImg) {
+      for (const g of room.clockGears) {
+        ctx.save();
+        ctx.translate(g.x, g.y);
+        ctx.rotate(t * g.speed);
+        ctx.globalAlpha = g.hasOrbitPlatforms ? 0.94 : 0.72;
+        ctx.drawImage(gearImg, -g.radius, -g.radius, g.radius * 2, g.radius * 2);
+        ctx.restore();
+      }
+    }
+    if (ledgeImg) {
+      const orbitPlats = getClockGearOrbitPlatforms(room, t);
+      const sy = Math.floor(ledgeImg.height * 0.36);
+      const sh = Math.floor(ledgeImg.height * 0.28);
+      for (const op of orbitPlats) {
+        ctx.drawImage(ledgeImg, 12, sy, ledgeImg.width - 24, sh, op.x, op.y - 3, op.w, 20);
+      }
+    }
+  }
+}
+
+/**
+ * 绘制平台：室内大殿/藏书阁采用无屋顶的【手绘红木鎏金雕栏回廊 `env_indoor_ledge`】，露天采用【飞檐朱漆阁台 `env_pavilion`】！
  */
 export function drawOrthographicPavilion(
   ctx: CanvasRenderingContext2D,
@@ -266,15 +380,26 @@ export function drawOrthographicPavilion(
   hasPillars: boolean,
   room: BuiltRoom
 ): void {
-  // 地井口单向木栈板：截取手绘青石/木台台面条绘制
   const pvImg = Assets.get('env_pavilion');
-  if (!hasPillars && y >= 380) {
-    if (pvImg) {
-      // 仅截取 env_pavilion 中段木石台面条 (38% .. 54%)
-      const sy = Math.floor(pvImg.height * 0.38);
-      const sh = Math.floor(pvImg.height * 0.16);
-      ctx.drawImage(pvImg, 16, sy, pvImg.width - 32, sh, x - 2, y - 3, w + 4, 14);
+  const indoorImg = Assets.get('env_indoor_ledge');
+  const groundHere = sampleSolidGroundY(room, x + w * 0.5);
+
+  // 竖井井口平地单向木栈盖板
+  if (!hasPillars && Math.abs(y - groundHere) < 18) {
+    const src = indoorImg || pvImg;
+    if (src) {
+      const sy = Math.floor(src.height * 0.37);
+      const sh = Math.floor(src.height * 0.16);
+      ctx.drawImage(src, 16, sy, src.width - 32, sh, x - 2, y - 3, w + 4, 15);
     }
+    return;
+  }
+
+  // 室内大殿/藏书阁/水牢一律采用无屋顶的【雕栏红木阁楼露台】，彻底杜绝“室内摆凉亭屋顶”违和感！
+  if (room.indoor && indoorImg) {
+    const drawW = w + 10;
+    const drawH = Math.min(108, Math.max(66, drawW * (indoorImg.height / indoorImg.width)));
+    ctx.drawImage(indoorImg, x - 5, y - drawH * 0.38, drawW, drawH);
     return;
   }
 

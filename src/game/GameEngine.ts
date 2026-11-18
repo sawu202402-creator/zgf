@@ -19,6 +19,7 @@ import {
   sampleSolidGroundY,
   WorldMap,
 } from '../data/worldMap';
+import { getClockGearOrbitPlatforms } from './GuofengWorldArt';
 import { SaveManager } from '../meta/SaveManager';
 import { NativeApp } from '../platform/NativeAppBridge';
 import {
@@ -161,6 +162,17 @@ export interface AfterImage {
   alpha: number;
 }
 
+export interface DyingEnemySoul {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  isBoss: boolean;
+  color: string;
+  timer: number;
+  maxTimer: number;
+}
+
 export interface BreakableLanternEntity {
   id: number;
   x: number;
@@ -221,6 +233,10 @@ export class GameEngine {
     comboResetTimer: 0,
     mistDashTimer: 0,
     backdashTimer: 0,
+    crouching: false,
+    slideTimer: 0,
+    diveKicking: false,
+    trailSpawnTimer: 0,
     groundSlamming: false,
     invulnTimer: 0,
     orbitSwordTimer: 0,
@@ -230,14 +246,28 @@ export class GameEngine {
     landSquash: 0,
   };
 
+  public familiar = {
+    x: 160,
+    y: 360,
+    facing: 1 as 1 | -1,
+    swoopTimer: 0,
+    targetX: 0,
+    targetY: 0,
+    cooldown: 0.8,
+    calloutText: '',
+    calloutTimer: 0,
+  };
+
   public activeSlash: ActiveSlash | null = null;
   private slashHitIds = new Set<number>();
+  private kickHitIds = new Set<number>();
   public skillBanner: { name: string; timer: number; color: string } | null = null;
   public taijiFlashTimer = 0;
   public soulStealFlashTimer = 0;
   public levelUpPillarTimer = 0;
 
   public enemies: EnemyEntity[] = [];
+  public dyingSouls: DyingEnemySoul[] = [];
   public liveLanterns: BreakableLanternEntity[] = [];
   private secretWallHits = new Map<string, number>();
   private orbitTickTimer = 0;
@@ -384,6 +414,22 @@ export class GameEngine {
     this.cb.onShowBanner(target.name, target.subtitle);
   }
 
+  private resolveRoomBgmMood(room: BuiltRoom, hasLiveBoss: boolean): void {
+    if (hasLiveBoss) {
+      AudioFX.setMood('boss');
+    } else if (room.realm === 'inverted') {
+      AudioFX.setMood('inverted');
+    } else if (room.region === 'library') {
+      AudioFX.setMood('library');
+    } else if (room.region === 'clock_tower') {
+      AudioFX.setMood('clock');
+    } else if (room.region === 'prison' || room.region === 'forge') {
+      AudioFX.setMood('prison');
+    } else {
+      AudioFX.setMood('castle');
+    }
+  }
+
   public isBossClearedInRoom(room: BuiltRoom): boolean {
     if (!room.bossKind) return true;
     if (!this.slot) return false;
@@ -444,11 +490,17 @@ export class GameEngine {
     this.camY = this.player.y - 95;
 
     this.enemies = [];
+    this.dyingSouls = [];
     this.projectiles = [];
     this.skyStrikes = [];
     this.drops = [];
     this.slashImpacts = [];
     this.activeSlash = null;
+    this.player.diveKicking = false;
+    this.player.slideTimer = 0;
+    this.familiar.x = entryX - this.player.facing * 32;
+    this.familiar.y = entryY - 68;
+    this.familiar.swoopTimer = 0;
     this.secretWallHits.clear();
 
     // 恶魔城经典机制：每个房间的红绸宫灯皆可挥兵击碎爆出灵符/纹银，并在跨房重进时自动复燃！
@@ -503,7 +555,7 @@ export class GameEngine {
     }
 
     const hasLiveBoss = this.enemies.some((e) => e.profile.isBoss);
-    AudioFX.setMood(hasLiveBoss ? 'boss' : 'castle');
+    this.resolveRoomBgmMood(nextRoom, hasLiveBoss);
 
     if (
       s.mode === 'story' &&
@@ -626,6 +678,7 @@ export class GameEngine {
     this.player.mp = Math.min(this.player.maxMp, this.player.mp + mpRegen * dt);
 
     this.updatePlayer(dt);
+    this.updateSwordFamiliar(dt);
     this.markCurrentMapCellVisited();
     this.updateCamera(dt);
     this.updateActiveSlash(dt);
@@ -722,6 +775,16 @@ export class GameEngine {
         p.coyoteTimer = 0;
         p.jumpBuffer = 0;
         p.y += 6;
+      } else if (p.onGround && inp.moveY > 0.5 && p.slideTimer <= 0) {
+        // 致敬《月下夜想曲》阿鲁卡多标志性体术一：【贴地滑铲踢 (`↓ + 跃`)】！
+        p.slideTimer = 0.28;
+        p.crouching = false;
+        p.jumpBuffer = 0;
+        p.invulnTimer = Math.max(p.invulnTimer, 0.16);
+        p.vx = p.facing * 435;
+        this.kickHitIds.clear();
+        AudioFX.playJump();
+        this.spawnInkBurst(p.x - p.facing * 12, p.y, '#cbd5e1', '#0f172a', 8);
       } else if (p.coyoteTimer > 0) {
         p.vy = -610;
         p.onGround = false;
@@ -730,12 +793,12 @@ export class GameEngine {
         AudioFX.playJump();
         this.spawnInkBurst(p.x, p.y, '#cbd5e1', '#1e293b', 6);
       } else if (!p.onGround && p.onWall !== 0 && this.hasAbility('wall_jump')) {
-        // 【壁虎游墙功】：贴墙借力反蹬连跳，可攀上禁书天机阁高台！
         const kickDir = (-p.onWall) as 1 | -1;
         p.facing = kickDir;
         p.vx = kickDir * 335;
         p.vy = -610;
         p.onWall = 0;
+        p.diveKicking = false;
         p.jumpBuffer = 0;
         AudioFX.playJump();
         this.spawnInkBurst(p.x - kickDir * 14, p.y - 24, '#fde047', '#1e293b', 10);
@@ -743,15 +806,33 @@ export class GameEngine {
         p.airJumpsLeft--;
         p.vy = -590;
         p.doubleJumpSpinTimer = 0.34;
+        p.diveKicking = false;
         p.jumpBuffer = 0;
         AudioFX.playJump();
         this.spawnInkBurst(p.x, p.y - 18, '#2dd4bf', '#0f172a', 12);
+      } else if (
+        !p.onGround &&
+        inp.moveY > 0.5 &&
+        this.hasAbility('double_jump') &&
+        !p.diveKicking
+      ) {
+        // 致敬《月下夜想曲》阿鲁卡多标志性体术二：【凌空飞踢 (`二段跳后 ↓ + 跃`)】，踩怪/踩宫灯自动弹起！
+        p.diveKicking = true;
+        p.jumpBuffer = 0;
+        if (inp.moveX !== 0) p.facing = Math.sign(inp.moveX) as 1 | -1;
+        p.vx = p.facing * 395;
+        p.vy = 560;
+        this.kickHitIds.clear();
+        AudioFX.playSlash('spear');
       }
     }
 
-    if (!inp.jumpHeld && p.vy < -220) {
+    if (!inp.jumpHeld && p.vy < -220 && !p.diveKicking) {
       p.vy *= 0.62;
     }
+
+    // 地面按住 ↓ 进入低姿下蹲（可躲避书妖符弹与高处横斩，按斩使出低身刺剑！）
+    p.crouching = p.onGround && inp.moveY > 0.55 && p.slideTimer <= 0 && !this.isOnPavilionDeck();
 
     // 攻击、经典恶魔城【↑ + 斩】奇门副器与手搓真气绝学
     if (inp.consumeAttack()) {
@@ -770,21 +851,54 @@ export class GameEngine {
       }
     }
 
-    // 水平加速度与步态相位推进
+    // 水平加速度与阿鲁卡多标志性蓝紫流光残影推进
     if (p.mistDashTimer > 0) {
       p.mistDashTimer -= dt;
-      if (Math.random() < 0.7) {
-        this.afterImages.push({ x: p.x, y: p.y, facing: p.facing, color: '#a855f7', alpha: 0.65 });
+      if (Math.random() < 0.75) {
+        this.afterImages.push({ x: p.x, y: p.y, facing: p.facing, color: '#a855f7', alpha: 0.68 });
+      }
+    } else if (p.slideTimer > 0) {
+      p.slideTimer -= dt;
+      p.vx *= Math.pow(0.25, dt);
+      this.shatterLanternsAndWallsInBox(p.x - 28, p.y - 36, 56, 38, false, 0);
+      for (const e of [...this.enemies]) {
+        if (this.kickHitIds.has(e.id)) continue;
+        if (Math.abs(e.x - p.x) < e.profile.w * 0.6 + 26 && Math.abs(e.y - p.y) < 42) {
+          this.kickHitIds.add(e.id);
+          this.applyDamageToEnemy(e, Math.round(p.atk * 0.88), false, 24);
+        }
+      }
+    } else if (p.diveKicking) {
+      p.vx = p.facing * 395;
+      p.vy = 560;
+      this.shatterLanternsAndWallsInBox(p.x - 24, p.y - 32, 48, 42, false, 0);
+      for (const e of [...this.enemies]) {
+        if (this.kickHitIds.has(e.id)) continue;
+        if (
+          Math.abs(e.x - p.x) < e.profile.w * 0.65 + 22 &&
+          p.y >= e.y - e.profile.h * 1.25 &&
+          p.y - 38 <= e.y
+        ) {
+          this.kickHitIds.add(e.id);
+          this.applyDamageToEnemy(e, Math.round(p.atk * 1.15), true, 35);
+          p.diveKicking = false;
+          p.vy = -520;
+          p.vx = -p.facing * 140;
+          AudioFX.playJump();
+          break;
+        }
       }
     } else if (p.backdashTimer > 0) {
       p.backdashTimer -= dt;
       p.vx *= 0.88;
-      if (Math.random() < 0.65) {
-        this.afterImages.push({ x: p.x, y: p.y, facing: p.facing, color: '#2dd4bf', alpha: 0.5 });
+      if (Math.random() < 0.72) {
+        this.afterImages.push({ x: p.x, y: p.y, facing: p.facing, color: '#38bdf8', alpha: 0.58 });
       }
-    } else if (this.activeSlash && p.onGround && this.activeSlash.progress < 0.5) {
-      // 挥剑/劈刀时自然弓步前踏寸劲！
-      p.vx *= 0.84;
+    } else if (p.crouching) {
+      p.vx *= Math.pow(0.0005, dt);
+      if (inp.moveX !== 0 && !this.activeSlash) p.facing = Math.sign(inp.moveX) as 1 | -1;
+    } else if (this.activeSlash && p.onGround && this.activeSlash.progress < 0.42) {
+      p.vx *= 0.88;
     } else {
       const moveSpeed = 276 * p.speedMult;
       if (inp.moveX !== 0) {
@@ -799,11 +913,91 @@ export class GameEngine {
       }
     }
 
-    if (p.mistDashTimer <= 0) {
+    // 致敬《恶魔城：月下夜想曲》阿鲁卡多招牌蓝青靛紫残影轨迹！
+    p.trailSpawnTimer -= dt;
+    const fastMotion =
+      !p.onGround || p.slideTimer > 0 || p.diveKicking || Math.abs(p.vx) > 295;
+    if (fastMotion && p.trailSpawnTimer <= 0 && p.mistDashTimer <= 0) {
+      p.trailSpawnTimer = p.slideTimer > 0 || p.diveKicking ? 0.036 : 0.055;
+      const palette = ['#38bdf8', '#6366f1', '#2dd4bf'];
+      const col = palette[Math.floor(p.animTime * 18) % palette.length];
+      this.afterImages.push({ x: p.x, y: p.y, facing: p.facing, color: col, alpha: 0.48 });
+    }
+
+    if (p.mistDashTimer <= 0 && !p.diveKicking) {
       p.vy = Math.min(880, p.vy + 1580 * dt);
     }
 
     this.moveAndCollideTerrain(dt);
+  }
+
+  private updateSwordFamiliar(dt: number): void {
+    if (!this.slot || !this.room || !this.hasAbility('familiar_sword')) return;
+    const p = this.player;
+    const fam = this.familiar;
+
+    if (fam.calloutTimer > 0) fam.calloutTimer -= dt;
+    if (fam.cooldown > 0) fam.cooldown -= dt;
+
+    // 靠近未击碎的暗裂砖墙时，剑灵使魔主动灵音提醒（致敬月下夜想曲妖精/使魔提示隐藏墙！）
+    if (this.room.secretWalls && fam.calloutTimer <= 0) {
+      for (const sw of this.room.secretWalls) {
+        if (this.slot.brokenSecretWalls.includes(sw.id)) continue;
+        if (Math.hypot(sw.x - p.x, sw.y + sw.h * 0.5 - (p.y - 36)) < 175) {
+          fam.calloutText = '剑灵：此处古砖似藏暗格！';
+          fam.calloutTimer = 2.4;
+          break;
+        }
+      }
+    }
+
+    if (fam.swoopTimer > 0) {
+      fam.swoopTimer -= dt;
+      fam.x += (fam.targetX - fam.x) * Math.min(1, dt * 15);
+      fam.y += (fam.targetY - fam.y) * Math.min(1, dt * 15);
+      return;
+    }
+
+    // 平时轻盈悬浮于少侠肩后
+    const anchorX = p.x - p.facing * 34;
+    const anchorY = p.y - 70 + Math.sin(p.animTime * 3.8) * 6;
+    fam.x += (anchorX - fam.x) * Math.min(1, dt * 8.5);
+    fam.y += (anchorY - fam.y) * Math.min(1, dt * 8.5);
+    fam.facing = p.facing;
+
+    // 自动索敌御剑飞刺！
+    if (fam.cooldown <= 0 && this.enemies.length > 0) {
+      let nearest: EnemyEntity | null = null;
+      let bestDist = 285;
+      for (const e of this.enemies) {
+        const d = Math.hypot(e.x - p.x, e.y - e.profile.h * 0.5 - (p.y - 40));
+        if (d < bestDist) {
+          bestDist = d;
+          nearest = e;
+        }
+      }
+      if (nearest) {
+        const famLv = 1 + Math.min(8, Math.floor((this.slot.familiarExp || 0) / 100));
+        fam.cooldown = Math.max(1.05, 1.85 - famLv * 0.08);
+        fam.swoopTimer = 0.32;
+        fam.targetX = nearest.x;
+        fam.targetY = nearest.y - nearest.profile.h * 0.55;
+        fam.facing = nearest.x >= fam.x ? 1 : -1;
+        const dmg = Math.max(8, Math.round(p.atk * (0.45 + famLv * 0.07)));
+        this.slashImpacts.push({
+          x: fam.targetX,
+          y: fam.targetY,
+          angle: -0.4 * fam.facing,
+          length: 44,
+          thickness: 4,
+          color: '#38bdf8',
+          ringRadius: 24,
+          life: 0.18,
+          maxLife: 0.18,
+        });
+        this.applyDamageToEnemy(nearest, dmg, false, 14);
+      }
+    }
   }
 
   private performWeaponAttack(): void {
@@ -1164,7 +1358,7 @@ export class GameEngine {
       if (ln.broken) continue;
       if (ln.x >= bx - 16 && ln.x <= bx + bw + 16 && ln.y + 18 >= by && ln.y - 18 <= by + bh) {
         ln.broken = true;
-        AudioFX.playHit(false);
+        AudioFX.playLanternBreak();
         this.spawnInkBurst(ln.x, ln.y + 12, '#fb923c', '#991b1b', 10);
         const dropGold = Math.random() < 0.35;
         this.drops.push({
@@ -1549,11 +1743,12 @@ export class GameEngine {
         }
       } else {
         const p = this.player;
+        const effH = p.crouching || p.slideTimer > 0 ? 44 : p.h;
         if (
           p.invulnTimer <= 0 &&
           p.mistDashTimer <= 0 &&
           Math.abs(pr.x - p.x) < p.w * 0.5 + pr.r &&
-          pr.y >= p.y - p.h &&
+          pr.y >= p.y - effH &&
           pr.y <= p.y
         ) {
           this.damagePlayer(pr.dmg, pr.x < p.x ? 1 : -1);
@@ -1698,38 +1893,123 @@ export class GameEngine {
           }
         } else if (e.profile.flying) {
           e.animPhase += dt * 4.5;
-          e.y = e.baseY + Math.sin(e.animPhase) * 18;
-          if (absDx < 420 && absDx > 95) {
+          // 飞天书妖走八字盘旋轨迹；金翅夜叉走大波浪美杜莎式掠袭轨迹！
+          const waveAmp = e.profile.kind === 'bell_gargoyle' ? 34 : 18;
+          e.y = e.baseY + Math.sin(e.animPhase) * waveAmp;
+          if (absDx < 480 && absDx > 95) {
             e.vx = e.facing * e.profile.speed;
-            e.x += e.vx * dt;
+            e.x = Math.max(54, Math.min(room.pixelW - 54, e.x + e.vx * dt));
           }
-          if (e.stateTimer <= 0 && absDx < 220) {
-            e.aiState = 'windup';
-            e.stateTimer = 0.5;
-            e.slashHitPlayer = false;
+          if (e.stateTimer <= 0 && absDx < 380) {
+            if (e.profile.ranged) {
+              // 飞天书妖发射追踪符咒赤弹 / 金翅夜叉斜射黄金雷叉！
+              const ang = Math.atan2(p.y - 42 - (e.y - 24), p.x - e.x);
+              const spd = e.profile.kind === 'bell_gargoyle' ? 360 : 285;
+              this.projectiles.push({
+                fromPlayer: false,
+                kind: 'dagger',
+                x: e.x + e.facing * 18,
+                y: e.y - 24,
+                vx: Math.cos(ang) * spd,
+                vy: Math.sin(ang) * spd,
+                r: 9,
+                dmg: e.profile.atk,
+                color: e.profile.accentColor,
+                life: 1.8,
+                maxLife: 1.8,
+                pierce: 1,
+                hitIds: new Set(),
+              });
+              AudioFX.playSlash('light');
+              e.stateTimer = 1.65;
+            } else if (absDx < 220) {
+              e.aiState = 'windup';
+              e.stateTimer = 0.5;
+              e.slashHitPlayer = false;
+            }
           }
         } else {
-          // 地面刀客/重盾甲士：迈步逼近至出刀距离后进入蓄势前摇！
-          const attackRange = e.profile.shieldedFront ? 96 : 108;
-          if (absDx < 460 && absDx > attackRange) {
-            e.vx = e.facing * e.profile.speed;
-            e.animPhase += dt * 10;
-          } else if (absDx >= 460) {
-            e.vx = Math.sin(p.animTime + e.id) * 45;
-            e.facing = e.vx >= 0 ? 1 : -1;
-            e.animPhase += dt * 4;
+          // 地面妖邪差异化 AI：毒沼三足蟾弹跳扑击吐毒，重盾傀儡中距掷回旋铜斧，刀客/木偶突步蓄斩！
+          if (e.profile.kind === 'plague_toad') {
+            if (e.vy !== 0 || e.y < sampleGroundY(room, e.x) - 2) {
+              e.vy += 1280 * dt;
+              e.x = Math.max(50, Math.min(room.pixelW - 50, e.x + e.vx * dt));
+              const gy = sampleGroundY(room, e.x);
+              if (e.y + e.vy * dt >= gy) {
+                e.y = gy;
+                e.vy = 0;
+                e.vx = 0;
+              } else {
+                e.y += e.vy * dt;
+              }
+            } else if (e.stateTimer <= 0 && absDx < 420) {
+              // 蛤蟆高跃扑击 + 喷吐紫毒珠！
+              e.vy = -450;
+              e.vx = e.facing * 230;
+              e.stateTimer = 1.45;
+              this.projectiles.push({
+                fromPlayer: false,
+                kind: 'holy_fire',
+                x: e.x + e.facing * 18,
+                y: e.y - 22,
+                vx: e.facing * 240,
+                vy: -260,
+                r: 9,
+                dmg: e.profile.atk,
+                color: '#a855f7',
+                life: 1.4,
+                maxLife: 1.4,
+                pierce: 1,
+                hitIds: new Set(),
+              });
+            }
           } else {
-            e.vx = 0;
-          }
+            const attackRange = e.profile.shieldedFront ? 96 : 108;
+            if (absDx < 460 && absDx > attackRange) {
+              e.vx = e.facing * e.profile.speed;
+              e.animPhase += dt * 10;
+            } else if (absDx >= 460) {
+              e.vx = Math.sin(p.animTime + e.id) * 45;
+              e.facing = e.vx >= 0 ? 1 : -1;
+              e.animPhase += dt * 4;
+            } else {
+              e.vx = 0;
+            }
 
-          e.x = Math.max(50, Math.min(room.pixelW - 50, e.x + e.vx * dt));
-          e.y = sampleGroundY(room, e.x);
+            e.x = Math.max(50, Math.min(room.pixelW - 50, e.x + e.vx * dt));
+            e.y = sampleGroundY(room, e.x);
 
-          if (e.stateTimer <= 0 && absDx <= attackRange + 18 && Math.abs(dy) < 90) {
-            e.aiState = 'windup';
-            e.stateTimer = e.profile.shieldedFront ? 0.58 : 0.46;
-            e.vx = 0;
-            e.slashHitPlayer = false;
+            // 玄甲重盾卫中距离投掷恶魔城经典高低回旋铜斧（蹲下可躲过高斧！）
+            if (
+              e.profile.shieldedFront &&
+              e.stateTimer <= 0 &&
+              absDx > 145 &&
+              absDx < 350 &&
+              Math.abs(dy) < 90
+            ) {
+              this.projectiles.push({
+                fromPlayer: false,
+                kind: 'bagua',
+                x: e.x + e.facing * 22,
+                y: e.y - 56, // 高位飞斧：少侠按 ↓ 下蹲即可帅气低头闪过！
+                vx: e.facing * 310,
+                vy: 0,
+                r: 14,
+                dmg: e.profile.atk,
+                color: '#f59e0b',
+                life: 1.5,
+                maxLife: 1.5,
+                pierce: 1,
+                hitIds: new Set(),
+              });
+              AudioFX.playSlash('heavy');
+              e.stateTimer = 1.85;
+            } else if (e.stateTimer <= 0 && absDx <= attackRange + 18 && Math.abs(dy) < 90) {
+              e.aiState = 'windup';
+              e.stateTimer = e.profile.shieldedFront ? 0.58 : 0.46;
+              e.vx = 0;
+              e.slashHitPlayer = false;
+            }
           }
         }
       } else if (e.aiState === 'windup') {
@@ -1898,6 +2178,22 @@ export class GameEngine {
 
     if (!s.bestiaryKills) s.bestiaryKills = {};
     s.bestiaryKills[e.profile.kind] = (s.bestiaryKills[e.profile.kind] || 0) + 1;
+    if (this.hasAbility('familiar_sword')) {
+      s.familiarExp = (s.familiarExp || 0) + e.profile.exp;
+    }
+
+    // 恶魔城标志性妖魂三连炎柱爆散演出！
+    AudioFX.playEnemyDie(e.profile.isBoss);
+    this.dyingSouls.push({
+      x: e.x,
+      y: e.y,
+      w: e.profile.w,
+      h: e.profile.h,
+      isBoss: e.profile.isBoss,
+      color: e.profile.accentColor,
+      timer: e.profile.isBoss ? 0.95 : 0.44,
+      maxTimer: e.profile.isBoss ? 0.95 : 0.44,
+    });
 
     this.spawnInkBurst(
       e.x,
@@ -1967,7 +2263,7 @@ export class GameEngine {
 
     if (!e.profile.isBoss) return;
 
-    AudioFX.setMood('castle');
+    this.resolveRoomBgmMood(this.room, false);
 
     // 1) 表城王座之巅【裴无极】真假结局分歧（100% 致敬《恶魔城：月下夜想曲》里希特破除控制神机制！）
     if (e.profile.kind === 'boss_pei_wuji' && this.room.realm === 'normal') {
@@ -2373,16 +2669,31 @@ export class GameEngine {
 
     p.onGround = false;
 
-    // 1. 检测雕栏木阁楼、石壁顶端与竖井井口单向栈板着陆
+    // 1. 检测雕栏阁台、旋转青铜机关齿轮踏板、石壁顶端与竖井井口单向栈板着陆
     if (p.vy >= 0 && p.dropThroughTimer <= 0) {
-      for (const pv of room.pavilions) {
-        if (p.x >= pv.x + 8 && p.x <= pv.x + pv.w - 8) {
-          if (prevY <= pv.y + 12 && nextY >= pv.y) {
-            p.y = pv.y;
-            if (!wasGrounded && p.vy > 260) p.landSquash = 1;
+      const orbitPlats = getClockGearOrbitPlatforms(room, p.animTime);
+      for (const op of orbitPlats) {
+        if (p.x >= op.x + 4 && p.x <= op.x + op.w - 4) {
+          if (prevY <= op.y + 16 && nextY >= op.y - 4) {
+            p.y = op.y;
+            p.x = Math.max(36, Math.min(room.pixelW - 36, p.x + op.vx * dt));
             p.vy = 0;
             p.onGround = true;
             break;
+          }
+        }
+      }
+
+      if (!p.onGround) {
+        for (const pv of room.pavilions) {
+          if (p.x >= pv.x + 8 && p.x <= pv.x + pv.w - 8) {
+            if (prevY <= pv.y + 12 && nextY >= pv.y) {
+              p.y = pv.y;
+              if (!wasGrounded && p.vy > 260) p.landSquash = 1;
+              p.vy = 0;
+              p.onGround = true;
+              break;
+            }
           }
         }
       }
@@ -2412,6 +2723,15 @@ export class GameEngine {
         p.onGround = true;
       } else {
         p.y = nextY;
+      }
+    }
+
+    // 阿鲁卡多灵魂手感：跳斩落地瞬间自动取消空中挥剑后摇（Short-Hop Double Slash Cancel）！
+    if (!wasGrounded && p.onGround) {
+      p.diveKicking = false;
+      if (this.activeSlash && this.activeSlash.archetype !== 'greatsword') {
+        this.activeSlash = null;
+        p.attackCooldown = Math.min(p.attackCooldown, 0.04);
       }
     }
   }
@@ -2460,13 +2780,14 @@ export class GameEngine {
       p.onGround = true;
     }
 
-    // 3. 向上纵跃冲出天井竖井直登二楼飞阁！（穿过上层单向井口木栈板稳稳落于上层地面！）
+    // 3. 向上纵跃冲出天井竖井直登二楼飞阁！（动态适配任意挑高厅堂地面标高！）
     if (p.y - p.h < 6 && p.vy < 0) {
       const upTr = WorldMap.resolveVerticalShaft(room, p.x, 'up', bossCleared);
       if (upTr) {
-        p.vy = -540;
+        p.vy = -560;
         p.onGround = false;
-        this.loadRoom(upTr.nextRoom, upTr.nextX, 424, true);
+        const targetFloor = sampleSolidGroundY(upTr.nextRoom, upTr.nextX);
+        this.loadRoom(upTr.nextRoom, upTr.nextX, targetFloor + 32, true);
       }
     }
   }
@@ -2663,6 +2984,10 @@ export class GameEngine {
     for (let i = this.afterImages.length - 1; i >= 0; i--) {
       this.afterImages[i].alpha -= dt * 2.8;
       if (this.afterImages[i].alpha <= 0) this.afterImages.splice(i, 1);
+    }
+    for (let i = this.dyingSouls.length - 1; i >= 0; i--) {
+      this.dyingSouls[i].timer -= dt;
+      if (this.dyingSouls[i].timer <= 0) this.dyingSouls.splice(i, 1);
     }
   }
 }

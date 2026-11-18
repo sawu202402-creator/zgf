@@ -358,7 +358,10 @@ export class UIManager {
     if (this.hudRefs.resRow) {
       const potCnt = Object.values(s.consumables).reduce((a, b) => a + b, 0);
       const sub = SUB_WEAPONS[s.equippedSubWeapon] || SUB_WEAPONS.dagger_throw;
-      this.hudRefs.resRow.innerHTML = `<span style="color:#fde68a;">纹银 ${s.gold}</span><span style="color:#fb923c;">灵符 ${s.talismanHearts} (${sub.name})</span><span style="color:#5eead4;">灵药 ${potCnt} [H]</span>`;
+      const famTag = s.abilities.includes('familiar_sword')
+        ? `<span style="color:#7dd3fc;">剑灵 Lv.${1 + Math.min(8, Math.floor((s.familiarExp || 0) / 100))}</span>`
+        : '';
+      this.hudRefs.resRow.innerHTML = `<span style="color:#fca5a5;">气血 ${Math.ceil(p.hp)}/${p.maxHp}</span><span style="color:#fde68a;">纹银 ${s.gold}</span><span style="color:#fb923c;">灵符 ${s.talismanHearts} (${sub.name})</span><span style="color:#5eead4;">灵药 ${potCnt} [H]</span>${famTag}`;
     }
 
     const hpPct = Math.max(0, Math.min(100, (p.hp / Math.max(1, p.maxHp)) * 100));
@@ -463,6 +466,7 @@ export class UIManager {
       footerLeft = built.footer;
     } else if (this.pauseTab === 'skills') {
       const relicKeys = [
+        'familiar_sword',
         'double_jump',
         'mist_dash',
         'wall_jump',
@@ -473,10 +477,14 @@ export class UIManager {
         .map((key) => {
           const meta = ABILITIES_META[key];
           const owned = s.abilities.includes(key);
+          const famLvStr =
+            key === 'familiar_sword' && owned
+              ? ` (当前 Lv.${1 + Math.min(8, Math.floor((s.familiarExp || 0) / 100))})`
+              : '';
           return `
           <div class="zx-item-row ${owned ? 'equipped' : ''}" style="opacity:${owned ? 1 : 0.48};cursor:default;">
             <div>
-              <strong style="font-size:15px;color:${owned ? meta.color : 'var(--bronze-light)'};">${owned ? '✦ 已觉醒 · ' : '未寻获 · '}${meta.name}</strong>
+              <strong style="font-size:15px;color:${owned ? meta.color : 'var(--bronze-light)'};">${owned ? '✦ 已觉醒 · ' : '未寻获 · '}${meta.name}${famLvStr}</strong>
               <div style="font-size:12px;color:#cbd5e1;margin-top:4px;">${meta.desc}</div>
             </div>
           </div>`;
@@ -485,7 +493,7 @@ export class UIManager {
 
       mainHtml = `
         <div style="flex:1;overflow-y:auto;padding:16px 0;">
-          <div style="font-size:14px;color:var(--bronze);letter-spacing:3px;margin-bottom:10px;">真气手搓武学（摇杆/方向键划出轨迹紧接【斩】瞬发；按【↑+斩】或 [U] 催动奇门副器）</div>
+          <div style="font-size:14px;color:var(--bronze);letter-spacing:3px;margin-bottom:10px;">真气手搓武学 & 阿鲁卡多体术（地面按住 ↓ 下蹲闪避 · 地面 ↓+跃 贴地滑铲踢 · 二段跳后 ↓+跃 凌空飞踢弹跳）</div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;">
             ${this.buildSkillCardsHtml()}
           </div>
@@ -641,10 +649,15 @@ export class UIManager {
     const kills = s.bestiaryKills || {};
     const getThumbKey = (kind: EnemyKind): AssetKey => {
       if (kind === 'boss_xiao_duanshui') return 'boss_xiao_0';
+      if (kind === 'boss_thunder_yaksha') return 'boss_yk_0';
       if (kind === 'boss_pei_wuji' || kind === 'boss_zhuyin' || kind === 'boss_furnace_titan') {
         return 'boss_pei_0';
       }
       if (ENEMY_PROFILES[kind].isBoss) return 'boss_ik_0';
+      if (kind === 'scroll_demon') return 'mob_book';
+      if (kind === 'plague_toad') return 'mob_toad';
+      if (kind === 'opera_puppet') return 'mob_puppet';
+      if (kind === 'bell_gargoyle') return 'mob_gargoyle';
       if (kind === 'bronze_guard') return 'mob_gd_0';
       if (ENEMY_PROFILES[kind].flying) return 'mob_wr_0';
       return 'mob_sw_0';
@@ -881,8 +894,8 @@ export class UIManager {
 
     if (curRoom.realm === targetRealm && curRoom.id !== 'boss_rush_arena') {
       const p = this.engine.player;
-      const dotX = ox + (curRoom.mapX + p.x / CELL_PIXEL_W) * cellW;
-      const dotY = oy + (curRoom.mapY + p.y / CELL_PIXEL_H) * cellH;
+      const dotX = ox + (curRoom.mapX + (p.x / curRoom.pixelW) * curRoom.gridW) * cellW;
+      const dotY = oy + (curRoom.mapY + (p.y / curRoom.pixelH) * curRoom.gridH) * cellH;
       const pulse = 0.55 + 0.45 * Math.sin(performance.now() * 0.01);
 
       ctx.fillStyle = `rgba(255, 255, 255, ${pulse})`;
@@ -1275,6 +1288,7 @@ export class UIManager {
         if (!s.ownedWeapons.includes(id)) s.ownedWeapons.push(id);
       }
       for (const ab of [
+        'familiar_sword',
         'double_jump',
         'mist_dash',
         'wall_jump',

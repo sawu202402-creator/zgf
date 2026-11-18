@@ -6,6 +6,7 @@ import {
   drawInkSlashRibbon,
   drawMonsterOrBoss,
   drawSceneNpc,
+  drawSwordFamiliar,
   drawWorldDrop,
   HERO_SPRITE_METRICS,
   selectHeroSpriteFrame,
@@ -13,6 +14,7 @@ import {
 import { GameEngine } from './GameEngine';
 import {
   bakeOrthographicRoomTerrain,
+  drawCastleInteriorPropsAndGears,
   drawHangingSilkLantern,
   drawOrthographicLanternPost,
   drawOrthographicPavilion,
@@ -69,6 +71,7 @@ export class InkVaniaRenderer {
     ctx.translate(-camLeft + shakeX, -camTop + shakeY);
 
     this.renderMoonlitWater(ctx, room);
+    drawCastleInteriorPropsAndGears(ctx, room, engine.player.animTime);
     this.renderMidgroundArchwaysAndTorches(ctx, room, engine);
     this.renderPavilionStructures(ctx, room);
 
@@ -92,11 +95,13 @@ export class InkVaniaRenderer {
 
     this.renderSkyStrikeTelegraphs(ctx, engine);
     this.renderAfterImages(ctx, engine);
+    this.renderDyingSoulPillars(ctx, engine);
 
     for (const e of engine.enemies) {
       drawMonsterOrBoss(ctx, e, this.ambientTime);
     }
 
+    drawSwordFamiliar(ctx, engine, this.ambientTime);
     drawHeroCharacter(ctx, engine, this.ambientTime);
     this.renderOrbitingSwordsAndLevelUp(ctx, engine);
     this.renderActiveSlashRibbon(ctx, engine);
@@ -208,7 +213,7 @@ export class InkVaniaRenderer {
   }
 
   private ensureBakedStoneContour(room: BuiltRoom): void {
-    const readyKey = `${room.realm}:${room.id}:${Boolean(Assets.get('env_ground_slab'))}:${Boolean(Assets.get('env_bridge'))}`;
+    const readyKey = `${room.realm}:${room.id}:${Boolean(Assets.get('env_ground_slab'))}:${Boolean(Assets.get('env_palace_floor'))}:${Boolean(Assets.get('env_bridge'))}`;
     if (this.terrainCanvas && this.cachedTerrainKey === readyKey) return;
 
     this.cachedTerrainKey = readyKey;
@@ -504,6 +509,10 @@ export class InkVaniaRenderer {
       animTime: p.animTime,
       isHeavy: wDef.archetype === 'greatsword',
       slash: engine.activeSlash,
+      isXiaoMode: slot?.mode === 'xiaoduanshui',
+      crouching: p.crouching,
+      sliding: p.slideTimer > 0,
+      diveKicking: p.diveKicking,
     });
 
     const s = HERO_SPRITE_METRICS.baseScale;
@@ -515,14 +524,46 @@ export class InkVaniaRenderer {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     for (const ai of engine.afterImages) {
-      const ghostImg = Assets.getTintedSilhouette(frameKey, ai.color || '#2dd4bf');
+      const ghostImg = Assets.getTintedSilhouette(frameKey, ai.color || '#38bdf8');
       if (!ghostImg) continue;
       ctx.save();
-      ctx.globalAlpha = ai.alpha * 0.34;
+      ctx.globalAlpha = ai.alpha * 0.42;
       ctx.translate(ai.x, ai.y);
       ctx.scale(ai.facing, 1);
       ctx.drawImage(ghostImg, dx, dy, drawW, drawH);
       ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  /**
+   * 致敬《恶魔城：月下夜想曲》经典怪物/Boss 死亡三连炎柱爆散演出！
+   */
+  private renderDyingSoulPillars(ctx: CanvasRenderingContext2D, engine: GameEngine): void {
+    if (engine.dyingSouls.length === 0) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (const ds of engine.dyingSouls) {
+      const prog = 1 - ds.timer / ds.maxTimer;
+      const alpha = Math.max(0, 1 - prog);
+      const count = ds.isBoss ? 5 : 3;
+      for (let i = 0; i < count; i++) {
+        const offX = (i - (count - 1) * 0.5) * (ds.isBoss ? 26 : 15);
+        const pillarH = (ds.h * 1.45 + i * 16) * (0.4 + prog * 1.1);
+        const pw = (ds.isBoss ? 24 : 13) * (1 - prog * 0.55);
+        const px = ds.x + offX;
+        const py = ds.y - prog * 28;
+        const fg = ctx.createLinearGradient(px, py, px, py - pillarH);
+        fg.addColorStop(0, `rgba(254, 240, 138, ${alpha * 0.9})`);
+        fg.addColorStop(0.45, `rgba(239, 68, 68, ${alpha * 0.72})`);
+        fg.addColorStop(1, 'rgba(168, 85, 247, 0)');
+        ctx.fillStyle = fg;
+        ctx.beginPath();
+        ctx.moveTo(px - pw, py);
+        ctx.quadraticCurveTo(px, py - pillarH * 1.15, px + pw, py);
+        ctx.closePath();
+        ctx.fill();
+      }
     }
     ctx.restore();
   }

@@ -18,11 +18,12 @@ export type SkillId =
   | 'jiuyou_soulsteal'; // ←↙↓↘→ + 攻: 九幽噬魂引
 
 export type AbilityKey =
-  | 'double_jump' // 踏云步：二段跳
+  | 'double_jump' // 踏云步：二段跳 + 凌空下踢(Dive Kick)
   | 'ground_slam' // 千斤坠：空中下砸震碎脆弱青石地砖
   | 'mist_dash' // 缩地化雾符：无敌雾化冲刺穿过铁栅栏与毒障
   | 'grapple_hook' // 飞燕钩锁：勾住高空红灯笼铜环摆荡飞跃
   | 'wall_jump' // 壁虎游墙功：垂直墙面蹬墙连跳
+  | 'familiar_sword' // 青冥剑灵使魔：致敬月下夜想曲剑魔，随主升级自动御剑护主并勘破暗墙！
   | 'mirror_truth' // 破妄古镜：识破蚀心蛊幻象信物之一
   | 'jade_pendant_full'; // 完整玄鸟玉佩：识破幻象开启倒悬里城信物之二
 
@@ -228,6 +229,7 @@ export interface SaveSlotData {
   consumables: Record<string, number>;
   weaponTemperLv?: Record<string, number>;
   bestiaryKills?: Record<string, number>;
+  familiarExp?: number;
   invertedUnlocked?: boolean;
   visitedRooms: string[]; // 'normal:room_id' | 'inverted:room_id' | 'cell:normal:x,y' | 'cell:inverted:x,y'
   collectedPickups: string[];

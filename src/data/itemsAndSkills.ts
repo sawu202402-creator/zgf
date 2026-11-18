@@ -649,6 +649,12 @@ export const ABILITIES_META: Record<
     desc: '贴住高墙时减缓下落，按下【跳跃】即可借力蹬墙反复攀上百丈钟鼓楼与藏书阁绝顶！',
     color: '#facc15',
   },
+  familiar_sword: {
+    name: '本命使魔 · 青冥剑灵',
+    subtitle: '使魔随行：自动御剑斩妖 · 随战升级 · 勘破隐藏砖墙',
+    desc: '前朝古剑孕育的通灵剑魔（致敬月下夜想曲使魔系统），常伴少侠肩畔自主飞刺妖邪，靠近暗墙时更会灵音示警！',
+    color: '#38bdf8',
+  },
   mirror_truth: {
     name: '钦天秘宝 · 破妄古镜',
     subtitle: '真相法器其一',

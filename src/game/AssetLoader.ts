@@ -5,8 +5,14 @@ export type AssetKey =
   | 'bg_library_opera'
   | 'bg_forge_prison'
   | 'env_ground_slab'
+  | 'env_palace_floor'
   | 'env_bridge'
   | 'env_pavilion'
+  | 'env_indoor_ledge'
+  | 'prop_bookshelf'
+  | 'prop_chandelier'
+  | 'prop_clock_gear'
+  | 'prop_lattice_window'
   | 'item_sword_altar'
   | 'item_armor_stand'
   | 'item_celadon_gourd'
@@ -44,6 +50,10 @@ export type AssetKey =
   | 'h18_modao_idle'
   | 'h18_modao_windup'
   | 'h18_modao_cleave'
+  | 'h18_crouch'
+  | 'h18_slide'
+  | 'h18_divekick'
+  | 'fam_sword'
   | 'mob_sw_0'
   | 'mob_sw_1'
   | 'mob_sw_2'
@@ -55,9 +65,16 @@ export type AssetKey =
   | 'mob_wr_0'
   | 'mob_wr_1'
   | 'mob_wr_2'
+  | 'mob_book'
+  | 'mob_toad'
+  | 'mob_puppet'
+  | 'mob_gargoyle'
   | 'boss_ik_0'
   | 'boss_ik_1'
   | 'boss_ik_2'
+  | 'boss_yk_0'
+  | 'boss_yk_1'
+  | 'boss_yk_2'
   | 'boss_xiao_0'
   | 'boss_xiao_1'
   | 'boss_xiao_2'
@@ -65,7 +82,7 @@ export type AssetKey =
   | 'boss_pei_1'
   | 'boss_pei_2';
 
-const ASSET_VERSION = 'painted_v5';
+const ASSET_VERSION = 'painted_v6';
 
 const ASSET_FILES: Record<AssetKey, string> = {
   bg_title: './assets/bg_title.webp',
@@ -74,8 +91,14 @@ const ASSET_FILES: Record<AssetKey, string> = {
   bg_library_opera: './assets/bg_library_opera.webp',
   bg_forge_prison: './assets/bg_forge_prison.webp',
   env_ground_slab: './assets/env_ground_slab.webp',
+  env_palace_floor: './assets/env_palace_floor.webp',
   env_bridge: './assets/env_bridge.webp',
   env_pavilion: './assets/env_pavilion.webp',
+  env_indoor_ledge: './assets/env_indoor_ledge.webp',
+  prop_bookshelf: './assets/prop_bookshelf.webp',
+  prop_chandelier: './assets/prop_chandelier.webp',
+  prop_clock_gear: './assets/prop_clock_gear.webp',
+  prop_lattice_window: './assets/prop_lattice_window.webp',
   item_sword_altar: './assets/item_sword_altar.webp',
   item_armor_stand: './assets/item_armor_stand.webp',
   item_celadon_gourd: './assets/item_celadon_gourd.webp',
@@ -113,6 +136,10 @@ const ASSET_FILES: Record<AssetKey, string> = {
   h18_modao_idle: './assets/h18_modao_idle.webp',
   h18_modao_windup: './assets/h18_modao_windup.webp',
   h18_modao_cleave: './assets/h18_modao_cleave.webp',
+  h18_crouch: './assets/h18_crouch.webp',
+  h18_slide: './assets/h18_slide.webp',
+  h18_divekick: './assets/h18_divekick.webp',
+  fam_sword: './assets/fam_sword.webp',
   mob_sw_0: './assets/mob_sw_0.webp',
   mob_sw_1: './assets/mob_sw_1.webp',
   mob_sw_2: './assets/mob_sw_2.webp',
@@ -124,9 +151,16 @@ const ASSET_FILES: Record<AssetKey, string> = {
   mob_wr_0: './assets/mob_wr_0.webp',
   mob_wr_1: './assets/mob_wr_1.webp',
   mob_wr_2: './assets/mob_wr_2.webp',
+  mob_book: './assets/mob_book.webp',
+  mob_toad: './assets/mob_toad.webp',
+  mob_puppet: './assets/mob_puppet.webp',
+  mob_gargoyle: './assets/mob_gargoyle.webp',
   boss_ik_0: './assets/boss_ik_0.webp',
   boss_ik_1: './assets/boss_ik_1.webp',
   boss_ik_2: './assets/boss_ik_2.webp',
+  boss_yk_0: './assets/boss_yk_0.webp',
+  boss_yk_1: './assets/boss_yk_1.webp',
+  boss_yk_2: './assets/boss_yk_2.webp',
   boss_xiao_0: './assets/boss_xiao_0.webp',
   boss_xiao_1: './assets/boss_xiao_1.webp',
   boss_xiao_2: './assets/boss_xiao_2.webp',

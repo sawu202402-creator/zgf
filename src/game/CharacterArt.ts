@@ -28,11 +28,22 @@ function selectEnemySpriteFrame(e: EnemyEntity, t: number): AssetKey {
     return 'boss_pei_0';
   }
 
+  if (kind === 'boss_thunder_yaksha') {
+    if (e.aiState === 'windup') return 'boss_yk_1';
+    if (e.aiState === 'lunge_slash') return 'boss_yk_2';
+    return 'boss_yk_0';
+  }
+
   if (kind === 'boss_scroll_king' || e.profile.isBoss) {
     if (e.aiState === 'windup') return 'boss_ik_1';
     if (e.aiState === 'lunge_slash') return 'boss_ik_2';
     return 'boss_ik_0';
   }
+
+  if (kind === 'scroll_demon') return 'mob_book';
+  if (kind === 'plague_toad') return 'mob_toad';
+  if (kind === 'opera_puppet') return 'mob_puppet';
+  if (kind === 'bell_gargoyle') return 'mob_gargoyle';
 
   if (kind === 'bronze_guard') {
     if (e.aiState === 'windup') return 'mob_gd_2';
@@ -87,6 +98,9 @@ export interface HeroRenderState {
   slash: ActiveSlash | null;
   scale?: number;
   isXiaoMode?: boolean;
+  crouching?: boolean;
+  sliding?: boolean;
+  diveKicking?: boolean;
 }
 
 export function selectHeroSpriteFrame(opts: {
@@ -98,16 +112,39 @@ export function selectHeroSpriteFrame(opts: {
   isHeavy: boolean;
   slash: ActiveSlash | null;
   isXiaoMode?: boolean;
+  crouching?: boolean;
+  sliding?: boolean;
+  diveKicking?: boolean;
 }): AssetKey {
-  const { vx, vy, onGround, runCycle, animTime, isHeavy, slash, isXiaoMode } = opts;
+  const {
+    vx,
+    vy,
+    onGround,
+    runCycle,
+    animTime,
+    isHeavy,
+    slash,
+    isXiaoMode,
+    crouching,
+    sliding,
+    diveKicking,
+  } = opts;
 
   if (isXiaoMode) {
-    if (slash) {
-      return slash.progress < 0.25 ? 'boss_xiao_1' : 'boss_xiao_2';
+    if (slash || sliding || diveKicking) {
+      return slash && slash.progress < 0.25 ? 'boss_xiao_1' : 'boss_xiao_2';
     }
     return Math.abs(vx) > 30 && Math.floor(runCycle * 0.6) % 2 === 1
       ? 'boss_xiao_1'
       : 'boss_xiao_0';
+  }
+
+  // 0. 阿鲁卡多标志性体术帧：贴地滑铲踢 (`↓ + 跃`) / 凌空下踢 (`二段跳后 ↓ + 跃`) / 下蹲低斩！
+  if (sliding) return 'h18_slide';
+  if (diveKicking) return 'h18_divekick';
+  if (crouching && onGround) {
+    if (slash && !isHeavy) return slash.progress > 0.35 ? 'h18_sword_2' : 'h18_crouch';
+    return 'h18_crouch';
   }
 
   // 1. 挥兵斩击帧（五系神兵各自呈现凌厉出招身姿！）
@@ -187,6 +224,9 @@ export function renderModularLiYichengRig(
     isHeavy,
     slash: opts.slash,
     isXiaoMode: opts.isXiaoMode,
+    crouching: opts.crouching,
+    sliding: opts.sliding,
+    diveKicking: opts.diveKicking,
   });
 
   ctx.save();
@@ -329,7 +369,59 @@ export function drawHeroCharacter(
     secondaryWeaponId: secondaryId,
     slash: engine.activeSlash,
     isXiaoMode: s.mode === 'xiaoduanshui',
+    crouching: p.crouching,
+    sliding: p.slideTimer > 0,
+    diveKicking: p.diveKicking,
   });
+}
+
+/**
+ * 渲染致敬《恶魔城：月下夜想曲》剑魔系统的随身使魔 —— 【青冥剑灵 (`fam_sword.webp`)】！
+ */
+export function drawSwordFamiliar(
+  ctx: CanvasRenderingContext2D,
+  engine: GameEngine,
+  t: number
+): void {
+  if (!engine.hasAbility('familiar_sword')) return;
+  const fam = engine.familiar;
+  const img = Assets.get('fam_sword');
+  if (!img) return;
+
+  ctx.save();
+  ctx.translate(fam.x, fam.y);
+
+  // 剑灵青冥护主光晕
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const fg = ctx.createRadialGradient(0, 0, 2, 0, 0, 34);
+  fg.addColorStop(0, 'rgba(125, 211, 252, 0.45)');
+  fg.addColorStop(1, 'rgba(56, 189, 248, 0)');
+  ctx.fillStyle = fg;
+  ctx.beginPath();
+  ctx.arc(0, 0, 34, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.scale(fam.facing, 1);
+  const tilt = fam.swoopTimer > 0 ? 0.55 : Math.sin(t * 3.8) * 0.1;
+  ctx.rotate(tilt);
+  const h = 58;
+  const w = img.width * (h / img.height);
+  ctx.drawImage(img, -w * 0.5, -h * 0.5, w, h);
+  ctx.restore();
+
+  if (fam.calloutTimer > 0 && fam.calloutText) {
+    ctx.font = 'bold 11.5px "STKaiti", "KaiTi", serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.88)';
+    ctx.fillText(fam.calloutText, 1, -35);
+    ctx.fillStyle = '#7dd3fc';
+    ctx.fillText(fam.calloutText, 0, -36);
+  }
+
+  ctx.restore();
 }
 
 /**
