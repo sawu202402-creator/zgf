@@ -542,41 +542,18 @@ export function drawSceneNpc(
 
   // 1. 专属场景陈设与环境光影（让 NPC 与大地严丝合缝融为一体）
   if (npc.id === 'ouye_can') {
-    // 独臂铸剑师身旁的【赤火铸剑铁砧与炭火炉】
-    const bx = -36;
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
-    ctx.beginPath();
-    ctx.ellipse(bx, 2, 24, 5, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 玄铁剑砧底座
-    ctx.fillStyle = '#1e293b';
-    ctx.strokeStyle = '#090d16';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(bx - 18, 0);
-    ctx.lineTo(bx + 18, 0);
-    ctx.lineTo(bx + 13, -18);
-    ctx.lineTo(bx + 22, -24);
-    ctx.lineTo(bx - 20, -24);
-    ctx.lineTo(bx - 13, -18);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-
-    // 砧面通红剑坯与跃动炉火微光
+    // 独臂铸剑师身旁跃动的赤火淬兵炉光晕
+    const bx = -32;
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    const fg = ctx.createRadialGradient(bx, -28, 2, bx, -28, 54 + Math.sin(t * 11) * 6);
-    fg.addColorStop(0, 'rgba(253, 224, 71, 0.55)');
-    fg.addColorStop(0.45, 'rgba(249, 115, 22, 0.26)');
+    const fg = ctx.createRadialGradient(bx, -26, 2, bx, -26, 52 + Math.sin(t * 11) * 5);
+    fg.addColorStop(0, 'rgba(253, 224, 71, 0.45)');
+    fg.addColorStop(0.5, 'rgba(249, 115, 22, 0.22)');
     fg.addColorStop(1, 'rgba(249, 115, 22, 0)');
     ctx.fillStyle = fg;
     ctx.beginPath();
-    ctx.arc(bx, -28, 58, 0, Math.PI * 2);
+    ctx.arc(bx, -26, 56, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = '#fb923c';
-    ctx.fillRect(bx - 12, -26.5, 24, 2.5);
     ctx.restore();
   } else if (npc.id === 'bai_zhanggui') {
     // 白掌柜身下青冥灯影光晕
@@ -717,101 +694,34 @@ export function drawWorldDrop(
   ctx.restore();
 
   if (d.kind === 'weapon') {
-    // 青石镇剑台基座 + 赛璐珞黑墨描边神兵斜插石中（0位图贴纸！）
-    const isModao = d.itemId.startsWith('greatsword');
-    ctx.save();
-    ctx.translate(-3, isModao ? -40 : -34);
-    ctx.rotate(1.32); // 刀尖朝下深深没入裂纹青石剑座！
-    drawCelShadedWeapon(ctx, isModao ? 'greatsword' : 'sword', d.itemId, isModao ? 88 : 74);
-    ctx.restore();
-
-    ctx.fillStyle = '#273449';
-    ctx.strokeStyle = '#060911';
-    ctx.lineWidth = 2.2;
-    ctx.beginPath();
-    ctx.moveTo(-22, 1);
-    ctx.lineTo(-16, -13);
-    ctx.lineTo(17, -13);
-    ctx.lineTo(23, 1);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-    ctx.strokeStyle = 'rgba(207, 163, 73, 0.45)';
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.moveTo(-15, -12);
-    ctx.lineTo(16, -12);
-    ctx.stroke();
+    const altarImg = Assets.get('item_sword_altar');
+    if (altarImg) {
+      const h = 86;
+      const w = altarImg.width * (h / altarImg.height);
+      ctx.drawImage(altarImg, -w * 0.5, -h + 3, w, h);
+    }
   } else if (d.kind === 'armor') {
-    // 镇军乌木甲胄架（玄铁锁子甲悬于木架之上）
-    ctx.fillStyle = '#451a12';
-    ctx.strokeStyle = '#060911';
-    ctx.lineWidth = 2;
-    ctx.fillRect(-3, -38, 6, 38);
-    ctx.fillRect(-18, -34, 36, 5);
-    ctx.strokeRect(-18, -34, 36, 5);
-
-    ctx.fillStyle = '#1e293b';
-    ctx.beginPath();
-    ctx.moveTo(-14, -33);
-    ctx.lineTo(14, -33);
-    ctx.lineTo(17, -12);
-    ctx.lineTo(-17, -12);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.strokeStyle = '#cfa349';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(-12, -23);
-    ctx.lineTo(12, -23);
-    ctx.stroke();
+    const armorImg = Assets.get('item_armor_stand');
+    if (armorImg) {
+      const h = 88;
+      const w = armorImg.width * (h / armorImg.height);
+      ctx.drawImage(armorImg, -w * 0.5, -h + 3, w, h);
+    }
   } else if (d.kind === 'consumable' || d.kind === 'max_up') {
-    // 雕漆石托盘 + 精细手绘青瓷药玉瓶 / 荷叶灵食（告别抠图大葫芦贴纸！）
-    ctx.fillStyle = '#3b1514';
-    ctx.strokeStyle = '#c69a45';
-    ctx.lineWidth = 1.3;
-    ctx.beginPath();
-    ctx.ellipse(0, -2, 14, 4, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-
     if (d.itemId === 'beggar_chicken') {
-      // 荷叶金缕叫花鸡包裹
-      ctx.fillStyle = '#365314';
-      ctx.strokeStyle = '#090d16';
-      ctx.lineWidth = 1.8;
-      ctx.beginPath();
-      ctx.ellipse(0, -10, 11, 8, -0.1, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-      ctx.strokeStyle = '#eab308';
-      ctx.lineWidth = 1.4;
-      ctx.beginPath();
-      ctx.moveTo(-8, -10);
-      ctx.lineTo(8, -10);
-      ctx.moveTo(0, -17);
-      ctx.lineTo(0, -3);
-      ctx.stroke();
+      const chkImg = Assets.get('item_lotus_chicken');
+      if (chkImg) {
+        const h = 38;
+        const w = chkImg.width * (h / chkImg.height);
+        ctx.drawImage(chkImg, -w * 0.5, -h + 2, w, h);
+      }
     } else {
-      // 龙泉青釉丹药玉净瓶
-      const pg = ctx.createLinearGradient(-7, -22, 7, -4);
-      pg.addColorStop(0, '#99f6e4');
-      pg.addColorStop(0.5, '#14b8a6');
-      pg.addColorStop(1, '#115e59');
-      ctx.fillStyle = pg;
-      ctx.strokeStyle = '#070a12';
-      ctx.lineWidth = 1.7;
-      ctx.beginPath();
-      ctx.arc(0, -10, 7.2, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-      ctx.fillRect(-3, -21, 6, 6);
-      ctx.strokeRect(-3, -21, 6, 6);
-      // 朱红木塞
-      ctx.fillStyle = '#dc2626';
-      ctx.fillRect(-2.5, -24, 5, 3);
+      const gourdImg = Assets.get('item_celadon_gourd');
+      if (gourdImg) {
+        const h = 42;
+        const w = gourdImg.width * (h / gourdImg.height);
+        ctx.drawImage(gourdImg, -w * 0.5, -h + 2, w, h);
+      }
     }
   } else if (d.kind === 'yao_core') {
     const floatY = -18 + Math.sin(t * 4.5) * 3;

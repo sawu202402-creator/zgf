@@ -205,9 +205,10 @@ export class InkVaniaRenderer {
   }
 
   private ensureBakedStoneContour(room: BuiltRoom): void {
-    if (this.terrainCanvas && this.cachedTerrainKey === room.id) return;
+    const readyKey = `${room.id}:${Boolean(Assets.get('env_ground_slab'))}:${Boolean(Assets.get('env_bridge'))}`;
+    if (this.terrainCanvas && this.cachedTerrainKey === readyKey) return;
 
-    this.cachedTerrainKey = room.id;
+    this.cachedTerrainKey = readyKey;
     if (!this.terrainCanvas) {
       this.terrainCanvas = document.createElement('canvas');
     }
@@ -700,51 +701,26 @@ export class InkVaniaRenderer {
   }
 
   /**
-   * 1.24x 前景暗影遮挡层：模拟电影镜头前掠过的墨竹与大殿廊柱，彻底激活横版2.5D纵深感！
+   * 1.24x 前景漂浮余烬与流萤微尘（彻底移除死板的黑色代码线条假竹子！）
    */
   private renderForegroundParallax(
     ctx: CanvasRenderingContext2D,
     vW: number,
     vH: number,
     camLeft: number,
-    room: BuiltRoom
+    _room: BuiltRoom
   ): void {
-    for (const fg of room.foregrounds) {
-      const screenX = fg.x - camLeft * fg.parallax;
-      if (screenX < -120 || screenX > vW + 120) continue;
-
-      ctx.save();
-      if (fg.kind === 'bamboo') {
-        const sway = Math.sin(this.ambientTime * 2 + fg.x * 0.01) * 10;
-        ctx.strokeStyle = 'rgba(4, 7, 13, 0.86)';
-        ctx.lineWidth = 11;
-        ctx.beginPath();
-        ctx.moveTo(screenX, vH + 10);
-        ctx.quadraticCurveTo(screenX + sway * 0.5, vH * 0.5, screenX + sway, -15);
-        ctx.stroke();
-
-        ctx.lineWidth = 6;
-        ctx.beginPath();
-        ctx.moveTo(screenX + 22, vH + 10);
-        ctx.quadraticCurveTo(screenX + 28 + sway * 0.6, vH * 0.55, screenX + 34 + sway, 30);
-        ctx.stroke();
-
-        ctx.fillStyle = 'rgba(5, 9, 16, 0.88)';
-        for (let ly = 70; ly < vH - 40; ly += 85) {
-          ctx.beginPath();
-          ctx.ellipse(screenX + sway * 0.5 + 18, ly, 24, 5, 0.35, 0, Math.PI * 2);
-          ctx.ellipse(screenX + sway * 0.5 - 16, ly + 22, 22, 4.5, -0.4, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      } else if (fg.kind === 'dragon_pillar') {
-        ctx.fillStyle = 'rgba(6, 8, 14, 0.82)';
-        ctx.fillRect(screenX - 28, 0, 56, vH);
-        ctx.fillStyle = 'rgba(207, 163, 73, 0.12)';
-        ctx.fillRect(screenX - 28, 0, 2, vH);
-        ctx.fillRect(screenX + 26, 0, 2, vH);
-      }
-      ctx.restore();
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 14; i++) {
+      const wx = ((i * 277 - camLeft * 1.22 + this.ambientTime * (12 + (i % 4) * 5)) % (vW + 120) + (vW + 120)) % (vW + 120) - 60;
+      const wy = ((i * 173 - this.ambientTime * (9 + (i % 3) * 4)) % (vH + 80) + (vH + 80)) % (vH + 80) - 40;
+      ctx.fillStyle = i % 2 === 0 ? 'rgba(253, 224, 71, 0.42)' : 'rgba(45, 212, 191, 0.35)';
+      ctx.beginPath();
+      ctx.arc(wx, wy, 1.6 + (i % 2), 0, Math.PI * 2);
+      ctx.fill();
     }
+    ctx.restore();
   }
 
   private renderScreenSkillOverlays(

@@ -220,17 +220,17 @@ function createInterconnectedCastleRooms(): BuiltRoom[] {
     rightRoomId: 'gate_2',
     rightDoorFloorY: 400,
     groundNodes: [
-      { x: 0, y: 404, style: 'flagstone' },
-      { x: 360, y: 404, style: 'arch_bridge' },
-      { x: 640, y: 356, style: 'arch_bridge' },
-      { x: 860, y: 356, style: 'arch_bridge' },
-      { x: 1120, y: 400, style: 'flagstone' },
+      { x: 0, y: 402, style: 'flagstone' },
+      { x: 355, y: 402, style: 'arch_bridge' },
+      { x: 650, y: 326, style: 'arch_bridge' },
+      { x: 830, y: 326, style: 'arch_bridge' },
+      { x: 1125, y: 400, style: 'flagstone' },
       { x: 1600, y: 400, style: 'flagstone' },
     ],
     // 右侧 x=1160..1600 为真实瓮城城楼厚重石砌门洞隧道（露天自然过渡进城门内！）
     ceilingSpans: [{ x1: 1180, x2: 1600, bottomY: 236, style: 'gate_tunnel' }],
     shafts: [],
-    waterZones: [{ x1: 350, x2: 1130, surfaceY: 422 }],
+    waterZones: [{ x1: 350, x2: 1130, surfaceY: 362 }],
     pavilions: [
       { x: 960, y: 282, w: 190, hasPillars: true, label: '城门望哨台' },
     ],

@@ -1,40 +1,9 @@
 import { AssetKey, Assets } from '../game/AssetLoader';
 import { WeaponArchetype } from '../types';
 
-/**
- * 统一国风鎏金乌木水墨器物徽章（彻底告别将抠图位图贴纸硬塞进UI列表的违和感！）
- */
 export function getWeaponArtHtml(archetype: WeaponArchetype, width = 68): string {
-  if (archetype === 'greatsword') {
-    return `<svg viewBox="0 0 96 28" width="${width}" height="24" style="display:block;overflow:visible;">
-      <defs>
-        <linearGradient id="mdBlade" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stop-color="#1e293b"/>
-          <stop offset="65%" stop-color="#334155"/>
-          <stop offset="100%" stop-color="#94a3b8"/>
-        </linearGradient>
-      </defs>
-      <line x1="6" y1="14" x2="28" y2="14" stroke="#7c2d12" stroke-width="4.5" stroke-linecap="round"/>
-      <circle cx="5" cy="14" r="3.5" fill="#cfa349"/>
-      <path d="M27 6 L34 10 L34 18 L27 22 Z" fill="#cfa349" stroke="#451a03" stroke-width="1"/>
-      <path d="M33 8 L86 6 L93 14 L82 21 L33 20 Z" fill="url(#mdBlade)" stroke="#cfa349" stroke-width="1.3"/>
-      <line x1="40" y1="13.5" x2="78" y2="13" stroke="#f97316" stroke-width="1.4" stroke-dasharray="5 3"/>
-    </svg>`;
-  }
-  return `<svg viewBox="0 0 96 26" width="${width}" height="22" style="display:block;overflow:visible;">
-    <defs>
-      <linearGradient id="swBlade" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0%" stop-color="#64748b"/>
-        <stop offset="55%" stop-color="#e2e8f0"/>
-        <stop offset="100%" stop-color="#ffffff"/>
-      </linearGradient>
-    </defs>
-    <line x1="7" y1="13" x2="24" y2="13" stroke="#134e4a" stroke-width="3.6" stroke-linecap="round"/>
-    <circle cx="6" cy="13" r="3" fill="#cfa349"/>
-    <path d="M23 6 Q29 13 23 20 L27 17 L27 9 Z" fill="#cfa349"/>
-    <polygon points="27,10 82,11.2 93,13 82,14.8 27,16" fill="url(#swBlade)" stroke="#0f172a" stroke-width="0.9"/>
-    <line x1="30" y1="13" x2="84" y2="13" stroke="#2dd4bf" stroke-width="1"/>
-  </svg>`;
+  const key: AssetKey = archetype === 'greatsword' ? 'part_wpn_modao' : 'part_wpn_sword';
+  return `<img src="${Assets.getUrl(key)}" style="width:${width}px;height:22px;object-fit:contain;display:block;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.9));" alt="兵刃" />`;
 }
 
 export function getSubWeaponSvg(id: string): string {
@@ -63,11 +32,7 @@ export function getSlotCategorySvg(
   itemId?: string
 ): string {
   if (slot === 'armor') {
-    return `<svg viewBox="0 0 36 36" width="26" height="26">
-      <path d="M11 7 L18 11 L25 7 L31 13 L26 18 L25 30 L11 30 L10 18 L5 13 Z" fill="#17253b" stroke="#cfa349" stroke-width="1.6"/>
-      <path d="M14 10 L18 17 L22 10" fill="none" stroke="#f6dc8d" stroke-width="1.3"/>
-      <line x1="12" y1="21" x2="24" y2="21" stroke="#b91c1c" stroke-width="2.2"/>
-    </svg>`;
+    return `<img src="${Assets.getUrl('item_armor_stand')}" width="28" height="28" style="object-fit:contain;display:block;" alt="衣甲" />`;
   }
   if (slot === 'accessory') {
     return `<svg viewBox="0 0 36 36" width="26" height="26">
@@ -83,22 +48,11 @@ export function getSlotCategorySvg(
     </svg>`;
   }
   if (itemId === 'beggar_chicken') {
-    return `<svg viewBox="0 0 36 36" width="26" height="26">
-      <ellipse cx="18" cy="20" rx="11" ry="8" fill="#365314" stroke="#cfa349" stroke-width="1.5"/>
-      <line x1="9" y1="20" x2="27" y2="20" stroke="#facc15" stroke-width="1.3"/>
-      <line x1="18" y1="13" x2="18" y2="27" stroke="#facc15" stroke-width="1.3"/>
-    </svg>`;
+    return `<img src="${Assets.getUrl('item_lotus_chicken')}" width="30" height="26" style="object-fit:contain;display:block;" alt="叫花鸡" />`;
   }
-  return `<svg viewBox="0 0 36 36" width="26" height="26">
-    <rect x="15" y="6" width="6" height="4" rx="1" fill="#dc2626"/>
-    <path d="M15 10 L21 10 L22 15 C26 17, 26 27, 18 29 C10 27, 10 17, 14 15 Z" fill="#0f766e" stroke="#5eead4" stroke-width="1.5"/>
-    <circle cx="16" cy="20" r="2" fill="#ccfbf1" opacity="0.7"/>
-  </svg>`;
+  return `<img src="${Assets.getUrl('item_celadon_gourd')}" width="26" height="28" style="object-fit:contain;display:block;" alt="丹药" />`;
 }
 
-/**
- * 返回 100% 无框透明抠图半身大立绘（彻底摒弃圆框/方框大头贴！）
- */
 export function getSpeakerPortraitSvg(speaker: string, height = 215): string {
   let key: AssetKey = 'bust_liyicheng';
   if (speaker.includes('苏清晏')) key = 'bust_su_qingyan';

@@ -1,4 +1,21 @@
 export type AssetKey =
+  | 'bg_title'
+  | 'bg_gatehouse'
+  | 'bg_main_hall'
+  | 'bg_library_opera'
+  | 'bg_forge_prison'
+  | 'env_ground_slab'
+  | 'env_bridge'
+  | 'env_pavilion'
+  | 'item_sword_altar'
+  | 'item_armor_stand'
+  | 'item_celadon_gourd'
+  | 'item_lotus_chicken'
+  | 'prop_shrine'
+  | 'prop_lantern'
+  | 'prop_stone_arch'
+  | 'part_wpn_sword'
+  | 'part_wpn_modao'
   | 'bust_liyicheng'
   | 'bust_su_qingyan'
   | 'bust_ouye_can'
@@ -38,9 +55,26 @@ export type AssetKey =
   | 'boss_ik_1'
   | 'boss_ik_2';
 
-const ASSET_VERSION = 'pure2d_3';
+const ASSET_VERSION = 'painted_v4';
 
 const ASSET_FILES: Record<AssetKey, string> = {
+  bg_title: './assets/bg_title.webp',
+  bg_gatehouse: './assets/bg_gatehouse.webp',
+  bg_main_hall: './assets/bg_main_hall.webp',
+  bg_library_opera: './assets/bg_library_opera.webp',
+  bg_forge_prison: './assets/bg_forge_prison.webp',
+  env_ground_slab: './assets/env_ground_slab.webp',
+  env_bridge: './assets/env_bridge.webp',
+  env_pavilion: './assets/env_pavilion.webp',
+  item_sword_altar: './assets/item_sword_altar.webp',
+  item_armor_stand: './assets/item_armor_stand.webp',
+  item_celadon_gourd: './assets/item_celadon_gourd.webp',
+  item_lotus_chicken: './assets/item_lotus_chicken.webp',
+  prop_shrine: './assets/prop_shrine.webp',
+  prop_lantern: './assets/prop_lantern.webp',
+  prop_stone_arch: './assets/prop_stone_arch.webp',
+  part_wpn_sword: './assets/part_wpn_sword.webp',
+  part_wpn_modao: './assets/part_wpn_modao.webp',
   bust_liyicheng: './assets/bust_liyicheng.webp',
   bust_su_qingyan: './assets/bust_su_qingyan.webp',
   bust_ouye_can: './assets/bust_ouye_can.webp',
@@ -123,9 +157,7 @@ class GameAssetRegistry {
     );
   }
 
-  public async preloadRemainingInBackground(): Promise<void> {
-    // All active character & enemy frames are lightweight (~8 KB each) and preloaded upfront
-  }
+  public async preloadRemainingInBackground(): Promise<void> {}
 
   public get(key: AssetKey): HTMLImageElement | undefined {
     return this.images.get(key);
