@@ -10,7 +10,15 @@ import {
   YAO_CORES,
 } from '../data/itemsAndSkills';
 import { STORY_SCENES } from '../data/storyAndNpcs';
-import { BuiltRoom, REGION_NAMES, sampleGroundY, WorldMap } from '../data/worldMap';
+import {
+  BuiltRoom,
+  CELL_PIXEL_H,
+  CELL_PIXEL_W,
+  sampleCeilingY,
+  sampleGroundY,
+  sampleSolidGroundY,
+  WorldMap,
+} from '../data/worldMap';
 import { SaveManager } from '../meta/SaveManager';
 import { NativeApp } from '../platform/NativeAppBridge';
 import {
@@ -231,6 +239,7 @@ export class GameEngine {
   public afterImages: AfterImage[] = [];
 
   public screenShake = 0;
+  public roomFadeTimer = 0;
   private hitstopTimer = 0;
   private nextEntityId = 1;
   private lastVisitedRegion = '';
@@ -348,27 +357,62 @@ export class GameEngine {
     this.cb.onShowBanner(target.name, target.subtitle);
   }
 
-  public loadRoom(nextRoom: BuiltRoom, entryX: number, entryY: number): void {
+  public isBossClearedInRoom(room: BuiltRoom): boolean {
+    if (!room.bossKind) return true;
+    if (!this.slot) return false;
+    return (
+      this.slot.defeatedBosses.includes(`${room.realm}:${room.bossKind}`) &&
+      !this.enemies.some((e) => e.profile.isBoss)
+    );
+  }
+
+  private markCurrentMapCellVisited(): void {
+    if (!this.slot || !this.room) return;
+    const localGx = Math.max(
+      0,
+      Math.min(this.room.gridW - 1, Math.floor(this.player.x / CELL_PIXEL_W))
+    );
+    const localGy = Math.max(
+      0,
+      Math.min(this.room.gridH - 1, Math.floor(this.player.y / CELL_PIXEL_H))
+    );
+    const cellKey = `cell:${this.room.mapX + localGx},${this.room.mapY + localGy}`;
+    if (!this.slot.visitedRooms.includes(cellKey)) {
+      this.slot.visitedRooms.push(cellKey);
+      const pct = WorldMap.calcExplorationPct(this.slot.visitedRooms);
+      if (pct > SaveManager.getMeta().bestExplorationPct) {
+        SaveManager.saveMeta({ bestExplorationPct: pct });
+      }
+    }
+  }
+
+  public loadRoom(
+    nextRoom: BuiltRoom,
+    entryX: number,
+    entryY: number,
+    keepMomentum = false
+  ): void {
     const s = this.slot;
     if (!s) return;
 
+    const prevRegion = this.room?.region;
     this.room = nextRoom;
+    this.roomFadeTimer = 0.22;
     s.currentRoomId = nextRoom.id;
     s.currentRealm = nextRoom.realm;
 
     const visitKey = `${nextRoom.realm}:${nextRoom.id}`;
     if (!s.visitedRooms.includes(visitKey)) {
       s.visitedRooms.push(visitKey);
-      const pct = WorldMap.calcExplorationPct(s.visitedRooms);
-      if (pct > SaveManager.getMeta().bestExplorationPct) {
-        SaveManager.saveMeta({ bestExplorationPct: pct });
-      }
     }
 
     this.player.x = entryX;
     this.player.y = entryY;
-    this.player.vx = 0;
-    this.player.vy = 0;
+    if (!keepMomentum) {
+      this.player.vx = 0;
+      this.player.vy = 0;
+    }
+    this.markCurrentMapCellVisited();
     this.camX = this.player.x + this.player.facing * 50;
     this.camY = this.player.y - 95;
 
@@ -407,9 +451,12 @@ export class GameEngine {
       }
     }
 
-    if (visitKey !== this.lastVisitedRegion) {
-      this.lastVisitedRegion = visitKey;
-      this.cb.onShowBanner(nextRoom.name, nextRoom.subtitle);
+    // 仅在踏入全新大区域或特殊密室时弹出区域横幅（同区域跨门保持恶魔城丝滑连贯体验！）
+    if (prevRegion !== nextRoom.region || nextRoom.special === 'boss_room') {
+      if (visitKey !== this.lastVisitedRegion) {
+        this.lastVisitedRegion = visitKey;
+        this.cb.onShowBanner(nextRoom.name, nextRoom.subtitle);
+      }
     }
 
     const hasLiveBoss = this.enemies.some((e) => e.profile.isBoss);
@@ -511,6 +558,7 @@ export class GameEngine {
       this.player.hpTrail = this.player.hp;
     }
 
+    if (this.roomFadeTimer > 0) this.roomFadeTimer = Math.max(0, this.roomFadeTimer - dt);
     if (this.screenShake > 0) this.screenShake = Math.max(0, this.screenShake - dt * 28);
     if (this.taijiFlashTimer > 0) this.taijiFlashTimer = Math.max(0, this.taijiFlashTimer - dt);
     if (this.soulStealFlashTimer > 0) {
@@ -532,6 +580,7 @@ export class GameEngine {
     this.player.mp = Math.min(this.player.maxMp, this.player.mp + mpRegen * dt);
 
     this.updatePlayer(dt);
+    this.markCurrentMapCellVisited();
     this.updateCamera(dt);
     this.updateActiveSlash(dt);
     this.updateOrbitSwords(dt);
@@ -1013,6 +1062,46 @@ export class GameEngine {
         by = p.y - 42 - sl.reachY * 0.55;
         bw = sl.reachX + 10;
         bh = sl.reachY + 18;
+      }
+
+      // 检测是否挥刀劈中【可破坏玄铁千斤闸门】(恶魔城双武器能力锁机制！)
+      const room = this.room;
+      if (room.ironGate && !this.slot.brokenSecretWalls.includes(room.ironGate.id)) {
+        const gx = room.ironGate.x;
+        if (gx >= bx - 14 && gx <= bx + bw + 14 && !this.slashHitIds.has(-999)) {
+          this.slashHitIds.add(-999);
+          if (sl.archetype === 'greatsword') {
+            this.slot.brokenSecretWalls.push(room.ironGate.id);
+            AudioFX.playParryClang();
+            this.screenShake = 9;
+            NativeApp.haptic('heavy');
+            this.slashImpacts.push({
+              x: gx,
+              y: (room.ironGate.topY + room.ironGate.bottomY) * 0.5,
+              angle: 0.35,
+              length: 92,
+              thickness: 10,
+              color: '#fb923c',
+              ringRadius: 58,
+              life: 0.28,
+              maxLife: 0.28,
+            });
+            this.spawnInkBurst(gx, room.ironGate.bottomY - 70, '#fb923c', '#1e293b', 26);
+            this.cb.onShowBanner('重刃断索 · 玄铁秘闸洞开', '斩马陌刀一击劈碎千斤铁锁！');
+          } else {
+            AudioFX.playParryClang();
+            this.spawnInkBurst(gx, room.ironGate.bottomY - 64, '#fde047', '#0f172a', 10);
+            this.floats.push({
+              x: gx,
+              y: room.ironGate.bottomY - 110,
+              vy: -32,
+              text: '千斤玄铁锁！(需换【赤炎斩马陌刀】重劈破门)',
+              color: '#fde047',
+              size: 12.5,
+              life: 1.05,
+            });
+          }
+        }
       }
 
       const wDef = WEAPONS[this.slot.equippedWeapon] || WEAPONS.sword_1;
@@ -1709,22 +1798,71 @@ export class GameEngine {
   }
 
   private moveAndCollideTerrain(dt: number): void {
-    if (!this.room) return;
+    if (!this.room || !this.slot) return;
     const room = this.room;
     const p = this.player;
     const wasGrounded = p.onGround;
+    const bossCleared = this.isBossClearedInRoom(room);
 
+    const prevX = p.x;
     p.x += p.vx * dt;
+
+    // 0A. 玄铁千斤闸门阻挡判定（未劈碎前阻隔通行，化雾冲刺可穿过）
+    if (
+      room.ironGate &&
+      !this.slot.brokenSecretWalls.includes(room.ironGate.id) &&
+      p.mistDashTimer <= 0
+    ) {
+      const gx = room.ironGate.x;
+      if (prevX >= gx + 18 && p.x < gx + 18) {
+        p.x = gx + 18;
+        p.vx = 0;
+      } else if (prevX <= gx - 18 && p.x > gx - 18) {
+        p.x = gx - 18;
+        p.vx = 0;
+      }
+    }
+
+    // 0B. 左右边界实心城墙与门洞上沿门楣碰撞（必须在门洞高度内穿过，绝不穿墙！）
+    if (!room.leftRoomId && p.x < 32) {
+      p.x = 32;
+      p.vx = 0;
+    } else if (room.leftRoomId && p.x < 30) {
+      const doorFloor = room.leftDoorFloorY ?? 400;
+      if (p.y < doorFloor - 118) {
+        p.x = 30;
+        p.vx = 0;
+      }
+    }
+
+    if (!room.rightRoomId && p.x > room.pixelW - 32) {
+      p.x = room.pixelW - 32;
+      p.vx = 0;
+    } else if (room.rightRoomId && p.x > room.pixelW - 30) {
+      const doorFloor = room.rightDoorFloorY ?? 400;
+      if (p.y < doorFloor - 118) {
+        p.x = room.pixelW - 30;
+        p.vx = 0;
+      }
+    }
+
     const prevY = p.y;
-    const nextY = p.y + p.vy * dt;
+    let nextY = p.y + p.vy * dt;
+
+    // 0C. 室内宫殿藻井 / 城门石券洞 / 暗渠石拱顶真实头顶碰撞（竖井口自动敞开！）
+    const ceilY = sampleCeilingY(room, p.x, bossCleared);
+    if (ceilY > -100 && p.vy < 0 && nextY - p.h < ceilY) {
+      nextY = ceilY + p.h;
+      p.vy = 0;
+    }
 
     p.onGround = false;
 
-    // 1. 检测雕栏木阁楼台面着陆
+    // 1. 检测雕栏木阁楼与竖井井口单向栈板着陆
     if (p.vy >= 0 && p.dropThroughTimer <= 0) {
       for (const pv of room.pavilions) {
-        if (p.x >= pv.x + 10 && p.x <= pv.x + pv.w - 10) {
-          if (prevY <= pv.y + 10 && nextY >= pv.y) {
+        if (p.x >= pv.x + 8 && p.x <= pv.x + pv.w - 8) {
+          if (prevY <= pv.y + 12 && nextY >= pv.y) {
             p.y = pv.y;
             if (!wasGrounded && p.vy > 260) p.landSquash = 1;
             p.vy = 0;
@@ -1735,11 +1873,10 @@ export class GameEngine {
       }
     }
 
-    // 2. 检测连续起伏青石地面/石拱桥/台阶贴合
+    // 2. 检测连续起伏青石地面/石拱桥/台阶贴合（向下竖井处地面自动敞开下坠！）
     if (!p.onGround) {
       const groundY = sampleGroundY(room, p.x);
       if (wasGrounded && p.vy >= 0 && Math.abs(nextY - groundY) <= 22) {
-        // 下坡与过拱桥时平滑贴地行走，绝不浮空乱跳！
         p.y = groundY;
         p.vy = 0;
         p.onGround = true;
@@ -1764,14 +1901,48 @@ export class GameEngine {
     }
 
     const p = this.player;
+    const bossCleared = this.isBossClearedInRoom(room);
+
+    // 1. 左右门廊无缝跨房（完美保留跳跃离地高度与横向速度！）
     if (p.x < 12) {
       const tr = WorldMap.resolveTransition(room, 'left');
-      if (tr) this.loadRoom(tr.nextRoom, tr.nextX, tr.nextY);
-      else p.x = 24;
+      if (tr) {
+        const lift = Math.min(0, p.y - tr.curFloorY);
+        this.loadRoom(tr.nextRoom, tr.nextX, tr.nextFloorY + lift, true);
+        return;
+      }
+      p.x = 32;
     } else if (p.x > room.pixelW - 12) {
       const tr = WorldMap.resolveTransition(room, 'right');
-      if (tr) this.loadRoom(tr.nextRoom, tr.nextX, tr.nextY);
-      else p.x = room.pixelW - 24;
+      if (tr) {
+        const lift = Math.min(0, p.y - tr.curFloorY);
+        this.loadRoom(tr.nextRoom, tr.nextX, tr.nextFloorY + lift, true);
+        return;
+      }
+      p.x = room.pixelW - 32;
+    }
+
+    // 2. 向下坠入地宫暗井 / 天井竖井（贯通上下层房间！）
+    if (p.y > room.pixelH - 6 && p.vy > 0) {
+      const downTr = WorldMap.resolveVerticalShaft(room, p.x, 'down', bossCleared);
+      if (downTr) {
+        this.loadRoom(downTr.nextRoom, downTr.nextX, downTr.nextY, true);
+        return;
+      }
+      // 兜底防掉出界
+      p.y = sampleSolidGroundY(room, p.x);
+      p.vy = 0;
+      p.onGround = true;
+    }
+
+    // 3. 向上纵跃冲出天井竖井直登二楼飞阁！（穿过上层单向井口木栈板稳稳落于上层地面！）
+    if (p.y - p.h < 6 && p.vy < 0) {
+      const upTr = WorldMap.resolveVerticalShaft(room, p.x, 'up', bossCleared);
+      if (upTr) {
+        p.vy = -540;
+        p.onGround = false;
+        this.loadRoom(upTr.nextRoom, upTr.nextX, 424, true);
+      }
     }
   }
 
@@ -1810,7 +1981,7 @@ export class GameEngine {
       }
     }
 
-    // 2. 镇魂土地祠焚香留档
+    // 2. 镇魂土地祠焚香留档 / 太极八卦传送阵跨层瞬移
     if (this.room.special === 'save_shrine') {
       const cx = this.room.focalX;
       const gy = this.room.focalY;
@@ -1818,6 +1989,17 @@ export class GameEngine {
         this.nearbyInteract = {
           kind: 'save',
           label: '镇魂土地祠 · 焚香调息留档 [E / 点击]',
+          x: cx,
+          y: gy,
+        };
+      }
+    } else if (this.room.special === 'warp_bagua') {
+      const cx = this.room.focalX;
+      const gy = this.room.focalY;
+      if (Math.abs(p.x - cx) < 88 && Math.abs(p.y - gy) < 76) {
+        this.nearbyInteract = {
+          kind: 'warp',
+          label: '太极八卦阵 · 瞬移返还【瓮城镇魂古祠】[E / 点击]',
           x: cx,
           y: gy,
         };
@@ -1834,13 +2016,17 @@ export class GameEngine {
       NativeApp.haptic('medium');
       this.spawnInkBurst(this.player.x, this.player.y - 36, '#fde047', '#090d16', 22);
       this.cb.onShowBanner('镇魂香燃 · 卷宗已铭刻', '气血与真气已完全充盈');
+    } else if (kind === 'warp') {
+      AudioFX.playRelicBell();
+      NativeApp.haptic('medium');
+      this.warpToRoom('normal', 'gate_2');
     } else if (kind === 'su_qingyan') {
       const sceneKey = this.room.id === 'gate_1' ? 'su_gate_chat' : 'su_shrine_guide';
       const sc = STORY_SCENES[sceneKey];
       if (sc) {
         this.cb.onStartStory(sc);
       }
-    } else if (kind === 'smith' || kind === 'merchant' || kind === 'warp') {
+    } else if (kind === 'smith' || kind === 'merchant') {
       this.cb.onOpenInteractModal(kind);
     }
   }

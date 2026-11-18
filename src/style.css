@@ -364,8 +364,37 @@ body {
 /* 右上角古卷进度与功能印章 */
 .zx-hud-right {
   display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.zx-hud-btn-row {
+  display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
+}
+
+/* 恶魔城月下夜想曲风格右上角实时连通方格小地图 */
+.zx-minimap-box {
+  pointer-events: auto;
+  cursor: pointer;
+  background: rgba(5, 8, 16, 0.86);
+  border: 1px solid var(--bronze-line);
+  padding: 4px 6px 3px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.85);
+}
+.zx-minimap-box:hover {
+  border-color: var(--bronze-light);
+}
+.zx-minimap-label {
+  font-size: 10.5px;
+  color: var(--bronze-light);
+  letter-spacing: 1px;
 }
 .zx-seal-btn {
   pointer-events: auto;

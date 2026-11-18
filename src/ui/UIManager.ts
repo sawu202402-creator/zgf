@@ -9,7 +9,13 @@ import {
   YAO_CORES,
 } from '../data/itemsAndSkills';
 import { CHARACTER_BIOS } from '../data/storyAndNpcs';
-import { WorldMap } from '../data/worldMap';
+import {
+  CELL_PIXEL_H,
+  CELL_PIXEL_W,
+  MAP_GRID_TOTAL_H,
+  MAP_GRID_TOTAL_W,
+  WorldMap,
+} from '../data/worldMap';
 import { drawInkSlashRibbon, renderModularLiYichengRig } from '../game/CharacterArt';
 import { ActiveSlash, GameEngine } from '../game/GameEngine';
 import { createFreshSaveSlot, SaveManager } from '../meta/SaveManager';
@@ -41,6 +47,8 @@ export class UIManager {
     wpnIconWrap?: HTMLElement;
     wpnName?: HTMLElement;
     swapHint?: HTMLElement;
+    minimapCanvas?: HTMLCanvasElement;
+    minimapLabel?: HTMLElement;
     bossWrap?: HTMLElement;
     bossName?: HTMLElement;
     bossTrail?: HTMLElement;
@@ -238,8 +246,15 @@ export class UIManager {
       </div>
 
       <div class="zx-hud-right">
-        <button class="zx-seal-btn" id="btn-hud-arsenal">兵匣 [B]</button>
-        <button class="zx-seal-btn" id="btn-hud-skills">剑诀</button>
+        <div class="zx-hud-btn-row">
+          <button class="zx-seal-btn" id="btn-hud-arsenal">兵匣 [B]</button>
+          <button class="zx-seal-btn" id="btn-hud-map">堪舆 [M]</button>
+          <button class="zx-seal-btn" id="btn-hud-skills">剑诀</button>
+        </div>
+        <div class="zx-minimap-box" id="hud-minimap-box" title="点击展开恶魔城全城连通堪舆图 [M]">
+          <canvas id="hud-minimap-canvas" width="144" height="58"></canvas>
+          <span class="zx-minimap-label" id="hud-minimap-label">断魂苦竹渡</span>
+        </div>
       </div>
     `;
 
@@ -273,6 +288,8 @@ export class UIManager {
       wpnIconWrap: hud.querySelector('#hud-wpn-icon') as HTMLElement,
       wpnName: hud.querySelector('#hud-wpn-name') as HTMLElement,
       swapHint: hud.querySelector('#hud-swap-hint') as HTMLElement,
+      minimapCanvas: hud.querySelector('#hud-minimap-canvas') as HTMLCanvasElement,
+      minimapLabel: hud.querySelector('#hud-minimap-label') as HTMLElement,
       bossWrap: bossBar,
       bossName: bossBar.querySelector('#boss-hud-name') as HTMLElement,
       bossTrail: bossBar.querySelector('#boss-hud-trail') as HTMLElement,
@@ -285,6 +302,8 @@ export class UIManager {
       this.pauseTab = 'equip';
       this.togglePauseModal();
     });
+    hud.querySelector('#btn-hud-map')?.addEventListener('click', () => this.toggleMapModal());
+    hud.querySelector('#hud-minimap-box')?.addEventListener('click', () => this.toggleMapModal());
     hud.querySelector('#btn-hud-skills')?.addEventListener('click', () => {
       this.pauseTab = 'skills';
       this.togglePauseModal();
@@ -326,6 +345,22 @@ export class UIManager {
       if (this.hudRefs.swapHint) {
         this.hudRefs.swapHint.textContent = s.ownedWeapons.length > 1 ? '[Q 易兵]' : '';
       }
+    }
+
+    if (this.hudRefs.minimapCanvas) {
+      const mctx = this.hudRefs.minimapCanvas.getContext('2d');
+      if (mctx) {
+        this.drawCastlevaniaBlueprint(
+          mctx,
+          this.hudRefs.minimapCanvas.width,
+          this.hudRefs.minimapCanvas.height,
+          false
+        );
+      }
+    }
+    if (this.hudRefs.minimapLabel) {
+      const pct = WorldMap.calcExplorationPct(s.visitedRooms);
+      this.hudRefs.minimapLabel.textContent = `${r.name} · 探索 ${pct}%`;
     }
 
     const boss = this.engine.enemies.find((e) => e.profile.isBoss);
@@ -418,38 +453,30 @@ export class UIManager {
       `;
       footerLeft = '老练剑客亦可在未拾得秘卷时直接凭指令盲搓释放奥义';
     } else if (this.pauseTab === 'map') {
-      const rooms = WorldMap.getAllRooms('normal');
-      const curId = this.engine.room.id;
+      const pct = WorldMap.calcExplorationPct(s.visitedRooms);
       mainHtml = `
-        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;">
-          <div style="font-size:16px;letter-spacing:4px;color:var(--bronze-light);">卷壹 · 血月瓮城堪舆长卷</div>
-          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:center;">
-            ${rooms
-              .map((rm, idx) => {
-                const visited = s.visitedRooms.includes(`normal:${rm.id}`);
-                const active = rm.id === curId;
-                return `
-                <div style="padding:18px 24px;min-width:190px;text-align:center;background:${
-                  active ? 'rgba(136,19,19,0.65)' : 'rgba(10,15,28,0.8)'
-                };border:1.5px solid ${active ? 'var(--bronze-light)' : 'var(--bronze-line)'};opacity:${
-                  visited ? 1 : 0.4
-                };">
-                  <div style="font-size:11px;color:var(--jade);letter-spacing:2px;">第${['一', '二', '三'][idx]}幕</div>
-                  <div style="font-size:17px;font-weight:900;color:var(--rice);margin:6px 0;">${
-                    visited ? rm.name : '迷雾未开'
-                  }</div>
-                  <div style="font-size:11.5px;color:var(--ash);">${
-                    active ? '◆ 李逸承当前所在' : rm.special === 'save_shrine' ? '镇魂祠存档点' : rm.bossKind ? '守关妖宗殿' : '护城古桥'
-                  }</div>
-                </div>
-                ${idx < rooms.length - 1 ? `<span style="color:var(--bronze);font-size:20px;">━━━</span>` : ''}
-                `;
-              })
-              .join('')}
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;">
+          <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;justify-content:center;">
+            <span style="font-size:18px;font-weight:900;letter-spacing:4px;color:var(--bronze-light);">
+              九幽玄城 · 三层立体连通堪舆图
+            </span>
+            <span style="font-size:14px;color:var(--jade);font-weight:800;">
+              当前城池探索度：${pct}%
+            </span>
+          </div>
+          <canvas id="full-castle-map-canvas" width="760" height="295" style="max-width:100%;height:auto;border:1px solid var(--bronze-line);background:rgba(4,7,14,0.9);"></canvas>
+          <div style="display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:#cbd5e1;">
+            <span><b style="color:#3b82f6;">■</b> 已探厅堂连廊</span>
+            <span><b style="color:#f59e0b;">■</b> 镇魂祠存档点</span>
+            <span><b style="color:#10b981;">■</b> 太极八卦传送阵</span>
+            <span><b style="color:#a855f7;">■</b> 藏剑/藏甲秘宝室</span>
+            <span><b style="color:#ef4444;">■</b> 守关妖宗殿</span>
+            <span><b style="color:#fde047;">━</b> 未探门廊/上下竖井缺口</span>
           </div>
         </div>
       `;
-      footerLeft = '击败奉天残殿【万卷妖宗·墨千秋】习得二段跳后，可折返瓮城镇魂古祠跃上谯楼高阁取名剑';
+      footerLeft =
+        '恶魔城立体回环结构：古祠暗井可下潜【九曲幽冥暗渠】（重刃破铁闸夺宝甲）；习得【踏云步】可从前殿/洗墨堂天井跃入二楼【万卷藏书飞阁】！';
     } else if (this.pauseTab === 'lore') {
       mainHtml = `
         <div style="flex:1;overflow-y:auto;padding:16px 0;display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:16px;">
@@ -528,8 +555,213 @@ export class UIManager {
 
     if (this.pauseTab === 'equip') {
       this.bindEquipEventsAndLiveStage(overlay);
+    } else if (this.pauseTab === 'map') {
+      const mapCanvas = overlay.querySelector('#full-castle-map-canvas') as HTMLCanvasElement | null;
+      if (mapCanvas) {
+        const mctx = mapCanvas.getContext('2d');
+        if (mctx) {
+          this.drawCastlevaniaBlueprint(mctx, mapCanvas.width, mapCanvas.height, true);
+        }
+      }
     } else if (this.pauseTab === 'settings') {
       this.bindSettingsEvents(overlay);
+    }
+  }
+
+  /**
+   * 经典《恶魔城：月下夜想曲 / 晓月圆舞曲》2D 连通方格地图渲染器：
+   * 支持分格点亮、房间外墙合并、左右门廊豁口、上下天井竖井通道缺口与李逸承实时闪烁坐标！
+   */
+  private drawCastlevaniaBlueprint(
+    ctx: CanvasRenderingContext2D,
+    w: number,
+    h: number,
+    detailed: boolean
+  ): void {
+    const s = this.engine.slot;
+    const curRoom = this.engine.room;
+    if (!s || !curRoom) return;
+
+    ctx.clearRect(0, 0, w, h);
+
+    // 背景坐标暗格网
+    const padX = detailed ? 42 : 6;
+    const padY = detailed ? 32 : 5;
+    const cellW = Math.floor((w - padX * 2) / MAP_GRID_TOTAL_W);
+    const cellH = Math.floor((h - padY * 2) / MAP_GRID_TOTAL_H);
+    const ox = Math.floor((w - cellW * MAP_GRID_TOTAL_W) * 0.5);
+    const oy = Math.floor((h - cellH * MAP_GRID_TOTAL_H) * 0.5);
+
+    if (detailed) {
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.08)';
+      ctx.lineWidth = 1;
+      for (let gx = 0; gx <= MAP_GRID_TOTAL_W; gx++) {
+        ctx.beginPath();
+        ctx.moveTo(ox + gx * cellW, oy);
+        ctx.lineTo(ox + gx * cellW, oy + MAP_GRID_TOTAL_H * cellH);
+        ctx.stroke();
+      }
+      for (let gy = 0; gy <= MAP_GRID_TOTAL_H; gy++) {
+        ctx.beginPath();
+        ctx.moveTo(ox, oy + gy * cellH);
+        ctx.lineTo(ox + MAP_GRID_TOTAL_W * cellW, oy + gy * cellH);
+        ctx.stroke();
+      }
+    }
+
+    const rooms = WorldMap.getAllRooms('normal');
+    const visitedSet = new Set(s.visitedRooms);
+
+    for (const rm of rooms) {
+      const roomVisited = visitedSet.has(`normal:${rm.id}`);
+      let anyCellVisited = roomVisited;
+      for (let dx = 0; dx < rm.gridW; dx++) {
+        if (visitedSet.has(`cell:${rm.mapX + dx},${rm.mapY}`)) {
+          anyCellVisited = true;
+        }
+      }
+      if (!anyCellVisited) continue;
+
+      // 恶魔城经典功能房配色
+      let fillCol =
+        rm.mapY === 0
+          ? 'rgba(13, 148, 136, 0.82)'
+          : rm.mapY === 2
+            ? 'rgba(30, 58, 138, 0.86)'
+            : 'rgba(29, 78, 216, 0.84)';
+      if (rm.special === 'save_shrine') fillCol = 'rgba(217, 119, 6, 0.9)';
+      else if (rm.special === 'warp_bagua') fillCol = 'rgba(5, 150, 105, 0.9)';
+      else if (rm.special === 'boss_room') fillCol = 'rgba(185, 28, 28, 0.9)';
+      else if (rm.special === 'relic_pedestal') fillCol = 'rgba(109, 40, 217, 0.88)';
+
+      // 填充已踏足的网格单元（未踏足的半边房间显示暗影轮廓）
+      for (let dx = 0; dx < rm.gridW; dx++) {
+        const gx = rm.mapX + dx;
+        const gy = rm.mapY;
+        const cellVis = visitedSet.has(`cell:${gx},${gy}`) || roomVisited;
+        ctx.fillStyle = cellVis ? fillCol : 'rgba(30, 41, 59, 0.45)';
+        ctx.fillRect(ox + gx * cellW + 1, oy + gy * cellH + 1, cellW - 2, cellH - 2);
+      }
+
+      // 绘制房间连通外框白线（在左门、右门、上天井、下暗井处留出真实豁口与金色连廊短线！）
+      const rx = ox + rm.mapX * cellW + 1;
+      const ry = oy + rm.mapY * cellH + 1;
+      const rw = rm.gridW * cellW - 2;
+      const rh = rm.gridH * cellH - 2;
+      const doorGap = Math.max(4, Math.floor(cellH * 0.34));
+
+      ctx.strokeStyle = rm.id === curRoom.id ? '#fef08a' : '#e2e8f0';
+      ctx.lineWidth = detailed ? 2 : 1.3;
+
+      // 上边墙（检测是否有向上竖井开口）
+      const upShaft = rm.shafts.find((sh) => sh.dir === 'up');
+      ctx.beginPath();
+      if (upShaft) {
+        const gapCx = rx + ((upShaft.x1 + upShaft.x2) * 0.5 / rm.pixelW) * rw;
+        const halfG = Math.max(3, cellW * 0.16);
+        ctx.moveTo(rx, ry);
+        ctx.lineTo(gapCx - halfG, ry);
+        ctx.moveTo(gapCx + halfG, ry);
+        ctx.lineTo(rx + rw, ry);
+        ctx.stroke();
+        // 绘制向上贯通竖井双导轨标记
+        ctx.strokeStyle = '#fde047';
+        ctx.beginPath();
+        ctx.moveTo(gapCx - halfG, ry - 3);
+        ctx.lineTo(gapCx - halfG, ry + 3);
+        ctx.moveTo(gapCx + halfG, ry - 3);
+        ctx.lineTo(gapCx + halfG, ry + 3);
+        ctx.stroke();
+        ctx.strokeStyle = rm.id === curRoom.id ? '#fef08a' : '#e2e8f0';
+      } else {
+        ctx.moveTo(rx, ry);
+        ctx.lineTo(rx + rw, ry);
+        ctx.stroke();
+      }
+
+      // 下边墙（检测是否有向下暗井开口）
+      const downShaft = rm.shafts.find((sh) => sh.dir === 'down');
+      ctx.beginPath();
+      if (downShaft) {
+        const gapCx = rx + ((downShaft.x1 + downShaft.x2) * 0.5 / rm.pixelW) * rw;
+        const halfG = Math.max(3, cellW * 0.16);
+        ctx.moveTo(rx, ry + rh);
+        ctx.lineTo(gapCx - halfG, ry + rh);
+        ctx.moveTo(gapCx + halfG, ry + rh);
+        ctx.lineTo(rx + rw, ry + rh);
+        ctx.stroke();
+        ctx.strokeStyle = '#fde047';
+        ctx.beginPath();
+        ctx.moveTo(gapCx - halfG, ry + rh - 3);
+        ctx.lineTo(gapCx - halfG, ry + rh + 3);
+        ctx.moveTo(gapCx + halfG, ry + rh - 3);
+        ctx.lineTo(gapCx + halfG, ry + rh + 3);
+        ctx.stroke();
+        ctx.strokeStyle = rm.id === curRoom.id ? '#fef08a' : '#e2e8f0';
+      } else {
+        ctx.moveTo(rx, ry + rh);
+        ctx.lineTo(rx + rw, ry + rh);
+        ctx.stroke();
+      }
+
+      // 左边墙（有左门则居中留出连廊缺口！）
+      const midY = ry + rh * 0.58;
+      ctx.beginPath();
+      if (rm.leftRoomId) {
+        ctx.moveTo(rx, ry);
+        ctx.lineTo(rx, midY - doorGap * 0.5);
+        ctx.moveTo(rx, midY + doorGap * 0.5);
+        ctx.lineTo(rx, ry + rh);
+        ctx.stroke();
+        ctx.fillStyle = '#fde047';
+        ctx.fillRect(rx - 3, midY - doorGap * 0.35, 4, doorGap * 0.7);
+      } else {
+        ctx.moveTo(rx, ry);
+        ctx.lineTo(rx, ry + rh);
+        ctx.stroke();
+      }
+
+      // 右边墙（有右门则居中留出连廊缺口！）
+      ctx.beginPath();
+      if (rm.rightRoomId) {
+        ctx.moveTo(rx + rw, ry);
+        ctx.lineTo(rx + rw, midY - doorGap * 0.5);
+        ctx.moveTo(rx + rw, midY + doorGap * 0.5);
+        ctx.lineTo(rx + rw, ry + rh);
+        ctx.stroke();
+        ctx.fillStyle = '#fde047';
+        ctx.fillRect(rx + rw - 1, midY - doorGap * 0.35, 4, doorGap * 0.7);
+      } else {
+        ctx.moveTo(rx + rw, ry);
+        ctx.lineTo(rx + rw, ry + rh);
+        ctx.stroke();
+      }
+
+      // 大地图模式下渲染厅堂汉字名称与特殊印记
+      if (detailed) {
+        ctx.font = 'bold 12px "STKaiti", "KaiTi", serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#fffbeb';
+        ctx.fillText(rm.name, rx + rw * 0.5, ry + rh * 0.54);
+      }
+    }
+
+    // 绘制李逸承当前精确连续世界坐标闪烁光点！
+    const p = this.engine.player;
+    const dotX = ox + (curRoom.mapX + p.x / CELL_PIXEL_W) * cellW;
+    const dotY = oy + (curRoom.mapY + p.y / CELL_PIXEL_H) * cellH;
+    const pulse = 0.55 + 0.45 * Math.sin(performance.now() * 0.01);
+
+    ctx.fillStyle = `rgba(255, 255, 255, ${pulse})`;
+    ctx.beginPath();
+    ctx.arc(dotX, dotY, detailed ? 5 : 2.8, 0, Math.PI * 2);
+    ctx.fill();
+    if (detailed) {
+      ctx.strokeStyle = '#fde047';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(dotX, dotY, 8.5, 0, Math.PI * 2);
+      ctx.stroke();
     }
   }
 

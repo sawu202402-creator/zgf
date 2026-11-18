@@ -117,6 +117,8 @@ const CRITICAL_ASSETS: AssetKey[] = [
   'bg_title',
   'bg_gatehouse',
   'bg_main_hall',
+  'bg_library_opera',
+  'bg_forge_prison',
   'bust_liyicheng',
   'bust_su_qingyan',
   'bust_ouye_can',

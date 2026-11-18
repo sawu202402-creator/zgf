@@ -1,5 +1,11 @@
 import { WEAPONS } from '../data/itemsAndSkills';
-import { BuiltRoom, sampleGroundY } from '../data/worldMap';
+import {
+  BuiltRoom,
+  CELL_PIXEL_W,
+  isInsideDownShaft,
+  sampleGroundY,
+  sampleSolidGroundY,
+} from '../data/worldMap';
 import { AssetKey, Assets } from './AssetLoader';
 import {
   drawHeroCharacter,
@@ -67,6 +73,7 @@ export class InkVaniaRenderer {
       ctx.drawImage(this.terrainCanvas, 0, 0);
     }
 
+    this.renderShaftLightAndIronGates(ctx, room, engine);
     this.renderSaveShrine(ctx, room);
 
     for (const npc of room.npcs) {
@@ -106,8 +113,12 @@ export class InkVaniaRenderer {
 
     ctx.restore();
 
-    // 5. 屏幕级手搓绝技水墨印章横幅与特效
+    // 5. 屏幕级手搓绝技水墨印章横幅与跨门丝滑水墨渐隐过渡
     this.renderScreenSkillOverlays(ctx, viewW, viewH, engine);
+    if (engine.roomFadeTimer > 0) {
+      ctx.fillStyle = `rgba(4, 6, 12, ${Math.min(0.88, (engine.roomFadeTimer / 0.22) * 0.85)})`;
+      ctx.fillRect(0, 0, viewW, viewH);
+    }
 
     // 6. 移动端触屏八向手搓摇杆与动作键
     if (input.usingTouch && !input.uiBlocked && !engine.paused) {
@@ -150,18 +161,30 @@ export class InkVaniaRenderer {
     camTop: number,
     room: BuiltRoom
   ): void {
-    const bgKey: AssetKey = room.region === 'gatehouse' ? 'bg_gatehouse' : 'bg_main_hall';
-    const bg = Assets.get(bgKey);
+    let bgKey: AssetKey = 'bg_gatehouse';
+    if (room.region === 'main_hall') bgKey = 'bg_main_hall';
+    else if (room.region === 'library' || room.region === 'clock_tower') bgKey = 'bg_library_opera';
+    else if (room.region === 'prison' || room.region === 'altar') bgKey = 'bg_forge_prison';
+
+    const bg = Assets.get(bgKey) || Assets.get('bg_gatehouse');
     if (bg) {
       const drawH = vH * 1.15;
       const drawW = bg.width * (drawH / bg.height);
-      const px = -((camLeft * 0.22) % drawW);
+      // 使用恶魔城全局世界坐标 (room.mapX * CELL_PIXEL_W + camLeft) 计算远景视差，跨房间时血月群山连续平移绝不跳变！
+      const globalCamX = room.mapX * CELL_PIXEL_W + camLeft;
+      const px = -(((globalCamX * 0.22) % drawW + drawW) % drawW);
       const py = -Math.min(vH * 0.12, camTop * 0.12);
 
       for (let x = px - drawW; x < vW + drawW; x += drawW) {
         ctx.drawImage(bg, x, py, drawW + 1, drawH);
       }
-      ctx.fillStyle = 'rgba(5, 8, 15, 0.3)';
+      const tint =
+        room.mapY === 2
+          ? 'rgba(3, 7, 15, 0.56)'
+          : room.region === 'main_hall'
+            ? 'rgba(8, 6, 14, 0.36)'
+            : 'rgba(5, 8, 15, 0.28)';
+      ctx.fillStyle = tint;
       ctx.fillRect(0, 0, vW, vH);
     } else {
       ctx.fillStyle = '#080c16';
@@ -273,10 +296,20 @@ export class InkVaniaRenderer {
         }
       }
 
-      // 2. 绘制 AI 手绘雕栏阁楼台面（石板台面严丝合缝对齐物理高度 pv.y，上方栏杆自然立在人物身后！）
-      if (platImg) {
+      // 2. 区分地井口单向透光木栈格 vs 空中雕栏木阁楼台面！
+      if (!pv.hasPillars && pv.y >= 380) {
+        // 地宫竖井口可下穿木铁栈板（提示玩家可按 ↓+跃 下潜）
+        ctx.fillStyle = '#3b1911';
+        ctx.strokeStyle = '#cfa349';
+        ctx.lineWidth = 1.6;
+        ctx.fillRect(pv.x, pv.y, pv.w, 8);
+        ctx.strokeRect(pv.x, pv.y, pv.w, 8);
+        ctx.fillStyle = '#090d16';
+        for (let gx = pv.x + 12; gx < pv.x + pv.w - 10; gx += 18) {
+          ctx.fillRect(gx, pv.y + 1.5, 8, 5);
+        }
+      } else if (platImg) {
         const drawH = 82;
-        // prop_pavilion_platform 石板踏面约位于贴图 48% 高度处
         ctx.drawImage(platImg, pv.x - 8, pv.y - drawH * 0.48, pv.w + 16, drawH);
       } else {
         ctx.fillStyle = '#5c1912';
@@ -305,12 +338,13 @@ export class InkVaniaRenderer {
 
     const stonePat = Assets.getPattern(bctx, 'tile_stone_wall', 0.65);
 
-    // 1. 填充连续地面多边形（在护城河拱桥段掏空桥下半圆石拱券洞，透出河水倒影！）
+    // 1. 填充连续地面多边形（向下竖井处自动断开垂直石井壁！）
     bctx.save();
     bctx.beginPath();
     bctx.moveTo(0, room.pixelH);
-    for (let x = 0; x <= room.pixelW; x += 8) {
-      bctx.lineTo(x, sampleGroundY(room, x));
+    for (let x = 0; x <= room.pixelW; x += 4) {
+      const gy = isInsideDownShaft(room, x) ? room.pixelH + 20 : sampleSolidGroundY(room, x);
+      bctx.lineTo(x, gy);
     }
     bctx.lineTo(room.pixelW, room.pixelH);
     bctx.closePath();
@@ -318,15 +352,17 @@ export class InkVaniaRenderer {
     bctx.fillStyle = stonePat || '#1b2434';
     bctx.fill();
 
-    // 若该场景含护城河石拱桥，镂空桥腹三大石拱券洞，使拱桥造型极其真实立体！
-    if (room.waterZones.length > 0) {
+    // 若该场景为护城石拱桥（含 arch_bridge 节点），镂空桥腹三大石拱券洞，透出河水倒影！
+    const isArchBridgeRoom =
+      room.waterZones.length > 0 && room.groundNodes.some((n) => n.style === 'arch_bridge');
+    if (isArchBridgeRoom) {
       const wz = room.waterZones[0];
       bctx.globalCompositeOperation = 'destination-out';
       const span = wz.x2 - wz.x1;
       const arches = [
-        { cx: wz.x1 + span * 0.24, rx: 95, ry: 46 },
-        { cx: wz.x1 + span * 0.5, rx: 135, ry: 68 },
-        { cx: wz.x1 + span * 0.76, rx: 95, ry: 46 },
+        { cx: wz.x1 + span * 0.24, rx: 72, ry: 40 },
+        { cx: wz.x1 + span * 0.5, rx: 104, ry: 56 },
+        { cx: wz.x1 + span * 0.76, rx: 72, ry: 40 },
       ];
       for (const a of arches) {
         bctx.beginPath();
@@ -338,9 +374,8 @@ export class InkVaniaRenderer {
       }
       bctx.globalCompositeOperation = 'source-over';
 
-      // 给石拱券洞镶嵌厚重青石拱券石框！
       bctx.strokeStyle = '#334155';
-      bctx.lineWidth = 8;
+      bctx.lineWidth = 7;
       for (const a of arches) {
         bctx.beginPath();
         bctx.ellipse(a.cx, wz.surfaceY + 8, a.rx, a.ry, 0, Math.PI, 0);
@@ -349,12 +384,12 @@ export class InkVaniaRenderer {
     }
     bctx.restore();
 
-    // 2. 沿地表轮廓铺设立体压顶青石板、台阶踏步刻线与桥栏望柱！
+    // 2. 沿地表轮廓铺设立体压顶青石板（跳过向下敞开的竖井洞口，并在井口两侧砌筑垂直青石井壁！）
     for (let x = 0; x < room.pixelW; x += 28) {
-      const y1 = sampleGroundY(room, x);
-      const y2 = sampleGroundY(room, x + 28);
+      if (isInsideDownShaft(room, x + 4) || isInsideDownShaft(room, x + 24)) continue;
+      const y1 = sampleSolidGroundY(room, x);
+      const y2 = sampleSolidGroundY(room, x + 28);
 
-      // 厚实压顶条石层
       bctx.fillStyle = '#2d3b4e';
       bctx.strokeStyle = '#070a12';
       bctx.lineWidth = 2;
@@ -367,7 +402,6 @@ export class InkVaniaRenderer {
       bctx.fill();
       bctx.stroke();
 
-      // 顶面月光青金高光线
       bctx.strokeStyle = 'rgba(207, 163, 73, 0.42)';
       bctx.lineWidth = 1.5;
       bctx.beginPath();
@@ -376,34 +410,258 @@ export class InkVaniaRenderer {
       bctx.stroke();
     }
 
-    // 3. 在石拱桥两侧护栏处绘制古风汉白玉/青石桥栏望柱（位于人物身后，营造立体桥面！）
-    for (const wz of room.waterZones) {
-      for (let bx = wz.x1 + 30; bx <= wz.x2 - 30; bx += 64) {
-        const by = sampleGroundY(room, bx);
-        bctx.fillStyle = '#334155';
-        bctx.strokeStyle = '#090d16';
-        bctx.lineWidth = 1.8;
-        bctx.fillRect(bx - 5, by - 30, 10, 30);
-        bctx.strokeRect(bx - 5, by - 30, 10, 30);
-        // 柱头石莲顶
-        bctx.fillStyle = '#64748b';
-        bctx.beginPath();
-        bctx.arc(bx, by - 33, 6, 0, Math.PI * 2);
-        bctx.fill();
-        bctx.stroke();
+    // 向下竖井两侧垂直护壁条石
+    for (const sh of room.shafts) {
+      if (sh.dir !== 'down') continue;
+      const topY = sampleSolidGroundY(room, sh.x1 - 4);
+      bctx.fillStyle = '#1e293b';
+      bctx.strokeStyle = '#070a12';
+      bctx.lineWidth = 2;
+      bctx.fillRect(sh.x1 - 10, topY, 14, room.pixelH - topY);
+      bctx.strokeRect(sh.x1 - 10, topY, 14, room.pixelH - topY);
+      bctx.fillRect(sh.x2 - 4, topY, 14, room.pixelH - topY);
+      bctx.strokeRect(sh.x2 - 4, topY, 14, room.pixelH - topY);
+    }
 
-        if (bx + 64 <= wz.x2 - 20) {
-          const ny = sampleGroundY(room, bx + 64);
-          bctx.strokeStyle = '#475569';
-          bctx.lineWidth = 4;
+    // 3. 在石拱桥两侧护栏处绘制古风汉白玉/青石桥栏望柱
+    if (isArchBridgeRoom) {
+      for (const wz of room.waterZones) {
+        for (let bx = wz.x1 + 30; bx <= wz.x2 - 30; bx += 64) {
+          const by = sampleSolidGroundY(room, bx);
+          bctx.fillStyle = '#334155';
+          bctx.strokeStyle = '#090d16';
+          bctx.lineWidth = 1.8;
+          bctx.fillRect(bx - 5, by - 30, 10, 30);
+          bctx.strokeRect(bx - 5, by - 30, 10, 30);
+          bctx.fillStyle = '#64748b';
           bctx.beginPath();
-          bctx.moveTo(bx + 5, by - 20);
-          bctx.lineTo(bx + 59, ny - 20);
-          bctx.moveTo(bx + 5, by - 10);
-          bctx.lineTo(bx + 59, ny - 10);
+          bctx.arc(bx, by - 33, 6, 0, Math.PI * 2);
+          bctx.fill();
           bctx.stroke();
+
+          if (bx + 64 <= wz.x2 - 20) {
+            const ny = sampleSolidGroundY(room, bx + 64);
+            bctx.strokeStyle = '#475569';
+            bctx.lineWidth = 4;
+            bctx.beginPath();
+            bctx.moveTo(bx + 5, by - 20);
+            bctx.lineTo(bx + 59, ny - 20);
+            bctx.moveTo(bx + 5, by - 10);
+            bctx.lineTo(bx + 59, ny - 10);
+            bctx.stroke();
+          }
         }
       }
+    }
+
+    // 4. 恶魔城核心空间连续性架构：烘焙厚重城门券洞顶、室内宫殿藻井横梁、地下石拱顶与左右门廊墙体！
+    for (const cs of room.ceilingSpans) {
+      const cw = cs.x2 - cs.x1;
+      bctx.fillStyle = stonePat || '#141c2b';
+      bctx.fillRect(cs.x1, 0, cw, cs.bottomY);
+
+      // 底部深邃遮蔽渐变
+      const cg = bctx.createLinearGradient(0, Math.max(0, cs.bottomY - 46), 0, cs.bottomY);
+      cg.addColorStop(0, 'rgba(5, 7, 13, 0.25)');
+      cg.addColorStop(1, 'rgba(5, 7, 13, 0.88)');
+      bctx.fillStyle = cg;
+      bctx.fillRect(cs.x1, 0, cw, cs.bottomY);
+
+      if (cs.style === 'palace_timber') {
+        // 宫殿雕梁画栋朱漆大梁与鎏金斗拱下沿
+        bctx.fillStyle = '#450f0c';
+        bctx.strokeStyle = '#090d16';
+        bctx.lineWidth = 2;
+        bctx.fillRect(cs.x1, cs.bottomY - 16, cw, 16);
+        bctx.strokeRect(cs.x1, cs.bottomY - 16, cw, 16);
+        bctx.strokeStyle = '#cfa349';
+        bctx.lineWidth = 1.5;
+        bctx.beginPath();
+        bctx.moveTo(cs.x1, cs.bottomY - 3);
+        bctx.lineTo(cs.x2, cs.bottomY - 3);
+        bctx.stroke();
+      } else {
+        // 瓮城城门石券洞 / 地下暗渠厚重青石拱肋压条
+        bctx.fillStyle = '#273449';
+        bctx.strokeStyle = '#060911';
+        bctx.lineWidth = 2;
+        bctx.fillRect(cs.x1, cs.bottomY - 14, cw, 14);
+        bctx.strokeRect(cs.x1, cs.bottomY - 14, cw, 14);
+      }
+    }
+
+    // 5. 左右房间边界：无门侧砌筑实心封死城墙，有门侧砌筑【带124px高过道门洞的连廊石门框】！
+    const bakeSideWallAndDoor = (side: 'left' | 'right') => {
+      const hasDoor = side === 'left' ? Boolean(room.leftRoomId) : Boolean(room.rightRoomId);
+      const doorFloorY =
+        (side === 'left' ? room.leftDoorFloorY : room.rightDoorFloorY) ??
+        sampleSolidGroundY(room, side === 'left' ? 10 : room.pixelW - 10);
+      const wx = side === 'left' ? 0 : room.pixelW - 32;
+
+      if (!hasDoor) {
+        // 封死端墙（如苦竹渡最西侧、洗墨堂最东侧、藏甲密室西尽头）
+        if (room.ceilingSpans.length > 0 || room.mapY !== 1) {
+          bctx.fillStyle = stonePat || '#161f30';
+          bctx.fillRect(wx, 0, 32, doorFloorY);
+          bctx.strokeStyle = '#334155';
+          bctx.lineWidth = 3;
+          bctx.strokeRect(wx, 0, 32, doorFloorY);
+        }
+      } else {
+        // 贯通门廊：上方门楣厚墙 (y=0 .. doorTopY) + 下方幽深拱门通道暗影与接引微光！
+        const doorTopY = doorFloorY - 124;
+        bctx.fillStyle = stonePat || '#182234';
+        bctx.fillRect(wx, 0, 34, doorTopY);
+        bctx.fillStyle = '#2d3b4e';
+        bctx.strokeStyle = '#cfa349';
+        bctx.lineWidth = 1.6;
+        bctx.fillRect(wx, doorTopY - 10, 36, 12);
+        bctx.strokeRect(wx, doorTopY - 10, 36, 12);
+
+        // 门洞纵深微光渐变（一眼看出前方连通下一座厅堂！）
+        const dg = bctx.createLinearGradient(
+          side === 'left' ? 0 : room.pixelW,
+          0,
+          side === 'left' ? 54 : room.pixelW - 54,
+          0
+        );
+        dg.addColorStop(0, 'rgba(251, 191, 36, 0.24)');
+        dg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        bctx.fillStyle = dg;
+        bctx.fillRect(side === 'left' ? 0 : room.pixelW - 54, doorTopY, 54, 124);
+      }
+    };
+    bakeSideWallAndDoor('left');
+    bakeSideWallAndDoor('right');
+  }
+
+  /**
+   * 渲染贯通上下层房间的【天井天光柱 / 地井冷雾】、可劈碎的【玄铁千斤闸门】以及【太极八卦传送阵】！
+   */
+  private renderShaftLightAndIronGates(
+    ctx: CanvasRenderingContext2D,
+    room: BuiltRoom,
+    engine: GameEngine
+  ): void {
+    const bossCleared = engine.isBossClearedInRoom(room);
+
+    // 1. 上下层竖井天光引路光束与井口提示
+    for (const sh of room.shafts) {
+      const cx = (sh.x1 + sh.x2) * 0.5;
+      const w = sh.x2 - sh.x1;
+      if (sh.dir === 'up') {
+        if (sh.requireBossClear && !bossCleared) {
+          // 击败妖王前，顶棚天井由重型青铜封魔栅栏锁闭
+          ctx.fillStyle = '#292524';
+          ctx.strokeStyle = '#cfa349';
+          ctx.lineWidth = 2;
+          ctx.fillRect(sh.x1, 68, w, 10);
+          ctx.strokeRect(sh.x1, 68, w, 10);
+        } else {
+          // 敞开的天井倾泻而下的皎洁月华/藏书阁金光，视觉引导玩家向上二段跳探索！
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          const lg = ctx.createLinearGradient(0, 0, 0, 290);
+          lg.addColorStop(0, 'rgba(125, 211, 252, 0.24)');
+          lg.addColorStop(0.55, 'rgba(250, 204, 21, 0.08)');
+          lg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          ctx.fillStyle = lg;
+          ctx.beginPath();
+          ctx.moveTo(sh.x1, 0);
+          ctx.lineTo(sh.x2, 0);
+          ctx.lineTo(sh.x2 + 28, 290);
+          ctx.lineTo(sh.x1 - 28, 290);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        }
+      } else {
+        // 向下竖井升腾的地底幽青寒雾 + 近距离提示
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const dg = ctx.createLinearGradient(0, room.pixelH, 0, room.pixelH - 130);
+        dg.addColorStop(0, 'rgba(45, 212, 191, 0.22)');
+        dg.addColorStop(1, 'rgba(45, 212, 191, 0)');
+        ctx.fillStyle = dg;
+        ctx.fillRect(sh.x1 + 4, room.pixelH - 130, w - 8, 130);
+        ctx.restore();
+
+        if (Math.abs(engine.player.x - cx) < 120) {
+          ctx.font = 'bold 11.5px "STKaiti", "KaiTi", serif';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#5eead4';
+          ctx.fillText('▾ 按 [↓ + 跃] 下潜连通下层', cx, room.pixelH - 96);
+        }
+      }
+    }
+
+    // 2. 可被重刃【赤炎斩马陌刀】劈碎的玄铁千斤锁链闸门！
+    if (room.ironGate && engine.slot && !engine.slot.brokenSecretWalls.includes(room.ironGate.id)) {
+      const g = room.ironGate;
+      ctx.save();
+      ctx.fillStyle = '#1e293b';
+      ctx.strokeStyle = '#090d16';
+      ctx.lineWidth = 2;
+      for (let bar = -9; bar <= 9; bar += 6) {
+        ctx.fillRect(g.x + bar - 2, g.topY, 4, g.bottomY - g.topY);
+        ctx.strokeRect(g.x + bar - 2, g.topY, 4, g.bottomY - g.topY);
+      }
+      // 横向赤铜锁链与中央兽首铁锁
+      const midY = (g.topY + g.bottomY) * 0.56;
+      ctx.strokeStyle = '#fb923c';
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.moveTo(g.x - 14, midY - 12);
+      ctx.lineTo(g.x + 14, midY + 12);
+      ctx.moveTo(g.x - 14, midY + 12);
+      ctx.lineTo(g.x + 14, midY - 12);
+      ctx.stroke();
+
+      ctx.fillStyle = '#7c2d12';
+      ctx.strokeStyle = '#fde047';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.arc(g.x, midY, 10, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      if (Math.abs(engine.player.x - g.x) < 150) {
+        ctx.font = 'bold 12px "STKaiti", "KaiTi", serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#fdba74';
+        ctx.fillText('玄铁千斤闸（需重刃劈锁）', g.x, g.topY + 46);
+      }
+      ctx.restore();
+    }
+
+    // 3. 地脉太极八卦传送阵法坛
+    if (room.special === 'warp_bagua') {
+      const cx = room.focalX;
+      const gy = room.focalY;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const wg = ctx.createRadialGradient(cx, gy - 26, 4, cx, gy - 26, 95);
+      wg.addColorStop(0, 'rgba(45, 212, 191, 0.42)');
+      wg.addColorStop(0.6, 'rgba(56, 189, 248, 0.14)');
+      wg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = wg;
+      ctx.beginPath();
+      ctx.arc(cx, gy - 26, 95, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 地面旋转乾坤八卦光阵
+      ctx.translate(cx, gy - 2);
+      ctx.scale(1, 0.28);
+      ctx.rotate(this.ambientTime * 1.4);
+      ctx.strokeStyle = '#2dd4bf';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, 56, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = '#fde047';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(-38, -38, 76, 76);
+      ctx.restore();
     }
   }
 
