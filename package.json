@@ -1,0 +1,17 @@
+{
+  "name": "xuancheng-yexing",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc && vite build",
+    "preview": "vite preview --host",
+    "cap:init": "npx @capacitor/cli add android && npx @capacitor/cli sync",
+    "cap:sync": "npm run build && npx @capacitor/cli sync"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vite": "^6.0.0"
+  }
+}
