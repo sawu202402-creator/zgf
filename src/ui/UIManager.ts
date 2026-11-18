@@ -690,11 +690,11 @@ export class UIManager {
       <div class="zx-arsenal-body">
         <div class="zx-stage-col">
           <div style="font-size:15px;font-weight:900;letter-spacing:3px;color:var(--bronze-light);">
-            ${s.heroName} · 境界 ${s.level}
+            ${s.heroName} · 18岁 · 境界 ${s.level}
           </div>
-          <canvas id="equip-stage-canvas" width="230" height="240"></canvas>
+          <canvas id="equip-stage-canvas" width="250" height="256"></canvas>
           <div style="font-size:11.5px;color:var(--ash);text-align:center;">
-            点击兵刃即可实时观摩持兵架势与挥斩刀光
+            点击兵刃即可实时观摩少年侠客持兵架势与挥斩刀光
           </div>
         </div>
 
@@ -742,7 +742,7 @@ export class UIManager {
         sctx.strokeStyle = 'rgba(198, 154, 69, 0.5)';
         sctx.lineWidth = 1.5;
         sctx.beginPath();
-        sctx.ellipse(115, 204, 72, 14, 0, 0, Math.PI * 2);
+        sctx.ellipse(116, 228, 76, 14, 0, 0, Math.PI * 2);
         sctx.fill();
         sctx.stroke();
 
@@ -758,8 +758,8 @@ export class UIManager {
         const secWpn = s.ownedWeapons.find((id) => id !== shownWpn);
 
         renderModularLiYichengRig(sctx, {
-          x: 105,
-          y: 202,
+          x: 102,
+          y: 226,
           facing: 1,
           vx: 0,
           vy: 0,
@@ -771,7 +771,7 @@ export class UIManager {
           equippedWeaponId: shownWpn,
           secondaryWeaponId: secWpn,
           slash: this.stageSlash,
-          scale: 1.45,
+          scale: 1.4,
         });
 
         if (this.stageSlash) {
@@ -781,7 +781,7 @@ export class UIManager {
             drawInkSlashRibbon(
               sctx,
               108,
-              146,
+              164,
               1,
               false,
               isHeavy ? 96 : 82,

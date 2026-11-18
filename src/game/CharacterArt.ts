@@ -20,120 +20,125 @@ const ENEMY_SPRITE_MAP: Record<EnemyKind, AssetKey> = {
   boss_zhuyin: 'boss_zhuyin',
 };
 
-function drawArticulatedLeg(
-  ctx: CanvasRenderingContext2D,
-  hipX: number,
-  hipY: number,
-  hipAngle: number,
-  kneeBend: number,
-  isFront: boolean
-): void {
-  ctx.save();
-  ctx.translate(hipX, hipY);
-  ctx.rotate(hipAngle);
+/**
+ * 18岁少年李逸承 14帧纯手绘逐帧序列图基准锚点（与 slice_hero_sheets.py 严格锁定一致！）
+ * 每张规范化序列帧尺寸为 340x256，躯干中轴 ANCHOR_X=132，双靴接地线 FOOT_Y=244，头顶至靴底高 180px。
+ */
+export const HERO_SPRITE_METRICS = {
+  canvasW: 340,
+  canvasH: 256,
+  anchorX: 132,
+  footY: 244,
+  baseScale: 0.54, // 局内少年身高约 97px（修长七头身，五官衣纹清晰锐利）
+} as const;
 
-  const thighCol = isFront ? '#172033' : '#0e1422';
-  const bootCol = isFront ? '#1e2b40' : '#121a29';
-  const trimCol = isFront ? '#cfa349' : '#8c6b2b';
+const RUN_CYCLE_FRAMES: AssetKey[] = ['h18_run_0', 'h18_run_1', 'h18_run_2', 'h18_run_3'];
 
-  // 大腿玄铁劲装裤（带浓墨描边，完美契合 AI 手绘上身！）
-  ctx.fillStyle = thighCol;
-  ctx.strokeStyle = '#05070c';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(-6.5, -2);
-  ctx.lineTo(6.5, -2);
-  ctx.lineTo(5.2, 19);
-  ctx.lineTo(-5.2, 19);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-
-  // 膝关节旋转（人类膝盖向后自然弯折：正角度向后收小腿！）
-  ctx.translate(0, 18);
-  ctx.rotate(kneeBend);
-
-  // 小腿护胫甲与暗红绑腿
-  ctx.fillStyle = bootCol;
-  ctx.beginPath();
-  ctx.moveTo(-5, 0);
-  ctx.lineTo(5, 0);
-  ctx.lineTo(4.2, 17);
-  ctx.lineTo(-4.2, 17);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-
-  // 护膝金边
-  ctx.strokeStyle = trimCol;
-  ctx.lineWidth = 1.6;
-  ctx.beginPath();
-  ctx.moveTo(-5, 2);
-  ctx.lineTo(0, -1.5);
-  ctx.lineTo(5, 2);
-  ctx.stroke();
-
-  // 皂底武靴
-  ctx.fillStyle = '#0b0f19';
-  ctx.strokeStyle = '#05070c';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(-5, 15);
-  ctx.lineTo(5, 15);
-  ctx.lineTo(12, 19.5);
-  ctx.lineTo(11, 21.5);
-  ctx.lineTo(-5.5, 21.5);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.restore();
+export interface HeroRenderState {
+  x: number;
+  y: number;
+  facing: 1 | -1;
+  vx: number;
+  vy: number;
+  onGround: boolean;
+  runCycle: number;
+  animTime: number;
+  landSquash: number;
+  doubleJumpSpin: number;
+  equippedWeaponId: string;
+  secondaryWeaponId?: string;
+  slash: ActiveSlash | null;
+  scale?: number;
 }
 
-function drawPaintedWeapon(
+export function selectHeroSpriteFrame(opts: {
+  vx: number;
+  vy: number;
+  onGround: boolean;
+  runCycle: number;
+  animTime: number;
+  isHeavy: boolean;
+  slash: ActiveSlash | null;
+}): AssetKey {
+  const { vx, vy, onGround, runCycle, animTime, isHeavy, slash } = opts;
+
+  // 1. 挥兵斩击帧（轻剑三连招 vs 重型斩马陌刀蓄力重劈）
+  if (slash) {
+    const pr = slash.progress;
+    if (isHeavy) {
+      return pr < 0.34 ? 'h18_modao_windup' : 'h18_modao_cleave';
+    }
+    if (slash.pogoDown) {
+      return 'h18_sword_2';
+    }
+    if (slash.comboStep === 1) {
+      return pr < 0.24 ? 'h18_sword_1' : 'h18_sword_0';
+    }
+    if (slash.comboStep === 2) {
+      return pr < 0.24 ? 'h18_sword_0' : 'h18_sword_1';
+    }
+    // 第三式终结技 / 手搓剑诀突刺：蓄势收剑 -> 弓步破空直刺！
+    return pr < 0.2 ? 'h18_sword_0' : 'h18_sword_2';
+  }
+
+  // 2. 腾空跃起与凌空下坠帧
+  if (!onGround) {
+    return vy < -35 ? 'h18_jump_up' : 'h18_jump_fall';
+  }
+
+  // 3. 地面疾奔 4 帧循环动画
+  const speedRatio = Math.min(1, Math.abs(vx) / 220);
+  if (speedRatio > 0.12) {
+    const idx = Math.floor(Math.abs(runCycle) * 0.78) % RUN_CYCLE_FRAMES.length;
+    return RUN_CYCLE_FRAMES[idx];
+  }
+
+  // 4. 地面站立待机（重剑扛肩豪迈站姿 / 轻剑少年侠客抱剑与剑指呼吸待机）
+  if (isHeavy) {
+    return 'h18_modao_idle';
+  }
+  return animTime % 5.4 > 4.2 ? 'h18_idle_1' : 'h18_idle_0';
+}
+
+function drawBackCarriedWeapon(
   ctx: CanvasRenderingContext2D,
-  archetype: WeaponArchetype,
-  tintGlow: string,
-  scaleLen = 1
+  archetype: WeaponArchetype
 ): void {
   const isHeavy = archetype === 'greatsword';
   const img = Assets.get(isHeavy ? 'part_wpn_modao' : 'part_wpn_sword');
-  if (img) {
-    const w = (isHeavy ? 104 : 80) * scaleLen;
-    const h = w * (img.height / img.width);
-    // 握柄枢轴位于图片左侧约 18% 处
-    ctx.drawImage(img, -w * 0.18, -h * 0.5, w, h);
-  } else {
-    ctx.fillStyle = tintGlow;
-    ctx.fillRect(0, -3, 68 * scaleLen, 6);
-  }
+  if (!img) return;
+
+  ctx.save();
+  // 斜挎于少年后背肩胛位置，绘制在人物主序列帧底层，绝不遮挡面部与前胸！
+  ctx.translate(-6, -54);
+  ctx.rotate(-2.32);
+  ctx.globalAlpha = 0.92;
+  const w = isHeavy ? 96 : 74;
+  const h = w * (img.height / img.width);
+  ctx.drawImage(img, -w * 0.25, -h * 0.5, w, h);
+  ctx.restore();
 }
 
 /**
- * 既用于局内60fps实时战斗渲染，也用于【恶魔城装备栏左侧真人动态试衣镜预览】！
+ * 18岁少年李逸承纯手绘逐帧渲染器（同时驱动局内 60fps 实机战斗与【兵匣】动态试剑台！）
  */
 export function renderModularLiYichengRig(
   ctx: CanvasRenderingContext2D,
-  opts: {
-    x: number;
-    y: number;
-    facing: 1 | -1;
-    vx: number;
-    vy: number;
-    onGround: boolean;
-    runCycle: number;
-    animTime: number;
-    landSquash: number;
-    doubleJumpSpin: number;
-    equippedWeaponId: string;
-    secondaryWeaponId?: string;
-    slash: ActiveSlash | null;
-    scale?: number;
-  }
+  opts: HeroRenderState
 ): void {
   const wDef = WEAPONS[opts.equippedWeaponId] || WEAPONS.sword_1;
   const isHeavy = wDef.archetype === 'greatsword';
   const sc = opts.scale ?? 1;
+
+  const frameKey = selectHeroSpriteFrame({
+    vx: opts.vx,
+    vy: opts.vy,
+    onGround: opts.onGround,
+    runCycle: opts.runCycle,
+    animTime: opts.animTime,
+    isHeavy,
+    slash: opts.slash,
+  });
 
   ctx.save();
   ctx.translate(opts.x, opts.y);
@@ -148,240 +153,58 @@ export function renderModularLiYichengRig(
   }
 
   const speedRatio = Math.min(1, Math.abs(opts.vx) / 220);
-  const breath = Math.sin(opts.animTime * 3.6);
-  const runBob = opts.onGround ? Math.abs(Math.cos(opts.runCycle)) * 4.5 * speedRatio : 0;
-  const squashY = 1 - opts.landSquash * 0.12;
-  const squashX = 1 + opts.landSquash * 0.1;
+  const isIdle = opts.onGround && speedRatio <= 0.12 && !opts.slash;
+  const breathScaleY = isIdle ? 1 + Math.sin(opts.animTime * 3.2) * 0.014 : 1;
+  const squashY = (1 - opts.landSquash * 0.1) * breathScaleY;
+  const squashX = 1 + opts.landSquash * 0.08;
 
   ctx.scale(squashX, squashY);
-  ctx.translate(0, -runBob);
 
-  // 踏云步二段跳：360° 帅气凌空翻身旋跃！
+  // 踏云步二段跳：凌空翻身旋跃特效
   if (opts.doubleJumpSpin > 0) {
     const spinProg = 1 - opts.doubleJumpSpin / 0.34;
-    ctx.translate(0, -44);
+    ctx.translate(0, -48);
     ctx.rotate(spinProg * Math.PI * 2);
-    ctx.translate(0, 44);
+    ctx.translate(0, 48);
   }
 
-  // 计算双腿真实两段关节角 (hipAngle 负值向前迈，kneeBend 正值向后自然折膝！)
-  let backHip = 0.22;
-  let backKnee = 0.14;
-  let frontHip = -0.24;
-  let frontKnee = 0.12;
-
-  if (!opts.onGround) {
-    if (opts.vy < 0) {
-      // 腾空提膝势
-      frontHip = -0.78;
-      frontKnee = 1.15;
-      backHip = 0.36;
-      backKnee = 0.42;
-    } else {
-      // 凌空落势
-      frontHip = -0.35;
-      frontKnee = 0.55;
-      backHip = 0.25;
-      backKnee = 0.65;
-    }
-  } else if (opts.slash && opts.slash.progress < 0.85) {
-    // 挥刀弓步沉马！
-    frontHip = -0.58;
-    frontKnee = 0.58;
-    backHip = 0.52;
-    backKnee = 0.18;
-  } else if (speedRatio > 0.08) {
-    const ph = opts.runCycle;
-    frontHip = Math.sin(ph) * 0.66 * speedRatio;
-    frontKnee = 0.16 + Math.max(0, -Math.cos(ph)) * 0.95 * speedRatio;
-    backHip = Math.sin(ph + Math.PI) * 0.66 * speedRatio;
-    backKnee = 0.16 + Math.max(0, -Math.cos(ph + Math.PI)) * 0.95 * speedRatio;
-  }
-
-  // 1. 背部斜挎副主手兵器（双武器系统视觉灵魂：没拿在手里的另一把神兵直接背在背上！）
-  if (opts.secondaryWeaponId && opts.secondaryWeaponId !== opts.equippedWeaponId) {
+  // 背部斜挎副武器（或装备陌刀疾跑/跳跃时将巨刃背负身后，停步或出招瞬间掣刀在手！）
+  const carryingHeavyWhileMoving =
+    isHeavy && !opts.slash && (!opts.onGround || speedRatio > 0.12);
+  if (carryingHeavyWhileMoving) {
+    drawBackCarriedWeapon(ctx, 'greatsword');
+  } else if (opts.secondaryWeaponId && opts.secondaryWeaponId !== opts.equippedWeaponId) {
     const secW = WEAPONS[opts.secondaryWeaponId];
     if (secW) {
-      ctx.save();
-      ctx.translate(-8, -58);
-      ctx.rotate(-2.35);
-      ctx.globalAlpha = 0.92;
-      drawPaintedWeapon(ctx, secW.archetype, secW.glowColor, 0.86);
-      ctx.restore();
+      drawBackCarriedWeapon(ctx, secW.archetype);
     }
   }
 
-  // 2. 后腿骨骼 + 飘动镇妖司下摆战裙后片
-  drawArticulatedLeg(ctx, -3, -38, backHip, backKnee, false);
-
-  const skirtWave = Math.sin(opts.animTime * 8) * 3 + speedRatio * 12;
-  ctx.fillStyle = '#111827';
-  ctx.strokeStyle = '#991b1b';
-  ctx.lineWidth = 1.6;
-  ctx.beginPath();
-  ctx.moveTo(-9, -39);
-  ctx.lineTo(4, -39);
-  ctx.lineTo(-8 - skirtWave, -11);
-  ctx.lineTo(-19 - skirtWave, -15);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-
-  // 3. 前腿骨骼 + 前片镶金战裙
-  drawArticulatedLeg(ctx, 3, -38, frontHip, frontKnee, true);
-
-  ctx.fillStyle = '#172236';
-  ctx.strokeStyle = '#cfa349';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(-4, -39);
-  ctx.lineTo(9, -39);
-  ctx.lineTo(13 - skirtWave * 0.3, -15);
-  ctx.lineTo(2 - skirtWave * 0.4, -12);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-
-  // 4. 上半身俯仰扭腰角 + AI 手绘无臂躯干头冠贴图 (`part_hero_torso`)
-  let torsoLean = speedRatio * 0.15;
-  if (opts.slash) {
-    const p = opts.slash.progress;
-    if (isHeavy && p < 0.32) torsoLean = -0.18 * (p / 0.32); // 陌刀后仰蓄势！
-    else torsoLean = 0.24 * Math.sin(Math.min(1, p * 1.3) * Math.PI);
+  // 绘制纯手绘 18 岁少年侠客序列帧
+  const spriteImg = Assets.get(frameKey) || Assets.get('h18_idle_0');
+  if (spriteImg) {
+    const s = HERO_SPRITE_METRICS.baseScale;
+    const drawW = HERO_SPRITE_METRICS.canvasW * s;
+    const drawH = HERO_SPRITE_METRICS.canvasH * s;
+    const dx = -HERO_SPRITE_METRICS.anchorX * s;
+    const dy = -HERO_SPRITE_METRICS.footY * s + 2;
+    ctx.drawImage(spriteImg, dx, dy, drawW, drawH);
   }
 
-  ctx.save();
-  ctx.translate(0, -37 + breath * 0.9);
-  ctx.rotate(torsoLean);
-
-  // 动态延伸随风猎猎狂舞的朱砂抹额双飘带（接在脑后，跑跳时拉出惊艳水墨流线！）
-  const ribWave1 = Math.sin(opts.animTime * 11) * 6;
-  const ribWave2 = Math.cos(opts.animTime * 9) * 7;
-  ctx.strokeStyle = '#b91c1c';
-  ctx.lineWidth = 3.2;
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(-10, -36);
-  ctx.quadraticCurveTo(
-    -28 - speedRatio * 12,
-    -38 + ribWave1 + opts.vy * 0.02,
-    -46 - speedRatio * 18,
-    -30 + ribWave2 + opts.vy * 0.04
-  );
-  ctx.stroke();
-
-  const torsoImg = Assets.get('part_hero_torso');
-  if (torsoImg) {
-    const th = 58;
-    const tw = torsoImg.width * (th / torsoImg.height);
-    ctx.drawImage(torsoImg, -tw * 0.52, -th + 3, tw, th);
+  // 斩马陌刀举刀过顶蓄力阶段：刀身凝聚赤金烈焰罡气微光！
+  if (isHeavy && opts.slash && opts.slash.progress < 0.34) {
+    const charge = opts.slash.progress / 0.34;
+    const glow = ctx.createRadialGradient(-8, -96, 3, -8, -96, 44 * charge + 12);
+    glow.addColorStop(0, `rgba(253, 224, 71, ${0.45 * charge})`);
+    glow.addColorStop(0.55, `rgba(249, 115, 22, ${0.28 * charge})`);
+    glow.addColorStop(1, 'rgba(249, 115, 22, 0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(-8, -96, 56, 0, Math.PI * 2);
+    ctx.fill();
   }
 
-  // 5. 右肩关节嵌入袖口暗槽 (`x = -1, y = -22` 相对于腰部原点) + 持兵护腕手臂 + 真实神兵贴图！
-  let shoulderAng = 0.38;
-  let elbowAng = -0.25;
-  let wristAng = 0.15;
-
-  if (opts.slash) {
-    const pr = opts.slash.progress;
-    if (opts.slash.pogoDown) {
-      shoulderAng = 1.25;
-      elbowAng = 0.1;
-      wristAng = 0.2;
-    } else if (isHeavy) {
-      if (opts.slash.comboStep === 1) {
-        // 陌刀第1式：0..0.32 举刀过背蓄力 -> 0.32..0.75 雷霆240°劈地 -> 收势
-        if (pr < 0.32) {
-          const w = pr / 0.32;
-          shoulderAng = -1.1 - w * 1.15;
-          elbowAng = -0.5;
-          wristAng = -0.4;
-        } else {
-          const k = Math.min(1, (pr - 0.32) / 0.45);
-          const ease = 1 - Math.pow(1 - k, 3);
-          shoulderAng = -2.25 + ease * 3.05;
-          elbowAng = -0.2 + ease * 0.25;
-          wristAng = -0.2 + ease * 0.45;
-        }
-      } else {
-        // 陌刀第2式：逆风大横扫
-        const ease = 1 - Math.pow(1 - Math.min(1, pr * 1.25), 3);
-        shoulderAng = 1.15 - ease * 2.45;
-        elbowAng = -0.15;
-        wristAng = 0.1;
-      }
-    } else {
-      // 轻剑三连斩：1平斩 -> 2逆鳞上挑 -> 3突刺破空
-      const ease = 1 - Math.pow(1 - Math.min(1, pr * 1.3), 3);
-      if (opts.slash.comboStep === 1) {
-        shoulderAng = -1.35 + ease * 2.35;
-        elbowAng = -0.15;
-      } else if (opts.slash.comboStep === 2) {
-        shoulderAng = 1.15 - ease * 2.45;
-        elbowAng = -0.2;
-      } else {
-        shoulderAng = -0.25 + ease * 0.35;
-        elbowAng = 0.05;
-        wristAng = -0.05;
-      }
-    }
-  } else if (isHeavy) {
-    // 平时持握重刃斩马陌刀：豪迈扛在肩头！（《斩妖行》经典扛刀站姿/跑姿！）
-    shoulderAng = -0.85 + Math.sin(opts.animTime * 3.6) * 0.03;
-    elbowAng = -1.25;
-    wristAng = -0.35;
-  } else if (speedRatio > 0.15 && opts.onGround) {
-    // 轻剑疾奔：古风侠客反手垂剑疾行势！
-    shoulderAng = 2.15 + Math.sin(opts.runCycle) * 0.18;
-    elbowAng = -0.25;
-    wristAng = 0.25;
-  } else {
-    // 轻剑待机：剑指斜前戒备势
-    shoulderAng = 0.48 + breath * 0.04;
-    elbowAng = -0.38;
-    wristAng = 0.22;
-  }
-
-  ctx.save();
-  ctx.translate(-2, -21);
-  ctx.rotate(shoulderAng);
-
-  // 上臂肌肉与玄色袖口
-  ctx.fillStyle = '#e5be9e';
-  ctx.strokeStyle = '#05070c';
-  ctx.lineWidth = 1.8;
-  ctx.beginPath();
-  ctx.roundRect(-4, -3, 14, 7.5, 3.5);
-  ctx.fill();
-  ctx.stroke();
-
-  // 肘部 -> 玄铁镶金护腕前臂
-  ctx.translate(11, 0);
-  ctx.rotate(elbowAng);
-  ctx.fillStyle = '#1e293b';
-  ctx.strokeStyle = '#cfa349';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.roundRect(-2, -3.5, 14, 7, 3);
-  ctx.fill();
-  ctx.stroke();
-
-  // 手掌与掌中真实神兵贴图
-  ctx.translate(12, 0);
-  ctx.rotate(wristAng);
-  drawPaintedWeapon(ctx, wDef.archetype, wDef.glowColor, 1);
-
-  ctx.fillStyle = '#ecc8a9';
-  ctx.strokeStyle = '#05070c';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.arc(0, 0, 3.8, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.restore(); // end arm
-  ctx.restore(); // end torso
-  ctx.restore(); // end root
+  ctx.restore();
 }
 
 export function drawHeroCharacter(
@@ -403,7 +226,7 @@ export function drawHeroCharacter(
     for (let i = 0; i < 5; i++) {
       const a = t * 8 + i * 1.25;
       const rx = Math.cos(a) * 16;
-      const ry = -38 + Math.sin(a * 1.3) * 14;
+      const ry = -44 + Math.sin(a * 1.3) * 14;
       const grad = ctx.createRadialGradient(rx, ry, 2, rx, ry, 28);
       grad.addColorStop(0, 'rgba(233, 213, 255, 0.92)');
       grad.addColorStop(0.55, 'rgba(168, 85, 247, 0.58)');
@@ -548,14 +371,13 @@ export function drawMonsterOrBoss(
     const stepRock = isMoving ? Math.sin(e.animPhase) * 0.055 : 0;
 
     let poseTilt = stepRock;
-    if (e.aiState === 'windup') poseTilt = -0.18; // 出刀前沉肩后仰蓄力！
-    else if (e.aiState === 'lunge_slash') poseTilt = 0.22; // 挥刀猛劈前倾！
+    if (e.aiState === 'windup') poseTilt = -0.18;
+    else if (e.aiState === 'lunge_slash') poseTilt = 0.22;
     else if (e.aiState === 'staggered') poseTilt = -0.15;
 
     ctx.save();
     ctx.translate(0, -stepBob);
     ctx.scale(e.facing === -1 ? 1 : -1, 1 + Math.sin(t * 4.5 + e.id) * 0.018);
-    // 怪物原图朝左(-1)，在镜像空间中正角度逆时针即向后仰！
     ctx.rotate(-poseTilt);
 
     const source = flash ? Assets.getWhiteFlash(spriteKey) || img : img;
@@ -635,7 +457,6 @@ export function drawWorldDrop(ctx: CanvasRenderingContext2D, d: WorldDrop, t: nu
   ctx.save();
   ctx.translate(d.x, d.y);
 
-  // 神兵架或石座衬底
   if (d.isStaticPickup) {
     ctx.fillStyle = 'rgba(0,0,0,0.5)';
     ctx.beginPath();
@@ -644,7 +465,6 @@ export function drawWorldDrop(ctx: CanvasRenderingContext2D, d: WorldDrop, t: nu
   }
 
   if (d.kind === 'weapon' && d.itemId === 'greatsword_1') {
-    // 镇军兵器架：赤炎斩马陌刀斜插石台之上，气势凛然！
     const modao = Assets.get('part_wpn_modao');
     const glow = ctx.createRadialGradient(0, -34, 4, 0, -34, 48);
     glow.addColorStop(0, 'rgba(249, 115, 22, 0.48)');

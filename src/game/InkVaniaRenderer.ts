@@ -1,3 +1,4 @@
+import { WEAPONS } from '../data/itemsAndSkills';
 import { BuiltRoom, sampleGroundY } from '../data/worldMap';
 import { AssetKey, Assets } from './AssetLoader';
 import {
@@ -5,6 +6,8 @@ import {
   drawInkSlashRibbon,
   drawMonsterOrBoss,
   drawWorldDrop,
+  HERO_SPRITE_METRICS,
+  selectHeroSpriteFrame,
 } from './CharacterArt';
 import { GameEngine } from './GameEngine';
 import { InputController } from './MotionInput';
@@ -463,16 +466,33 @@ export class InkVaniaRenderer {
   }
 
   private renderAfterImages(ctx: CanvasRenderingContext2D, engine: GameEngine): void {
-    const torso = Assets.get('part_hero_torso');
-    if (!torso) return;
+    const slot = engine.slot;
+    const p = engine.player;
+    const wDef = slot ? WEAPONS[slot.equippedWeapon] || WEAPONS.sword_1 : WEAPONS.sword_1;
+    const frameKey = selectHeroSpriteFrame({
+      vx: p.vx,
+      vy: p.vy,
+      onGround: p.onGround,
+      runCycle: p.runCycle,
+      animTime: p.animTime,
+      isHeavy: wDef.archetype === 'greatsword',
+      slash: engine.activeSlash,
+    });
+    const ghostImg = Assets.getWhiteFlash(frameKey) || Assets.get(frameKey);
+    if (!ghostImg) return;
+
+    const s = HERO_SPRITE_METRICS.baseScale;
+    const drawW = HERO_SPRITE_METRICS.canvasW * s;
+    const drawH = HERO_SPRITE_METRICS.canvasH * s;
+    const dx = -HERO_SPRITE_METRICS.anchorX * s;
+    const dy = -HERO_SPRITE_METRICS.footY * s + 2;
+
     for (const ai of engine.afterImages) {
       ctx.save();
-      ctx.globalAlpha = ai.alpha * 0.38;
-      ctx.translate(ai.x, ai.y - 37);
+      ctx.globalAlpha = ai.alpha * 0.32;
+      ctx.translate(ai.x, ai.y);
       ctx.scale(ai.facing, 1);
-      const th = 58;
-      const tw = torso.width * (th / torso.height);
-      ctx.drawImage(torso, -tw * 0.52, -th + 3, tw, th);
+      ctx.drawImage(ghostImg, dx, dy, drawW, drawH);
       ctx.restore();
     }
   }

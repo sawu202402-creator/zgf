@@ -9,15 +9,24 @@ export type AssetKey =
   | 'portrait_xiao_duanshui'
   | 'portrait_peiwuji'
   | 'tile_stone_wall'
-  | 'part_hero_torso'
+  | 'h18_idle_0'
+  | 'h18_idle_1'
+  | 'h18_jump_up'
+  | 'h18_jump_fall'
+  | 'h18_run_0'
+  | 'h18_run_1'
+  | 'h18_run_2'
+  | 'h18_run_3'
+  | 'h18_sword_0'
+  | 'h18_sword_1'
+  | 'h18_sword_2'
+  | 'h18_modao_idle'
+  | 'h18_modao_windup'
+  | 'h18_modao_cleave'
   | 'part_wpn_sword'
   | 'part_wpn_modao'
   | 'prop_pavilion_platform'
   | 'prop_stone_arch'
-  | 'hero_idle'
-  | 'hero_run'
-  | 'hero_jump'
-  | 'hero_attack'
   | 'npc_xiao_boss'
   | 'mob_paper_swordsman'
   | 'mob_lantern_ghost'
@@ -35,6 +44,8 @@ export type AssetKey =
   | 'prop_lantern'
   | 'prop_gourd';
 
+const ASSET_VERSION = 'h18_1';
+
 const ASSET_FILES: Record<AssetKey, string> = {
   bg_title: './assets/bg_title.webp',
   bg_gatehouse: './assets/bg_gatehouse.webp',
@@ -46,15 +57,24 @@ const ASSET_FILES: Record<AssetKey, string> = {
   portrait_xiao_duanshui: './assets/portrait_xiao_duanshui.webp',
   portrait_peiwuji: './assets/portrait_peiwuji.webp',
   tile_stone_wall: './assets/tile_stone_wall.webp',
-  part_hero_torso: './assets/part_hero_torso.webp',
+  h18_idle_0: './assets/h18_idle_0.webp',
+  h18_idle_1: './assets/h18_idle_1.webp',
+  h18_jump_up: './assets/h18_jump_up.webp',
+  h18_jump_fall: './assets/h18_jump_fall.webp',
+  h18_run_0: './assets/h18_run_0.webp',
+  h18_run_1: './assets/h18_run_1.webp',
+  h18_run_2: './assets/h18_run_2.webp',
+  h18_run_3: './assets/h18_run_3.webp',
+  h18_sword_0: './assets/h18_sword_0.webp',
+  h18_sword_1: './assets/h18_sword_1.webp',
+  h18_sword_2: './assets/h18_sword_2.webp',
+  h18_modao_idle: './assets/h18_modao_idle.webp',
+  h18_modao_windup: './assets/h18_modao_windup.webp',
+  h18_modao_cleave: './assets/h18_modao_cleave.webp',
   part_wpn_sword: './assets/part_wpn_sword.webp',
   part_wpn_modao: './assets/part_wpn_modao.webp',
   prop_pavilion_platform: './assets/prop_pavilion_platform.webp',
   prop_stone_arch: './assets/prop_stone_arch.webp',
-  hero_idle: './assets/hero_idle.webp',
-  hero_run: './assets/hero_run.webp',
-  hero_jump: './assets/hero_jump.webp',
-  hero_attack: './assets/hero_attack.webp',
   npc_xiao_boss: './assets/npc_xiao_boss.webp',
   mob_paper_swordsman: './assets/mob_paper_swordsman.webp',
   mob_lantern_ghost: './assets/mob_lantern_ghost.webp',
@@ -80,7 +100,20 @@ const CRITICAL_ASSETS: AssetKey[] = [
   'portrait_liyicheng',
   'portrait_su_qingyan',
   'tile_stone_wall',
-  'part_hero_torso',
+  'h18_idle_0',
+  'h18_idle_1',
+  'h18_jump_up',
+  'h18_jump_fall',
+  'h18_run_0',
+  'h18_run_1',
+  'h18_run_2',
+  'h18_run_3',
+  'h18_sword_0',
+  'h18_sword_1',
+  'h18_sword_2',
+  'h18_modao_idle',
+  'h18_modao_windup',
+  'h18_modao_cleave',
   'part_wpn_sword',
   'part_wpn_modao',
   'prop_pavilion_platform',
@@ -117,7 +150,7 @@ class GameAssetRegistry {
         this.inflight.delete(key);
         resolve();
       };
-      img.src = `${ASSET_FILES[key]}?v=vs2`;
+      img.src = `${ASSET_FILES[key]}?v=${ASSET_VERSION}`;
     });
     this.inflight.set(key, p);
     return p;
@@ -149,7 +182,7 @@ class GameAssetRegistry {
   }
 
   public getUrl(key: AssetKey): string {
-    return `${ASSET_FILES[key]}?v=vs2`;
+    return `${ASSET_FILES[key]}?v=${ASSET_VERSION}`;
   }
 
   public getWhiteFlash(key: AssetKey): HTMLCanvasElement | undefined {

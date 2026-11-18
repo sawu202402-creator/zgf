@@ -4,5 +4,7 @@ android/
 ios/
 .DS_Store
 .wrangler/
+__pycache__/
+*.pyc
 *.log
 *.local
