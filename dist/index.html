@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#090b10" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <title>玄城夜行：九幽录</title>
+    <script type="module" crossorigin src="./assets/index-wze353Lk.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-DZ_Lk0eW.css">
+  </head>
+  <body>
+    <div id="game-root">
+      <canvas id="game-canvas"></canvas>
+      <div id="ui-layer"></div>
+
+      <div id="boot-loader" role="status" aria-live="polite">
+        <div class="boot-card">
+          <span class="boot-seal">镇妖司密卷 · 卷壹</span>
+          <h1>玄城夜行：九幽录</h1>
+          <p class="boot-sub">甲子血月重临 · 少年李逸承夜闯九幽玄城</p>
+          <div class="boot-bar-track">
+            <div id="boot-bar-fill"></div>
+          </div>
+          <div class="boot-pct-row">
+            <span id="boot-status">正在研墨铺卷...</span>
+            <span id="boot-pct">15%</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="landscape-guard" class="landscape-guard" aria-hidden="true">
+        <div class="landscape-guard-card">
+          <div class="rotate-icon">📱 ↻</div>
+          <h2>请横置手机进入玄城</h2>
+          <p>横屏全视野更利于观察机关地形与手搓武学连招</p>
+          <button id="btn-guard-landscape" class="btn-guofeng btn-crimson" type="button">
+            ⛶ 开启全屏并锁定横屏
+          </button>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

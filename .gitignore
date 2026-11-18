@@ -1,6 +1,7 @@
-node_modules
-dist
-android
-ios
+node_modules/
+android/
+ios/
 .DS_Store
+.wrangler/
+*.log
 *.local

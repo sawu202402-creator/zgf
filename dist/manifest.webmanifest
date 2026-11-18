@@ -1,0 +1,10 @@
+{
+  "name": "玄城夜行：九幽录",
+  "short_name": "玄城夜行",
+  "description": "国风水墨类恶魔城横版动作探索 ARPG",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#090b10",
+  "theme_color": "#090b10"
+}
