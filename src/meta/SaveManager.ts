@@ -1,6 +1,6 @@
 import { GameMode, GlobalMetaUnlock, SaveSlotData } from '../types';
 
-const SLOT_KEY_PREFIX = 'xuancheng_save_slot_v1_';
+const SLOT_KEY_PREFIX = 'xuancheng_vs_slot_v2_';
 const META_KEY = 'xuancheng_global_meta_v1';
 
 export function createFreshSaveSlot(slotIndex: number, mode: GameMode = 'story'): SaveSlotData {

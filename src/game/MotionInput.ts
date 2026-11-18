@@ -36,6 +36,7 @@ export class InputController {
   private subJustPressed = false;
   private interactJustPressed = false;
   private potionJustPressed = false;
+  private weaponSwapJustPressed = false;
   private mapJustPressed = false;
   private pauseJustPressed = false;
 
@@ -174,8 +175,10 @@ export class InputController {
         this.subJustPressed = true;
       } else if (code === 'KeyE' || code === 'KeyF') {
         this.interactJustPressed = true;
-      } else if (code === 'KeyH' || code === 'KeyQ') {
+      } else if (code === 'KeyH') {
         this.potionJustPressed = true;
+      } else if (code === 'KeyQ') {
+        this.weaponSwapJustPressed = true;
       }
       this.syncAxesFromKeyboard();
     });
@@ -525,6 +528,12 @@ export class InputController {
   public consumePotion(): boolean {
     const v = this.potionJustPressed;
     this.potionJustPressed = false;
+    return v;
+  }
+
+  public consumeWeaponSwap(): boolean {
+    const v = this.weaponSwapJustPressed;
+    this.weaponSwapJustPressed = false;
     return v;
   }
 

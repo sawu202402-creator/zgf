@@ -55,6 +55,11 @@ SPRITES = {
     "prop_chest": 115,
     "prop_lantern": 125,
     "prop_gourd": 96,
+    "part_hero_torso": 150,
+    "part_wpn_sword": 64,
+    "part_wpn_modao": 84,
+    "prop_pavilion_platform": 150,
+    "prop_stone_arch": 310,
 }
 
 

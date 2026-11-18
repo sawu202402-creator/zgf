@@ -9,6 +9,11 @@ export type AssetKey =
   | 'portrait_xiao_duanshui'
   | 'portrait_peiwuji'
   | 'tile_stone_wall'
+  | 'part_hero_torso'
+  | 'part_wpn_sword'
+  | 'part_wpn_modao'
+  | 'prop_pavilion_platform'
+  | 'prop_stone_arch'
   | 'hero_idle'
   | 'hero_run'
   | 'hero_jump'
@@ -41,6 +46,11 @@ const ASSET_FILES: Record<AssetKey, string> = {
   portrait_xiao_duanshui: './assets/portrait_xiao_duanshui.webp',
   portrait_peiwuji: './assets/portrait_peiwuji.webp',
   tile_stone_wall: './assets/tile_stone_wall.webp',
+  part_hero_torso: './assets/part_hero_torso.webp',
+  part_wpn_sword: './assets/part_wpn_sword.webp',
+  part_wpn_modao: './assets/part_wpn_modao.webp',
+  prop_pavilion_platform: './assets/prop_pavilion_platform.webp',
+  prop_stone_arch: './assets/prop_stone_arch.webp',
   hero_idle: './assets/hero_idle.webp',
   hero_run: './assets/hero_run.webp',
   hero_jump: './assets/hero_jump.webp',
@@ -66,15 +76,23 @@ const ASSET_FILES: Record<AssetKey, string> = {
 const CRITICAL_ASSETS: AssetKey[] = [
   'bg_title',
   'bg_gatehouse',
+  'bg_main_hall',
   'portrait_liyicheng',
   'portrait_su_qingyan',
   'tile_stone_wall',
-  'hero_idle',
-  'hero_run',
-  'hero_jump',
-  'hero_attack',
-  'mob_paper_swordsman',
+  'part_hero_torso',
+  'part_wpn_sword',
+  'part_wpn_modao',
+  'prop_pavilion_platform',
+  'prop_stone_arch',
+  'prop_shrine',
+  'prop_chest',
+  'prop_lantern',
   'prop_gourd',
+  'mob_paper_swordsman',
+  'mob_lantern_ghost',
+  'mob_bronze_guard',
+  'boss_scroll_king',
 ];
 
 class GameAssetRegistry {
@@ -99,7 +117,7 @@ class GameAssetRegistry {
         this.inflight.delete(key);
         resolve();
       };
-      img.src = `${ASSET_FILES[key]}?v=ai1`;
+      img.src = `${ASSET_FILES[key]}?v=vs2`;
     });
     this.inflight.set(key, p);
     return p;
@@ -131,7 +149,7 @@ class GameAssetRegistry {
   }
 
   public getUrl(key: AssetKey): string {
-    return `${ASSET_FILES[key]}?v=ai1`;
+    return `${ASSET_FILES[key]}?v=vs2`;
   }
 
   public getWhiteFlash(key: AssetKey): HTMLCanvasElement | undefined {
