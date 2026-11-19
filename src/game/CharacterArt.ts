@@ -1,6 +1,6 @@
 import { WEAPONS } from '../data/itemsAndSkills';
 import { SceneNpc } from '../data/worldMap';
-import { WeaponArchetype } from '../types';
+import { WeaponArchetype, WeaponDef } from '../types';
 import { AssetKey, Assets } from './AssetLoader';
 import { ActiveSlash, EnemyEntity, GameEngine, WorldDrop } from './GameEngine';
 import { drawCelShadedWeapon } from './GuofengWorldArt';
@@ -8,7 +8,9 @@ import {
   buildEntitySpineJoints,
   drawSkinnedSpineSprite,
   HeroSpine,
+  SpineJointRow,
   StageHeroSpine,
+  transformSpinePoint,
 } from './SpineRig';
 
 const ENEMY_METRICS = {
@@ -155,7 +157,7 @@ export function selectHeroSpriteFrame(opts: {
       : 'boss_xiao_0';
   }
 
-  // 0. 阿鲁卡多标志性体术帧：贴地滑铲踢 (`↓ + 跃`) / 凌空下踢 (`二段跳后 ↓ + 跃`) / 下蹲低斩！
+  // 0. 经典体术帧：贴地滑铲踢 (`↓ + 跃`) / 凌空下踢 (`二段跳后 ↓ + 跃`) / 下蹲低斩！
   if (sliding) return 'h18_slide';
   if (diveKicking) return 'h18_divekick';
   if (crouching && onGround) {
@@ -163,28 +165,37 @@ export function selectHeroSpriteFrame(opts: {
     return 'h18_crouch';
   }
 
-  // 1. 挥兵斩击帧（五系神兵各自呈现凌厉出招身姿！）
+  // 1. 挥兵斩击帧（五系神兵各自匹配抬手蓄势与破空出招身姿！）
   if (slash) {
     const pr = slash.progress;
     if (isHeavy) {
       return pr < 0.34 ? 'h18_modao_windup' : 'h18_modao_cleave';
     }
-    if (slash.archetype === 'spear' || slash.archetype === 'whip') {
-      return pr < 0.22 ? 'h18_sword_0' : 'h18_sword_2';
+    if (slash.archetype === 'whip') {
+      // 九节鞭：先高举右臂抖鞭蓄势 (`h18_sword_1`)，再振臂向前破空抽击 (`h18_sword_2`)！
+      return pr < 0.24 ? 'h18_sword_1' : 'h18_sword_2';
+    }
+    if (slash.archetype === 'spear') {
+      // 长枪：沉腰收枪蓄寸劲 (`h18_sword_0`)，再弓步挺枪怒刺 (`h18_sword_2`)！
+      return pr < 0.24 ? 'h18_sword_0' : 'h18_sword_2';
     }
     if (slash.archetype === 'daggers') {
-      return slash.comboStep % 2 === 0 ? 'h18_sword_1' : 'h18_sword_0';
+      // 双刺：左右手交替反握高举 (`h18_sword_1`) 与贴身双月疾刺 (`h18_sword_2` / `h18_sword_0`)！
+      if (slash.comboStep % 2 === 1) {
+        return pr < 0.32 ? 'h18_sword_1' : 'h18_sword_2';
+      }
+      return pr < 0.32 ? 'h18_sword_0' : 'h18_sword_2';
     }
     if (slash.pogoDown) {
       return 'h18_sword_2';
     }
     if (slash.comboStep === 1) {
-      return pr < 0.24 ? 'h18_sword_1' : 'h18_sword_0';
+      return pr < 0.28 ? 'h18_sword_1' : 'h18_sword_0';
     }
     if (slash.comboStep === 2) {
-      return pr < 0.24 ? 'h18_sword_0' : 'h18_sword_1';
+      return pr < 0.28 ? 'h18_sword_0' : 'h18_sword_1';
     }
-    return pr < 0.2 ? 'h18_sword_0' : 'h18_sword_2';
+    return pr < 0.24 ? 'h18_sword_0' : 'h18_sword_2';
   }
 
   // 2. 腾空跃起与凌空下坠帧
@@ -204,6 +215,397 @@ export function selectHeroSpriteFrame(opts: {
     return 'h18_modao_idle';
   }
   return animTime % 5.4 > 4.2 ? 'h18_idle_1' : 'h18_idle_0';
+}
+
+interface HandSocketDef {
+  rx: number;
+  ry: number;
+  rAngle: number;
+  lx?: number;
+  ly?: number;
+  lAngle?: number;
+}
+
+/**
+ * 12帧无兵空拳底图的精确左右手骨骼握持锚点（基于 340×256 标准序列帧实测标定）
+ */
+const HERO_HAND_SOCKETS: Partial<Record<AssetKey, HandSocketDef>> = {
+  h18_idle_0: { rx: 105, ry: 158, rAngle: 0.47, lx: 154, ly: 159, lAngle: 0.32 },
+  h18_idle_1: { rx: 96, ry: 156, rAngle: 0.61, lx: 163, ly: 108, lAngle: -1.15 },
+  h18_jump_up: { rx: 95, ry: 140, rAngle: 0.58, lx: 152, ly: 134, lAngle: -0.35 },
+  h18_jump_fall: { rx: 89, ry: 143, rAngle: 0.68, lx: 160, ly: 155, lAngle: 0.42 },
+  h18_run_0: { rx: 100, ry: 158, rAngle: 0.48, lx: 160, ly: 155, lAngle: 0.32 },
+  h18_run_1: { rx: 99, ry: 154, rAngle: 0.62, lx: 168, ly: 146, lAngle: -0.18 },
+  h18_run_2: { rx: 92, ry: 150, rAngle: 0.57, lx: 173, ly: 138, lAngle: -0.26 },
+  h18_run_3: { rx: 94, ry: 146, rAngle: 0.63, lx: 175, ly: 132, lAngle: -0.34 },
+  h18_sword_0: { rx: 102, ry: 131, rAngle: 0.48, lx: 138, ly: 150, lAngle: 0.48 },
+  h18_sword_1: { rx: 169, ry: 75, rAngle: -2.64, lx: 117, ly: 145, lAngle: 2.35 },
+  h18_sword_2: { rx: 185, ry: 125, rAngle: 0.0, lx: 122, ly: 136, lAngle: 2.55 },
+  h18_crouch: { rx: 117, ry: 166, rAngle: 0.05, lx: 109, ly: 166, lAngle: 0.12 },
+};
+
+function drawFistKnuckleClasp(ctx: CanvasRenderingContext2D): void {
+  ctx.fillStyle = '#e8b996';
+  ctx.strokeStyle = '#18202c';
+  ctx.lineWidth = 1.1;
+  ctx.beginPath();
+  ctx.ellipse(0.5, -0.5, 3.6, 2.9, 0.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+}
+
+function drawSingleCurvedDagger(
+  ctx: CanvasRenderingContext2D,
+  wDef: WeaponDef,
+  reverseGrip = false
+): void {
+  const len = wDef.tier === 3 ? 38 : wDef.tier === 2 ? 34 : 30;
+  ctx.save();
+  if (reverseGrip) {
+    ctx.scale(-1, -1);
+  }
+
+  // 缠绳短柄与铜铸护手
+  ctx.fillStyle = '#3f2e21';
+  ctx.strokeStyle = '#0f172a';
+  ctx.lineWidth = 1.2;
+  ctx.fillRect(-9, -2.2, 9, 4.4);
+  ctx.strokeRect(-9, -2.2, 9, 4.4);
+
+  ctx.fillStyle = wDef.tier === 3 ? '#f59e0b' : '#ca8a04';
+  ctx.beginPath();
+  ctx.moveTo(-1, -6.2);
+  ctx.lineTo(3.5, -3.2);
+  ctx.lineTo(3.5, 3.2);
+  ctx.lineTo(-1, 6.2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // 弯月分水刃身（一阶寒铁翠芒 / 二阶幽冥鬼爪紫刃 / 三阶阴阳残月赤金刃）
+  const bg = ctx.createLinearGradient(2, 0, len, -4);
+  if (wDef.tier === 3) {
+    bg.addColorStop(0, '#4c0519');
+    bg.addColorStop(0.55, '#f43f5e');
+    bg.addColorStop(1, '#fef08a');
+  } else if (wDef.tier === 2) {
+    bg.addColorStop(0, '#1e1b4b');
+    bg.addColorStop(0.55, '#8b5cf6');
+    bg.addColorStop(1, '#e9d5ff');
+  } else {
+    bg.addColorStop(0, '#334155');
+    bg.addColorStop(0.55, '#94a3b8');
+    bg.addColorStop(1, '#ecfdf5');
+  }
+  ctx.fillStyle = bg;
+  ctx.strokeStyle = '#090d16';
+  ctx.lineWidth = 1.25;
+  ctx.beginPath();
+  ctx.moveTo(2.5, -3.2);
+  ctx.quadraticCurveTo(len * 0.56, -5.8, len, -4.6);
+  ctx.quadraticCurveTo(len * 0.68, 3.8, 2.5, 2.8);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // 刃口寒芒血槽
+  ctx.strokeStyle = wDef.glowColor;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(6, -1.2);
+  ctx.quadraticCurveTo(len * 0.58, -2.6, len - 3, -3.6);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawEquippedWeaponInHeroHands(
+  ctx: CanvasRenderingContext2D,
+  frameKey: AssetKey,
+  wDef: WeaponDef,
+  slash: ActiveSlash | null,
+  animTime: number,
+  runCycle: number,
+  joints: SpineJointRow[]
+): void {
+  const metrics = {
+    canvasW: HERO_SPRITE_METRICS.canvasW,
+    canvasH: HERO_SPRITE_METRICS.canvasH,
+    anchorX: HERO_SPRITE_METRICS.anchorX,
+    footY: HERO_SPRITE_METRICS.footY,
+    scale: HERO_SPRITE_METRICS.baseScale,
+  };
+
+  // 重刃系：跑动/跳跃/下蹲时双手空拳、重刃背负于背；站立/蓄力/劈斩时按品阶点亮巨刃神纹！
+  if (wDef.archetype === 'greatsword') {
+    if (
+      wDef.tier >= 2 &&
+      (frameKey === 'h18_modao_idle' ||
+        frameKey === 'h18_modao_windup' ||
+        frameKey === 'h18_modao_cleave')
+    ) {
+      const bladeSeg =
+        frameKey === 'h18_modao_idle'
+          ? { p0: [152, 86], p1: [84, 52] }
+          : frameKey === 'h18_modao_windup'
+            ? { p0: [154, 62], p1: [82, 26] }
+            : { p0: [176, 158], p1: [246, 206] };
+      const a = transformSpinePoint(bladeSeg.p0[0], bladeSeg.p0[1], metrics, joints);
+      const b = transformSpinePoint(bladeSeg.p1[0], bladeSeg.p1[1], metrics, joints);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = wDef.tier === 3 ? 'rgba(253, 224, 71, 0.82)' : 'rgba(251, 146, 60, 0.78)';
+      ctx.lineWidth = wDef.tier === 3 ? 4.2 : 3.2;
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+      ctx.restore();
+    }
+    return;
+  }
+
+  const sock = HERO_HAND_SOCKETS[frameKey];
+  if (!sock) return;
+
+  const rHand = transformSpinePoint(sock.rx, sock.ry, metrics, joints);
+  const lHand =
+    sock.lx !== undefined && sock.ly !== undefined
+      ? transformSpinePoint(sock.lx, sock.ly, metrics, joints)
+      : null;
+
+  // 1. 分水峨眉双刺 / 幽冥鬼爪 / 阴阳残月刃：真正的左右双手持双刺，抬手即反握弯刃！
+  if (wDef.archetype === 'daggers') {
+    if (lHand && sock.lAngle !== undefined) {
+      ctx.save();
+      ctx.translate(lHand.x, lHand.y);
+      ctx.rotate(sock.lAngle + lHand.angle);
+      drawSingleCurvedDagger(ctx, wDef, frameKey === 'h18_idle_1');
+      drawFistKnuckleClasp(ctx);
+      ctx.restore();
+    }
+    ctx.save();
+    ctx.translate(rHand.x, rHand.y);
+    const rAng =
+      slash && slash.pogoDown
+        ? 1.22 + rHand.angle
+        : sock.rAngle + rHand.angle + (frameKey === 'h18_sword_1' ? 0.35 : 0);
+    ctx.rotate(rAng);
+    drawSingleCurvedDagger(ctx, wDef, frameKey === 'h18_sword_1');
+    drawFistKnuckleClasp(ctx);
+    ctx.restore();
+    return;
+  }
+
+  // 2. 白蜡点钢枪 / 寒星龙胆枪 / 破阵紫金霸王枪：全程持握红缨长枪，抬手蓄枪、弓步挺刺！
+  if (wDef.archetype === 'spear') {
+    const spImg = Assets.get('part_wpn_spear');
+    if (!spImg) return;
+    const spLen = wDef.tier === 3 ? 128 : wDef.tier === 2 ? 118 : 108;
+    const spH = spLen * (spImg.height / spImg.width);
+
+    ctx.save();
+    if (slash) {
+      const pr = slash.progress;
+      const aimAng =
+        (slash.pogoDown ? 1.15 : slash.aimY < -0.35 ? -0.46 : 0) + rHand.angle;
+      if (pr < 0.24) {
+        // 沉腰引枪蓄势阶段：枪身随双臂后撤蓄满寸劲！
+        const cockBack = (pr / 0.24) * 10;
+        ctx.translate(rHand.x - cockBack + 8, rHand.y + 3);
+        ctx.rotate(aimAng - 0.05);
+        ctx.drawImage(spImg, -spLen * 0.32, -spH * 0.5, spLen, spH);
+      } else {
+        // 挺枪破空怒刺阶段：长枪自前手拳心笔直刺出！
+        const p = Math.min(1, (pr - 0.24) / 0.72);
+        const thrust = Math.sin(p * Math.PI) * 26;
+        ctx.translate(rHand.x + thrust, rHand.y);
+        ctx.rotate(aimAng);
+        ctx.drawImage(spImg, -spLen * 0.24, -spH * 0.5, spLen, spH);
+      }
+      if (wDef.tier >= 2) {
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.strokeStyle = wDef.glowColor;
+        ctx.lineWidth = 2.1;
+        ctx.beginPath();
+        ctx.moveTo(spLen * 0.34, 0);
+        ctx.lineTo(spLen * 0.74, 0);
+        ctx.stroke();
+        ctx.globalCompositeOperation = 'source-over';
+      }
+      drawFistKnuckleClasp(ctx);
+    } else {
+      // 待机 / 疾奔 / 腾跃 / 下蹲：斜提红缨长枪（枪锋斜扬不戳地，步态自然起伏）
+      const carryAng =
+        frameKey === 'h18_crouch'
+          ? 0.04 + rHand.angle
+          : -0.36 + rHand.angle + Math.sin(runCycle * 0.8) * 0.04;
+      ctx.translate(rHand.x + 4, rHand.y - 2);
+      ctx.rotate(carryAng);
+      ctx.drawImage(spImg, -spLen * 0.34, -spH * 0.5, spLen, spH);
+      if (wDef.tier >= 2) {
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.strokeStyle = wDef.glowColor;
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.moveTo(spLen * 0.28, 0);
+        ctx.lineTo(spLen * 0.64, 0);
+        ctx.stroke();
+        ctx.globalCompositeOperation = 'source-over';
+      }
+      drawFistKnuckleClasp(ctx);
+    }
+    ctx.restore();
+    return;
+  }
+
+  // 3. 乌金九节鞭 / 缚魂赤铜锁链刀 / 紫电雷音打神鞭：高举抖鞭蓄势 ➔ 振臂甩链！
+  if (wDef.archetype === 'whip') {
+    const rodCol = wDef.tier === 3 ? '#581c87' : wDef.tier === 2 ? '#7c2d12' : '#1e293b';
+    const ringCol = wDef.tier === 3 ? '#fde047' : wDef.tier === 2 ? '#fb923c' : '#eab308';
+
+    ctx.save();
+    ctx.translate(rHand.x, rHand.y);
+
+    if (slash) {
+      const pr = slash.progress;
+      if (pr < 0.24) {
+        // 抬手高举抖鞭 (`h18_sword_1`)：右拳高举鞭柄，九节铁链在头顶身后挽出蓄力S形鞭弧！
+        const u = pr / 0.24;
+        ctx.rotate(-2.15 + rHand.angle + u * 0.45);
+        // 鞭柄与红缨尾穗
+        ctx.fillStyle = '#3f2e21';
+        ctx.strokeStyle = '#090d16';
+        ctx.lineWidth = 1.2;
+        ctx.fillRect(-6, -2.4, 17, 4.8);
+        ctx.strokeRect(-6, -2.4, 17, 4.8);
+
+        // 头顶蓄势抖动的九节铁链弧与弯月镰首
+        ctx.strokeStyle = rodCol;
+        ctx.lineWidth = 3.2;
+        ctx.beginPath();
+        ctx.moveTo(11, 0);
+        let lx = 11;
+        let ly = 0;
+        for (let seg = 1; seg <= 7; seg++) {
+          const s = seg / 7;
+          lx = 11 + s * 46;
+          ly = Math.sin(s * Math.PI * 1.35 - u * 2.2) * 18;
+          ctx.lineTo(lx, ly);
+        }
+        ctx.stroke();
+
+        ctx.strokeStyle = ringCol;
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+
+        // 鞭梢弯钩血刃
+        ctx.fillStyle = '#e2e8f0';
+        ctx.beginPath();
+        ctx.arc(lx + 4, ly, 4.2, -0.8, 1.9);
+        ctx.lineTo(lx, ly);
+        ctx.closePath();
+        ctx.fill();
+      } else {
+        // 振臂向前抽鞭 (`h18_sword_2`)：掌中紧握鞭柄与红缨，无缝衔接破空九节长链！
+        const aimAng =
+          (slash.aimY < -0.35 ? -0.62 : slash.aimY > 0.35 ? 0.38 : 0) + rHand.angle;
+        ctx.rotate(aimAng);
+        ctx.fillStyle = '#3f2e21';
+        ctx.strokeStyle = '#090d16';
+        ctx.lineWidth = 1.2;
+        ctx.fillRect(-7, -2.5, 19, 5);
+        ctx.strokeRect(-7, -2.5, 19, 5);
+        ctx.fillStyle = ringCol;
+        ctx.fillRect(9, -3, 3.5, 6);
+      }
+      drawFistKnuckleClasp(ctx);
+    } else {
+      // 平时收鞭持握：右手握乌金鞭柄，两圈九节铁链自然垂挂于手侧随步伐轻晃！
+      const sway = Math.sin(animTime * 3.6 + runCycle * 0.9) * 0.08;
+      ctx.rotate(0.32 + rHand.angle + sway);
+      ctx.fillStyle = '#3f2e21';
+      ctx.strokeStyle = '#090d16';
+      ctx.lineWidth = 1.2;
+      ctx.fillRect(-6, -2.3, 18, 4.6);
+      ctx.strokeRect(-6, -2.3, 18, 4.6);
+
+      // 盘挂手侧的九节铁链线圈
+      ctx.strokeStyle = rodCol;
+      ctx.lineWidth = 2.8;
+      ctx.beginPath();
+      ctx.ellipse(9, 9, 8.5, 11, 0.25, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = ringCol;
+      ctx.lineWidth = 1.2;
+      ctx.setLineDash([3, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // 朱红鞭穗
+      ctx.strokeStyle = '#dc2626';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-6, 0);
+      ctx.quadraticCurveTo(-12, 5, -14, 11);
+      ctx.stroke();
+      drawFistKnuckleClasp(ctx);
+    }
+    ctx.restore();
+    return;
+  }
+
+  // 4. 轻剑系（青竹寒铁剑 / 墨渊秋水剑 / 七星龙渊剑）：按品阶实时切换剑长、护手与剑脊星芒！
+  const swImg = Assets.get('part_wpn_sword');
+  if (!swImg) return;
+  const swLen = wDef.tier === 3 ? 80 : wDef.tier === 2 ? 72 : 64;
+  const swH = swLen * (swImg.height / swImg.width);
+
+  ctx.save();
+  ctx.translate(rHand.x, rHand.y);
+  const swAng =
+    slash && slash.pogoDown ? 1.18 + rHand.angle : sock.rAngle + rHand.angle;
+  ctx.rotate(swAng);
+
+  // 剑柄红绸/翠绸剑穗
+  ctx.strokeStyle = wDef.tier === 3 ? '#f59e0b' : wDef.tier === 2 ? '#0284c7' : '#b91c1c';
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(-swLen * 0.14, 0);
+  ctx.quadraticCurveTo(-swLen * 0.22, 5, -swLen * 0.26, 10);
+  ctx.stroke();
+
+  ctx.drawImage(swImg, -swLen * 0.14, -swH * 0.5, swLen, swH);
+
+  // 二阶墨渊秋水蓝芒 / 三阶七星龙渊北斗金芒（换不同名剑抬手即见神剑异象！）
+  if (wDef.tier === 2) {
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.85)';
+    ctx.lineWidth = 2.0;
+    ctx.beginPath();
+    ctx.moveTo(swLen * 0.14, 0);
+    ctx.lineTo(swLen * 0.82, 0);
+    ctx.stroke();
+    ctx.globalCompositeOperation = 'source-over';
+  } else if (wDef.tier === 3) {
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = 'rgba(253, 224, 71, 0.9)';
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(swLen * 0.12, 0);
+    ctx.lineTo(swLen * 0.84, 0);
+    ctx.stroke();
+    ctx.fillStyle = '#fef9c3';
+    for (let st = 0; st < 5; st++) {
+      ctx.beginPath();
+      ctx.arc(swLen * (0.22 + st * 0.13), (st % 2 === 0 ? -0.8 : 0.8), 1.3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  drawFistKnuckleClasp(ctx);
+  ctx.restore();
 }
 
 function drawBackCarriedWeapon(
@@ -370,19 +772,16 @@ export function renderModularLiYichengRig(
         joints
       );
 
-      // 长枪骨骼挂载：随胸臂骨骼实时突刺寒星龙胆枪！
-      if (wDef.archetype === 'spear' && opts.slash && opts.slash.progress >= 0.15) {
-        const spImg = Assets.get('part_wpn_spear');
-        if (spImg) {
-          ctx.save();
-          const thrust = Math.sin(Math.min(1, (opts.slash.progress - 0.15) / 0.72) * Math.PI) * 38;
-          const aimAng = (opts.slash.aimY < -0.35 ? -0.46 : 0) + chestJoint.angle;
-          ctx.translate(16 + chestJoint.dx + thrust, -46 + chestJoint.dy);
-          ctx.rotate(aimAng);
-          ctx.drawImage(spImg, -42, -9, 136, 20);
-          ctx.restore();
-        }
-      }
+      // 3. 实时手部骨骼武器挂载：15把神兵在待机、奔跑、跳跃、抬手蓄势与挥击全帧随装备实时变换！
+      drawEquippedWeaponInHeroHands(
+        ctx,
+        frameKey,
+        wDef,
+        opts.slash,
+        opts.animTime,
+        opts.runCycle,
+        joints
+      );
     }
   }
 

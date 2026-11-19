@@ -16,6 +16,7 @@ import {
   bakeOrthographicRoomTerrain,
   drawCastleInteriorPropsAndGears,
   drawHangingSilkLantern,
+  drawMidgroundParallaxArchitecture,
   drawOrthographicLanternPost,
   drawOrthographicPavilion,
   drawOrthographicSaveShrine,
@@ -63,22 +64,25 @@ export class InkVaniaRenderer {
     ctx.save();
     ctx.scale(scale, scale);
 
-    // 1. 远景国风手绘 16:9 画卷视差层 (0.22x)
+    // 1. 远景国风手绘 16:9 画卷视差层 (0.22x) + 中景建筑廊柱/幽竹剪影层 (0.52x)
     this.renderPaintedBackdrop(ctx, vW, vH, camLeft, camTop, room);
+    drawMidgroundParallaxArchitecture(ctx, vW, vH, camLeft, room, this.ambientTime);
 
-    // 2. 世界主空间层 (1.0x)
+    // 2. 世界主空间层 (1.0x)：先铺设地基宫墙与石阶拱桥，再让立柱/陈设/灯火/人物稳稳立于地面之上！
     ctx.save();
     ctx.translate(-camLeft + shakeX, -camTop + shakeY);
 
     this.renderMoonlitWater(ctx, room);
-    drawCastleInteriorPropsAndGears(ctx, room, engine.player.animTime);
-    this.renderMidgroundArchwaysAndTorches(ctx, room, engine);
-    this.renderPavilionStructures(ctx, room);
 
     this.ensureBakedStoneContour(room);
     if (this.terrainCanvas) {
       ctx.drawImage(this.terrainCanvas, 0, 0);
     }
+
+    drawCastleInteriorPropsAndGears(ctx, room, engine.player.animTime);
+    this.renderPavilionStructures(ctx, room);
+    this.renderMidgroundArchwaysAndTorches(ctx, room, engine);
+    this.renderFloorLightReflections(ctx, room, engine);
 
     this.renderShaftLightAndIronGates(ctx, room, engine);
     this.renderSaveShrine(ctx, room);
@@ -111,15 +115,11 @@ export class InkVaniaRenderer {
 
     ctx.restore();
 
-    // 3. 前景遮挡视差层 (1.25x)：手绘盘龙暗影巨柱与近景红绸大宫灯掠过镜头（《胧村正/斩妖行》纵深层次！）
+    // 3. 前景遮挡视差层 (1.25x)：手绘盘龙暗影巨柱与近景红绸大宫灯掠过镜头
     this.renderForegroundParallax(ctx, vW, vH, camLeft, room);
 
-    // 4. 柔和电影晕影 Vignette（保留边缘灯火与熔炉色彩温度）
-    const vig = ctx.createRadialGradient(vW * 0.5, vH * 0.48, vH * 0.42, vW * 0.5, vH * 0.5, vW * 0.78);
-    vig.addColorStop(0, 'rgba(0,0,0,0)');
-    vig.addColorStop(1, 'rgba(4, 6, 12, 0.34)');
-    ctx.fillStyle = vig;
-    ctx.fillRect(0, 0, vW, vH);
+    // 4. 全域环境色调统一滤镜层（将远景、地面、家具与角色统一在同一个国风冷暖光场内，彻底消除拼贴割裂感！）
+    this.renderUnifiedBiomeColorGrade(ctx, vW, vH, room);
 
     ctx.restore();
 
@@ -496,6 +496,100 @@ export class InkVaniaRenderer {
     }
   }
 
+  private renderFloorLightReflections(
+    ctx: CanvasRenderingContext2D,
+    room: BuiltRoom,
+    engine: GameEngine
+  ): void {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+
+    const castFloorGlow = (lx: number, gy: number, rx: number, alpha: number, rgb: string) => {
+      const g = ctx.createRadialGradient(lx, gy + 2, 4, lx, gy + 2, rx);
+      g.addColorStop(0, `rgba(${rgb}, ${alpha})`);
+      g.addColorStop(1, `rgba(${rgb}, 0)`);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.ellipse(lx, gy + 2, rx, 11, 0, 0, Math.PI * 2);
+      ctx.fill();
+    };
+
+    for (const tc of engine.liveLanterns) {
+      if (tc.broken) continue;
+      const gy = sampleSolidGroundY(room, tc.x);
+      if (Math.abs(gy - tc.y) < 150) {
+        castFloorGlow(tc.x, gy, 72, 0.2, '251, 146, 60');
+      }
+    }
+
+    if (room.decorProps) {
+      for (const dp of room.decorProps) {
+        if (dp.kind === 'dragon_brazier') {
+          castFloorGlow(dp.x, dp.y, 105, 0.26, '249, 115, 22');
+        } else if (dp.kind === 'incense_burner') {
+          castFloorGlow(dp.x, dp.y, 76, 0.18, '251, 191, 36');
+        }
+      }
+    }
+
+    if (room.special === 'save_shrine') {
+      castFloorGlow(room.focalX, room.focalY, 118, 0.26, '251, 191, 36');
+    }
+
+    ctx.restore();
+  }
+
+  private renderUnifiedBiomeColorGrade(
+    ctx: CanvasRenderingContext2D,
+    vW: number,
+    vH: number,
+    room: BuiltRoom
+  ): void {
+    ctx.save();
+
+    // 1. 区域统一环境光漫射染调（让背景、地砖、家具、主角与怪物同处一个真实物理色温场！）
+    ctx.globalCompositeOperation = 'screen';
+    const wash = ctx.createLinearGradient(0, 0, 0, vH);
+    if (room.realm === 'inverted') {
+      wash.addColorStop(0, 'rgba(136, 19, 55, 0.14)');
+      wash.addColorStop(1, 'rgba(76, 29, 149, 0.1)');
+    } else if (room.region === 'forge') {
+      wash.addColorStop(0, 'rgba(180, 52, 12, 0.1)');
+      wash.addColorStop(1, 'rgba(234, 88, 12, 0.14)');
+    } else if (room.region === 'opera') {
+      wash.addColorStop(0, 'rgba(157, 23, 77, 0.08)');
+      wash.addColorStop(1, 'rgba(217, 119, 6, 0.1)');
+    } else if (room.region === 'main_hall' || room.region === 'library') {
+      wash.addColorStop(0, 'rgba(180, 130, 50, 0.07)');
+      wash.addColorStop(1, 'rgba(120, 80, 30, 0.08)');
+    } else if (room.region === 'prison') {
+      wash.addColorStop(0, 'rgba(13, 148, 136, 0.08)');
+      wash.addColorStop(1, 'rgba(15, 118, 110, 0.1)');
+    } else {
+      wash.addColorStop(0, 'rgba(30, 64, 115, 0.09)');
+      wash.addColorStop(1, 'rgba(15, 35, 65, 0.08)');
+    }
+    ctx.fillStyle = wash;
+    ctx.fillRect(0, 0, vW, vH);
+
+    // 2. 柔和电影暗角收束视线
+    ctx.globalCompositeOperation = 'source-over';
+    const vig = ctx.createRadialGradient(
+      vW * 0.5,
+      vH * 0.48,
+      vH * 0.44,
+      vW * 0.5,
+      vH * 0.5,
+      vW * 0.8
+    );
+    vig.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    vig.addColorStop(1, 'rgba(4, 6, 12, 0.36)');
+    ctx.fillStyle = vig;
+    ctx.fillRect(0, 0, vW, vH);
+
+    ctx.restore();
+  }
+
   private renderSaveShrine(ctx: CanvasRenderingContext2D, room: BuiltRoom): void {
     if (room.special !== 'save_shrine') return;
     drawOrthographicSaveShrine(ctx, room.focalX, room.focalY, this.ambientTime);
@@ -768,15 +862,15 @@ export class InkVaniaRenderer {
         (1 - p * 0.5) * 0.78
       );
     } else if (sl.archetype === 'whip') {
-      // 致敬恶魔城本命兵刃【乌金九节鞭】：九节乌金链环破空抖直 + 八向雷火鞭梢炸裂！
-      if (sl.progress < 0.14) return;
-      const p = Math.min(1, (sl.progress - 0.14) / 0.82);
+      // 【乌金九节鞭 / 缚魂赤铜锁链刀】：0..0.24 由手部骨骼完成头顶高举挽鞭蓄势，0.24..1 自前伸掌中鞭柄破空甩直！
+      if (sl.progress < 0.24) return;
+      const p = Math.min(1, (sl.progress - 0.24) / 0.74);
       const snap = Math.sin(Math.min(1, p * 1.25) * Math.PI);
       const aimAng = sl.aimY < -0.35 ? -0.62 : sl.aimY > 0.35 ? 0.38 : 0;
-      const maxLen = sl.reachX * (0.35 + snap * 0.72);
+      const maxLen = sl.reachX * (0.36 + snap * 0.7);
 
       ctx.save();
-      ctx.translate(sl.x + sl.facing * 14, sl.y - 4);
+      ctx.translate(sl.x + sl.facing * 26, sl.y - 16);
       ctx.scale(sl.facing, 1);
       ctx.rotate(aimAng);
 

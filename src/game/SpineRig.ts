@@ -177,6 +177,59 @@ export function drawSkinnedSpineSprite(
   }
 }
 
+/**
+ * 将源贴图画布坐标 `(px, py)` 精确映射为当前 Spine 骨骼网格蒙皮后的角色局部坐标 `(x, y)` 与切向角 `angle`，
+ * 用于将 15 把神兵严丝合缝锁定在少侠手掌骨骼插槽上，待机呼吸、疾奔前倾、抬手蓄力与突刺挥砍全程零漂移！
+ */
+export function transformSpinePoint(
+  px: number,
+  py: number,
+  metrics: SpineSpriteMetrics,
+  joints: SpineJointRow[]
+): { x: number; y: number; angle: number } {
+  const v = Math.max(0, Math.min(1, py / Math.max(1, metrics.canvasH)));
+  const u = Math.max(0, Math.min(1, px / Math.max(1, metrics.canvasW)));
+  const sc = metrics.scale;
+  const baseLeftSpan = metrics.anchorX * sc;
+  const baseRightSpan = (metrics.canvasW - metrics.anchorX) * sc;
+
+  let idx = 0;
+  while (idx < joints.length - 2 && joints[idx + 1].v < v) {
+    idx++;
+  }
+  const j0 = joints[idx];
+  const j1 = joints[idx + 1];
+  const spanV = Math.max(1e-4, j1.v - j0.v);
+  const t = Math.max(0, Math.min(1, (v - j0.v) / spanV));
+
+  const evalRow = (j: SpineJointRow) => {
+    const baseY = (j.v * metrics.canvasH - metrics.footY) * sc + 2;
+    const jx = j.dx;
+    const jy = baseY + j.dy;
+    const cosA = Math.cos(j.angle);
+    const sinA = Math.sin(j.angle);
+    const lSpan = baseLeftSpan * j.leftScale;
+    const rSpan = baseRightSpan * j.rightScale;
+    const lx = jx - cosA * lSpan;
+    const ly = jy - sinA * lSpan;
+    const rx = jx + cosA * rSpan;
+    const ry = jy + sinA * rSpan;
+    return {
+      x: lx + (rx - lx) * u,
+      y: ly + (ry - ly) * u,
+      angle: j.angle,
+    };
+  };
+
+  const p0 = evalRow(j0);
+  const p1 = evalRow(j1);
+  return {
+    x: p0.x + (p1.x - p0.x) * t,
+    y: p0.y + (p1.y - p0.y) * t,
+    angle: p0.angle + (p1.angle - p0.angle) * t,
+  };
+}
+
 // ============================================================================
 // 主角李逸承专属 Spine 二阶弹簧骨骼实例 + 6节点物理束发侠客飘带
 // ============================================================================
