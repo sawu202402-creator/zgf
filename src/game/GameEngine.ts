@@ -502,6 +502,7 @@ export class GameEngine {
     this.activeSlash = null;
     this.player.diveKicking = false;
     this.player.slideTimer = 0;
+    this.player.dropThroughTimer = 0;
     this.familiar.x = entryX - this.player.facing * 32;
     this.familiar.y = entryY - 68;
     this.familiar.swoopTimer = 0;
@@ -1897,6 +1898,7 @@ export class GameEngine {
 
     if (room.solidBlocks) {
       for (const sb of room.solidBlocks) {
+        if (!sb.blocking) continue;
         if (
           e.y > sb.y + 8 &&
           e.y - e.profile.h < sb.y + sb.h - 4 &&
@@ -2764,8 +2766,17 @@ export class GameEngine {
   private isOnPavilionDeck(): boolean {
     if (!this.room) return false;
     const p = this.player;
-    return this.room.pavilions.some(
-      (pv) => p.x >= pv.x + 8 && p.x <= pv.x + pv.w - 8 && Math.abs(p.y - pv.y) < 8
+    if (
+      this.room.pavilions.some(
+        (pv) => p.x >= pv.x + 8 && p.x <= pv.x + pv.w - 8 && Math.abs(p.y - pv.y) < 8
+      )
+    ) {
+      return true;
+    }
+    return Boolean(
+      this.room.solidBlocks?.some(
+        (sb) => !sb.blocking && p.x >= sb.x - 8 && p.x <= sb.x + sb.w + 8 && Math.abs(p.y - sb.y) < 8
+      )
     );
   }
 
@@ -2798,9 +2809,10 @@ export class GameEngine {
       }
     }
 
-    // 0A-1. 恶魔城月下式实心建筑石台/阶梯 (SolidBlock) 左右立壁阻挡与贴墙检测
+    // 0A-1. 仅针对端头能力锁高崖 (`sb.blocking === true`) 执行左右立壁阻挡；普通石砌踏台与夹层绝不挡平地通行！
     if (room.solidBlocks) {
       for (const sb of room.solidBlocks) {
+        if (!sb.blocking) continue;
         if (p.y > sb.y + 8 && p.y - p.h < sb.y + sb.h - 4) {
           if (prevX <= sb.x - 13 && p.x > sb.x - 13) {
             p.x = sb.x - 13;
@@ -2841,11 +2853,12 @@ export class GameEngine {
       }
     }
 
-    // 0B. 左右边界实心城墙与多层竖塔分标高门廊碰撞（精准判定每一层门洞开启区间！）
+    // 0B. 左右边界实心城墙与多层竖塔分标高门廊碰撞（支持跳跃顺畅穿门，绝不在门楣隐形卡人！）
+    const doorHeadClearance = room.gridH > 1 ? 175 : 280;
     if (p.x < 32) {
       const leftDoors = getRoomSideDoors(room, 'left');
       const inOpenLeftDoor = leftDoors.some(
-        (d) => p.y >= d.floorY - 120 && p.y <= d.floorY + 26
+        (d) => p.y >= d.floorY - doorHeadClearance && p.y <= d.floorY + 34
       );
       if (!inOpenLeftDoor) {
         p.x = 32;
@@ -2857,7 +2870,7 @@ export class GameEngine {
     if (p.x > room.pixelW - 32) {
       const rightDoors = getRoomSideDoors(room, 'right');
       const inOpenRightDoor = rightDoors.some(
-        (d) => p.y >= d.floorY - 120 && p.y <= d.floorY + 26
+        (d) => p.y >= d.floorY - doorHeadClearance && p.y <= d.floorY + 34
       );
       if (!inOpenRightDoor) {
         p.x = room.pixelW - 32;
@@ -2874,7 +2887,7 @@ export class GameEngine {
     const prevY = p.y;
     let nextY = p.y + p.vy * dt;
 
-    // 0C. 室内宫殿藻井 / 城门石券洞 / 暗渠石拱顶 / 实心石台下沿真实头顶碰撞（竖井口自动敞开！）
+    // 0C. 室内宫殿藻井 / 城门石券洞 / 暗渠石拱顶真实头顶碰撞（竖井口与单向踏石从下方起跳完全敞开！）
     const ceilY = sampleCeilingY(room, p.x, bossCleared);
     if (ceilY > -100 && p.vy < 0 && nextY - p.h < ceilY) {
       nextY = ceilY + p.h;
@@ -2882,6 +2895,7 @@ export class GameEngine {
     }
     if (p.vy < 0 && room.solidBlocks) {
       for (const sb of room.solidBlocks) {
+        if (!sb.blocking) continue;
         if (
           p.x >= sb.x - 10 &&
           p.x <= sb.x + sb.w + 10 &&
@@ -2896,10 +2910,11 @@ export class GameEngine {
 
     p.onGround = false;
 
-    // 0D. 实心建筑石台/阶梯 (SolidBlock) 上表面硬着陆（实心石砌绝不会因 ↓+跃 穿台坠落！）
+    // 0D. 石砌建筑台面与断崖高台 (SolidBlock) 着陆（端头断崖永不下穿；普通踏石可丝滑上跃也可按 ↓+跃 下跳！）
     if (p.vy >= 0 && room.solidBlocks) {
       for (const sb of room.solidBlocks) {
-        if (p.x >= sb.x - 10 && p.x <= sb.x + sb.w + 10) {
+        if (!sb.blocking && p.dropThroughTimer > 0) continue;
+        if (p.x >= sb.x - 8 && p.x <= sb.x + sb.w + 8) {
           if (prevY <= sb.y + 16 && nextY >= sb.y) {
             p.y = sb.y;
             if (!wasGrounded && p.vy > 260) p.landSquash = 1;
@@ -3041,20 +3056,20 @@ export class GameEngine {
     const p = this.player;
     const bossCleared = this.isBossClearedInRoom(room);
 
-    // 1. 左右多层竖塔门廊无缝跨房（自动按当前身位高度匹配所穿过的那扇门，完美保留跳跃高度！）
+    // 1. 左右多层竖塔门廊无缝跨房（自动按当前身位高度匹配所穿过的那扇门，并防撞新房间顶棚！）
     if (p.x < 12) {
       const tr = WorldMap.resolveTransition(room, 'left', p.y);
       if (tr) {
-        const lift = Math.min(0, p.y - tr.curFloorY);
-        this.loadRoom(tr.nextRoom, tr.nextX, tr.nextFloorY + lift, true);
+        const lift = Math.max(-75, Math.min(0, p.y - tr.curFloorY));
+        this.loadRoom(tr.nextRoom, tr.nextX, Math.max(115, tr.nextFloorY + lift), true);
         return;
       }
       p.x = 32;
     } else if (p.x > room.pixelW - 12) {
       const tr = WorldMap.resolveTransition(room, 'right', p.y);
       if (tr) {
-        const lift = Math.min(0, p.y - tr.curFloorY);
-        this.loadRoom(tr.nextRoom, tr.nextX, tr.nextFloorY + lift, true);
+        const lift = Math.max(-75, Math.min(0, p.y - tr.curFloorY));
+        this.loadRoom(tr.nextRoom, tr.nextX, Math.max(115, tr.nextFloorY + lift), true);
         return;
       }
       p.x = room.pixelW - 32;

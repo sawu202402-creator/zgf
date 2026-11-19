@@ -68,14 +68,16 @@ export interface ClimbableWall {
 }
 
 /**
- * 《恶魔城：月下夜想曲》式实心石砌建筑结构块（高低石台、竖井壁挂石阶、水牢石墩、夹层走廊）：
- * 四面全物理阻挡（顶面站立与巡逻、底面顶头、左右实心石壁），使用原画石砖渲染，彻底取代悬空木桌！
+ * 《恶魔城：月下夜想曲》式石砌建筑台面与断崖高台：
+ * - 默认 (`blocking` 为 `false`)：单向石砌悬台/竖井踏石/书廊夹层，可从下方与两侧丝滑起跳穿过，绝不卡头堵路，站上后亦可按 `↓+跃` 快速下跳；
+ * - 仅端头能力锁高崖设为 `blocking: true`（如奉天盘龙长廊东端 168px 二段跳须弥断崖），形成真实垂直石壁阻挡。
  */
 export interface SolidBlock {
   x: number;
   y: number;
   w: number;
   h: number;
+  blocking?: boolean;
 }
 
 export interface PavilionPlatform {
@@ -419,37 +421,27 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 0, y: 424, style: 'flagstone' },
         { x: 1600, y: 424, style: 'flagstone' },
       ],
-      // 实心青砖阶梯高台（东侧4级 84px 单跳石台直通炼丹司天井；西侧 172px 二段跳高台悬置千年朱果！）
+      // 石砌阶梯悬台（主地面全程畅通无阻！东侧 4 级 84px 单跳踏石直通炼丹司天井，西侧 172px 二段跳高台悬置千年朱果）
       solidBlocks: [
-        { x: 96, y: 252, w: 220, h: 36 }, // 西高台 (424->252 = 172px，标准二段跳锁！)
-        { x: 840, y: 340, w: 150, h: 84 }, // 东第1阶 (424->340 = 84px)
-        { x: 1010, y: 256, w: 150, h: 168 }, // 东第2阶 (340->256 = 84px)
-        { x: 1180, y: 172, w: 200, h: 36 }, // 东第3阶悬廊 (256->172 = 84px)
-        { x: 1210, y: 92, w: 140, h: 28 }, // 登顶踏石 (172->92 = 80px，一跃冲出天井！)
+        { x: 96, y: 252, w: 220, h: 34 }, // 西高台 (424->252 = 172px，标准二段跳奖励台)
+        { x: 820, y: 340, w: 180, h: 34 }, // 东第1阶 (424->340 = 84px)
+        { x: 980, y: 256, w: 190, h: 34 }, // 东第2阶 (340->256 = 84px)
+        { x: 1120, y: 172, w: 220, h: 32 }, // 东第3阶 (256->172 = 84px)
+        { x: 1170, y: 92, w: 170, h: 28 }, // 登顶踏石 (172->92 = 80px，丝滑跃出天井！)
       ],
       ceilingSpans: [
-        { x1: 0, x2: 1180, bottomY: 34, style: 'gate_tunnel' },
+        { x1: 0, x2: 1140, bottomY: 34, style: 'gate_tunnel' },
         { x1: 1360, x2: 1600, bottomY: 34, style: 'gate_tunnel' },
       ],
       shafts: [
         { x1: 420, x2: 556, dir: 'down', targetRoomId: 'forge_smithy' },
-        { x1: 1180, x2: 1360, dir: 'up', targetRoomId: 'alchemy_lab' },
+        { x1: 1140, x2: 1360, dir: 'up', targetRoomId: 'alchemy_lab' },
       ],
-      // 阻拦玩家前期直接下铁匠坊/水牢的玄铁重闸（拿到西武库【镇军斩马刀】即可回来一刀劈碎！）
-      ironGate: {
-        id: 'gate_forge_entry',
-        x: 382,
-        topY: 288,
-        bottomY: 424,
-        gateKind: 'heavy_weapon',
-      },
       decorProps: [{ kind: 'dragon_brazier', x: 700, y: 424, scale: 0.9 }],
       waterZones: [],
       pavilions: [
-        // 横跨下潜井口的单向木栈板（劈开重闸后站上去按 ↓+跃 下潜至铸剑坊；平时可直接跑过）
-        { x: 416, y: 424, w: 144, hasPillars: false },
-        // 封顶护口梁，防止重闸未破时从上方绕进下潜井
-        { x: 376, y: 288, w: 200, hasPillars: false },
+        // 横跨下潜井口的单向木栈板（平时可直接平地跑过；站上去按 ↓+跃 下潜至赤火铸剑坊见欧冶残！）
+        { x: 414, y: 424, w: 152, hasPillars: false },
       ],
       archways: [],
       torches: [
@@ -538,20 +530,20 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 0, y: 424, style: 'marble' },
         { x: 1600, y: 424, style: 'marble' },
       ],
-      // 经典月下炼金栋高低石台：先往左取【镇军斩马刀】练破盾，再拾级而上登顶决战萧断水！
+      // 经典月下炼金栋高低悬台：主地面左右直通【镇军西武库】取斩马刀，上方拾级而上登顶决战萧断水！
       solidBlocks: [
-        { x: 340, y: 336, w: 230, h: 88 }, // 西石台 (424->336 = 88px，重盾卫驻守！)
-        { x: 640, y: 252, w: 220, h: 36 }, // 中高台 (336->252 = 84px)
-        { x: 920, y: 168, w: 210, h: 36 }, // 东高台 (252->168 = 84px)
-        { x: 1090, y: 88, w: 160, h: 28 }, // 天井登顶石 (168->88 = 80px，跃入试剑堂！)
+        { x: 340, y: 336, w: 230, h: 34 }, // 西石台 (424->336 = 88px，重盾卫驻守！)
+        { x: 640, y: 252, w: 220, h: 34 }, // 中高台 (336->252 = 84px)
+        { x: 910, y: 168, w: 220, h: 34 }, // 东高台 (252->168 = 84px)
+        { x: 1090, y: 88, w: 165, h: 28 }, // 天井登顶石 (168->88 = 80px，跃入试剑堂！)
       ],
       ceilingSpans: [
-        { x1: 0, x2: 1080, bottomY: 32, style: 'palace_timber' },
-        { x1: 1260, x2: 1600, bottomY: 32, style: 'palace_timber' },
+        { x1: 0, x2: 1060, bottomY: 32, style: 'palace_timber' },
+        { x1: 1280, x2: 1600, bottomY: 32, style: 'palace_timber' },
       ],
       shafts: [
-        { x1: 1180, x2: 1360, dir: 'down', targetRoomId: 'gate_2' },
-        { x1: 1080, x2: 1260, dir: 'up', targetRoomId: 'xiao_boss_hall' },
+        { x1: 1140, x2: 1360, dir: 'down', targetRoomId: 'gate_2' },
+        { x1: 1060, x2: 1280, dir: 'up', targetRoomId: 'xiao_boss_hall' },
       ],
       decorProps: [
         { kind: 'incense_burner', x: 180, y: 424, scale: 0.94 },
@@ -561,7 +553,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       waterZones: [],
       pavilions: [
         // 承接下方瓮城天井跃上的单向安全木栈板（不会刚跳上来又掉回去！）
-        { x: 1176, y: 424, w: 188, hasPillars: false },
+        { x: 1134, y: 424, w: 232, hasPillars: false },
       ],
       archways: [],
       torches: [
@@ -603,7 +595,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 0, y: 384, style: 'marble' },
         { x: 800, y: 384, style: 'marble' },
       ],
-      solidBlocks: [{ x: 140, y: 296, w: 220, h: 88 }],
+      solidBlocks: [{ x: 140, y: 296, w: 220, h: 34 }],
       ceilingSpans: [{ x1: 0, x2: 800, bottomY: 36, style: 'palace_timber' }],
       shafts: [],
       // 致敬月下墙中烤鸡：西端可劈碎暗裂石砖藏有荷叶叫花鸡！
@@ -652,7 +644,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       pixelH: 480,
       special: 'boss_room',
       bossKind: 'boss_xiao_duanshui',
-      focalX: 980,
+      focalX: 1080,
       focalY: 404,
       leftRoomId: 'relic_double_jump',
       leftDoorFloorY: 404,
@@ -663,15 +655,15 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 1500, y: 404, style: 'marble' },
       ],
       ceilingSpans: [{ x1: 0, x2: 1500, bottomY: 36, style: 'palace_timber' }],
-      shafts: [{ x1: 280, x2: 460, dir: 'down', targetRoomId: 'alchemy_lab' }],
+      shafts: [{ x1: 260, x2: 480, dir: 'down', targetRoomId: 'alchemy_lab' }],
       decorProps: [
         { kind: 'dragon_brazier', x: 640, y: 404, scale: 0.94 },
         { kind: 'dragon_brazier', x: 1180, y: 404, scale: 0.94 },
       ],
       waterZones: [],
       pavilions: [
-        // 下方天井口单向栈板（进场可先往右进【丹阁镇魂祠】存档补满状态，再回来开战！）
-        { x: 276, y: 404, w: 188, hasPillars: false },
+        // 下方天井口单向栈板
+        { x: 254, y: 404, w: 232, hasPillars: false },
       ],
       archways: [],
       torches: [
@@ -797,9 +789,9 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 2200, y: 432, style: 'marble' },
       ],
       solidBlocks: [
-        { x: 820, y: 344, w: 260, h: 88 }, // 中殿御阶台 (432->344 = 88px 单跳可达)
-        { x: 1180, y: 260, w: 250, h: 36 }, // 本命剑灵悬台 (344->260 = 84px 单跳可达)
-        { x: 1820, y: 264, w: 380, h: 168 }, // 东端 168px 断崖须弥高台（432->264 = 168px，标准【踏云二段跳】能力锁！）
+        { x: 820, y: 344, w: 260, h: 34 }, // 中殿御阶悬台 (432->344 = 88px 单跳可达，地面可自由穿行)
+        { x: 1180, y: 260, w: 250, h: 34 }, // 本命剑灵悬台 (344->260 = 84px 单跳可达)
+        { x: 1820, y: 264, w: 380, h: 168, blocking: true }, // 东端 168px 实心断崖须弥高台（432->264 = 168px，标准【踏云二段跳】能力锁！）
       ],
       ceilingSpans: [],
       shafts: [{ x1: 320, x2: 460, dir: 'down', targetRoomId: 'central_warp' }],
@@ -853,18 +845,18 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 0, y: 396, style: 'marble' },
         { x: 800, y: 396, style: 'marble' },
       ],
-      // 两侧对称 84px 石阶直通顶部井口返回盘龙长廊
+      // 84px 单跳踏石直通顶部井口返回盘龙长廊
       solidBlocks: [
-        { x: 110, y: 312, w: 120, h: 84 },
-        { x: 160, y: 228, w: 120, h: 28 },
-        { x: 230, y: 144, w: 110, h: 28 },
-        { x: 280, y: 76, w: 90, h: 24 },
+        { x: 140, y: 312, w: 150, h: 32 },
+        { x: 210, y: 228, w: 150, h: 32 },
+        { x: 280, y: 144, w: 150, h: 30 },
+        { x: 315, y: 76, w: 150, h: 26 },
       ],
       ceilingSpans: [
-        { x1: 0, x2: 320, bottomY: 32, style: 'palace_timber' },
-        { x1: 460, x2: 800, bottomY: 32, style: 'palace_timber' },
+        { x1: 0, x2: 300, bottomY: 32, style: 'palace_timber' },
+        { x1: 480, x2: 800, bottomY: 32, style: 'palace_timber' },
       ],
-      shafts: [{ x1: 320, x2: 460, dir: 'up', targetRoomId: 'hall_corridor' }],
+      shafts: [{ x1: 300, x2: 480, dir: 'up', targetRoomId: 'hall_corridor' }],
       decorProps: [{ kind: 'dragon_brazier', x: 610, y: 396, scale: 0.9 }],
       waterZones: [],
       pavilions: [],
@@ -899,27 +891,35 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 0, y: 408, style: 'marble' },
         { x: 800, y: 408, style: 'marble' },
       ],
-      // 左侧返程石阶（84px 单跳级差，轻松跃回上方瓮城门厅）
+      // 左侧返程踏石（84px 单跳级差，随时可跃回上方瓮城门厅）；东侧下水牢暗井由玄铁重闸镇守！
       solidBlocks: [
-        { x: 80, y: 324, w: 125, h: 84 },
-        { x: 140, y: 240, w: 125, h: 28 },
-        { x: 220, y: 156, w: 130, h: 28 },
-        { x: 320, y: 82, w: 110, h: 24 },
+        { x: 80, y: 324, w: 150, h: 32 },
+        { x: 170, y: 240, w: 150, h: 32 },
+        { x: 280, y: 156, w: 155, h: 30 },
+        { x: 405, y: 82, w: 145, h: 26 },
       ],
       ceilingSpans: [
-        { x1: 0, x2: 420, bottomY: 32, style: 'crypt_vault' },
-        { x1: 556, x2: 800, bottomY: 32, style: 'crypt_vault' },
+        { x1: 0, x2: 396, bottomY: 32, style: 'crypt_vault' },
+        { x1: 564, x2: 800, bottomY: 32, style: 'crypt_vault' },
       ],
       shafts: [
-        { x1: 420, x2: 556, dir: 'up', targetRoomId: 'gate_2' },
-        { x1: 590, x2: 726, dir: 'down', targetRoomId: 'prison_waterway' },
+        { x1: 396, x2: 564, dir: 'up', targetRoomId: 'gate_2' },
+        { x1: 595, x2: 740, dir: 'down', targetRoomId: 'prison_waterway' },
       ],
+      // 镇守水牢入口的玄铁通天重闸（前期可随时下来找欧冶残淬炼兵器；取得西武库【镇军斩马刀】后一刀破闸入水牢！）
+      ironGate: {
+        id: 'gate_forge_entry',
+        x: 572,
+        topY: 0,
+        bottomY: 408,
+        gateKind: 'heavy_weapon',
+      },
       decorProps: [
-        { kind: 'dragon_brazier', x: 265, y: 408, scale: 0.94 },
-        { kind: 'weapon_rack', x: 495, y: 408, scale: 0.92 },
+        { kind: 'dragon_brazier', x: 245, y: 408, scale: 0.94 },
+        { kind: 'weapon_rack', x: 465, y: 408, scale: 0.92 },
       ],
       waterZones: [],
-      pavilions: [{ x: 586, y: 408, w: 144, hasPillars: false }],
+      pavilions: [{ x: 590, y: 408, w: 156, hasPillars: false }],
       archways: [],
       torches: [],
       foregrounds: [],
@@ -960,21 +960,21 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 0, y: 416, style: 'crypt_stone' },
         { x: 2000, y: 416, style: 'crypt_stone' },
       ],
-      // 水上错落青石桥墩 + 返程登顶石阶（致敬月下地下水脉跳跃石墩！）
+      // 水上错落青石桥墩 + 返程登顶踏石（不阻挡横向涉水，单跳丝滑跃回铸剑坊！）
       solidBlocks: [
-        { x: 340, y: 332, w: 120, h: 84 },
-        { x: 430, y: 248, w: 120, h: 28 },
-        { x: 500, y: 164, w: 115, h: 28 },
-        { x: 560, y: 86, w: 110, h: 24 },
+        { x: 320, y: 332, w: 150, h: 32 },
+        { x: 410, y: 248, w: 150, h: 32 },
+        { x: 500, y: 164, w: 150, h: 30 },
+        { x: 585, y: 86, w: 145, h: 26 },
         { x: 780, y: 344, w: 200, h: 72 }, // 寒潭第1石墩
         { x: 1080, y: 312, w: 210, h: 104 }, // 寒潭第2石墩（藏长枪！）
         { x: 1390, y: 344, w: 200, h: 72 }, // 寒潭第3石墩
       ],
       ceilingSpans: [
-        { x1: 0, x2: 590, bottomY: 32, style: 'crypt_vault' },
-        { x1: 726, x2: 2000, bottomY: 32, style: 'crypt_vault' },
+        { x1: 0, x2: 570, bottomY: 32, style: 'crypt_vault' },
+        { x1: 750, x2: 2000, bottomY: 32, style: 'crypt_vault' },
       ],
-      shafts: [{ x1: 590, x2: 726, dir: 'up', targetRoomId: 'forge_smithy' }],
+      shafts: [{ x1: 570, x2: 750, dir: 'up', targetRoomId: 'forge_smithy' }],
       waterZones: [{ x1: 720, x2: 1650, surfaceY: 386 }],
       decorProps: [
         { kind: 'dragon_brazier', x: 200, y: 416, scale: 0.9 },
@@ -1076,19 +1076,19 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 0, y: 408, style: 'crypt_stone' },
         { x: 800, y: 408, style: 'crypt_stone' },
       ],
-      // 右侧回环石阶直通上方【寒潭渡口古祠】与【东垣望月竖塔】底层（经典银河恶魔城打通捷径体验！）
+      // 右侧回环踏石直通上方【寒潭渡口古祠】与【东垣望月竖塔】底层（经典银河恶魔城打通捷径体验！）
       solidBlocks: [
         { x: 220, y: 372, w: 220, h: 36 },
-        { x: 520, y: 320, w: 140, h: 88 },
-        { x: 560, y: 232, w: 140, h: 28 },
-        { x: 520, y: 148, w: 140, h: 28 },
-        { x: 550, y: 78, w: 120, h: 24 },
+        { x: 495, y: 320, w: 165, h: 32 },
+        { x: 535, y: 234, w: 165, h: 32 },
+        { x: 505, y: 150, w: 165, h: 30 },
+        { x: 525, y: 78, w: 150, h: 26 },
       ],
       ceilingSpans: [
-        { x1: 0, x2: 520, bottomY: 32, style: 'crypt_vault' },
-        { x1: 680, x2: 800, bottomY: 32, style: 'crypt_vault' },
+        { x1: 0, x2: 500, bottomY: 32, style: 'crypt_vault' },
+        { x1: 700, x2: 800, bottomY: 32, style: 'crypt_vault' },
       ],
-      shafts: [{ x1: 520, x2: 680, dir: 'up', targetRoomId: 'prison_save' }],
+      shafts: [{ x1: 500, x2: 700, dir: 'up', targetRoomId: 'prison_save' }],
       decorProps: [{ kind: 'guardian_statue', x: 135, y: 408, scale: 0.92 }],
       waterZones: [],
       pavilions: [],
@@ -1129,10 +1129,10 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 800, y: 396, style: 'crypt_stone' },
       ],
       ceilingSpans: [{ x1: 0, x2: 800, bottomY: 36, style: 'crypt_vault' }],
-      shafts: [{ x1: 520, x2: 680, dir: 'down', targetRoomId: 'relic_mist_vault' }],
+      shafts: [{ x1: 500, x2: 700, dir: 'down', targetRoomId: 'relic_mist_vault' }],
       decorProps: [{ kind: 'incense_burner', x: 135, y: 396, scale: 0.9 }],
       waterZones: [],
-      pavilions: [{ x: 516, y: 396, w: 168, hasPillars: false }],
+      pavilions: [{ x: 494, y: 396, w: 212, hasPillars: false }],
       archways: [],
       torches: [{ x: 430, y: 318 }],
       foregrounds: [],
@@ -1196,21 +1196,21 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 380, y: 428, w: 240, h: 32 },
         { x: 460, y: 320, w: 340, h: 36 }, // 右门台(紫瘴栅后连 secret_archive)
 
-        // 第1层(320) -> 塔顶天井(88 -> 跃上观星登坛古祠！)
+        // 第1层(320) -> 塔顶天井(84 -> 跃上观星登坛古祠！)
         { x: 160, y: 236, w: 220, h: 30 },
-        { x: 360, y: 156, w: 200, h: 28 },
-        { x: 320, y: 84, w: 160, h: 24 },
+        { x: 300, y: 156, w: 200, h: 28 },
+        { x: 315, y: 84, w: 170, h: 26 },
       ],
       ceilingSpans: [
-        { x1: 0, x2: 310, bottomY: 32, style: 'palace_timber' },
-        { x1: 490, x2: 800, bottomY: 32, style: 'palace_timber' },
+        { x1: 0, x2: 290, bottomY: 32, style: 'palace_timber' },
+        { x1: 510, x2: 800, bottomY: 32, style: 'palace_timber' },
       ],
-      shafts: [{ x1: 310, x2: 490, dir: 'up', targetRoomId: 'altar_save' }],
+      shafts: [{ x1: 290, x2: 510, dir: 'up', targetRoomId: 'altar_save' }],
       // 致敬月下外壁迷雾铁栅：必须从水牢习得【缩地化雾】方可穿栅入内取得【破妄古镜】！
       ironGate: {
         id: 'gate_mist_archive',
         x: 680,
-        topY: 190,
+        topY: 0,
         bottomY: 320,
         gateKind: 'mist_only',
       },
@@ -1303,11 +1303,11 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 0, y: 424, style: 'marble' },
         { x: 1600, y: 424, style: 'marble' },
       ],
-      // 双层藏书实心回廊（下层通道 + 上层藏剑夹层）
+      // 双层藏书回廊（下层主通道全程贯通，上层藏剑夹层）
       solidBlocks: [
-        { x: 360, y: 336, w: 200, h: 88 },
+        { x: 360, y: 336, w: 210, h: 34 },
         { x: 660, y: 252, w: 340, h: 34 },
-        { x: 1100, y: 336, w: 200, h: 88 },
+        { x: 1090, y: 336, w: 210, h: 34 },
       ],
       ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 34, style: 'palace_timber' }],
       shafts: [],
@@ -1462,10 +1462,10 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 800, y: 396, style: 'marble' },
       ],
       ceilingSpans: [{ x1: 0, x2: 800, bottomY: 36, style: 'palace_timber' }],
-      shafts: [{ x1: 310, x2: 490, dir: 'down', targetRoomId: 'east_outer_tower' }],
+      shafts: [{ x1: 290, x2: 510, dir: 'down', targetRoomId: 'east_outer_tower' }],
       decorProps: [{ kind: 'dragon_brazier', x: 615, y: 396, scale: 0.92 }],
       waterZones: [],
-      pavilions: [{ x: 306, y: 396, w: 188, hasPillars: false }],
+      pavilions: [{ x: 284, y: 396, w: 232, hasPillars: false }],
       archways: [],
       torches: [
         { x: 540, y: 318 },
@@ -1592,21 +1592,15 @@ function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
       };
     });
 
-    const mergedSolidBlocks: SolidBlock[] = (
-      rm.solidBlocks
-        ? rm.solidBlocks.map((sb) => ({
-            x: W - sb.x - sb.w,
-            y: sb.y,
-            w: sb.w,
-            h: sb.h,
-          }))
-        : []
-    ).filter((sb) => {
-      // 确保倒悬里城新增的下潜竖井口不会被翻转后的旧石阶堵死
-      return !flippedShafts.some(
-        (sh) => sh.dir === 'down' && sb.x < sh.x2 - 8 && sb.x + sb.w > sh.x1 + 8 && sb.y > 240
-      );
-    });
+    const mergedSolidBlocks: SolidBlock[] = rm.solidBlocks
+      ? rm.solidBlocks.map((sb) => ({
+          x: W - sb.x - sb.w,
+          y: sb.y,
+          w: sb.w,
+          h: Math.min(sb.h, 38),
+          blocking: false,
+        }))
+      : [];
 
     // 多层竖塔倒悬后，确保每一扇分标高侧门脚下均有承重石门台
     if (rm.gridH > 1) {
@@ -1640,14 +1634,14 @@ function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
           });
         }
       } else {
-        // 为倒悬后的上跃天井自动增设中间踏脚石台，确保二段跳轻松冲顶跨层！
-        const midX = Math.round((sh.x1 + sh.x2) * 0.5) - 70;
-        const hasHighStep = mergedSolidBlocks.some(
-          (sb) => sb.y <= 215 && sb.x < sh.x2 && sb.x + sb.w > sh.x1
+        // 为倒悬后的上跃天井自动增设两级踏脚石台，确保任意层高皆可丝滑跃出顶井！
+        const midX = Math.round((sh.x1 + sh.x2) * 0.5) - 75;
+        const step1Y = Math.max(220, baseFloor - 125);
+        const step2Y = Math.max(105, step1Y - 125);
+        mergedSolidBlocks.push(
+          { x: midX, y: step1Y, w: 150, h: 30, blocking: false },
+          { x: midX, y: step2Y, w: 150, h: 28, blocking: false }
         );
-        if (!hasHighStep) {
-          mergedSolidBlocks.push({ x: midX, y: 204, w: 140, h: 28 });
-        }
       }
     }
 
