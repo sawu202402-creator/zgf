@@ -414,7 +414,7 @@ export class GameEngine {
   public warpToRoom(realm: CastleRealm, roomId: string): void {
     const target = WorldMap.getRoom(realm, roomId);
     this.loadRoom(target, target.focalX, target.focalY);
-    this.cb.onShowBanner(target.name, target.subtitle);
+    this.cb.onShowBanner(target.name, '');
   }
 
   private resolveRoomBgmMood(room: BuiltRoom, hasLiveBoss: boolean): void {
@@ -549,11 +549,11 @@ export class GameEngine {
       }
     }
 
-    // 仅在踏入全新大区域或特殊密室时弹出区域横幅（同区域跨门保持恶魔城丝滑连贯体验！）
+    // 仅在踏入全新大区域或特殊密室时弹出区域横幅（零赘字副标题，保持恶魔城丝滑留白体验！）
     if (prevRegion !== nextRoom.region || nextRoom.special === 'boss_room') {
       if (visitKey !== this.lastVisitedRegion) {
         this.lastVisitedRegion = visitKey;
-        this.cb.onShowBanner(nextRoom.name, nextRoom.subtitle);
+        this.cb.onShowBanner(nextRoom.name, '');
       }
     }
 
@@ -575,9 +575,9 @@ export class GameEngine {
 
   private getPickupLabel(kind: WorldDrop['kind'], itemId: string): string {
     if (kind === 'ability') return ABILITIES_META[itemId as AbilityKey]?.name || itemId;
-    if (kind === 'skill_scroll') return `秘卷·${SKILLS[itemId as SkillId]?.name || itemId}`;
+    if (kind === 'skill_scroll') return SKILLS[itemId as SkillId]?.name || itemId;
     if (kind === 'max_up') {
-      return itemId === 'hp_vessel' ? '千年朱果(气血上限+25)' : '天山雪莲(真气上限+20)';
+      return itemId === 'hp_vessel' ? '千年朱果' : '天山雪莲';
     }
     if (kind === 'weapon') {
       if (itemId.startsWith('sub:')) {
@@ -591,8 +591,70 @@ export class GameEngine {
     return itemId;
   }
 
+  /**
+   * 六阶循序渐进区域难度曲线：
+   * 第一阶（瓮城古桥）平易近人供熟悉身法；随深入正殿 ➔ 寒潭藏书阁 ➔ 梨园赤火窖 ➔ 观星阁钟楼祭天坛 ➔ 180°倒悬里城层层递进！
+   */
+  private getRoomDifficultyScale(room: BuiltRoom): { hpMult: number; atkMult: number; spdMult: number } {
+    let hpMult = 1.0;
+    let atkMult = 1.0;
+    let spdMult = 1.0;
+
+    if (room.id === 'east_outer_tower' || room.region === 'clock_tower' || room.region === 'altar') {
+      hpMult = 2.35;
+      atkMult = 1.88;
+      spdMult = 1.2;
+    } else if (room.region === 'opera' || room.region === 'forge') {
+      if (room.id === 'alchemy_lab') {
+        hpMult = 1.32;
+        atkMult = 1.24;
+        spdMult = 1.06;
+      } else {
+        hpMult = 1.95;
+        atkMult = 1.65;
+        spdMult = 1.15;
+      }
+    } else if (room.region === 'prison' || room.region === 'library') {
+      hpMult = 1.62;
+      atkMult = 1.44;
+      spdMult = 1.1;
+    } else if (room.region === 'main_hall' || room.id === 'west_armory_secret') {
+      hpMult = 1.3;
+      atkMult = 1.22;
+      spdMult = 1.05;
+    }
+
+    if (room.realm === 'inverted') {
+      hpMult *= 1.68;
+      atkMult *= 1.38;
+      spdMult *= 1.1;
+    }
+
+    return { hpMult, atkMult, spdMult };
+  }
+
   private spawnEnemy(kind: EnemyKind, x: number, y: number): void {
-    const prof = ENEMY_PROFILES[kind];
+    const baseProf = ENEMY_PROFILES[kind];
+    const scale =
+      this.room && !baseProf.isBoss
+        ? this.getRoomDifficultyScale(this.room)
+        : this.room?.realm === 'inverted' && baseProf.kind !== 'boss_zhuyin'
+          ? { hpMult: 1.55, atkMult: 1.35, spdMult: 1.12 }
+          : { hpMult: 1, atkMult: 1, spdMult: 1 };
+
+    const scaledHp = Math.round(baseProf.hp * scale.hpMult);
+    const prof: EnemyProfile =
+      scale.hpMult === 1
+        ? baseProf
+        : {
+            ...baseProf,
+            hp: scaledHp,
+            atk: Math.round(baseProf.atk * scale.atkMult),
+            speed: Math.round(baseProf.speed * scale.spdMult),
+            exp: Math.round(baseProf.exp * (0.7 + scale.hpMult * 0.3)),
+            gold: Math.round(baseProf.gold * (0.75 + scale.hpMult * 0.25)),
+          };
+
     this.enemies.push({
       id: this.nextEntityId++,
       profile: prof,
@@ -606,7 +668,7 @@ export class GameEngine {
       hpTrail: prof.hp,
       maxHp: prof.hp,
       aiState: 'stalk',
-      stateTimer: 0.6 + Math.random() * 0.6,
+      stateTimer: 0.45 + Math.random() * 0.45,
       animPhase: Math.random() * 6,
       hurtFlash: 0,
       bossMoveIdx: 0,
@@ -680,8 +742,9 @@ export class GameEngine {
       return;
     }
 
+    // 降低纯挂机回蓝，改为“以战养气”（近战挥砍命中敌人额外回复真气，鼓励积极拼刀博弈！）
     const core = this.slot.equippedYaoCore ? YAO_CORES[this.slot.equippedYaoCore] : undefined;
-    const mpRegen = 2.8 + this.player.int * 0.16 + (core?.mpRegenBonus || 0);
+    const mpRegen = 1.05 + this.player.int * 0.065 + (core?.mpRegenBonus || 0) * 0.65;
     this.player.mp = Math.min(this.player.maxMp, this.player.mp + mpRegen * dt);
 
     this.updatePlayer(dt);
@@ -843,8 +906,12 @@ export class GameEngine {
     // 地面按住 ↓ 进入低姿下蹲（可躲避书妖符弹与高处横斩，按斩使出低身刺剑！）
     p.crouching = p.onGround && inp.moveY > 0.55 && p.slideTimer <= 0 && !this.isOnPavilionDeck();
 
-    // 攻击、经典恶魔城【↑ + 斩】奇门副器与手搓真气绝学
+    // 攻击、靠近人物/古祠/法阵时直接按【斩】交互对话，以及【↑ + 斩】奇门副器与手搓绝学
     if (inp.consumeAttack()) {
+      if (this.canAttackTriggerInteract() && this.nearbyInteract) {
+        this.executeInteract(this.nearbyInteract.kind);
+        return;
+      }
       const motionSkill = inp.consumeMotionSkill(p.facing);
       const subDef = SUB_WEAPONS[this.slot!.equippedSubWeapon] || SUB_WEAPONS.dagger_throw;
       if (motionSkill && this.tryCastMartialSkill(motionSkill)) {
@@ -976,13 +1043,14 @@ export class GameEngine {
     if (fam.calloutTimer > 0) fam.calloutTimer -= dt;
     if (fam.cooldown > 0) fam.cooldown -= dt;
 
-    // 靠近未击碎的暗裂砖墙时，剑灵使魔主动灵音提醒（致敬月下夜想曲妖精/使魔提示隐藏墙！）
+    // 靠近未击碎的暗裂砖墙时，剑灵无字星芒闪耀提示（0文字干扰！）
     if (this.room.secretWalls && fam.calloutTimer <= 0) {
       for (const sw of this.room.secretWalls) {
         if (this.slot.brokenSecretWalls.includes(sw.id)) continue;
-        if (Math.hypot(sw.x - p.x, sw.y + sw.h * 0.5 - (p.y - 36)) < 175) {
-          fam.calloutText = '剑灵：此处古砖似藏暗格！';
-          fam.calloutTimer = 2.4;
+        if (Math.hypot(sw.x - p.x, sw.y + sw.h * 0.5 - (p.y - 36)) < 165) {
+          fam.calloutText = '';
+          fam.calloutTimer = 2.6;
+          this.spawnInkBurst(sw.x + sw.w * 0.5, sw.y + sw.h * 0.5, '#38bdf8', '#fde047', 6);
           break;
         }
       }
@@ -1150,7 +1218,6 @@ export class GameEngine {
     p.attackCooldown = 0.26;
     AudioFX.playSkillCast();
     NativeApp.haptic('medium');
-    this.skillBanner = { name: sk.name, timer: 1.1, color: sk.color };
 
     const skillDmg = Math.round((p.atk + p.int * 1.6) * sk.dmgMult);
     const w = WEAPONS[this.slot.equippedWeapon] || WEAPONS.sword_1;
@@ -1537,11 +1604,11 @@ export class GameEngine {
             this.floats.push({
               x: gx,
               y: room.ironGate.bottomY - 110,
-              vy: -32,
-              text: '九幽紫瘴封魔栅！(需习得【缩地化雾】穿栅而过)',
+              vy: -28,
+              text: '需缩地化雾',
               color: '#d8b4fe',
-              size: 12.5,
-              life: 1.15,
+              size: 12,
+              life: 0.9,
             });
           } else if (sl.archetype === 'greatsword') {
             this.slot.brokenSecretWalls.push(room.ironGate.id);
@@ -1560,18 +1627,17 @@ export class GameEngine {
               maxLife: 0.28,
             });
             this.spawnInkBurst(gx, room.ironGate.bottomY - 70, '#fb923c', '#1e293b', 26);
-            this.cb.onShowBanner('重刃断索 · 玄铁秘闸洞开', '斩马陌刀一击劈碎千斤铁锁！');
           } else {
             AudioFX.playParryClang();
             this.spawnInkBurst(gx, room.ironGate.bottomY - 64, '#fde047', '#0f172a', 10);
             this.floats.push({
               x: gx,
               y: room.ironGate.bottomY - 110,
-              vy: -32,
-              text: '千斤玄铁锁！(需换【镇军斩马刀】重劈破门)',
+              vy: -28,
+              text: '需重刃破闸',
               color: '#fde047',
-              size: 12.5,
-              life: 1.05,
+              size: 12,
+              life: 0.9,
             });
           }
         }
@@ -1591,23 +1657,17 @@ export class GameEngine {
 
           let dmgMult = sl.comboStep === 2 ? 1.32 : sl.archetype === 'greatsword' ? 1.25 : 1;
           let forceCrit = e.aiState === 'staggered';
-          let traitTag = '';
 
-          // 1) 长枪专属机制：枪尖末端命中触发 1.35 倍【枪尖寸劲暴击】！
           if (sl.archetype === 'spear' && Math.abs(e.x - p.x) >= sl.reachX * 0.58) {
             forceCrit = true;
             dmgMult *= 1.35;
-            traitTag = '枪尖寸劲！';
           }
 
-          // 2) 双刺专属机制：绕到怪物背后出刺必定触发 1.8 倍【背刺暴击】！
           if (sl.archetype === 'daggers' && sl.facing === e.facing) {
             forceCrit = true;
             dmgMult *= 1.55;
-            traitTag = '绕背必爆！';
           }
 
-          // 3) 软鞭专属机制：鞭梢命中附带雷音震退！
           if (sl.archetype === 'whip' && Math.abs(e.x - p.x) >= sl.reachX * 0.55) {
             dmgMult *= 1.22;
             if (!e.profile.isBoss) e.x += sl.facing * 26;
@@ -1616,7 +1676,6 @@ export class GameEngine {
 
           if (e.aiState === 'staggered') dmgMult *= 1.35;
 
-          // 玄甲重盾卫正面格挡逻辑
           if (
             e.profile.shieldedFront &&
             e.aiState !== 'staggered' &&
@@ -1626,34 +1685,24 @@ export class GameEngine {
               e.aiState = 'staggered';
               e.stateTimer = 1.6;
               AudioFX.playParryClang();
-              traitTag = '重刃破盾！';
             } else {
               dmgMult *= 0.25;
               AudioFX.playParryClang();
               this.spawnInkBurst(e.x - sl.facing * 14, e.y - 38, '#fde047', '#0f172a', 8);
               this.floats.push({
                 x: e.x,
-                y: e.y - e.profile.h - 20,
-                vy: -30,
-                text: '重盾格挡!(换斩马刀破盾或疾退绕背)',
+                y: e.y - e.profile.h - 18,
+                vy: -26,
+                text: '格挡',
                 color: '#cbd5e1',
                 size: 11.5,
-                life: 0.9,
+                life: 0.65,
               });
             }
           }
 
-          if (traitTag) {
-            this.floats.push({
-              x: e.x,
-              y: e.y - e.profile.h - 26,
-              vy: -38,
-              text: traitTag,
-              color: '#fde047',
-              size: 14,
-              life: 0.85,
-            });
-          }
+          // 以战养气：近战挥砍命中敌人恢复真气！
+          p.mp = Math.min(p.maxMp, p.mp + 3.5);
 
           this.applyDamageToEnemy(
             e,
@@ -2131,8 +2180,9 @@ export class GameEngine {
       } else if (e.aiState === 'recover') {
         e.stateTimer -= dt;
         if (e.stateTimer <= 0) {
+          const enraged = e.profile.isBoss && e.hp < e.maxHp * 0.55;
           e.aiState = 'stalk';
-          e.stateTimer = e.profile.isBoss ? 0.95 : 0.85;
+          e.stateTimer = e.profile.isBoss ? (enraged ? 0.58 : 0.82) : 0.72;
         }
       }
     }
@@ -2212,13 +2262,13 @@ export class GameEngine {
     );
 
     this.floats.push({
-      x: e.x + (Math.random() - 0.5) * 18,
-      y: e.y - e.profile.h * 1.15,
-      vy: -52,
-      text: isCrit ? `暴斩 ${finalDmg}` : `${finalDmg}`,
+      x: e.x + (Math.random() - 0.5) * 16,
+      y: e.y - e.profile.h * 1.12,
+      vy: -48,
+      text: isCrit ? `${finalDmg}!` : `${finalDmg}`,
       color: isCrit ? '#fde047' : '#f8fafc',
-      size: isCrit ? 17 : 14,
-      life: 0.72,
+      size: isCrit ? 16 : 13,
+      life: 0.62,
     });
 
     if (e.hp <= 0) {
@@ -2498,10 +2548,10 @@ export class GameEngine {
         x: d.x,
         y: d.y - 24,
         vy: -38,
-        text: `+${d.amount} 文银`,
+        text: `+${d.amount}`,
         color: '#fde047',
-        size: 13,
-        life: 0.8,
+        size: 12,
+        life: 0.65,
       });
       return;
     }
@@ -2512,10 +2562,10 @@ export class GameEngine {
         x: d.x,
         y: d.y - 24,
         vy: -38,
-        text: `+${d.amount} 灵符`,
+        text: `+${d.amount}`,
         color: '#fb923c',
-        size: 13,
-        life: 0.8,
+        size: 12,
+        life: 0.65,
       });
       return;
     }
@@ -2527,27 +2577,27 @@ export class GameEngine {
       if (!s.ownedYaoCores.includes(d.itemId)) s.ownedYaoCores.push(d.itemId);
       if (!s.equippedYaoCore) s.equippedYaoCore = d.itemId;
       this.recalcStats(false);
-      this.cb.onShowBanner(`吸纳本命妖丹 · ${d.label}`, YAO_CORES[d.itemId].desc);
+      this.cb.onShowBanner(`吸纳妖丹 · ${d.label}`, '');
     } else if (d.kind === 'ability') {
       this.grantAbility(d.itemId as AbilityKey);
     } else if (d.kind === 'skill_scroll') {
       const skId = d.itemId as SkillId;
       if (!s.learnedSkills.includes(skId)) s.learnedSkills.push(skId);
       const sk = SKILLS[skId];
-      this.cb.onShowBanner(`参悟镇宗禁术 · ${sk.name}`, `手搓轨迹：${sk.commandText}`);
+      this.cb.onShowBanner(`参悟绝学 · ${sk.name}`, sk.commandText);
     } else if (d.kind === 'weapon') {
       if (d.itemId.startsWith('sub:')) {
         const subId = d.itemId.slice(4) as SubWeaponId;
         if (!s.ownedSubWeapons.includes(subId)) s.ownedSubWeapons.push(subId);
         s.equippedSubWeapon = subId;
         const sub = SUB_WEAPONS[subId];
-        this.cb.onShowBanner(`夺得奇门法器 · ${sub.name}`, '按 [U] 或经典【↑ + 斩】即可催动释放！');
+        this.cb.onShowBanner(`奇门副器 · ${sub.name}`, '');
       } else {
         if (!s.ownedWeapons.includes(d.itemId)) s.ownedWeapons.push(d.itemId);
         s.equippedWeapon = d.itemId;
         this.recalcStats(false);
         const w = WEAPONS[d.itemId];
-        this.cb.onShowBanner(`拔取神兵 · ${w.name}`, w.traitDesc);
+        this.cb.onShowBanner(`神兵入鞘 · ${w.name}`, '');
       }
     } else if (d.kind === 'armor') {
       const arm = ARMORS[d.itemId];
@@ -2556,19 +2606,19 @@ export class GameEngine {
         if (arm.slot === 'armor') s.equippedArmor = d.itemId;
         else s.equippedAccessory = d.itemId;
         this.recalcStats(false);
-        this.cb.onShowBanner(`披挂宝甲佩玉 · ${arm.name}`, arm.desc);
+        this.cb.onShowBanner(`披挂宝器 · ${arm.name}`, '');
       }
     } else if (d.kind === 'max_up') {
       if (d.itemId === 'hp_vessel') {
         s.maxHpBonus += 25;
         this.recalcStats(false);
         this.player.hp = Math.min(this.player.maxHp, this.player.hp + 50);
-        this.cb.onShowBanner('服食千年朱果 · 气血上限 +25', '丹田气血充盈，体魄永久强健！');
+        this.cb.onShowBanner('千年朱果 · 气血上限 +25', '');
       } else {
         s.maxMpBonus += 20;
         this.recalcStats(false);
         this.player.mp = Math.min(this.player.maxMp, this.player.mp + 40);
-        this.cb.onShowBanner('服食天山雪莲 · 真气上限 +20', '识海清灵澄澈，内力永久扩充！');
+        this.cb.onShowBanner('天山雪莲 · 真气上限 +20', '');
       }
     } else if (d.kind === 'consumable') {
       s.consumables[d.itemId] = (s.consumables[d.itemId] || 0) + 1;
@@ -2576,10 +2626,10 @@ export class GameEngine {
         x: d.x,
         y: d.y - 28,
         vy: -40,
-        text: `获得 ${d.label}`,
+        text: `+${d.label}`,
         color: '#4ade80',
-        size: 14,
-        life: 1.0,
+        size: 13,
+        life: 0.85,
       });
     }
   }
@@ -2801,7 +2851,24 @@ export class GameEngine {
       }
     }
 
-    // 阿鲁卡多灵魂手感：跳斩落地瞬间自动取消空中挥剑后摇 + 【千斤坠 ground_slam】震地火环！
+    // 3. 赤火古窖熔金铁渠灼烧地形伤害（需二段跳/飞燕钩锁腾跃避开！）
+    for (const wz of room.waterZones) {
+      if (wz.liquidKind !== 'lava') continue;
+      if (p.x >= wz.x1 + 14 && p.x <= wz.x2 - 14 && p.y >= wz.surfaceY - 4) {
+        if (p.invulnTimer <= 0 && p.mistDashTimer <= 0) {
+          this.damagePlayer(
+            Math.max(18, Math.round(p.maxHp * 0.16)),
+            p.facing === 1 ? -1 : 1
+          );
+        }
+        p.vy = -530;
+        p.onGround = false;
+        this.spawnInkBurst(p.x, wz.surfaceY, '#fb923c', '#991b1b', 14);
+        break;
+      }
+    }
+
+    // 剑侠核心手感：跳斩落地瞬间自动取消空中挥剑后摇 + 【千斤坠 ground_slam】震地火环！
     if (!wasGrounded && p.onGround) {
       if (p.diveKicking && this.hasAbility('ground_slam')) {
         this.screenShake = Math.max(this.screenShake, 7);
@@ -2901,33 +2968,41 @@ export class GameEngine {
     }
   }
 
+  /**
+   * 靠近 NPC / 镇魂祠 / 传送阵且身周 120px 内无近身妖邪威胁时，直接按【斩 / 攻】即可触发交互！
+   */
+  public canAttackTriggerInteract(): boolean {
+    if (!this.nearbyInteract) return false;
+    const p = this.player;
+    return !this.enemies.some((e) => Math.hypot(e.x - p.x, e.y - p.y) < 120);
+  }
+
   private updateNearbyInteract(): void {
     this.nearbyInteract = null;
     if (!this.room || !this.slot) return;
     const p = this.player;
 
-    // 1. 优先检测场景内驻场真人 NPC（苏清晏 / 独臂铸剑师·欧冶残 / 狐商·白掌柜）
     for (const npc of this.room.npcs) {
       const ny = sampleGroundY(this.room, npc.x);
-      if (Math.abs(p.x - npc.x) < 68 && Math.abs(p.y - ny) < 76) {
+      if (Math.abs(p.x - npc.x) < 72 && Math.abs(p.y - ny) < 78) {
         if (npc.id === 'ouye_can') {
           this.nearbyInteract = {
             kind: 'smith',
-            label: `${npc.name} · 赤火淬炼神兵 [E / 点击]`,
+            label: '按【斩】淬炼神兵',
             x: npc.x,
             y: ny,
           };
         } else if (npc.id === 'bai_zhanggui') {
           this.nearbyInteract = {
             kind: 'merchant',
-            label: `${npc.name} · 子夜鬼市交易 [E / 点击]`,
+            label: '按【斩】鬼市交易',
             x: npc.x,
             y: ny,
           };
         } else {
           this.nearbyInteract = {
             kind: 'su_qingyan',
-            label: `与 ${npc.name}（${npc.title}）交谈 [E / 点击]`,
+            label: `按【斩】与${npc.name}交谈`,
             x: npc.x,
             y: ny,
           };
@@ -2936,7 +3011,6 @@ export class GameEngine {
       }
     }
 
-    // 2. 凌霄祭天坛【乾坤倒悬裂隙】（击败裴无极破除蚀心蛊后，可在此自由往返阳表玄城与 180° 九幽倒悬里城！）
     if (
       this.room.id === 'sky_altar' &&
       this.slot.invertedUnlocked &&
@@ -2947,10 +3021,7 @@ export class GameEngine {
       if (Math.abs(p.x - cx) < 92 && Math.abs(p.y - gy) < 84) {
         this.nearbyInteract = {
           kind: 'invert_portal',
-          label:
-            this.room.realm === 'normal'
-              ? '乾坤倒悬裂隙 · 踏入【180° 九幽倒悬里城】[E / 点击]'
-              : '乾坤倒悬裂隙 · 折返【阳表玄城】[E / 点击]',
+          label: this.room.realm === 'normal' ? '按【斩】踏入倒悬里城' : '按【斩】折返阳表玄城',
           x: cx,
           y: gy,
         };
@@ -2958,14 +3029,13 @@ export class GameEngine {
       }
     }
 
-    // 3. 镇魂土地祠焚香留档 / 太极八卦传送阵跨层瞬移
     if (this.room.special === 'save_shrine') {
       const cx = this.room.focalX;
       const gy = this.room.focalY;
       if (Math.abs(p.x - cx) < 88 && Math.abs(p.y - gy) < 76) {
         this.nearbyInteract = {
           kind: 'save',
-          label: '镇魂土地祠 · 焚香留档 & 地脉传送 [E / 点击]',
+          label: '按【斩】焚香留档',
           x: cx,
           y: gy,
         };
@@ -2976,7 +3046,7 @@ export class GameEngine {
       if (Math.abs(p.x - cx) < 88 && Math.abs(p.y - gy) < 76) {
         this.nearbyInteract = {
           kind: 'warp',
-          label: '太极八卦阵 · 开启全城瞬移法盘 [E / 点击]',
+          label: '按【斩】开启传送阵',
           x: cx,
           y: gy,
         };
@@ -2997,7 +3067,7 @@ export class GameEngine {
       if (warpCount > 1) {
         this.cb.onOpenInteractModal('warp');
       } else {
-        this.cb.onShowBanner('镇魂香燃 · 卷宗已铭刻', '气血与真气已完全充盈');
+        this.cb.onShowBanner('镇魂留档', '');
       }
     } else if (kind === 'warp') {
       AudioFX.playRelicBell();

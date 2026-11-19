@@ -899,20 +899,15 @@ export function drawSceneNpc(
     ctx.restore();
   }
 
-  // 3. 头顶无框书法轻题名（绝不画方框/圆框背景贴条！）
-  const nearAlpha = dist < 150 ? 0.96 : 0.62;
-  ctx.globalAlpha = nearAlpha;
-  ctx.textAlign = 'center';
-  ctx.font = 'bold 13px "STKaiti", "KaiTi", serif';
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
-  ctx.fillText(npc.name, 1.2, -105.8);
-  ctx.fillStyle = '#f6dc8d';
-  ctx.fillText(npc.name, 0, -107);
-
-  if (dist < 135) {
-    ctx.font = '10.5px "STKaiti", "KaiTi", serif';
-    ctx.fillStyle = '#7dd3fc';
-    ctx.fillText(npc.title, 0, -121);
+  // 3. 靠近 NPC 时仅浮现极简姓名（移除累赘双行官职文字！）
+  if (dist < 160) {
+    ctx.globalAlpha = dist < 85 ? 0.95 : 0.65;
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 12.5px "STKaiti", "KaiTi", serif';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.88)';
+    ctx.fillText(npc.name, 1.1, -104.9);
+    ctx.fillStyle = '#f6dc8d';
+    ctx.fillText(npc.name, 0, -106);
   }
 
   ctx.restore();

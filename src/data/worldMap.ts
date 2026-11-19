@@ -433,7 +433,6 @@ function createNormalCastleRooms(): BuiltRoom[] {
       special: 'none',
       focalX: 260,
       focalY: 412,
-      storyTriggerId: 'intro_gate',
       rightRoomId: 'gate_2',
       rightDoorFloorY: 410,
       groundNodes: [
@@ -1281,7 +1280,6 @@ function createNormalCastleRooms(): BuiltRoom[] {
       pixelW: 2000,
       pixelH: 600,
       special: 'relic_pedestal',
-      storyTriggerId: 'meet_library_su',
       focalX: 480,
       focalY: 508,
       leftRoomId: 'central_pendulum_shaft',
@@ -2777,12 +2775,18 @@ function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
     const isEntryAltar = rm.id === 'sky_altar';
 
     const eliteSpawns: SceneSpawn[] =
-      isTrueFinalRoom || isEntryAltar
+      isTrueFinalRoom || isEntryAltar || rm.special === 'save_shrine'
         ? []
-        : [
-            { kind: 'bell_gargoyle', x: Math.round(W * 0.32) },
-            { kind: 'opera_puppet', x: Math.round(W * 0.68) },
-          ];
+        : W >= 1500
+          ? [
+              { kind: 'bell_gargoyle', x: Math.round(W * 0.25) },
+              { kind: 'bronze_guard', x: Math.round(W * 0.52) },
+              { kind: 'opera_puppet', x: Math.round(W * 0.76) },
+            ]
+          : [
+              { kind: 'bell_gargoyle', x: Math.round(W * 0.36) },
+              { kind: 'opera_puppet', x: Math.round(W * 0.7) },
+            ];
 
     return {
       id: rm.id,

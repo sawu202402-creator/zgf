@@ -130,9 +130,9 @@ export class InkVaniaRenderer {
       ctx.fillRect(0, 0, viewW, viewH);
     }
 
-    // 6. 移动端触屏八向手搓摇杆与动作键
+    // 6. 移动端触屏主机手柄式按键（靠近人物/古祠时 X 键智能切换为金色交互提示！）
     if (input.usingTouch && !input.uiBlocked && !engine.paused) {
-      this.renderVirtualControls(ctx, input);
+      this.renderVirtualControls(ctx, input, engine);
     }
   }
 
@@ -343,13 +343,6 @@ export class InkVaniaRenderer {
         ctx.fillStyle = dg;
         ctx.fillRect(sh.x1 + 4, room.pixelH - 130, w - 8, 130);
         ctx.restore();
-
-        if (Math.abs(engine.player.x - cx) < 120) {
-          ctx.font = 'bold 11.5px "STKaiti", "KaiTi", serif';
-          ctx.textAlign = 'center';
-          ctx.fillStyle = '#5eead4';
-          ctx.fillText('▾ 按 [↓ + 跃] 下潜连通下层', cx, room.pixelH - 96);
-        }
       }
     }
 
@@ -391,17 +384,6 @@ export class InkVaniaRenderer {
         ctx.arc(g.x, midY, 10, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
-      }
-
-      if (Math.abs(engine.player.x - g.x) < 155) {
-        ctx.font = 'bold 12px "STKaiti", "KaiTi", serif';
-        ctx.textAlign = 'center';
-        ctx.fillStyle = isMistGate ? '#e9d5ff' : '#fdba74';
-        ctx.fillText(
-          isMistGate ? '九幽紫瘴封魔栅（需缩地化雾穿过）' : '玄铁千斤闸（需重刃劈锁）',
-          g.x,
-          g.topY + 46
-        );
       }
       ctx.restore();
     }
@@ -1186,7 +1168,11 @@ export class InkVaniaRenderer {
    * 左手：黑曜鎏金凹槽摇杆 / 一体式十字方向键 + L1 肩键；
    * 右手：手柄菱形底座托盘 + 等大对称 ABXY 四键（X斩 / A跃 / B闪 / Y符） + R1 肩键！
    */
-  private renderVirtualControls(ctx: CanvasRenderingContext2D, input: InputController): void {
+  private renderVirtualControls(
+    ctx: CanvasRenderingContext2D,
+    input: InputController,
+    engine?: GameEngine
+  ): void {
     ctx.save();
 
     const bx = input.stickBaseX;
@@ -1384,34 +1370,51 @@ export class InkVaniaRenderer {
         continue;
       }
 
-      // ABXY 圆形手柄标准动作键（统一尺寸、黑曜磨砂底 + 细色环 + 单字大图标）
+      // ABXY 圆形手柄标准动作键（靠近人物/古祠时 X 键智能切换为暖金【谈/香/阵】！）
+      const interactActive =
+        b.id === 'attack' && Boolean(engine?.canAttackTriggerInteract() && engine.nearbyInteract);
+      const actKind = engine?.nearbyInteract?.kind;
+      const displayLabel = interactActive
+        ? actKind === 'save'
+          ? '香'
+          : actKind === 'warp' || actKind === 'invert_portal'
+            ? '阵'
+            : '谈'
+        : b.label;
+      const ringCol = interactActive ? '#fde047' : b.accentColor;
+
       const cy = b.cy + pressOffsetY;
-      ctx.fillStyle = b.pressed ? 'rgba(24, 33, 52, 0.94)' : 'rgba(10, 14, 24, 0.72)';
-      ctx.strokeStyle = b.pressed ? b.accentColor : 'rgba(203, 213, 225, 0.36)';
-      ctx.lineWidth = b.pressed ? 2.6 : 1.5;
+      ctx.fillStyle = interactActive
+        ? 'rgba(69, 44, 12, 0.88)'
+        : b.pressed
+          ? 'rgba(24, 33, 52, 0.94)'
+          : 'rgba(10, 14, 24, 0.72)';
+      ctx.strokeStyle = interactActive
+        ? '#fde047'
+        : b.pressed
+          ? b.accentColor
+          : 'rgba(203, 213, 225, 0.36)';
+      ctx.lineWidth = interactActive || b.pressed ? 2.6 : 1.5;
       ctx.beginPath();
       ctx.arc(b.cx, cy, b.r, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
 
-      // 内圈按键色环点缀
-      ctx.strokeStyle = b.accentColor;
-      ctx.globalAlpha = b.pressed ? 0.95 : 0.55;
+      ctx.strokeStyle = ringCol;
+      ctx.globalAlpha = interactActive || b.pressed ? 0.95 : 0.55;
       ctx.lineWidth = 1.4;
       ctx.beginPath();
       ctx.arc(b.cx, cy, b.r - 3.5, 0, Math.PI * 2);
       ctx.stroke();
       ctx.globalAlpha = 1;
 
-      // 主键单字书法图标
       ctx.fillStyle = '#fffbeb';
       ctx.font = `900 ${Math.round(b.r * 0.68)}px "STKaiti", "KaiTi", serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(b.label, b.cx, cy - 1);
+      ctx.fillText(displayLabel, b.cx, cy - 1);
 
-      // 底部极简手柄键位微标 (X / A / B / Y)
-      ctx.fillStyle = b.accentColor;
+      ctx.fillStyle = ringCol;
       ctx.font = '800 8.5px sans-serif';
       ctx.fillText(b.padBadge, b.cx, cy + b.r * 0.62);
     }

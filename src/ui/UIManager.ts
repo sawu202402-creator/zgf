@@ -35,6 +35,7 @@ export class UIManager {
   private hudEl: HTMLElement | null = null;
   private modalEl: HTMLElement | null = null;
   private dialogueEl: HTMLElement | null = null;
+  private dialogueKeyHandler: ((e: KeyboardEvent) => void) | null = null;
   private bannerEl: HTMLElement | null = null;
   private stageRafId = 0;
   private stageSlash: ActiveSlash | null = null;
@@ -189,13 +190,13 @@ export class UIManager {
     overlay.className = 'zx-arsenal-overlay';
     overlay.innerHTML = `
       <div class="zx-arsenal-topbar">
-        <span style="font-size:20px;font-weight:900;letter-spacing:5px;color:var(--bronze-light);">镇妖司剑诀秘要</span>
+        <span class="zx-modal-heading">镇妖司剑诀秘要</span>
         <button class="zx-seal-btn" id="btn-close-guide">返回</button>
       </div>
-      <div style="flex:1;overflow-y:auto;padding:18px 0;line-height:1.8;font-size:14.5px;max-width:780px;">
-        <p><strong>键鼠 / 手柄操控：</strong><code>A / D</code> 疾奔，<code>J / Z</code> 挥斩连段，<code>K / 空格</code> 轻功腾跃（半空 <code>↓ + K</code> 下穿阁楼），<code>L / Shift</code> 疾退残影步，<code>Q</code> 双主手神兵瞬切，<code>U</code> 奇门副器，<code>H</code> 服药，<code>B / Esc</code> 兵匣武库。</p>
-        <p><strong>触屏手搓操控：</strong>左半屏滑动八向摇杆移动与划弧搓招，右侧依次为【斩】【跃】【身】【符】【药】。</p>
-        <div style="margin-top:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;">
+      <div class="zx-scroll-pane" style="line-height:1.75;font-size:14px;">
+        <p style="margin:0 0 8px;"><strong>键鼠操控：</strong><code>A / D</code> 疾奔，<code>J / Z</code> 挥斩与近身交谈，<code>K / 空格</code> 腾跃，<code>L / Shift</code> 闪避，<code>Q</code> 换兵，<code>U</code> 副器，<code>H</code> 服药，<code>B</code> 兵匣。</p>
+        <p style="margin:0 0 12px;"><strong>触屏手柄：</strong>左摇杆/十字键移动与搓招；靠近人物或石祠时按右侧【X 谈/香】直接交互，右上角点击【兵匣】换装。</p>
+        <div class="zx-card-grid">
           ${this.buildSkillCardsHtml()}
         </div>
       </div>
@@ -239,8 +240,16 @@ export class UIManager {
     this.syncBlockState();
   }
 
+  private clearDialogueKeyHandler(): void {
+    if (this.dialogueKeyHandler) {
+      window.removeEventListener('keydown', this.dialogueKeyHandler);
+      this.dialogueKeyHandler = null;
+    }
+  }
+
   private clearAllUI(): void {
     this.stopStageLoop();
+    this.clearDialogueKeyHandler();
     this.uiLayer.innerHTML = '';
     this.hudEl = null;
     this.modalEl = null;
@@ -359,16 +368,17 @@ export class UIManager {
     const p = this.engine.player;
     const w = WEAPONS[s.equippedWeapon] || WEAPONS.sword_1;
 
+    const isTouch = this.engine.input.usingTouch || NativeApp.isMobileOrTablet();
+
     if (this.hudRefs.lvSeal) {
       this.hudRefs.lvSeal.innerHTML = `<span>境</span><span>${s.level}</span>`;
     }
     if (this.hudRefs.resRow) {
       const potCnt = Object.values(s.consumables).reduce((a, b) => a + b, 0);
-      const sub = SUB_WEAPONS[s.equippedSubWeapon] || SUB_WEAPONS.dagger_throw;
       const famTag = s.abilities.includes('familiar_sword')
-        ? `<span style="color:#7dd3fc;">剑灵 Lv.${1 + Math.min(8, Math.floor((s.familiarExp || 0) / 100))}</span>`
+        ? `<span style="color:#7dd3fc;">剑灵${1 + Math.min(8, Math.floor((s.familiarExp || 0) / 100))}</span>`
         : '';
-      this.hudRefs.resRow.innerHTML = `<span style="color:#fca5a5;">气血 ${Math.ceil(p.hp)}/${p.maxHp}</span><span style="color:#fde68a;">纹银 ${s.gold}</span><span style="color:#fb923c;">灵符 ${s.talismanHearts} (${sub.name})</span><span style="color:#5eead4;">灵药 ${potCnt} [H]</span>${famTag}`;
+      this.hudRefs.resRow.innerHTML = `<span style="color:#fde68a;">银 ${s.gold}</span><span style="color:#fb923c;">符 ${s.talismanHearts}</span><span style="color:#5eead4;">药 ${potCnt}</span>${famTag}`;
     }
 
     const hpPct = Math.max(0, Math.min(100, (p.hp / Math.max(1, p.maxHp)) * 100));
@@ -379,15 +389,16 @@ export class UIManager {
     if (this.hudRefs.hpTrail) this.hudRefs.hpTrail.style.width = `${trailPct}%`;
     if (this.hudRefs.mpFill) this.hudRefs.mpFill.style.width = `${mpPct}%`;
 
-    const wKey = `${w.id}:${s.ownedWeapons.length}`;
+    const wKey = `${w.id}:${s.ownedWeapons.length}:${isTouch ? 1 : 0}`;
     if (wKey !== this.lastHudWpnKey) {
       this.lastHudWpnKey = wKey;
       if (this.hudRefs.wpnIconWrap) {
-        this.hudRefs.wpnIconWrap.innerHTML = getWeaponArtHtml(w.archetype, 56);
+        this.hudRefs.wpnIconWrap.innerHTML = getWeaponArtHtml(w.archetype, isTouch ? 44 : 56);
       }
       if (this.hudRefs.wpnName) this.hudRefs.wpnName.textContent = w.name;
       if (this.hudRefs.swapHint) {
-        this.hudRefs.swapHint.textContent = s.ownedWeapons.length > 1 ? '[Q 易兵]' : '';
+        this.hudRefs.swapHint.textContent =
+          s.ownedWeapons.length > 1 ? (isTouch ? '' : '[Q]') : '';
       }
     }
 
@@ -404,7 +415,7 @@ export class UIManager {
     }
     if (this.hudRefs.minimapLabel) {
       const pct = WorldMap.calcExplorationPct(s.visitedRooms);
-      this.hudRefs.minimapLabel.textContent = `${r.name} · 探索 ${pct}%`;
+      this.hudRefs.minimapLabel.textContent = `${r.name} · ${pct}%`;
     }
 
     const boss = this.engine.enemies.find((e) => e.profile.isBoss);
@@ -425,6 +436,7 @@ export class UIManager {
 
     if (this.hudRefs.interactBtn) {
       if (this.engine.nearbyInteract && !this.isAnyOverlayOpen()) {
+        // 触屏端右侧【X 谈/香/阵】手柄键已实时鎏金变字，底部仅保留极简短语防遮挡画面
         this.hudRefs.interactBtn.style.display = 'block';
         this.hudRefs.interactBtn.textContent = this.engine.nearbyInteract.label;
       } else {
@@ -499,78 +511,78 @@ export class UIManager {
         .join('');
 
       mainHtml = `
-        <div style="flex:1;overflow-y:auto;padding:16px 0;">
-          <div style="font-size:14px;color:var(--bronze);letter-spacing:3px;margin-bottom:10px;">真气手搓绝学 & 镇妖司轻功身法（按住 ↓ 下蹲闪避 · 地面 ↓+跃 贴地滑铲踢 · 二段跳后 ↓+跃 凌空流星踢）</div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;">
+        <div class="zx-scroll-pane">
+          <div style="font-size:13px;color:var(--bronze);letter-spacing:2px;margin-bottom:8px;">真气手搓绝学 & 轻功身法（↓+跃 滑铲 · 二段跳后 ↓+跃 流星踢）</div>
+          <div class="zx-card-grid">
             ${this.buildSkillCardsHtml()}
           </div>
-          <div style="font-size:14px;color:var(--bronze);letter-spacing:3px;margin:20px 0 10px;">镇司秘传奇宝 · 古武轻功与破妄双信物</div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px;">${abCards}</div>
+          <div style="font-size:13px;color:var(--bronze);letter-spacing:2px;margin:14px 0 8px;">镇司奇宝 · 古武轻功与破妄双信物</div>
+          <div class="zx-card-grid">${abCards}</div>
         </div>
       `;
       footerLeft =
-        '集齐【破妄古镜】（禁书天机阁）与【完整玄鸟合璧佩】（玄鸟西密室）登临凌霄祭天坛，方可开启 180° 九幽倒悬里城！';
+        '集齐【破妄古镜】与【完整玄鸟合璧佩】登临凌霄祭天坛，可开启 180° 九幽倒悬里城！';
     } else if (this.pauseTab === 'map') {
       const pct = WorldMap.calcExplorationPct(s.visitedRooms);
       const realmSwitchHtml = s.invertedUnlocked
-        ? `<div style="display:flex;gap:8px;">
+        ? `<div style="display:flex;gap:6px;">
              <button class="zx-seal-btn" id="btn-map-normal" style="${this.mapViewRealm === 'normal' ? 'border-color:#fde047;color:#fde047;' : ''}">阳表玄城</button>
-             <button class="zx-seal-btn" id="btn-map-inverted" style="${this.mapViewRealm === 'inverted' ? 'border-color:#f43f5e;color:#fda4af;' : ''}">180° 九幽倒悬里城</button>
+             <button class="zx-seal-btn" id="btn-map-inverted" style="${this.mapViewRealm === 'inverted' ? 'border-color:#f43f5e;color:#fda4af;' : ''}">倒悬里城</button>
            </div>`
         : '';
       mainHtml = `
-        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;">
-          <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;justify-content:center;">
-            <span style="font-size:18px;font-weight:900;letter-spacing:4px;color:var(--bronze-light);">
-              ${this.mapViewRealm === 'inverted' ? '九幽倒悬里城 · 逆乱堪舆图' : '九幽玄城 · 阳表立体连通堪舆图'}
+        <div class="zx-map-pane">
+          <div class="zx-map-header">
+            <span class="zx-map-title">
+              ${this.mapViewRealm === 'inverted' ? '九幽倒悬里城 · 逆乱堪舆图' : '九幽玄城 · 阳表立体堪舆图'}
             </span>
-            <span style="font-size:14px;color:var(--jade);font-weight:800;">
-              双城总探索度：${pct}% / 200%
+            <span style="font-size:13px;color:var(--jade);font-weight:800;">
+              探索度 ${pct}% / 200%
             </span>
             ${realmSwitchHtml}
           </div>
-          <canvas id="full-castle-map-canvas" width="920" height="406" style="max-width:100%;height:auto;border:1px solid var(--bronze-line);background:rgba(4,7,14,0.94);"></canvas>
-          <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:#cbd5e1;">
+          <canvas id="full-castle-map-canvas" width="920" height="406"></canvas>
+          <div class="zx-map-legend">
             <span><b style="color:#3b82f6;">■</b> 正殿/瓮城</span>
             <span><b style="color:#0d9488;">■</b> 藏书/星阁</span>
             <span><b style="color:#db2777;">■</b> 百戏梨园</span>
             <span><b style="color:#ea580c;">■</b> 赤火古窖</span>
-            <span><b style="color:#f59e0b;">■</b> 镇魂存档祠</span>
-            <span><b style="color:#10b981;">■</b> 八卦传送阵</span>
-            <span><b style="color:#a855f7;">■</b> 奇门秘宝/古武秘室</span>
-            <span><b style="color:#ef4444;">■</b> 妖王决战殿</span>
+            <span><b style="color:#f59e0b;">■</b> 镇魂祠</span>
+            <span><b style="color:#10b981;">■</b> 传送阵</span>
+            <span><b style="color:#a855f7;">■</b> 奇门秘室</span>
+            <span><b style="color:#ef4444;">■</b> 妖王殿</span>
           </div>
         </div>
       `;
-      footerLeft =
-        '八大城域 · 17×7 立体迷宫：阳表 36 厅 + 180° 九幽倒悬里城 36 厅（共 72 座立体厅堂，多层通天竖井纵横咬合！）';
+      footerLeft = '八大城域 · 阳表 36 厅 + 180° 倒悬里城 36 厅';
     } else if (this.pauseTab === 'bestiary') {
       mainHtml = this.buildBestiaryTabHtml();
-      footerLeft = '镇妖司百鬼图鉴：记录已交锋妖邪之气血抗性、斩讨数与本命妖丹掉落（佩戴紫金葫芦提升福缘可倍增爆率）';
+      footerLeft = '镇妖司百鬼图鉴：记录妖邪抗性、斩讨数与妖丹掉落';
     } else if (this.pauseTab === 'lore') {
+      const compact = window.innerHeight < 540;
       mainHtml = `
-        <div style="flex:1;overflow-y:auto;padding:16px 0;display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:16px;">
+        <div class="zx-scroll-pane zx-card-grid">
           ${CHARACTER_BIOS.map(
             (b) => `
-              <div class="zx-item-row" style="gap:16px;align-items:flex-end;cursor:default;overflow:hidden;padding-bottom:0;">
-                <div style="flex-shrink:0;line-height:0;">${getSpeakerPortraitSvg(b.name, 132)}</div>
-                <div style="padding-bottom:12px;">
-                  <div style="font-size:16px;font-weight:900;color:${b.color};letter-spacing:2px;">${b.name}</div>
-                  <div style="font-size:11.5px;color:var(--bronze);margin:3px 0 6px;">${b.ageTitle}</div>
-                  <div style="font-size:12.5px;color:#cbd5e1;line-height:1.55;">${b.summary}</div>
+              <div class="zx-item-row" style="gap:12px;align-items:flex-end;cursor:default;overflow:hidden;padding-bottom:0;">
+                <div style="flex-shrink:0;line-height:0;">${getSpeakerPortraitSvg(b.name, compact ? 92 : 132)}</div>
+                <div style="padding-bottom:10px;">
+                  <div style="font-size:15px;font-weight:900;color:${b.color};letter-spacing:2px;">${b.name}</div>
+                  <div style="font-size:11px;color:var(--bronze);margin:2px 0 4px;">${b.ageTitle}</div>
+                  <div style="font-size:12px;color:#cbd5e1;line-height:1.5;">${b.summary}</div>
                 </div>
               </div>`
           ).join('')}
         </div>
       `;
-      footerLeft = '镇妖司人物密档（皆为无框水墨半身立绘）';
+      footerLeft = '镇妖司人物密档';
     } else {
       const mute = AudioFX.getMuteState();
       mainHtml = `
-        <div style="flex:1;padding:20px 0;display:flex;flex-direction:column;gap:14px;max-width:520px;">
-          <div class="zx-item-row" style="cursor:default;flex-direction:column;align-items:flex-start;gap:10px;">
+        <div class="zx-scroll-pane" style="display:flex;flex-direction:column;gap:10px;max-width:560px;">
+          <div class="zx-item-row" style="cursor:default;flex-direction:column;align-items:flex-start;gap:8px;">
             <strong style="color:var(--bronze-light);letter-spacing:2px;">视听、手柄按键与全屏</strong>
-            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
               <button class="zx-seal-btn" id="set-bgm-mute">古琴配乐：${mute.bgmMuted ? '已静音' : '开启'}</button>
               <button class="zx-seal-btn" id="set-sfx-mute">金石刀音：${mute.sfxMuted ? '已静音' : '开启'}</button>
               <button class="zx-seal-btn" id="set-pad-style">左手按键：${
@@ -580,11 +592,11 @@ export class UIManager {
             </div>
           </div>
 
-          <div class="zx-item-row" style="cursor:default;flex-direction:column;align-items:flex-start;gap:10px;">
-            <strong style="color:var(--bronze-light);letter-spacing:2px;">武库与全城堪舆试演（方便直接品鉴五系神兵、八大城域72厅蓝图与倒悬里城）</strong>
-            <div style="display:flex;gap:10px;flex-wrap:wrap;">
-              <button class="zx-seal-btn" id="dev-grant-pack">一键配齐五系神兵 + 全奇门副器 + 全城镇司秘宝</button>
-              <button class="zx-seal-btn" id="dev-reveal-map">一键点亮双城 72 厅全境堪舆蓝图</button>
+          <div class="zx-item-row" style="cursor:default;flex-direction:column;align-items:flex-start;gap:8px;">
+            <strong style="color:var(--bronze-light);letter-spacing:2px;">武库与堪舆试演</strong>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="zx-seal-btn" id="dev-grant-pack">配齐五系神兵 + 全奇宝</button>
+              <button class="zx-seal-btn" id="dev-reveal-map">点亮双城 72 厅堪舆图</button>
             </div>
           </div>
 
@@ -596,6 +608,7 @@ export class UIManager {
       footerLeft = '系统卷宗设定';
     }
 
+    const isTouch = this.engine.input.usingTouch || NativeApp.isMobileOrTablet();
     overlay.innerHTML = `
       <div class="zx-arsenal-topbar">
         <div class="zx-arsenal-tabs">
@@ -606,12 +619,15 @@ export class UIManager {
           <button class="zx-atab ${this.pauseTab === 'lore' ? 'active' : ''}" data-ptab="lore">列传</button>
           <button class="zx-atab ${this.pauseTab === 'settings' ? 'active' : ''}" data-ptab="settings">系统</button>
         </div>
-        <button class="zx-seal-btn" id="btn-close-pause">归阵 [ESC]</button>
+        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+          <span class="zx-topbar-res">银 ${s.gold} · 符 ${s.talismanHearts}</span>
+          <button class="zx-seal-btn" id="btn-close-pause">${isTouch ? '归阵' : '归阵 [ESC]'}</button>
+        </div>
       </div>
       ${mainHtml}
       <div class="zx-arsenal-footer">
-        <span style="font-size:13.5px;color:var(--bronze-light);">${footerLeft}</span>
-        <span style="font-size:12.5px;color:var(--ash);">${footerRight}</span>
+        <span class="zx-footer-desc">${footerLeft}</span>
+        <span class="zx-footer-res">${footerRight}</span>
       </div>
     `;
 
@@ -717,7 +733,7 @@ export class UIManager {
       .join('');
 
     return `
-      <div style="flex:1;overflow-y:auto;padding:14px 0;display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px;">
+      <div class="zx-scroll-pane zx-card-grid">
         ${cards}
       </div>
     `;
@@ -953,13 +969,15 @@ export class UIManager {
     const curCore = s.equippedYaoCore ? YAO_CORES[s.equippedYaoCore] : null;
     const potCnt = Object.values(s.consumables).reduce((a, b) => a + b, 0);
 
+    const compact = window.innerHeight < 540 || window.innerWidth < 900;
+    const wpnIconSize = compact ? 54 : 80;
     const slots: { key: EquipSlotCategory; cat: string; cur: string }[] = [
-      { key: 'weapon', cat: '主手兵刃', cur: curWpn.name },
-      { key: 'sub', cat: '奇门副器', cur: curSub.name },
-      { key: 'armor', cat: '护身衣甲', cur: curArm.name },
-      { key: 'accessory', cat: '随身佩玉', cur: curAcc.name },
-      { key: 'core', cat: '本命妖丹', cur: curCore ? curCore.name : '未融炼' },
-      { key: 'potion', cat: '疗伤丹药', cur: potCnt > 0 ? `持有 ${potCnt} 份` : '已空' },
+      { key: 'weapon', cat: compact ? '主兵' : '主手兵刃', cur: curWpn.name },
+      { key: 'sub', cat: compact ? '副器' : '奇门副器', cur: curSub.name },
+      { key: 'armor', cat: compact ? '衣甲' : '护身衣甲', cur: curArm.name },
+      { key: 'accessory', cat: compact ? '佩玉' : '随身佩玉', cur: curAcc.name },
+      { key: 'core', cat: compact ? '妖丹' : '本命妖丹', cur: curCore ? curCore.name : '未融炼' },
+      { key: 'potion', cat: compact ? '丹药' : '疗伤丹药', cur: potCnt > 0 ? `${potCnt} 份` : '已空' },
     ];
 
     const slotRailHtml = slots
@@ -977,7 +995,7 @@ export class UIManager {
 
     if (this.selectedEquipSlot === 'weapon') {
       const focusW = WEAPONS[this.previewItemId || s.equippedWeapon] || curWpn;
-      footerTxt = `【${focusW.name}】${focusW.traitDesc} —— ${focusW.desc}`;
+      footerTxt = `【${focusW.name}】${focusW.traitDesc}`;
       const archTag = (a: string) =>
         a === 'greatsword'
           ? '重刃破盾'
@@ -995,14 +1013,14 @@ export class UIManager {
           const tLv = s.weaponTemperLv?.[id] || 0;
           return `
           <div class="zx-item-row ${eq ? 'equipped' : ''}" data-pick-id="${id}">
-            <div style="display:flex;align-items:center;gap:14px;">
-              ${getWeaponArtHtml(w.archetype, 82)}
-              <div>
-                <div style="font-size:15px;font-weight:900;color:var(--rice);">${w.name} ${tLv > 0 ? `<span style="color:#fb923c;">+${tLv}</span>` : ''}</div>
+            <div style="display:flex;align-items:center;gap:12px;min-width:0;">
+              ${getWeaponArtHtml(w.archetype, wpnIconSize)}
+              <div style="min-width:0;">
+                <div style="font-size:14.5px;font-weight:900;color:var(--rice);">${w.name} ${tLv > 0 ? `<span style="color:#fb923c;">+${tLv}</span>` : ''}</div>
                 <div style="font-size:11.5px;color:var(--ash);">杀伤 +${w.atk + tLv * 6} · ${archTag(w.archetype)}</div>
               </div>
             </div>
-            ${eq ? `<span class="zx-eq-seal">佩挂中</span>` : ''}
+            ${eq ? `<span class="zx-eq-seal">佩挂中</span>` : `<span class="zx-eq-hint">换装</span>`}
           </div>`;
         })
         .join('');
@@ -1150,9 +1168,9 @@ export class UIManager {
   private bindEquipEventsAndLiveStage(overlay: HTMLElement): void {
     const s = this.engine.slot!;
 
-    // 启动左侧 60fps 真人骨骼动态持兵试演舞台！
+    // 启动左侧 60fps 真人骨骼动态持兵试演舞台（移动端小屏隐藏时自动休眠省电！）
     const stageCanvas = overlay.querySelector('#equip-stage-canvas') as HTMLCanvasElement | null;
-    if (stageCanvas) {
+    if (stageCanvas && stageCanvas.offsetParent !== null) {
       const sctx = stageCanvas.getContext('2d')!;
       let last = performance.now();
       let animT = 0;
@@ -1386,6 +1404,9 @@ export class UIManager {
     this.uiLayer.appendChild(overlay);
     this.syncBlockState();
 
+    const isTouch = this.engine.input.usingTouch || NativeApp.isMobileOrTablet();
+    const compact = window.innerHeight < 540 || window.innerWidth < 900;
+
     if (kind === 'warp') {
       const stops = this.engine.getUnlockedWarpStops();
       const rows = stops
@@ -1394,8 +1415,8 @@ export class UIManager {
           return `
             <div class="zx-item-row ${isCur ? 'equipped' : ''}" data-warp-realm="${st.realm}" data-warp-room="${st.roomId}">
               <div>
-                <div style="font-size:15.5px;font-weight:900;color:${st.realm === 'inverted' ? '#fda4af' : 'var(--bronze-light)'};">${st.name}</div>
-                <div style="font-size:12px;color:var(--ash);">${st.realm === 'inverted' ? '180° 九幽倒悬里城 · 地脉逆行阵' : '阳表玄城 · 镇魂龙脉节点'}</div>
+                <div style="font-size:15px;font-weight:900;color:${st.realm === 'inverted' ? '#fda4af' : 'var(--bronze-light)'};">${st.name}</div>
+                <div style="font-size:11.5px;color:var(--ash);">${st.realm === 'inverted' ? '180° 九幽倒悬里城' : '阳表玄城'}</div>
               </div>
               <span class="zx-eq-seal" style="background:${isCur ? '#1e293b' : '#115e59'};border-color:#2dd4bf;">
                 ${isCur ? '当前驻地' : '乾坤瞬移'}
@@ -1406,11 +1427,10 @@ export class UIManager {
 
       overlay.innerHTML = `
         <div class="zx-arsenal-topbar">
-          <span style="font-size:20px;font-weight:900;letter-spacing:4px;color:var(--jade);">太极八卦传送阵 · 卷宗已留档</span>
-          <button class="zx-seal-btn" id="btn-close-npc">留在原处 [ESC]</button>
+          <span class="zx-modal-heading" style="color:var(--jade);">八卦传送阵 · 已留档</span>
+          <button class="zx-seal-btn" id="btn-close-npc">${isTouch ? '返回' : '留在原处 [ESC]'}</button>
         </div>
-        <div style="flex:1;max-width:680px;width:100%;margin:0 auto;padding:20px 0;display:flex;flex-direction:column;gap:10px;overflow-y:auto;">
-          <div style="font-size:13px;color:#cbd5e1;margin-bottom:6px;">气血与真气已完全充盈。选择已点亮的镇魂古祠或灵泉即可瞬间跨越城池：</div>
+        <div class="zx-scroll-pane" style="max-width:680px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:8px;">
           ${rows}
         </div>
       `;
@@ -1440,21 +1460,21 @@ export class UIManager {
             const canEvo = nextW && !s.ownedWeapons.includes(nextW.id);
 
             return `
-              <div class="zx-item-row" style="cursor:default;flex-wrap:wrap;gap:10px;">
-                <div style="display:flex;align-items:center;gap:14px;">
-                  ${getWeaponArtHtml(w.archetype, 76)}
+              <div class="zx-item-row" style="cursor:default;flex-wrap:wrap;gap:8px;">
+                <div style="display:flex;align-items:center;gap:12px;">
+                  ${getWeaponArtHtml(w.archetype, compact ? 52 : 74)}
                   <div>
-                    <div style="font-size:15.5px;font-weight:900;color:var(--rice);">${w.name} ${tLv > 0 ? `<span style="color:#fb923c;">+${tLv}</span>` : ''}</div>
-                    <div style="font-size:12px;color:var(--ash);">杀伤 ${curAtk} ${tLv < 5 ? `<span class="stat-up">➔ 淬炼 ${curAtk + 6}</span>` : '(已满阶)'}${canEvo ? ` · 可升阶铸为【${nextW.name}】` : ''}</div>
+                    <div style="font-size:15px;font-weight:900;color:var(--rice);">${w.name} ${tLv > 0 ? `<span style="color:#fb923c;">+${tLv}</span>` : ''}</div>
+                    <div style="font-size:11.5px;color:var(--ash);">杀伤 ${curAtk} ${tLv < 5 ? `<span class="stat-up">➔ ${curAtk + 6}</span>` : '(满阶)'}${canEvo ? ` · 可铸【${nextW.name}】` : ''}</div>
                   </div>
                 </div>
-                <div style="display:flex;gap:8px;align-items:center;">
-                  <button class="zx-seal-btn" data-temper-id="${id}" style="padding:4px 10px;font-size:12px;border-color:#fb923c;opacity:${tLv >= 5 ? 0.45 : 1};">
-                    ${tLv >= 5 ? '淬炼已满' : `淬炼 +1 (${cost}银)`}
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                  <button class="zx-seal-btn" data-temper-id="${id}" style="padding:5px 10px;font-size:12px;border-color:#fb923c;opacity:${tLv >= 5 ? 0.45 : 1};">
+                    ${tLv >= 5 ? '已满阶' : `淬炼 +1 (${cost}银)`}
                   </button>
                   ${
                     canEvo
-                      ? `<button class="zx-seal-btn" data-evolve-id="${id}" style="padding:4px 10px;font-size:12px;border-color:#fde047;color:#fde047;">
+                      ? `<button class="zx-seal-btn" data-evolve-id="${id}" style="padding:5px 10px;font-size:12px;border-color:#fde047;color:#fde047;">
                            升阶【${nextW.name}】(${evoCost}银)
                          </button>`
                       : ''
@@ -1466,18 +1486,18 @@ export class UIManager {
 
         overlay.innerHTML = `
           <div class="zx-arsenal-topbar">
-            <span style="font-size:20px;font-weight:900;letter-spacing:4px;color:#fb923c;">赤火淬兵台 · 独臂宗师欧冶残</span>
-            <div style="display:flex;align-items:center;gap:16px;">
-              <span style="color:#fde68a;font-weight:800;">持有纹银：${s.gold}</span>
-              <button class="zx-seal-btn" id="btn-close-npc">收剑告辞 [ESC]</button>
+            <span class="zx-modal-heading" style="color:#fb923c;">赤火淬兵台 · 欧冶残</span>
+            <div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">
+              <span style="color:#fde68a;font-weight:800;font-size:13px;">纹银 ${s.gold}</span>
+              <button class="zx-seal-btn" id="btn-close-npc">${isTouch ? '告辞' : '收剑告辞 [ESC]'}</button>
             </div>
           </div>
-          <div style="flex:1;display:grid;grid-template-columns:280px 1fr;gap:24px;min-height:0;padding:18px 0;">
-            <div class="zx-stage-col" style="justify-content:flex-end;padding-bottom:0;overflow:hidden;">
-              <div style="font-size:13px;color:#cbd5e1;line-height:1.65;padding:8px 6px 14px;">
-                “裴魁首当年救过老夫一命。小子，把兵刃递过来——无论是赤火淬锋还是重铸升阶成前朝名器，老夫这一条右臂皆给你办妥！”
+          <div class="zx-npc-modal-body">
+            <div class="zx-stage-col zx-npc-side-col">
+              <div style="font-size:12.5px;color:#cbd5e1;line-height:1.55;padding:4px 4px 10px;">
+                “把兵刃递过来——淬锋或升阶重铸名器，老夫一条右臂皆给你办妥！”
               </div>
-              ${getSpeakerPortraitSvg('欧冶残', 255)}
+              ${getSpeakerPortraitSvg('欧冶残', 235)}
             </div>
             <div class="zx-item-list">${rows}</div>
           </div>
@@ -1627,18 +1647,18 @@ export class UIManager {
 
         overlay.innerHTML = `
           <div class="zx-arsenal-topbar">
-            <span style="font-size:20px;font-weight:900;letter-spacing:4px;color:var(--jade);">子夜鬼市 · 狐商白掌柜</span>
-            <div style="display:flex;align-items:center;gap:16px;">
-              <span style="color:#fde68a;font-weight:800;">持有纹银：${s.gold}</span>
-              <button class="zx-seal-btn" id="btn-close-npc">收囊离开 [ESC]</button>
+            <span class="zx-modal-heading" style="color:var(--jade);">子夜鬼市 · 白掌柜</span>
+            <div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">
+              <span style="color:#fde68a;font-weight:800;font-size:13px;">纹银 ${s.gold}</span>
+              <button class="zx-seal-btn" id="btn-close-npc">${isTouch ? '离开' : '收囊离开 [ESC]'}</button>
             </div>
           </div>
-          <div style="flex:1;display:grid;grid-template-columns:280px 1fr;gap:24px;min-height:0;padding:18px 0;">
-            <div class="zx-stage-col" style="justify-content:flex-end;padding-bottom:0;overflow:hidden;">
-              <div style="font-size:13px;color:#cbd5e1;line-height:1.65;padding:8px 6px 14px;">
-                “呵呵呵……血月当空，青灯引路。无论是峨眉分水刺、乌金九节鞭，还是烧妖的三昧真火，只要纹银管够皆可拿去。”
+          <div class="zx-npc-modal-body">
+            <div class="zx-stage-col zx-npc-side-col">
+              <div style="font-size:12.5px;color:#cbd5e1;line-height:1.55;padding:4px 4px 10px;">
+                “青灯引路，无论是峨眉双刺、九节雷鞭还是救命灵丹，纹银管够皆可拿去。”
               </div>
-              ${getSpeakerPortraitSvg('白掌柜', 255)}
+              ${getSpeakerPortraitSvg('白掌柜', 235)}
             </div>
             <div class="zx-item-list">${rows}</div>
           </div>
@@ -1712,56 +1732,100 @@ export class UIManager {
   }
 
   public startStoryDialogue(scene: StoryScene, onDone?: () => void): void {
+    this.clearDialogueKeyHandler();
     if (this.dialogueEl) this.dialogueEl.remove();
     let idx = 0;
 
+    // 全屏透明点触层：手机端轻点屏幕任意位置（含右侧【斩】键区域）皆可顺畅推进或结束对话！
+    const backdrop = document.createElement('div');
+    backdrop.className = 'cv-dialogue-backdrop';
     const box = document.createElement('div');
     box.className = 'cv-dialogue';
-    this.uiLayer.appendChild(box);
-    this.dialogueEl = box;
+    backdrop.appendChild(box);
+    this.uiLayer.appendChild(backdrop);
+    this.dialogueEl = backdrop;
     this.syncBlockState();
+
+    const finishDialogue = () => {
+      this.clearDialogueKeyHandler();
+      backdrop.remove();
+      this.dialogueEl = null;
+      this.syncBlockState();
+      onDone?.();
+    };
+
+    const advanceLine = () => {
+      AudioFX.playHit(false);
+      idx++;
+      if (idx < scene.lines.length) {
+        renderLine();
+      } else {
+        finishDialogue();
+      }
+    };
 
     const renderLine = () => {
       const ln = scene.lines[idx];
       const isHero = ln.speaker.includes('李逸承');
+      const portraitH = window.innerHeight < 540 ? 138 : 210;
       box.classList.toggle('npc-right', !isHero);
       box.innerHTML = `
-        <div class="cv-dlg-bust-slot">${getSpeakerPortraitSvg(ln.speaker, 224)}</div>
+        <div class="cv-dlg-bust-slot">${getSpeakerPortraitSvg(ln.speaker, portraitH)}</div>
         <div class="cv-dlg-content">
           <div class="dialogue-speaker-row">
             <div>
               <span class="dialogue-speaker" style="color:${ln.portraitColor}">${ln.speaker}</span>
               <span class="dialogue-role">${ln.role}</span>
             </div>
-            <span style="font-size:11px;color:var(--ash);">${scene.title} (${idx + 1}/${scene.lines.length})</span>
+            <div style="display:flex;align-items:center;gap:8px;">
+              ${
+                scene.lines.length > 1
+                  ? `<span style="font-size:11px;color:var(--ash);">${idx + 1}/${scene.lines.length}</span>
+                     <button type="button" class="zx-dlg-skip" id="btn-dlg-skip">跳过</button>`
+                  : ''
+              }
+            </div>
           </div>
           <div class="dialogue-text">${ln.text}</div>
-          <div class="dialogue-next">点击任意处继续 ▸</div>
+          <div class="dialogue-next">轻触或按【斩】继续 ▸</div>
         </div>
       `;
+      box.querySelector('#btn-dlg-skip')?.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        AudioFX.playHit(false);
+        finishDialogue();
+      });
     };
 
     renderLine();
 
-    box.onclick = () => {
-      AudioFX.playHit(false);
-      idx++;
-      if (idx < scene.lines.length) {
-        renderLine();
-      } else {
-        box.remove();
-        this.dialogueEl = null;
-        this.syncBlockState();
-        onDone?.();
+    backdrop.addEventListener('click', () => advanceLine());
+
+    this.dialogueKeyHandler = (e: KeyboardEvent) => {
+      if (e.repeat) return;
+      if (
+        e.code === 'KeyJ' ||
+        e.code === 'KeyZ' ||
+        e.code === 'KeyK' ||
+        e.code === 'Space' ||
+        e.code === 'Enter' ||
+        e.code === 'KeyE'
+      ) {
+        e.preventDefault();
+        advanceLine();
+      } else if (e.code === 'Escape') {
+        e.preventDefault();
+        finishDialogue();
       }
     };
+    window.addEventListener('keydown', this.dialogueKeyHandler);
   }
 
   public showBanner(title: string, sub: string): void {
     if (this.bannerEl) this.bannerEl.remove();
     const el = document.createElement('div');
     el.className = 'center-banner';
-    el.innerHTML = `<h3>${title}</h3><p>${sub}</p>`;
+    el.innerHTML = sub ? `<h3>${title}</h3><p>${sub}</p>` : `<h3>${title}</h3>`;
     this.uiLayer.appendChild(el);
     this.bannerEl = el;
     window.setTimeout(() => {
@@ -1769,7 +1833,7 @@ export class UIManager {
         el.remove();
         this.bannerEl = null;
       }
-    }, 3100);
+    }, 1700);
   }
 
   public showGameOverModal(): void {
