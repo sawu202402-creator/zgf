@@ -100,6 +100,27 @@ export class InkVaniaRenderer {
     this.renderDyingSoulPillars(ctx, engine);
 
     for (const e of engine.enemies) {
+      if (e.enragedTriggered) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const pulse = Math.sin(this.ambientTime * 11) * 7;
+        const ag = ctx.createRadialGradient(
+          e.x,
+          e.y - e.profile.h * 0.5,
+          6,
+          e.x,
+          e.y - e.profile.h * 0.5,
+          64 + pulse
+        );
+        ag.addColorStop(0, 'rgba(254, 240, 138, 0.42)');
+        ag.addColorStop(0.45, 'rgba(239, 68, 68, 0.24)');
+        ag.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = ag;
+        ctx.beginPath();
+        ctx.arc(e.x, e.y - e.profile.h * 0.5, 64 + pulse, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
       drawMonsterOrBoss(ctx, e, this.ambientTime);
     }
 
@@ -332,55 +353,109 @@ export class InkVaniaRenderer {
           ctx.restore();
         }
       } else {
-        // 向下竖井升腾的地底幽青寒雾 + 近距离提示
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-        const dg = ctx.createLinearGradient(0, room.pixelH, 0, room.pixelH - 130);
-        dg.addColorStop(0, 'rgba(45, 212, 191, 0.22)');
-        dg.addColorStop(1, 'rgba(45, 212, 191, 0)');
-        ctx.fillStyle = dg;
-        ctx.fillRect(sh.x1 + 4, room.pixelH - 130, w - 8, 130);
-        ctx.restore();
+        if (sh.requireBossClear && !bossCleared) {
+          const floorAtSh = sampleSolidGroundY(room, cx);
+          ctx.fillStyle = '#1c1917';
+          ctx.strokeStyle = '#cfa349';
+          ctx.lineWidth = 2;
+          ctx.fillRect(sh.x1, floorAtSh - 6, w, 10);
+          ctx.strokeRect(sh.x1, floorAtSh - 6, w, 10);
+        } else {
+          // 向下竖井升腾的地底幽青寒雾
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          const dg = ctx.createLinearGradient(0, room.pixelH, 0, room.pixelH - 130);
+          dg.addColorStop(0, 'rgba(45, 212, 191, 0.22)');
+          dg.addColorStop(1, 'rgba(45, 212, 191, 0)');
+          ctx.fillStyle = dg;
+          ctx.fillRect(sh.x1 + 4, room.pixelH - 130, w - 8, 130);
+          ctx.restore();
+        }
       }
     }
 
-    // 2. 可破坏【玄铁千斤闸门】或需缩地化雾穿过的【九幽紫瘴封魔栅】！
+    // 2. 国风精雕【饕餮青铜千斤闸（重刃破开）】与【九幽符箓紫瘴障（缩地化雾穿过）】！
     if (room.ironGate && engine.slot && !engine.slot.brokenSecretWalls.includes(room.ironGate.id)) {
       const g = room.ironGate;
+      const drawTop = Math.max(28, g.topY);
+      const drawH = Math.max(80, g.bottomY - drawTop);
+      const midY = drawTop + drawH * 0.55;
       const isMistGate = g.gateKind === 'mist_only';
+
       ctx.save();
-      ctx.fillStyle = isMistGate ? '#1e1b4b' : '#1e293b';
-      ctx.strokeStyle = '#090d16';
-      ctx.lineWidth = 2;
-      for (let bar = -9; bar <= 9; bar += 6) {
-        ctx.fillRect(g.x + bar - 2, g.topY, 4, g.bottomY - g.topY);
-        ctx.strokeRect(g.x + bar - 2, g.topY, 4, g.bottomY - g.topY);
-      }
-      const midY = (g.topY + g.bottomY) * 0.56;
       if (isMistGate) {
+        const bgGrad = ctx.createLinearGradient(g.x - 18, 0, g.x + 18, 0);
+        bgGrad.addColorStop(0, 'rgba(46, 16, 101, 0.15)');
+        bgGrad.addColorStop(0.5, 'rgba(88, 28, 135, 0.72)');
+        bgGrad.addColorStop(1, 'rgba(46, 16, 101, 0.15)');
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(g.x - 18, drawTop, 36, drawH);
+
+        for (const off of [-9, 0, 9]) {
+          ctx.fillStyle = '#2e1065';
+          ctx.strokeStyle = '#c084fc';
+          ctx.lineWidth = 1.3;
+          ctx.fillRect(g.x + off - 2, drawTop, 4, drawH);
+          ctx.strokeRect(g.x + off - 2, drawTop, 4, drawH);
+        }
+
         ctx.globalCompositeOperation = 'lighter';
-        const mg = ctx.createRadialGradient(g.x, midY, 4, g.x, midY, 64);
-        mg.addColorStop(0, 'rgba(192, 132, 252, 0.45)');
-        mg.addColorStop(1, 'rgba(192, 132, 252, 0)');
+        const mg = ctx.createRadialGradient(g.x, midY, 6, g.x, midY, 68);
+        mg.addColorStop(0, 'rgba(216, 180, 254, 0.5)');
+        mg.addColorStop(0.55, 'rgba(147, 51, 234, 0.22)');
+        mg.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = mg;
-        ctx.fillRect(g.x - 36, g.topY, 72, g.bottomY - g.topY);
+        ctx.fillRect(g.x - 42, drawTop, 84, drawH);
         ctx.globalCompositeOperation = 'source-over';
+
+        const bob = Math.sin(this.ambientTime * 3.8) * 4;
+        ctx.fillStyle = '#fef08a';
+        ctx.strokeStyle = '#b45309';
+        ctx.lineWidth = 1.4;
+        ctx.fillRect(g.x - 7, midY - 14 + bob, 14, 28);
+        ctx.strokeRect(g.x - 7, midY - 14 + bob, 14, 28);
+        ctx.fillStyle = '#dc2626';
+        ctx.font = 'bold 11px "STKaiti", "KaiTi", serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('敕', g.x, midY + bob);
       } else {
-        ctx.strokeStyle = '#fb923c';
-        ctx.lineWidth = 3.5;
+        const ironG = ctx.createLinearGradient(g.x - 16, 0, g.x + 16, 0);
+        ironG.addColorStop(0, '#090d16');
+        ironG.addColorStop(0.5, '#1e293b');
+        ironG.addColorStop(1, '#090d16');
+        ctx.fillStyle = ironG;
+        ctx.fillRect(g.x - 15, drawTop, 30, drawH);
+
+        for (const off of [-10, 0, 10]) {
+          ctx.fillStyle = '#334155';
+          ctx.strokeStyle = '#0f172a';
+          ctx.lineWidth = 1.5;
+          ctx.fillRect(g.x + off - 2.5, drawTop, 5, drawH);
+          ctx.strokeRect(g.x + off - 2.5, drawTop, 5, drawH);
+        }
+
+        for (const ry of [drawTop + 26, midY - 38, midY + 38, g.bottomY - 24]) {
+          if (ry <= drawTop + 8 || ry >= g.bottomY - 8) continue;
+          ctx.fillStyle = '#78350f';
+          ctx.strokeStyle = '#d97706';
+          ctx.lineWidth = 1.4;
+          ctx.fillRect(g.x - 17, ry - 5, 34, 10);
+          ctx.strokeRect(g.x - 17, ry - 5, 34, 10);
+        }
+
+        ctx.fillStyle = '#451a03';
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 2.2;
         ctx.beginPath();
-        ctx.moveTo(g.x - 14, midY - 12);
-        ctx.lineTo(g.x + 14, midY + 12);
-        ctx.moveTo(g.x - 14, midY + 12);
-        ctx.lineTo(g.x + 14, midY - 12);
+        ctx.arc(g.x, midY, 13, 0, Math.PI * 2);
+        ctx.fill();
         ctx.stroke();
 
-        ctx.fillStyle = '#7c2d12';
         ctx.strokeStyle = '#fde047';
-        ctx.lineWidth = 1.8;
+        ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(g.x, midY, 10, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.arc(g.x, midY + 6, 5.5, 0, Math.PI * 2);
         ctx.stroke();
       }
       ctx.restore();
@@ -1427,29 +1502,38 @@ export class InkVaniaRenderer {
       const pressOffsetY = b.pressed ? 1.5 : 0;
 
       if (b.shape === 'pill' && b.w && b.h) {
-        // L1 / R1 主机手柄肩键胶囊按钮
+        // L1 / RT / R1 主机手柄肩键与扳机胶囊按钮（真气充沛时 RT 绝技泛起清冽青芒提示！）
         const x0 = b.cx - b.w * 0.5;
         const y0 = b.cy - b.h * 0.5 + pressOffsetY;
         const rad = b.h * 0.5;
+        const skillReady = b.id === 'skill' && Boolean(engine && engine.player.mp >= 14);
 
-        ctx.fillStyle = b.pressed ? 'rgba(30, 41, 59, 0.92)' : 'rgba(10, 14, 24, 0.68)';
-        ctx.strokeStyle = b.pressed ? b.accentColor : 'rgba(198, 154, 69, 0.52)';
-        ctx.lineWidth = b.pressed ? 2.2 : 1.4;
+        ctx.fillStyle = b.pressed
+          ? 'rgba(30, 41, 59, 0.94)'
+          : skillReady
+            ? 'rgba(12, 32, 48, 0.78)'
+            : 'rgba(10, 14, 24, 0.68)';
+        ctx.strokeStyle = b.pressed
+          ? b.accentColor
+          : skillReady
+            ? 'rgba(56, 189, 248, 0.78)'
+            : 'rgba(198, 154, 69, 0.52)';
+        ctx.lineWidth = b.pressed ? 2.2 : skillReady ? 1.8 : 1.4;
         ctx.beginPath();
         ctx.roundRect(x0, y0, b.w, b.h, rad);
         ctx.fill();
         ctx.stroke();
 
         ctx.textBaseline = 'middle';
-        ctx.font = '800 10px sans-serif';
+        ctx.font = '800 9.5px sans-serif';
         ctx.textAlign = 'left';
         ctx.fillStyle = b.accentColor;
-        ctx.fillText(b.padBadge, x0 + 10, y0 + b.h * 0.52);
+        ctx.fillText(b.padBadge, x0 + 8, y0 + b.h * 0.52);
 
-        ctx.font = 'bold 12px "STKaiti", "KaiTi", serif';
+        ctx.font = 'bold 11.5px "STKaiti", "KaiTi", serif';
         ctx.textAlign = 'right';
-        ctx.fillStyle = '#f8fafc';
-        ctx.fillText(b.label, x0 + b.w - 10, y0 + b.h * 0.52);
+        ctx.fillStyle = b.id === 'skill' && !skillReady ? '#94a3b8' : '#f8fafc';
+        ctx.fillText(b.label, x0 + b.w - 8, y0 + b.h * 0.52);
         continue;
       }
 

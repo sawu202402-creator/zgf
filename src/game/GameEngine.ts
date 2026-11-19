@@ -97,6 +97,7 @@ export interface EnemyEntity {
   baseY: number;
   bossMoveIdx: number;
   slashHitPlayer: boolean;
+  enragedTriggered?: boolean;
 }
 
 export interface WorldDrop {
@@ -824,6 +825,40 @@ export class GameEngine {
 
     if (inp.consumeSubWeapon()) {
       this.castSubWeapon();
+    }
+
+    // 移动端 RT 绝技键 / 键盘 O,R 键：一键丝滑施放四大真气武学（无方向=朔风剑气，前/后=瞬影一闪，上=惊鸿升龙，下=太极震气，斜下+学得禁卷=九幽噬魂引）！
+    if (inp.consumeQuickSkill()) {
+      if (inp.moveX !== 0) {
+        p.facing = Math.sign(inp.moveX) as 1 | -1;
+      }
+      let targetSkill: SkillId = 'shuofeng_wave';
+      if (inp.moveY < -0.45) {
+        targetSkill = 'jinghong_rising';
+      } else if (inp.moveY > 0.45) {
+        if (
+          Math.abs(inp.moveX) > 0.35 &&
+          this.slot!.learnedSkills.includes('jiuyou_soulsteal') &&
+          p.mp >= SKILLS.jiuyou_soulsteal.mpCost
+        ) {
+          targetSkill = 'jiuyou_soulsteal';
+        } else {
+          targetSkill = 'taiji_parry';
+        }
+      } else if (Math.abs(inp.moveX) > 0.35) {
+        targetSkill = 'shunying_flash';
+      }
+      if (!this.tryCastMartialSkill(targetSkill)) {
+        this.floats.push({
+          x: p.x,
+          y: p.y - 76,
+          vy: -30,
+          text: '真气不足',
+          color: '#94a3b8',
+          size: 11.5,
+          life: 0.65,
+        });
+      }
     }
 
     // 跳跃、下穿木阁楼与踏云步二段空翻
@@ -1691,8 +1726,32 @@ export class GameEngine {
           ) {
             if (sl.archetype === 'greatsword') {
               e.aiState = 'staggered';
-              e.stateTimer = 1.6;
+              e.stateTimer = 1.75;
+              e.vx = sl.facing * 185;
               AudioFX.playParryClang();
+              this.screenShake = Math.max(this.screenShake, 6);
+              this.hitstopTimer = 0.065;
+              NativeApp.haptic('heavy');
+              this.slashImpacts.push({
+                x: e.x,
+                y: e.y - 38,
+                angle: 0.4 * sl.facing,
+                length: 84,
+                thickness: 9,
+                color: '#fb923c',
+                ringRadius: 52,
+                life: 0.25,
+                maxLife: 0.25,
+              });
+              this.floats.push({
+                x: e.x,
+                y: e.y - e.profile.h - 22,
+                vy: -34,
+                text: '破盾崩防！',
+                color: '#fde047',
+                size: 13.5,
+                life: 0.85,
+              });
             } else {
               dmgMult *= 0.25;
               AudioFX.playParryClang();
@@ -2299,7 +2358,36 @@ export class GameEngine {
       e.stateTimer = 0.42;
       e.vx = this.player.facing * 160;
     } else if (!e.profile.isBoss && e.aiState === 'stalk') {
-      e.x += this.player.facing * 9;
+      this.stepGroundEnemyX(e, this.player.facing * 9);
+    }
+
+    // 守关妖王 / 宿敌半血狂暴二阶段觉醒演出！
+    if (e.profile.isBoss && e.hp > 0 && e.hp <= e.maxHp * 0.55 && !e.enragedTriggered) {
+      e.enragedTriggered = true;
+      this.screenShake = Math.max(this.screenShake, 9);
+      AudioFX.playSkillCast();
+      NativeApp.haptic('heavy');
+      this.spawnInkBurst(e.x, e.y - e.profile.h * 0.55, e.profile.accentColor, '#fde047', 28);
+      this.slashImpacts.push({
+        x: e.x,
+        y: e.y - e.profile.h * 0.5,
+        angle: 0,
+        length: 96,
+        thickness: 8,
+        color: e.profile.accentColor,
+        ringRadius: 68,
+        life: 0.32,
+        maxLife: 0.32,
+      });
+      this.floats.push({
+        x: e.x,
+        y: e.y - e.profile.h - 28,
+        vy: -26,
+        text: '真炁暴走',
+        color: '#fca5a5',
+        size: 15,
+        life: 1.15,
+      });
     }
 
     AudioFX.playHit(isCrit);

@@ -512,7 +512,7 @@ export class UIManager {
 
       mainHtml = `
         <div class="zx-scroll-pane">
-          <div style="font-size:13px;color:var(--bronze);letter-spacing:2px;margin-bottom:8px;">真气手搓绝学 & 轻功身法（↓+跃 滑铲 · 二段跳后 ↓+跃 流星踢）</div>
+          <div style="font-size:13px;color:var(--bronze);letter-spacing:1.5px;margin-bottom:8px;">真气武学（触屏一键 <b>RT 绝技</b> / 键盘 <b>O 键</b>：直按朔风 · 左右瞬影 · ↑升龙 · ↓太极，亦支持经典搓招）</div>
           <div class="zx-card-grid">
             ${this.buildSkillCardsHtml()}
           </div>
@@ -544,17 +544,17 @@ export class UIManager {
           <canvas id="full-castle-map-canvas" width="920" height="406"></canvas>
           <div class="zx-map-legend">
             <span><b style="color:#3b82f6;">■</b> 瓮城/正殿</span>
-            <span><b style="color:#ea580c;">■</b> 炼丹/铸剑</span>
-            <span><b style="color:#1d4ed8;">■</b> 寒潭水脉</span>
-            <span><b style="color:#0d9488;">■</b> 竖塔/书阁</span>
+            <span><b style="color:#ea580c;">■</b> 炼丹/熔窟</span>
+            <span><b style="color:#db2777;">■</b> 百戏鬼市</span>
+            <span><b style="color:#0d9488;">■</b> 竖塔/钟楼</span>
             <span><b style="color:#f59e0b;">■</b> 镇魂祠</span>
             <span><b style="color:#10b981;">■</b> 传送阵</span>
-            <span><b style="color:#a855f7;">■</b> 奇宝秘室</span>
-            <span><b style="color:#ef4444;">■</b> 妖王殿</span>
+            <span><b style="color:#fb923c;">▮</b> 未破重闸/紫障</span>
+            <span><b style="color:#fde047;">◆</b> 未取秘宝</span>
           </div>
         </div>
       `;
-      footerLeft = '月下式立体回环玄城 · 阳表 22 厅 + 180° 倒悬里城 22 厅';
+      footerLeft = '月下式立体回环玄城 · 阳表 31 厅 + 180° 倒悬里城 31 厅（七大妖王全收录）';
     } else if (this.pauseTab === 'bestiary') {
       mainHtml = this.buildBestiaryTabHtml();
       footerLeft = '镇妖司百鬼图鉴：记录妖邪抗性、斩讨数与妖丹掉落';
@@ -930,6 +930,54 @@ export class UIManager {
       };
       drawSideWallWithDoors('left');
       drawSideWallWithDoors('right');
+
+      // 《月下 / 空洞骑士》式堪舆图记忆标记：未破能力锁闸门、未解二段跳高崖、未拾取房间秘宝自动高亮提示！
+      if (rm.ironGate && !s.brokenSecretWalls.includes(rm.ironGate.id)) {
+        const isMist = rm.ironGate.gateKind === 'mist_only';
+        if (!(isMist && s.abilities.includes('mist_dash'))) {
+          const gx = rx + (rm.ironGate.x / Math.max(1, rm.pixelW)) * rw;
+          const gyCenter =
+            ry + (Math.min(rm.pixelH, rm.ironGate.bottomY - 60) / Math.max(1, rm.pixelH)) * rh;
+          const gh = detailed ? 11 : 6;
+          ctx.fillStyle = isMist ? '#c084fc' : '#fb923c';
+          ctx.fillRect(gx - (detailed ? 2 : 1.2), gyCenter - gh * 0.5, detailed ? 4 : 2.4, gh);
+        }
+      }
+
+      if (
+        !s.abilities.includes('double_jump') &&
+        rm.solidBlocks?.some((sb) => sb.blocking)
+      ) {
+        const blk = rm.solidBlocks.find((sb) => sb.blocking)!;
+        const bx = rx + (blk.x / Math.max(1, rm.pixelW)) * rw;
+        const by = ry + rh * 0.52;
+        ctx.strokeStyle = '#2dd4bf';
+        ctx.lineWidth = detailed ? 2 : 1.3;
+        ctx.beginPath();
+        ctx.moveTo(bx - 3, by + 2);
+        ctx.lineTo(bx, by - 2);
+        ctx.lineTo(bx + 3, by + 2);
+        ctx.stroke();
+      }
+
+      if (detailed) {
+        const hasUncollectedTreasure = rm.pickups.some(
+          (pk) =>
+            pk.kind !== 'consumable' && !s.collectedPickups.includes(pk.id)
+        );
+        if (hasUncollectedTreasure) {
+          const tx = rx + rw - 8;
+          const ty = ry + 8;
+          ctx.fillStyle = '#fde047';
+          ctx.beginPath();
+          ctx.moveTo(tx, ty - 4);
+          ctx.lineTo(tx + 3.5, ty);
+          ctx.lineTo(tx, ty + 4);
+          ctx.lineTo(tx - 3.5, ty);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
 
       if (detailed && rw >= 44) {
         ctx.font = 'bold 10px "STKaiti", "KaiTi", serif';

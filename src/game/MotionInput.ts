@@ -10,11 +10,11 @@ interface RawDirSample {
 }
 
 export interface VirtualButtonRect {
-  id: 'attack' | 'jump' | 'dash' | 'sub' | 'potion' | 'swap';
+  id: 'attack' | 'jump' | 'dash' | 'sub' | 'potion' | 'swap' | 'skill';
   shape: 'circle' | 'pill';
-  /** 主键单字（斩 / 跃 / 闪 / 符）或肩键名（L1 兵 / R1 药） */
+  /** 主键单字（斩 / 跃 / 闪 / 符）或肩键名（L1 换兵 / RT 绝技 / R1 灵药） */
   label: string;
-  /** 手柄键位微标（X / A / B / Y / L1 / R1） */
+  /** 手柄键位微标（X / A / B / Y / L1 / RT / R1） */
   padBadge: string;
   cx: number;
   cy: number;
@@ -39,6 +39,7 @@ export class InputController {
   public jumpHeld = false;
   private dashJustPressed = false;
   private subJustPressed = false;
+  private skillJustPressed = false;
   private interactJustPressed = false;
   private potionJustPressed = false;
   private weaponSwapJustPressed = false;
@@ -156,7 +157,7 @@ export class InputController {
         pressed: false,
       },
 
-      // 左右对称手柄肩键 (L1 换兵 / R1 灵药)
+      // 左右对称手柄肩键与扳机键 (L1 换兵 ⟷ RT 绝技 + R1 灵药)
       {
         id: 'swap',
         shape: 'pill',
@@ -171,14 +172,27 @@ export class InputController {
         pressed: false,
       },
       {
+        id: 'skill',
+        shape: 'pill',
+        label: '绝技',
+        padBadge: 'RT',
+        cx: rightX - Math.round(shoulderW * 0.58) - 4,
+        cy: shoulderY,
+        r: Math.round(shoulderH * 0.5),
+        w: Math.round(shoulderW * 0.96),
+        h: shoulderH,
+        accentColor: '#38bdf8',
+        pressed: false,
+      },
+      {
         id: 'potion',
         shape: 'pill',
         label: '灵药',
         padBadge: 'R1',
-        cx: rightX + 8,
+        cx: rightX + Math.round(shoulderW * 0.44) + 4,
         cy: shoulderY,
         r: Math.round(shoulderH * 0.5),
-        w: shoulderW,
+        w: Math.round(shoulderW * 0.96),
         h: shoulderH,
         accentColor: '#34d399',
         pressed: false,
@@ -196,6 +210,7 @@ export class InputController {
     this.jumpJustPressed = false;
     this.dashJustPressed = false;
     this.subJustPressed = false;
+    this.skillJustPressed = false;
     this.interactJustPressed = false;
     this.potionJustPressed = false;
     this.weaponSwapJustPressed = false;
@@ -269,6 +284,8 @@ export class InputController {
         this.dashJustPressed = true;
       } else if (code === 'KeyU' || code === 'KeyV') {
         this.subJustPressed = true;
+      } else if (code === 'KeyO' || code === 'KeyR') {
+        this.skillJustPressed = true;
       } else if (code === 'KeyE' || code === 'KeyF') {
         this.interactJustPressed = true;
       } else if (code === 'KeyH') {
@@ -460,6 +477,8 @@ export class InputController {
       this.dashJustPressed = true;
     } else if (id === 'sub' && down) {
       this.subJustPressed = true;
+    } else if (id === 'skill' && down) {
+      this.skillJustPressed = true;
     } else if (id === 'potion' && down) {
       this.potionJustPressed = true;
     } else if (id === 'swap' && down) {
@@ -510,7 +529,7 @@ export class InputController {
 
   public consumeMotionSkill(facing: 1 | -1): SkillId | null {
     const now = performance.now();
-    const recent = this.dirHistory.filter((s) => now - s.at <= 450);
+    const recent = this.dirHistory.filter((s) => now - s.at <= (this.usingTouch ? 620 : 450));
     if (recent.length < 2) return null;
 
     const toRel = (s: RawDirSample): DirToken => {
@@ -608,6 +627,12 @@ export class InputController {
   public consumeSubWeapon(): boolean {
     const v = this.subJustPressed;
     this.subJustPressed = false;
+    return v;
+  }
+
+  public consumeQuickSkill(): boolean {
+    const v = this.skillJustPressed;
+    this.skillJustPressed = false;
     return v;
   }
 
