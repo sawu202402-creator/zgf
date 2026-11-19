@@ -1,5 +1,10 @@
 import { WEAPONS } from '../data/itemsAndSkills';
-import { BuiltRoom, sampleGroundY, sampleSolidGroundY } from '../data/worldMap';
+import {
+  BuiltRoom,
+  getRoomSideDoors,
+  sampleGroundY,
+  sampleSolidGroundY,
+} from '../data/worldMap';
 import { Assets } from './AssetLoader';
 import {
   drawHeroCharacter,
@@ -487,6 +492,66 @@ export class InkVaniaRenderer {
       }
     }
 
+    // 2B-2. 独立隐藏密室封门古壁（未击碎时呈手绘青石封门与暗金裂隙；击碎后洞开幽邃拱门直通独立密室！）
+    if (engine.slot) {
+      const slabImg = Assets.get('env_ground_slab');
+      for (const sd of getRoomSideDoors(room)) {
+        if (!sd.secretWallId) continue;
+        const isBroken = engine.slot.brokenSecretWalls.includes(sd.secretWallId);
+        const wx = sd.side === 'left' ? 0 : room.pixelW - 38;
+        const wy = sd.floorY - 118;
+        const ww = 38;
+        const wh = 120;
+
+        ctx.save();
+        if (!isBroken) {
+          if (slabImg) {
+            ctx.drawImage(slabImg, 8, 22, 56, 92, wx, wy, ww, wh);
+          } else {
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(wx, wy, ww, wh);
+          }
+          // 封门石缝暗影与呼吸微光金丝裂纹
+          const shimmer = 0.42 + 0.24 * Math.sin(this.ambientTime * 3.2 + sd.floorY);
+          ctx.strokeStyle = `rgba(253, 224, 71, ${shimmer})`;
+          ctx.lineWidth = 1.6;
+          ctx.beginPath();
+          const cx = wx + ww * 0.5;
+          ctx.moveTo(cx - 5, wy + 22);
+          ctx.lineTo(cx + 4, wy + 52);
+          ctx.lineTo(cx - 4, wy + 84);
+          ctx.lineTo(cx + 3, wy + 108);
+          ctx.moveTo(cx + 4, wy + 52);
+          ctx.lineTo(cx + (sd.side === 'left' ? 11 : -11), wy + 68);
+          ctx.stroke();
+        } else {
+          // 已破壁洞开的幽邃石拱门洞 + 微光引导气韵
+          const portalG = ctx.createLinearGradient(
+            sd.side === 'left' ? 0 : room.pixelW,
+            0,
+            sd.side === 'left' ? 48 : room.pixelW - 48,
+            0
+          );
+          portalG.addColorStop(0, 'rgba(4, 6, 14, 0.94)');
+          portalG.addColorStop(0.7, 'rgba(15, 23, 42, 0.55)');
+          portalG.addColorStop(1, 'rgba(15, 23, 42, 0)');
+          ctx.fillStyle = portalG;
+          ctx.beginPath();
+          ctx.moveTo(wx, sd.floorY + 2);
+          ctx.lineTo(wx, wy + 28);
+          ctx.quadraticCurveTo(wx + ww * 0.5, wy - 4, wx + ww, wy + 28);
+          ctx.lineTo(wx + ww, sd.floorY + 2);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.strokeStyle = 'rgba(207, 163, 73, 0.52)';
+          ctx.lineWidth = 1.8;
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+    }
+
     // 2C. 凌霄祭天坛【乾坤倒悬裂隙】（通往 180° 九幽倒悬里城！）
     if (
       room.id === 'sky_altar' &&
@@ -835,6 +900,39 @@ export class InkVaniaRenderer {
       ctx.fillText('✦ 真阳贯顶 · 武道破境 ✦', p.x, p.y - 102 - (1.45 - engine.levelUpPillarTimer) * 28);
       ctx.restore();
     }
+
+    // 3. 战术灵酒丹药护体真炁光晕（烧刀子赤焰 / 少林金钟虚影 / 凌波青风环）
+    const bf = engine.activeBuffs;
+    if (bf.berserk_wine > 0 || bf.iron_skin > 0 || bf.wind_crit > 0) {
+      ctx.save();
+      ctx.translate(p.x, p.y - 38);
+      ctx.globalCompositeOperation = 'lighter';
+      if (bf.iron_skin > 0) {
+        ctx.strokeStyle = `rgba(253, 224, 71, ${0.28 + Math.sin(this.ambientTime * 6) * 0.08})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(0, 2, 26, 42, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      if (bf.berserk_wine > 0) {
+        ctx.fillStyle = 'rgba(251, 146, 60, 0.55)';
+        for (let i = 0; i < 3; i++) {
+          const a = this.ambientTime * 4.5 + i * 2.1;
+          ctx.beginPath();
+          ctx.arc(Math.cos(a) * 20, 12 - ((this.ambientTime * 28 + i * 16) % 48), 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      if (bf.wind_crit > 0) {
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.42)';
+        ctx.lineWidth = 1.6;
+        const rot = this.ambientTime * 7;
+        ctx.beginPath();
+        ctx.arc(0, 34, 24, rot, rot + 1.8);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
   }
 
   private renderActiveSlashRibbon(ctx: CanvasRenderingContext2D, engine: GameEngine): void {
@@ -978,7 +1076,7 @@ export class InkVaniaRenderer {
       ctx.fill();
       ctx.restore();
     } else {
-      // 轻剑：三式水墨翡翠弯月剑气绸带！
+      // 轻剑：三式水墨翡翠弯月剑气绸带（若佩青莲千影剑则绽放三道真空残影剑网！）
       const p = sl.progress;
       const flip = sl.comboStep === 2;
       const radius = sl.comboStep === 0 ? sl.reachX * 1.02 : sl.reachX * 0.88;
@@ -997,6 +1095,35 @@ export class InkVaniaRenderer {
         sl.glowColor || '#2dd4bf',
         1 - p * 0.5
       );
+      const eqW = engine.slot ? WEAPONS[engine.slot.equippedWeapon] : undefined;
+      if (eqW?.specialEffect === 'multi_phantom') {
+        drawInkSlashRibbon(
+          ctx,
+          sl.x + sl.facing * 24,
+          sl.y - 10,
+          sl.facing,
+          !flip,
+          radius * 0.94,
+          16,
+          sAng - 0.25,
+          eAng - 0.15,
+          '#fef08a',
+          (1 - p * 0.45) * 0.82
+        );
+        drawInkSlashRibbon(
+          ctx,
+          sl.x + sl.facing * 18,
+          sl.y + 10,
+          sl.facing,
+          flip,
+          radius * 0.88,
+          15,
+          sAng + 0.22,
+          eAng + 0.2,
+          '#a7f3d0',
+          (1 - p * 0.45) * 0.78
+        );
+      }
     }
   }
 

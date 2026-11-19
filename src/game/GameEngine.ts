@@ -18,6 +18,7 @@ import {
   sampleEntitySurfaceY,
   sampleGroundY,
   sampleSolidGroundY,
+  SideDoor,
   WorldMap,
 } from '../data/worldMap';
 import { getClockGearOrbitPlatforms } from './GuofengWorldArt';
@@ -26,6 +27,7 @@ import { NativeApp } from '../platform/NativeAppBridge';
 import {
   AbilityKey,
   CastleRealm,
+  CombatBuffKind,
   EnemyKind,
   SaveSlotData,
   SkillId,
@@ -112,6 +114,11 @@ export interface EnemyEntity {
   bossMoveIdx: number;
   slashHitPlayer: boolean;
   enragedTriggered?: boolean;
+  chillTimer?: number;
+  dotTimer?: number;
+  dotTickTimer?: number;
+  dotDmg?: number;
+  dotColor?: string;
 }
 
 export interface WorldDrop {
@@ -284,6 +291,11 @@ export class GameEngine {
 
   public activeSlash: ActiveSlash | null = null;
   public activeSkillAnim: ActiveSkillAnim | null = null;
+  public activeBuffs: Record<CombatBuffKind, number> = {
+    berserk_wine: 0,
+    iron_skin: 0,
+    wind_crit: 0,
+  };
   private slashHitIds = new Set<number>();
   private kickHitIds = new Set<number>();
   public skillBanner: { name: string; timer: number; color: string } | null = null;
@@ -328,6 +340,8 @@ export class GameEngine {
     this.slot = slot;
     this.paused = false;
     this.bossRushWave = 0;
+    this.activeBuffs = { berserk_wine: 0, iron_skin: 0, wind_crit: 0 };
+    if (!slot.discoveredDrops) slot.discoveredDrops = [];
     this.recalcStats(true);
 
     if (slot.mode === 'boss_rush') {
@@ -386,9 +400,13 @@ export class GameEngine {
     const maxHp = 95 + lv * 16 + s.maxHpBonus + armor.hpBonus + acc.hpBonus;
     const maxMp = 60 + lv * 9 + s.maxMpBonus + armor.mpBonus + acc.mpBonus;
     const temperBonus = (s.weaponTemperLv?.[wId] || 0) * 6;
-    let atk = Math.round((weapon.atk + temperBonus + str * 1.55) * (1 + (core?.atkPct || 0)));
+    const wineMult = this.activeBuffs.berserk_wine > 0 ? 1.28 : 1;
+    let atk = Math.round(
+      (weapon.atk + temperBonus + str * 1.55) * (1 + (core?.atkPct || 0)) * wineMult
+    );
     if (s.mode === 'xiaoduanshui') atk = Math.round(atk * 1.2);
-    const def = 3 + Math.floor(lv * 1.2) + armor.def + acc.def;
+    const rawDef = 3 + Math.floor(lv * 1.2) + armor.def + acc.def;
+    const def = Math.round(rawDef * (1 + (core?.defPct || 0)));
 
     return { maxHp, maxMp, atk, def, str, con, int: intStat, lck };
   }
@@ -398,6 +416,8 @@ export class GameEngine {
     if (!s) return;
 
     const weapon = WEAPONS[s.equippedWeapon] || WEAPONS.sword_1;
+    const armor = ARMORS[s.equippedArmor] || ARMORS.cloth_tunic;
+    const acc = ARMORS[s.equippedAccessory] || ARMORS.broken_jade;
     const core = s.equippedYaoCore ? YAO_CORES[s.equippedYaoCore] : undefined;
     const st = this.computePreviewStats();
 
@@ -409,9 +429,11 @@ export class GameEngine {
     this.player.maxMp = st.maxMp;
     this.player.atk = st.atk;
     this.player.def = st.def;
+    const windCrit = this.activeBuffs.wind_crit > 0 ? 0.2 : 0;
+    const windSpd = this.activeBuffs.wind_crit > 0 ? 0.14 : 0;
     this.player.critChance = Math.min(
-      0.75,
-      0.06 + weapon.critBonus + st.lck * 0.004 + (core?.critPct || 0)
+      0.85,
+      0.06 + weapon.critBonus + st.lck * 0.004 + (core?.critPct || 0) + windCrit
     );
     const baseSpd =
       weapon.archetype === 'greatsword'
@@ -421,8 +443,17 @@ export class GameEngine {
           : s.mode === 'xiaoduanshui'
             ? 1.16
             : 1.04;
-    this.player.speedMult = baseSpd + (core?.speedPct || 0);
-    this.player.lifesteal = core?.lifestealRatio || 0;
+    this.player.speedMult =
+      baseSpd +
+      (core?.speedPct || 0) +
+      (armor.speedBonus || 0) +
+      (acc.speedBonus || 0) +
+      windSpd;
+    this.player.lifesteal =
+      (core?.lifestealRatio || 0) +
+      (weapon.lifestealBonus || 0) +
+      (armor.lifestealBonus || 0) +
+      (acc.lifestealBonus || 0);
 
     if (fullRestore) {
       this.player.hp = st.maxHp;
@@ -455,6 +486,11 @@ export class GameEngine {
     } else {
       AudioFX.setMood('castle');
     }
+  }
+
+  public isSideDoorOpen(d: SideDoor): boolean {
+    if (!d.secretWallId) return true;
+    return Boolean(this.slot?.brokenSecretWalls.includes(d.secretWallId));
   }
 
   public isBossClearedInRoom(room: BuiltRoom): boolean {
@@ -578,11 +614,18 @@ export class GameEngine {
       }
     }
 
-    // 仅在踏入全新大区域或特殊密室时弹出区域横幅（零赘字副标题，保持恶魔城丝滑留白体验！）
-    if (prevRegion !== nextRoom.region || nextRoom.special === 'boss_room') {
+    // 仅在踏入全新大区域、首领殿或独立隐藏密室时弹出区域横幅（零赘字副标题，保持恶魔城丝滑留白体验！）
+    if (
+      prevRegion !== nextRoom.region ||
+      nextRoom.special === 'boss_room' ||
+      nextRoom.isSecretRoom
+    ) {
       if (visitKey !== this.lastVisitedRegion) {
         this.lastVisitedRegion = visitKey;
-        this.cb.onShowBanner(nextRoom.name, '');
+        this.cb.onShowBanner(
+          nextRoom.name,
+          nextRoom.isSecretRoom ? '独立破壁密室 · 洞天秘藏' : ''
+        );
       }
     }
 
@@ -621,42 +664,50 @@ export class GameEngine {
   }
 
   /**
-   * 六阶循序渐进区域难度曲线：
-   * 第一阶（瓮城古桥）平易近人供熟悉身法；随深入正殿 ➔ 寒潭藏书阁 ➔ 梨园赤火窖 ➔ 观星阁钟楼祭天坛 ➔ 180°倒悬里城层层递进！
+   * 六阶平滑渐进区域难度曲线（彻底消除中后期小怪两刀秒杀与倒悬城断崖式数值膨胀！）：
+   * 瓮城古桥(0.92x) ➔ 正殿/炼丹阶梯(1.12x) ➔ 水牢/藏书阁/外壁竖塔(1.26~1.32x) ➔ 熔窟/百戏勾栏/白骨冥廊(1.42x) ➔ 钟鼓天阙/飞虹桥/祭天坛(1.54x) ➔ 180°倒悬里城(×1.45 HP / ×1.26 ATK)！
    */
   private getRoomDifficultyScale(room: BuiltRoom): { hpMult: number; atkMult: number; spdMult: number } {
     let hpMult = 1.0;
-    let atkMult = 1.0;
-    let spdMult = 1.0;
+    let atkMult = 0.92;
+    let spdMult = 0.98;
 
-    if (room.id === 'east_outer_tower' || room.region === 'clock_tower' || room.region === 'altar') {
-      hpMult = 2.35;
-      atkMult = 1.88;
-      spdMult = 1.2;
+    if (room.id === 'east_outer_tower' || room.id === 'east_warp') {
+      hpMult = 1.52;
+      atkMult = 1.32;
+      spdMult = 1.08;
+    } else if (room.region === 'clock_tower' || room.region === 'altar') {
+      hpMult = 1.88;
+      atkMult = 1.54;
+      spdMult = 1.13;
+    } else if (room.id === 'catacomb_hall' || room.id === 'catacomb_shrine' || room.isSecretRoom) {
+      hpMult = 1.62;
+      atkMult = 1.38;
+      spdMult = 1.09;
     } else if (room.region === 'opera' || room.region === 'forge') {
-      if (room.id === 'alchemy_lab') {
-        hpMult = 1.32;
-        atkMult = 1.24;
-        spdMult = 1.06;
+      if (room.id === 'alchemy_lab' || room.id === 'west_armory') {
+        hpMult = 1.22;
+        atkMult = 1.12;
+        spdMult = 1.03;
       } else {
-        hpMult = 1.95;
-        atkMult = 1.65;
-        spdMult = 1.15;
+        hpMult = 1.68;
+        atkMult = 1.42;
+        spdMult = 1.1;
       }
     } else if (room.region === 'prison' || room.region === 'library') {
-      hpMult = 1.62;
-      atkMult = 1.44;
-      spdMult = 1.1;
-    } else if (room.region === 'main_hall' || room.id === 'west_armory_secret') {
-      hpMult = 1.3;
-      atkMult = 1.22;
-      spdMult = 1.05;
+      hpMult = 1.44;
+      atkMult = 1.26;
+      spdMult = 1.06;
+    } else if (room.region === 'main_hall') {
+      hpMult = 1.22;
+      atkMult = 1.12;
+      spdMult = 1.03;
     }
 
     if (room.realm === 'inverted') {
-      hpMult *= 1.68;
-      atkMult *= 1.38;
-      spdMult *= 1.1;
+      hpMult *= 1.45;
+      atkMult *= 1.26;
+      spdMult *= 1.08;
     }
 
     return { hpMult, atkMult, spdMult };
@@ -668,7 +719,7 @@ export class GameEngine {
       this.room && !baseProf.isBoss
         ? this.getRoomDifficultyScale(this.room)
         : this.room?.realm === 'inverted' && baseProf.kind !== 'boss_zhuyin'
-          ? { hpMult: 1.55, atkMult: 1.35, spdMult: 1.12 }
+          ? { hpMult: 1.42, atkMult: 1.24, spdMult: 1.08 }
           : { hpMult: 1, atkMult: 1, spdMult: 1 };
 
     const scaledHp = Math.round(baseProf.hp * scale.hpMult);
@@ -769,6 +820,18 @@ export class GameEngine {
       if (this.activeSkillAnim.progress >= 1) {
         this.activeSkillAnim = null;
       }
+    }
+
+    // 战术丹酒增益倒计时（烈酒增攻 / 金刚减伤 / 疾风暴击，到期自动刷新武道面板！）
+    let buffExpired = false;
+    for (const bk of ['berserk_wine', 'iron_skin', 'wind_crit'] as CombatBuffKind[]) {
+      if (this.activeBuffs[bk] > 0) {
+        this.activeBuffs[bk] = Math.max(0, this.activeBuffs[bk] - dt);
+        if (this.activeBuffs[bk] <= 0) buffExpired = true;
+      }
+    }
+    if (buffExpired) {
+      this.recalcStats(false);
     }
 
     if (this.hitstopTimer > 0) {
@@ -1069,7 +1132,12 @@ export class GameEngine {
     } else if (p.crouching) {
       p.vx *= Math.pow(0.0005, dt);
       if (inp.moveX !== 0 && !this.activeSlash) p.facing = Math.sign(inp.moveX) as 1 | -1;
-    } else if (this.activeSlash && p.onGround && this.activeSlash.progress < 0.42) {
+    } else if (
+      this.activeSlash &&
+      p.onGround &&
+      this.activeSlash.progress < 0.42 &&
+      WEAPONS[this.slot!.equippedWeapon]?.specialEffect !== 'multi_phantom'
+    ) {
       p.vx *= 0.88;
     } else {
       if (inp.moveX !== 0) {
@@ -1139,15 +1207,32 @@ export class GameEngine {
     if (fam.calloutTimer > 0) fam.calloutTimer -= dt;
     if (fam.cooldown > 0) fam.cooldown -= dt;
 
-    // 靠近未击碎的暗裂砖墙时，剑灵无字星芒闪耀提示（0文字干扰！）
-    if (this.room.secretWalls && fam.calloutTimer <= 0) {
-      for (const sw of this.room.secretWalls) {
-        if (this.slot.brokenSecretWalls.includes(sw.id)) continue;
-        if (Math.hypot(sw.x - p.x, sw.y + sw.h * 0.5 - (p.y - 36)) < 165) {
-          fam.calloutText = '';
-          fam.calloutTimer = 2.6;
-          this.spawnInkBurst(sw.x + sw.w * 0.5, sw.y + sw.h * 0.5, '#38bdf8', '#fde047', 6);
-          break;
+    // 靠近未击碎的暗裂砖墙或独立隐藏密室封门古壁时，剑灵星芒闪耀指引！
+    if (fam.calloutTimer <= 0) {
+      let hinted = false;
+      if (this.room.secretWalls) {
+        for (const sw of this.room.secretWalls) {
+          if (this.slot.brokenSecretWalls.includes(sw.id)) continue;
+          if (Math.hypot(sw.x - p.x, sw.y + sw.h * 0.5 - (p.y - 36)) < 165) {
+            fam.calloutText = '';
+            fam.calloutTimer = 2.6;
+            this.spawnInkBurst(sw.x + sw.w * 0.5, sw.y + sw.h * 0.5, '#38bdf8', '#fde047', 6);
+            hinted = true;
+            break;
+          }
+        }
+      }
+      if (!hinted) {
+        for (const sd of getRoomSideDoors(this.room)) {
+          if (!sd.secretWallId || this.slot.brokenSecretWalls.includes(sd.secretWallId)) continue;
+          const dx = sd.side === 'left' ? 20 : this.room.pixelW - 20;
+          const dy = sd.floorY - 56;
+          if (Math.hypot(dx - p.x, dy - (p.y - 36)) < 195) {
+            fam.calloutText = '';
+            fam.calloutTimer = 2.6;
+            this.spawnInkBurst(dx, dy, '#38bdf8', '#fde047', 8);
+            break;
+          }
         }
       }
     }
@@ -1829,6 +1914,48 @@ export class GameEngine {
         }
       }
     }
+
+    // 3. 恶魔城月下精髓【破壁洞开独立隐藏密室】：挥兵击碎封门古壁 3 次（重刃 1 刀），永久开启通往独立密室的暗门！
+    for (const sd of getRoomSideDoors(this.room)) {
+      if (!sd.secretWallId || this.slot.brokenSecretWalls.includes(sd.secretWallId)) continue;
+      const wx = sd.side === 'left' ? 0 : this.room.pixelW - 46;
+      const wy = sd.floorY - 124;
+      const ww = 46;
+      const wh = 128;
+      const doorTag =
+        (sd.side === 'left' ? -3100 : -3600) - Math.round(sd.floorY * 0.1);
+      if (hitTag !== 0 && this.slashHitIds.has(doorTag)) continue;
+      if (wx + ww >= bx && wx <= bx + bw && wy + wh >= by && wy <= by + bh) {
+        if (hitTag !== 0) this.slashHitIds.add(doorTag);
+        const prev = this.secretWallHits.get(sd.secretWallId) || 0;
+        const next = prev + (isHeavyHit ? 3 : 1);
+        this.secretWallHits.set(sd.secretWallId, next);
+        AudioFX.playParryClang();
+        const fxX = sd.side === 'left' ? 24 : this.room.pixelW - 24;
+        const fxY = sd.floorY - 58;
+        this.spawnInkBurst(fxX, fxY, '#fde047', '#334155', 16);
+        this.screenShake = Math.max(this.screenShake, 5.5);
+
+        if (next >= 3) {
+          this.slot.brokenSecretWalls.push(sd.secretWallId);
+          AudioFX.playRelicBell();
+          this.screenShake = 10;
+          NativeApp.haptic('heavy');
+          this.spawnInkBurst(fxX, fxY, '#fb923c', '#0f172a', 32);
+          this.cb.onShowBanner('暗壁洞开 · 隐秘洞天现世', '古墙后竟藏有一座独立秘室，步入即可探索！');
+        } else {
+          this.floats.push({
+            x: fxX,
+            y: sd.floorY - 96,
+            vy: -28,
+            text: `封门暗壁松动 (${next}/3)`,
+            color: '#fde047',
+            size: 12.5,
+            life: 0.85,
+          });
+        }
+      }
+    }
   }
 
   private updateActiveSlash(dt: number): void {
@@ -2033,15 +2160,99 @@ export class GameEngine {
             }
           }
 
-          // 以战养气：近战挥砍命中敌人恢复真气！
-          p.mp = Math.min(p.maxMp, p.mp + 4.5);
+          // 以战养气：近战挥砍命中敌人恢复真气（叠加衣甲与天罡聚气扳指加成！）
+          const eqArm = ARMORS[this.slot.equippedArmor] || ARMORS.cloth_tunic;
+          const eqAcc = ARMORS[this.slot.equippedAccessory] || ARMORS.broken_jade;
+          const eqCore = this.slot.equippedYaoCore ? YAO_CORES[this.slot.equippedYaoCore] : undefined;
+          const mpGain = 4.5 + (eqArm.mpOnHitBonus || 0) + (eqAcc.mpOnHitBonus || 0);
+          p.mp = Math.min(p.maxMp, p.mp + mpGain);
 
-          this.applyDamageToEnemy(
-            e,
-            Math.round(this.player.atk * dmgMult),
-            forceCrit,
-            wDef.poiseDmg
-          );
+          const baseHitDmg = Math.round(this.player.atk * dmgMult);
+          this.applyDamageToEnemy(e, baseHitDmg, forceCrit, wDef.poiseDmg);
+
+          // 神兵专属词条异象触发（霜冻迟缓 / 火毒灼烧 / 千影多段剑气 / 紫电链锁奔雷！）
+          if (e.hp > 0) {
+            if (wDef.specialEffect === 'frost_slow') {
+              const wasChilled = (e.chillTimer || 0) > 0.2;
+              e.chillTimer = 2.8;
+              this.spawnInkBurst(e.x, e.y - e.profile.h * 0.5, '#38bdf8', '#e0f2fe', 8);
+              if (!wasChilled) {
+                this.floats.push({
+                  x: e.x,
+                  y: e.y - e.profile.h - 20,
+                  vy: -26,
+                  text: '寒魄迟缓',
+                  color: '#7dd3fc',
+                  size: 11.5,
+                  life: 0.7,
+                });
+              }
+            }
+            if (wDef.specialEffect === 'burn_dot' || eqCore?.poisonOnHit) {
+              const isPoison = wDef.id === 'daggers_poison' || (!wDef.specialEffect && Boolean(eqCore?.poisonOnHit));
+              e.dotTimer = 3.2;
+              if ((e.dotTickTimer || 0) <= 0) e.dotTickTimer = 0.48;
+              e.dotDmg = Math.max(4, Math.round(this.player.atk * 0.22));
+              e.dotColor = isPoison ? '#4ade80' : '#fb923c';
+            }
+          }
+
+          if (wDef.specialEffect === 'multi_phantom' && e.hp > 0) {
+            const echoDmg = Math.max(3, Math.round(baseHitDmg * 0.32));
+            for (let ph = 0; ph < 2; ph++) {
+              if (e.hp <= 0) break;
+              this.slashImpacts.push({
+                x: e.x + (ph === 0 ? -14 : 14),
+                y: e.y - e.profile.h * (0.42 + ph * 0.24),
+                angle: (ph === 0 ? -0.55 : 0.52) * sl.facing,
+                length: 56,
+                thickness: 4.5,
+                color: wDef.glowColor,
+                ringRadius: 24,
+                life: 0.16 + ph * 0.05,
+                maxLife: 0.21,
+              });
+              this.applyDamageToEnemy(e, echoDmg, false, 6);
+            }
+          } else if (wDef.specialEffect === 'chain_lightning') {
+            let chainTarget: EnemyEntity | null = null;
+            let bestDist = 230;
+            for (const other of this.enemies) {
+              if (other.id === e.id || other.hp <= 0) continue;
+              const d = Math.hypot(other.x - e.x, other.y - e.y);
+              if (d < bestDist) {
+                bestDist = d;
+                chainTarget = other;
+              }
+            }
+            if (chainTarget) {
+              const arcAngle = Math.atan2(chainTarget.y - e.y, chainTarget.x - e.x);
+              this.slashImpacts.push({
+                x: (e.x + chainTarget.x) * 0.5,
+                y: (e.y + chainTarget.y) * 0.5 - 32,
+                angle: arcAngle,
+                length: Math.max(48, bestDist * 0.85),
+                thickness: 5.5,
+                color: '#fde047',
+                ringRadius: 32,
+                life: 0.22,
+                maxLife: 0.22,
+              });
+              this.spawnInkBurst(
+                chainTarget.x,
+                chainTarget.y - chainTarget.profile.h * 0.55,
+                '#c084fc',
+                '#fde047',
+                12
+              );
+              this.applyDamageToEnemy(
+                chainTarget,
+                Math.max(6, Math.round(this.player.atk * 0.62)),
+                false,
+                16
+              );
+            }
+          }
 
           if (sl.pogoDown) {
             p.vy = -525;
@@ -2250,18 +2461,49 @@ export class GameEngine {
   }
 
   // ==================== 真实多状态前摇博弈 AI（彻底告别傻瓜式平移吐圆球！） ====================
-  private updateEnemies(dt: number): void {
+  private updateEnemies(rawEnemyDt: number): void {
     const p = this.player;
     const room = this.room;
     if (!room) return;
 
     for (const e of [...this.enemies]) {
-      if (e.hurtFlash > 0) e.hurtFlash -= dt;
+      if (e.hurtFlash > 0) e.hurtFlash -= rawEnemyDt;
       if (e.hpTrail > e.hp) {
-        e.hpTrail = Math.max(e.hp, e.hpTrail - 85 * dt);
+        e.hpTrail = Math.max(e.hp, e.hpTrail - 85 * rawEnemyDt);
       } else {
         e.hpTrail = e.hp;
       }
+
+      if (e.chillTimer && e.chillTimer > 0) {
+        e.chillTimer = Math.max(0, e.chillTimer - rawEnemyDt);
+      }
+
+      if (e.dotTimer && e.dotTimer > 0) {
+        e.dotTimer = Math.max(0, e.dotTimer - rawEnemyDt);
+        e.dotTickTimer = (e.dotTickTimer || 0.5) - rawEnemyDt;
+        if (e.dotTickTimer <= 0) {
+          e.dotTickTimer = 0.5;
+          const tickDmg = Math.max(2, e.dotDmg || 5);
+          e.hp -= tickDmg;
+          const dCol = e.dotColor || '#fb923c';
+          this.spawnInkBurst(e.x, e.y - e.profile.h * 0.5, dCol, '#090d16', 5);
+          this.floats.push({
+            x: e.x + (Math.random() - 0.5) * 14,
+            y: e.y - e.profile.h - 8,
+            vy: -30,
+            text: `${tickDmg}`,
+            color: dCol,
+            size: 11.5,
+            life: 0.52,
+          });
+          if (e.hp <= 0) {
+            this.handleEnemyKilled(e);
+            continue;
+          }
+        }
+      }
+
+      const dt = e.chillTimer && e.chillTimer > 0 ? rawEnemyDt * 0.56 : rawEnemyDt;
 
       const dx = p.x - e.x;
       const absDx = Math.abs(dx);
@@ -2608,9 +2850,11 @@ export class GameEngine {
     poiseDmg: number
   ): void {
     if (!this.slot) return;
+    const wCur = WEAPONS[this.slot.equippedWeapon] || WEAPONS.sword_1;
     const isCrit = forceCrit || Math.random() < this.player.critChance;
     const critMult = isCrit ? 1.55 : 1;
-    const finalDmg = Math.max(1, Math.round(rawDmg * critMult - e.profile.def * 0.4));
+    const effDef = wCur.specialEffect === 'armor_sunder' ? e.profile.def * 0.12 : e.profile.def;
+    const finalDmg = Math.max(1, Math.round(rawDmg * critMult - effDef * 0.4));
 
     e.hp -= finalDmg;
     e.hurtFlash = 0.14;
@@ -2657,7 +2901,6 @@ export class GameEngine {
 
     AudioFX.playHit(isCrit);
     this.hitstopTimer = isCrit ? 0.042 : 0.022;
-    const wCur = WEAPONS[this.slot.equippedWeapon] || WEAPONS.sword_1;
     const hitAngle =
       (this.player.comboStep === 2 ? -0.62 : this.player.comboStep === 1 ? 0.48 : 0.08) *
         this.player.facing +
@@ -2791,8 +3034,11 @@ export class GameEngine {
       label: '银两',
     });
 
+    const accDropMult = ARMORS[s.equippedAccessory]?.dropRateMult || 1;
+    const dropLuckMult = (1 + this.player.lck * 0.022) * accDropMult;
+
     const coreId = e.profile.yaoCoreId;
-    const dropRate = (e.profile.yaoDropChance || 0.22) + this.player.lck * 0.008;
+    const dropRate = ((e.profile.yaoDropChance || 0.22) + this.player.lck * 0.008) * accDropMult;
     if (coreId && !s.ownedYaoCores.includes(coreId) && Math.random() < dropRate) {
       this.drops.push({
         id: `core_${this.nextEntityId++}`,
@@ -2806,6 +3052,70 @@ export class GameEngine {
         color: '#c084fc',
         label: YAO_CORES[coreId].name,
       });
+    }
+
+    // 恶魔城《月下夜想曲》经典双层战利品表：每种妖邪皆有【常掉物 + 稀世神兵/宝甲/秘药】，受福缘与摸金天师符翻倍加成！
+    if (!s.discoveredDrops) s.discoveredDrops = [];
+    const canDropEntry = (kind: 'consumable' | 'weapon' | 'armor', id: string) => {
+      if (kind === 'weapon') return !s.ownedWeapons.includes(id);
+      if (kind === 'armor') return !s.ownedArmors.includes(id);
+      return true;
+    };
+
+    let spawnedLoot: { tier: 'rare' | 'common'; kind: 'consumable' | 'weapon' | 'armor'; itemId: string } | null = null;
+    if (
+      e.profile.rareDrop &&
+      canDropEntry(e.profile.rareDrop.kind, e.profile.rareDrop.itemId) &&
+      Math.random() < e.profile.rareDrop.chance * dropLuckMult
+    ) {
+      spawnedLoot = {
+        tier: 'rare',
+        kind: e.profile.rareDrop.kind,
+        itemId: e.profile.rareDrop.itemId,
+      };
+    } else if (
+      e.profile.commonDrop &&
+      canDropEntry(e.profile.commonDrop.kind, e.profile.commonDrop.itemId) &&
+      Math.random() < e.profile.commonDrop.chance * dropLuckMult
+    ) {
+      spawnedLoot = {
+        tier: 'common',
+        kind: e.profile.commonDrop.kind,
+        itemId: e.profile.commonDrop.itemId,
+      };
+    }
+
+    if (spawnedLoot) {
+      const discKey = `${e.profile.kind}:${spawnedLoot.tier}`;
+      if (!s.discoveredDrops.includes(discKey)) {
+        s.discoveredDrops.push(discKey);
+      }
+      const isRare = spawnedLoot.tier === 'rare';
+      this.drops.push({
+        id: `loot_${this.nextEntityId++}`,
+        isStaticPickup: false,
+        kind: spawnedLoot.kind,
+        itemId: spawnedLoot.itemId,
+        amount: 1,
+        x: e.x - 16,
+        y: e.y - 16,
+        vy: isRare ? -295 : -245,
+        color: isRare ? '#f472b6' : '#4ade80',
+        label: this.getPickupLabel(spawnedLoot.kind, spawnedLoot.itemId),
+      });
+      if (isRare) {
+        AudioFX.playRelicBell();
+        this.spawnInkBurst(e.x - 16, e.y - 24, '#fde047', '#f472b6', 18);
+        this.floats.push({
+          x: e.x,
+          y: e.y - e.profile.h - 24,
+          vy: -36,
+          text: '✦ 稀世掉宝！✦',
+          color: '#fde047',
+          size: 15,
+          life: 1.05,
+        });
+      }
     }
 
     if (!e.profile.isBoss) return;
@@ -2902,7 +3212,8 @@ export class GameEngine {
 
   private damagePlayer(rawAtk: number, knockDir: 1 | -1): void {
     const p = this.player;
-    const dmg = Math.max(3, Math.round(rawAtk - p.def * 0.55));
+    const skinMult = this.activeBuffs.iron_skin > 0 ? 0.62 : 1;
+    const dmg = Math.max(3, Math.round((rawAtk - p.def * 0.55) * skinMult));
     p.hp = Math.max(0, p.hp - dmg);
     p.invulnTimer = 0.85;
     p.hurtBlinkTimer = 0.85;
@@ -3079,7 +3390,29 @@ export class GameEngine {
   public useQuickHealPotion(): void {
     const s = this.slot;
     if (!s) return;
-    for (const id of ['jinchuang_yao', 'beggar_chicken', 'osmanthus_wine', 'huiqi_dan']) {
+    const needHeal = this.player.hp < this.player.maxHp * 0.85;
+    const priority = needHeal
+      ? [
+          'jinchuang_yao',
+          'beggar_chicken',
+          'jingang_dan',
+          'osmanthus_wine',
+          'jiuzhuan_jin_dan',
+          'tiger_bone_wine',
+          'shenxing_san',
+          'huiqi_dan',
+        ]
+      : [
+          'tiger_bone_wine',
+          'shenxing_san',
+          'jingang_dan',
+          'huiqi_dan',
+          'osmanthus_wine',
+          'jinchuang_yao',
+          'beggar_chicken',
+          'jiuzhuan_jin_dan',
+        ];
+    for (const id of priority) {
       if ((s.consumables[id] || 0) > 0) {
         this.useConsumable(id);
         return;
@@ -3101,18 +3434,49 @@ export class GameEngine {
     const def = CONSUMABLES[id];
     if (!s || !def || (s.consumables[id] || 0) <= 0) return false;
     s.consumables[id]--;
-    this.player.hp = Math.min(this.player.maxHp, this.player.hp + def.hpRestore);
-    this.player.mp = Math.min(this.player.maxMp, this.player.mp + def.mpRestore);
+
+    if (def.fullRestore) {
+      this.player.hp = this.player.maxHp;
+      this.player.hpTrail = this.player.maxHp;
+      this.player.mp = this.player.maxMp;
+    } else {
+      this.player.hp = Math.min(this.player.maxHp, this.player.hp + def.hpRestore);
+      this.player.mp = Math.min(this.player.maxMp, this.player.mp + def.mpRestore);
+    }
+
+    let floatTxt = def.fullRestore
+      ? `${def.name} · 气血真气全满！`
+      : def.hpRestore > 0
+        ? `${def.name} +${def.hpRestore}`
+        : `${def.name} 真气+${def.mpRestore}`;
+    let burstCol = '#4ade80';
+
+    if (def.buffKind) {
+      const sec = def.buffSec || 30;
+      this.activeBuffs[def.buffKind] = sec;
+      this.recalcStats(false);
+      if (def.buffKind === 'berserk_wine') {
+        burstCol = '#fb923c';
+        floatTxt = `${def.name} · 杀伐+28% (${sec}s)`;
+      } else if (def.buffKind === 'iron_skin') {
+        burstCol = '#fde047';
+        floatTxt = `${def.name} · 金刚减伤 (${sec}s)`;
+      } else if (def.buffKind === 'wind_crit') {
+        burstCol = '#38bdf8';
+        floatTxt = `${def.name} · 暴击疾风 (${sec}s)`;
+      }
+    }
+
     AudioFX.playRelicBell();
-    this.spawnInkBurst(this.player.x, this.player.y - 36, '#4ade80', '#090d16', 12);
+    this.spawnInkBurst(this.player.x, this.player.y - 36, burstCol, '#090d16', 14);
     this.floats.push({
       x: this.player.x,
       y: this.player.y - 78,
       vy: -40,
-      text: `${def.name} +${def.hpRestore}`,
-      color: '#4ade80',
+      text: floatTxt,
+      color: burstCol,
       size: 14,
-      life: 0.95,
+      life: 1.05,
     });
     return true;
   }
@@ -3207,12 +3571,15 @@ export class GameEngine {
       }
     }
 
-    // 0B. 左右边界实心城墙与多层竖塔分标高门廊碰撞（支持跳跃顺畅穿门，绝不在门楣隐形卡人！）
+    // 0B. 左右边界实心城墙、多层竖塔分标高门廊与未破封门暗壁碰撞（支持跳跃顺畅穿门，未破暗壁呈真实实心石墙！）
     const doorHeadClearance = room.gridH > 1 ? 175 : 280;
     if (p.x < 32) {
       const leftDoors = getRoomSideDoors(room, 'left');
       const inOpenLeftDoor = leftDoors.some(
-        (d) => p.y >= d.floorY - doorHeadClearance && p.y <= d.floorY + 34
+        (d) =>
+          this.isSideDoorOpen(d) &&
+          p.y >= d.floorY - doorHeadClearance &&
+          p.y <= d.floorY + 34
       );
       if (!inOpenLeftDoor) {
         p.x = 32;
@@ -3224,7 +3591,10 @@ export class GameEngine {
     if (p.x > room.pixelW - 32) {
       const rightDoors = getRoomSideDoors(room, 'right');
       const inOpenRightDoor = rightDoors.some(
-        (d) => p.y >= d.floorY - doorHeadClearance && p.y <= d.floorY + 34
+        (d) =>
+          this.isSideDoorOpen(d) &&
+          p.y >= d.floorY - doorHeadClearance &&
+          p.y <= d.floorY + 34
       );
       if (!inOpenRightDoor) {
         p.x = room.pixelW - 32;
@@ -3410,18 +3780,30 @@ export class GameEngine {
     const p = this.player;
     const bossCleared = this.isBossClearedInRoom(room);
 
-    // 1. 左右多层竖塔门廊无缝跨房（自动按当前身位高度匹配所穿过的那扇门，并防撞新房间顶棚！）
+    // 1. 左右多层竖塔门廊与破壁密室无缝跨房（自动按当前身位高度匹配已洞开的那扇门，并防撞新房间顶棚！）
     if (p.x < 12) {
-      const tr = WorldMap.resolveTransition(room, 'left', p.y);
+      const tr = WorldMap.resolveTransition(room, 'left', p.y, this.slot.brokenSecretWalls);
       if (tr) {
+        if (
+          tr.backDoor?.secretWallId &&
+          !this.slot.brokenSecretWalls.includes(tr.backDoor.secretWallId)
+        ) {
+          this.slot.brokenSecretWalls.push(tr.backDoor.secretWallId);
+        }
         const lift = Math.max(-75, Math.min(0, p.y - tr.curFloorY));
         this.loadRoom(tr.nextRoom, tr.nextX, Math.max(115, tr.nextFloorY + lift), true);
         return;
       }
       p.x = 32;
     } else if (p.x > room.pixelW - 12) {
-      const tr = WorldMap.resolveTransition(room, 'right', p.y);
+      const tr = WorldMap.resolveTransition(room, 'right', p.y, this.slot.brokenSecretWalls);
       if (tr) {
+        if (
+          tr.backDoor?.secretWallId &&
+          !this.slot.brokenSecretWalls.includes(tr.backDoor.secretWallId)
+        ) {
+          this.slot.brokenSecretWalls.push(tr.backDoor.secretWallId);
+        }
         const lift = Math.max(-75, Math.min(0, p.y - tr.curFloorY));
         this.loadRoom(tr.nextRoom, tr.nextX, Math.max(115, tr.nextFloorY + lift), true);
         return;

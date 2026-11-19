@@ -537,7 +537,7 @@ export class UIManager {
               ${this.mapViewRealm === 'inverted' ? '九幽倒悬里城 · 逆乱堪舆图' : '九幽玄城 · 阳表立体堪舆图'}
             </span>
             <span style="font-size:13px;color:var(--jade);font-weight:800;">
-              探索度 ${pct}% / 200%
+              探索度 ${pct}% / 200%+
             </span>
             ${realmSwitchHtml}
           </div>
@@ -549,15 +549,17 @@ export class UIManager {
             <span><b style="color:#0d9488;">■</b> 竖塔/钟楼</span>
             <span><b style="color:#f59e0b;">■</b> 镇魂祠</span>
             <span><b style="color:#10b981;">■</b> 传送阵</span>
+            <span><b style="color:#9333ea;">■</b> 破壁密室</span>
             <span><b style="color:#fb923c;">▮</b> 未破重闸/紫障</span>
             <span><b style="color:#fde047;">◆</b> 未取秘宝</span>
           </div>
         </div>
       `;
-      footerLeft = '月下式立体回环玄城 · 阳表 31 厅 + 180° 倒悬里城 31 厅（七大妖王全收录）';
+      footerLeft =
+        '月下式立体回环玄城 · 阳表 42 厅 + 180° 倒悬里城 42 厅（含 14 座独立破壁隐藏密室，全破可达 226%）';
     } else if (this.pauseTab === 'bestiary') {
       mainHtml = this.buildBestiaryTabHtml();
-      footerLeft = '镇妖司百鬼图鉴：记录妖邪抗性、斩讨数与妖丹掉落';
+      footerLeft = '镇妖司百鬼图鉴：记录妖邪属性、常掉补给、稀世神兵掉宝与本命妖丹';
     } else if (this.pauseTab === 'lore') {
       const compact = window.innerHeight < 540;
       mainHtml = `
@@ -694,6 +696,23 @@ export class UIManager {
       return 'mob_sw_0';
     };
 
+    const discSet = new Set(s.discoveredDrops || []);
+    const resolveLootName = (kind: 'consumable' | 'weapon' | 'armor', itemId: string) => {
+      if (kind === 'weapon') return WEAPONS[itemId]?.name || itemId;
+      if (kind === 'armor') return ARMORS[itemId]?.name || itemId;
+      return CONSUMABLES[itemId]?.name || itemId;
+    };
+    const isLootKnown = (
+      eKind: EnemyKind,
+      tier: 'common' | 'rare',
+      entry: { kind: 'consumable' | 'weapon' | 'armor'; itemId: string }
+    ) => {
+      if (discSet.has(`${eKind}:${tier}`)) return true;
+      if (entry.kind === 'weapon' && s.ownedWeapons.includes(entry.itemId)) return true;
+      if (entry.kind === 'armor' && s.ownedArmors.includes(entry.itemId)) return true;
+      return false;
+    };
+
     const cards = (Object.keys(ENEMY_PROFILES) as EnemyKind[])
       .map((kind) => {
         const pr = ENEMY_PROFILES[kind];
@@ -704,6 +723,28 @@ export class UIManager {
           cnt > 0 ||
           s.defeatedBosses.some((k) => k.endsWith(kind)) ||
           this.engine.enemies.some((e) => e.profile.kind === kind);
+
+        const commonKnown = pr.commonDrop ? isLootKnown(kind, 'common', pr.commonDrop) : false;
+        const rareKnown = pr.rareDrop ? isLootKnown(kind, 'rare', pr.rareDrop) : false;
+        const dropLineHtml =
+          pr.commonDrop || pr.rareDrop
+            ? `<div style="font-size:11px;margin-top:2px;color:#94a3b8;">
+                 常掉：<span style="color:${commonKnown ? '#86efac' : '#64748b'};">${
+                   pr.commonDrop
+                     ? commonKnown
+                       ? resolveLootName(pr.commonDrop.kind, pr.commonDrop.itemId)
+                       : '？？？'
+                     : '无'
+                 }</span>
+                 · 稀世：<span style="color:${rareKnown ? '#fde047' : '#64748b'};">${
+                   pr.rareDrop
+                     ? rareKnown
+                       ? `✦ ${resolveLootName(pr.rareDrop.kind, pr.rareDrop.itemId)}`
+                       : '？？？'
+                     : '无'
+                 }</span>
+               </div>`
+            : '';
 
         return `
           <div class="zx-item-row" style="gap:12px;cursor:default;opacity:${seen ? 1 : 0.45};">
@@ -716,7 +757,8 @@ export class UIManager {
               <div style="font-size:11.5px;color:#cbd5e1;margin-top:3px;">
                 ${seen ? `气血 ${pr.hp} · 杀伐 ${pr.atk} · 护体 ${pr.def} · 银两 ${pr.gold}` : '行踪隐秘，尚未交锋'}
               </div>
-              <div style="font-size:11px;margin-top:3px;color:${hasCore ? '#d8b4fe' : 'var(--jade)'};">
+              ${seen ? dropLineHtml : ''}
+              <div style="font-size:11px;margin-top:2px;color:${hasCore ? '#d8b4fe' : 'var(--jade)'};">
                 ${
                   core
                     ? hasCore
@@ -830,7 +872,8 @@ export class UIManager {
       } else if (rm.region === 'prison') {
         fillCol = 'rgba(30, 64, 175, 0.86)';
       }
-      if (rm.special === 'save_shrine') fillCol = 'rgba(217, 119, 6, 0.92)';
+      if (rm.isSecretRoom) fillCol = 'rgba(126, 34, 206, 0.94)';
+      else if (rm.special === 'save_shrine') fillCol = 'rgba(217, 119, 6, 0.92)';
       else if (rm.special === 'warp_bagua') fillCol = 'rgba(5, 150, 105, 0.92)';
       else if (rm.special === 'boss_room') fillCol = 'rgba(185, 28, 28, 0.94)';
       else if (rm.special === 'relic_pedestal') fillCol = 'rgba(109, 40, 217, 0.9)';
@@ -891,10 +934,11 @@ export class UIManager {
       ctx.lineTo(rx + rw, ry + rh);
       ctx.stroke();
 
-      // 左右多层侧壁与门廊缺口（精准绘制每一层 SideDoor！）
+      // 左右多层侧壁与门廊缺口（未击碎的封门暗壁在堪舆图上保持严丝合缝的实墙，破壁后方显露金门缺口！）
       const drawSideWallWithDoors = (side: 'left' | 'right') => {
         const wallX = side === 'left' ? rx : rx + rw;
         const doors = getRoomSideDoors(rm, side)
+          .filter((d) => !d.secretWallId || s.brokenSecretWalls.includes(d.secretWallId))
           .map((d) => {
             const rOff =
               d.rowOffset ??
@@ -1103,13 +1147,18 @@ export class UIManager {
         .map((id) => {
           const a = ARMORS[id];
           const eq = curId === id;
+          const tags: string[] = [`护体 +${a.def}`];
+          if (a.dropRateMult && a.dropRateMult > 1) tags.push(`掉宝 ×${a.dropRateMult.toFixed(1)}`);
+          if (a.lifestealBonus) tags.push(`饮血 +${Math.round(a.lifestealBonus * 100)}%`);
+          if (a.mpOnHitBonus) tags.push(`斩回真气 +${a.mpOnHitBonus}`);
+          if (a.speedBonus) tags.push(`轻功 +${Math.round(a.speedBonus * 100)}%`);
           return `
           <div class="zx-item-row ${eq ? 'equipped' : ''}" data-pick-id="${id}">
             <div style="display:flex;align-items:center;gap:12px;">
               ${getSlotCategorySvg(target)}
               <div>
                 <div style="font-size:15px;font-weight:900;color:var(--rice);">${a.name}</div>
-                <div style="font-size:11.5px;color:var(--ash);">护体 +${a.def}</div>
+                <div style="font-size:11.5px;color:var(--ash);">${tags.join(' · ')}</div>
               </div>
             </div>
             ${eq ? `<span class="zx-eq-seal">穿戴中</span>` : ''}
@@ -1153,7 +1202,7 @@ export class UIManager {
                   ${getSlotCategorySvg('potion', id)}
                   <div>
                     <div style="font-size:15px;font-weight:900;color:var(--rice);">${c.name} ×${cnt}</div>
-                    <div style="font-size:11.5px;color:var(--jade);">气血 +${c.hpRestore} · 真气 +${c.mpRestore}</div>
+                    <div style="font-size:11.5px;color:var(--jade);">${c.desc}</div>
                   </div>
                 </div>
                 <span class="zx-eq-seal" style="background:#115e59;border-color:#2dd4bf;">服用</span>
@@ -1383,14 +1432,21 @@ export class UIManager {
     overlay.querySelector('#dev-grant-pack')?.addEventListener('click', () => {
       for (const id of [
         'sword_1',
-        'sword_2',
+        'sword_frost',
+        'sword_phantom',
         'greatsword_1',
-        'spear_2',
-        'daggers_2',
-        'whip_1',
+        'greatsword_sunder',
+        'spear_thunder',
+        'daggers_poison',
+        'whip_fire',
       ]) {
         if (!s.ownedWeapons.includes(id)) s.ownedWeapons.push(id);
       }
+      for (const aid of ['black_tortoise_mail', 'mojin_talisman', 'greedy_wolf_jade']) {
+        if (!s.ownedArmors.includes(aid)) s.ownedArmors.push(aid);
+      }
+      s.consumables.tiger_bone_wine = Math.max(2, s.consumables.tiger_bone_wine || 0);
+      s.consumables.jiuzhuan_jin_dan = Math.max(1, s.consumables.jiuzhuan_jin_dan || 0);
       for (const ab of [
         'familiar_sword',
         'double_jump',
@@ -1620,6 +1676,30 @@ export class UIManager {
             desc: '大幅恢复 150 点气血与 25 点真气',
             price: 68,
             icon: getSlotCategorySvg('potion', 'beggar_chicken'),
+          },
+          {
+            id: 'tiger_bone_wine',
+            kind: 'pot',
+            name: '秘酿 · 虎骨烧刀子烈酒',
+            desc: '30 秒内杀伐攻击暴涨 +28%（决战妖王利器）',
+            price: 76,
+            icon: getSlotCategorySvg('potion', 'osmanthus_wine'),
+          },
+          {
+            id: 'jingang_dan',
+            kind: 'pot',
+            name: '佛门 · 少林小还金刚丹',
+            desc: '恢复 45 气血，且 35 秒内所受伤害降低 38%',
+            price: 82,
+            icon: getSlotCategorySvg('potion', 'jinchuang_yao'),
+          },
+          {
+            id: 'shenxing_san',
+            kind: 'pot',
+            name: '奇药 · 凌波疾风散',
+            desc: '恢复 35 真气，且 30 秒内暴击 +20%、移速 +14%',
+            price: 78,
+            icon: getSlotCategorySvg('potion', 'huiqi_dan'),
           },
           {
             id: 'hearts_10',

@@ -11,8 +11,8 @@ import {
 export const TILE_SIZE = 40;
 export const CELL_PIXEL_W = 800;
 export const CELL_PIXEL_H = 440;
-export const MAP_GRID_TOTAL_W = 11;
-export const MAP_GRID_TOTAL_H = 6;
+export const MAP_GRID_TOTAL_W = 14;
+export const MAP_GRID_TOTAL_H = 7;
 
 export interface GroundNode {
   x: number;
@@ -41,6 +41,8 @@ export interface SideDoor {
   targetRoomId: string;
   targetFloorY?: number;
   rowOffset?: number;
+  /** 若存在则代表此门被可击碎古砖暗壁封死，挥兵击碎后永久洞开进入独立隐藏密室！ */
+  secretWallId?: string;
 }
 
 export interface BreakableIronGate {
@@ -163,6 +165,7 @@ export interface BuiltRoom {
   realm: CastleRealm;
   bgKey?: AssetKey;
   indoor?: boolean;
+  isSecretRoom?: boolean;
   mapX: number;
   mapY: number;
   gridW: number;
@@ -179,6 +182,8 @@ export interface BuiltRoom {
   rightRoomId?: string;
   leftDoorFloorY?: number;
   rightDoorFloorY?: number;
+  leftDoorSecretId?: string;
+  rightDoorSecretId?: string;
   sideDoors?: SideDoor[];
   groundNodes: GroundNode[];
   solidBlocks?: SolidBlock[];
@@ -225,6 +230,7 @@ export function getRoomSideDoors(room: BuiltRoom, side?: 'left' | 'right'): Side
         floorY: room.leftDoorFloorY ?? sampleSolidGroundY(room, 18),
         targetRoomId: room.leftRoomId,
         rowOffset: 0,
+        secretWallId: room.leftDoorSecretId,
       });
     }
   }
@@ -235,6 +241,7 @@ export function getRoomSideDoors(room: BuiltRoom, side?: 'left' | 'right'): Side
         floorY: room.rightDoorFloorY ?? sampleSolidGroundY(room, room.pixelW - 18),
         targetRoomId: room.rightRoomId,
         rowOffset: 0,
+        secretWallId: room.rightDoorSecretId,
       });
     }
   }
@@ -334,7 +341,7 @@ export function sampleCeilingY(room: BuiltRoom, px: number, bossCleared = true):
  *    Row 5:                      [2..4,5 九曲寒潭水牢(水上石墩)] ━━━━━━━━━━ [5..6,5 寒潭镇水殿(Boss 墨千秋)] ━ [7,5 玄鸟秘宝室(化雾+玄鸟佩)]
  */
 function createNormalCastleRooms(): BuiltRoom[] {
-  return [
+  const coreRooms: BuiltRoom[] = [
     // ==================== 一、城门入口区（致敬月下：森林吊桥 -> 双层门厅 -> 独立存档室） ====================
     {
       id: 'gate_1',
@@ -352,6 +359,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
       special: 'none',
       focalX: 240,
       focalY: 404,
+      leftRoomId: 'bamboo_outpost',
+      leftDoorFloorY: 404,
       rightRoomId: 'gate_2',
       rightDoorFloorY: 404,
       groundNodes: [
@@ -589,6 +598,9 @@ function createNormalCastleRooms(): BuiltRoom[] {
       special: 'relic_pedestal',
       focalX: 240,
       focalY: 384,
+      leftRoomId: 'secret_armory_vault',
+      leftDoorFloorY: 384,
+      leftDoorSecretId: 'sec_door_armory',
       rightRoomId: 'alchemy_lab',
       rightDoorFloorY: 384,
       groundNodes: [
@@ -598,14 +610,14 @@ function createNormalCastleRooms(): BuiltRoom[] {
       solidBlocks: [{ x: 140, y: 296, w: 220, h: 34 }],
       ceilingSpans: [{ x1: 0, x2: 800, bottomY: 36, style: 'palace_timber' }],
       shafts: [],
-      // 致敬月下墙中烤鸡：西端可劈碎暗裂石砖藏有荷叶叫花鸡！
+      // 致敬月下墙中烤鸡：祭剑石台基座暗裂石砖藏有荷叶叫花鸡；西端封门古壁更暗通【玄武封甲库】独立密室！
       secretWalls: [
         {
           id: 'sw_armory_chicken',
-          x: 38,
-          y: 284,
+          x: 228,
+          y: 296,
           w: 44,
-          h: 100,
+          h: 88,
           dropKind: 'consumable',
           dropItemId: 'beggar_chicken',
         },
@@ -1063,6 +1075,9 @@ function createNormalCastleRooms(): BuiltRoom[] {
       special: 'relic_pedestal',
       focalX: 560,
       focalY: 408,
+      rightRoomId: 'secret_forge_smeltery',
+      rightDoorFloorY: 408,
+      rightDoorSecretId: 'sec_door_smelt',
       groundNodes: [
         { x: 0, y: 408, style: 'crypt_stone' },
         { x: 800, y: 408, style: 'crypt_stone' },
@@ -1131,13 +1146,16 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x1: 0, x2: 570, bottomY: 32, style: 'crypt_vault' },
         { x1: 750, x2: 2000, bottomY: 32, style: 'crypt_vault' },
       ],
-      shafts: [{ x1: 570, x2: 750, dir: 'up', targetRoomId: 'forge_smithy' }],
+      shafts: [
+        { x1: 570, x2: 750, dir: 'up', targetRoomId: 'forge_smithy' },
+        { x1: 220, x2: 400, dir: 'down', targetRoomId: 'catacomb_hall' },
+      ],
       waterZones: [{ x1: 720, x2: 1650, surfaceY: 386 }],
       decorProps: [
-        { kind: 'dragon_brazier', x: 200, y: 416, scale: 0.9 },
+        { kind: 'dragon_brazier', x: 120, y: 416, scale: 0.9 },
         { kind: 'dragon_brazier', x: 1760, y: 416, scale: 0.9 },
       ],
-      pavilions: [],
+      pavilions: [{ x: 214, y: 416, w: 192, hasPillars: false }],
       archways: [],
       torches: [
         { x: 880, y: 268 },
@@ -1229,6 +1247,9 @@ function createNormalCastleRooms(): BuiltRoom[] {
       focalY: 408,
       leftRoomId: 'prison_boss_hall',
       leftDoorFloorY: 408,
+      rightRoomId: 'secret_ice_spring',
+      rightDoorFloorY: 408,
+      rightDoorSecretId: 'sec_door_ice',
       groundNodes: [
         { x: 0, y: 408, style: 'crypt_stone' },
         { x: 800, y: 408, style: 'crypt_stone' },
@@ -1420,6 +1441,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
       focalY: 384,
       leftRoomId: 'east_outer_tower',
       leftDoorFloorY: 384,
+      rightRoomId: 'observatory_bridge',
+      rightDoorFloorY: 384,
       groundNodes: [
         { x: 0, y: 384, style: 'marble' },
         { x: 800, y: 384, style: 'marble' },
@@ -1531,6 +1554,9 @@ function createNormalCastleRooms(): BuiltRoom[] {
       special: 'none',
       focalX: 360,
       focalY: 384,
+      leftRoomId: 'secret_library_study',
+      leftDoorFloorY: 384,
+      leftDoorSecretId: 'sec_door_lib',
       rightRoomId: 'upper_library',
       rightDoorFloorY: 384,
       groundNodes: [
@@ -1847,6 +1873,9 @@ function createNormalCastleRooms(): BuiltRoom[] {
       focalY: 408,
       leftRoomId: 'clock_gear_hall',
       leftDoorFloorY: 408,
+      rightRoomId: 'secret_thunder_vault',
+      rightDoorFloorY: 408,
+      rightDoorSecretId: 'sec_door_thunder',
       groundNodes: [
         { x: 0, y: 408, style: 'marble' },
         { x: 800, y: 408, style: 'marble' },
@@ -2013,26 +2042,614 @@ function createNormalCastleRooms(): BuiltRoom[] {
       pickups: [],
     },
   ];
+
+  // ==================== 八、14×7 迷宫外围翼区拓展 + 7 座破壁进入的独立隐藏密室（致敬月下 200.6%+ 超额探索！） ====================
+  const expandedRooms: BuiltRoom[] = [
+    // 1. 城西断崖古亭（起始桥西侧探索区）
+    {
+      id: 'bamboo_outpost',
+      name: '苍竹断崖古亭',
+      subtitle: '西郊悬崖 · 侠客古碑与烈酒藏瓮',
+      region: 'gatehouse',
+      bgKey: 'bg_gatehouse',
+      realm: 'normal',
+      mapX: 0,
+      mapY: 3,
+      gridW: 1,
+      gridH: 1,
+      pixelW: 800,
+      pixelH: 480,
+      special: 'none',
+      focalX: 400,
+      focalY: 404,
+      rightRoomId: 'gate_1',
+      rightDoorFloorY: 404,
+      groundNodes: [
+        { x: 0, y: 404, style: 'flagstone' },
+        { x: 800, y: 404, style: 'flagstone' },
+      ],
+      solidBlocks: [{ x: 150, y: 318, w: 220, h: 34 }],
+      ceilingSpans: [],
+      shafts: [],
+      decorProps: [
+        { kind: 'guardian_statue', x: 110, y: 404, scale: 0.92 },
+        { kind: 'dragon_brazier', x: 540, y: 404, scale: 0.9 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 360, y: 328 },
+        { x: 660, y: 328 },
+      ],
+      foregrounds: [{ x: 260, kind: 'hanging_lantern', parallax: 1.18 }],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'paper_swordsman', x: 480, y: 404 },
+        { kind: 'lantern_ghost', x: 260, y: 245 },
+      ],
+      pickups: [
+        { id: 'pk_outpost_wine', kind: 'consumable', itemId: 'tiger_bone_wine', x: 215, y: 318 },
+        { id: 'pk_outpost_heal', kind: 'consumable', itemId: 'jinchuang_yao', x: 305, y: 318 },
+      ],
+    },
+
+    // 2. 独立隐藏密室一：玄武封甲库（由镇军西武库西端暗裂古壁破开进入！）
+    {
+      id: 'secret_armory_vault',
+      name: '玄武封甲秘室',
+      subtitle: '独立隐藏密室 · 前朝镇岳重铠封藏处',
+      region: 'forge',
+      bgKey: 'bg_molten_forge',
+      realm: 'normal',
+      indoor: true,
+      isSecretRoom: true,
+      mapX: 1,
+      mapY: 2,
+      gridW: 1,
+      gridH: 1,
+      pixelW: 800,
+      pixelH: 440,
+      special: 'relic_pedestal',
+      focalX: 340,
+      focalY: 384,
+      rightRoomId: 'west_armory',
+      rightDoorFloorY: 384,
+      groundNodes: [
+        { x: 0, y: 384, style: 'marble' },
+        { x: 800, y: 384, style: 'marble' },
+      ],
+      solidBlocks: [{ x: 230, y: 348, w: 260, h: 36 }],
+      ceilingSpans: [{ x1: 0, x2: 800, bottomY: 36, style: 'palace_timber' }],
+      shafts: [],
+      decorProps: [
+        { kind: 'guardian_statue', x: 145, y: 384, scale: 0.94 },
+        { kind: 'weapon_rack', x: 580, y: 384, scale: 0.94 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 205, y: 306 },
+        { x: 515, y: 306 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [],
+      pickups: [
+        { id: 'pk_sec_tortoise_mail', kind: 'armor', itemId: 'black_tortoise_mail', x: 315, y: 348 },
+        { id: 'pk_sec_arm_wine', kind: 'consumable', itemId: 'tiger_bone_wine', x: 425, y: 348 },
+      ],
+    },
+
+    // 3. 独立隐藏密室二：赤火藏锋剑冢（由地肺玄钧秘坛东侧暗壁破开进入！）
+    {
+      id: 'secret_forge_smeltery',
+      name: '赤火藏锋剑冢',
+      subtitle: '独立隐藏密室 · 欧冶地肺私藏软鞭秘窟',
+      region: 'forge',
+      bgKey: 'bg_molten_forge',
+      realm: 'normal',
+      indoor: true,
+      isSecretRoom: true,
+      mapX: 2,
+      mapY: 5,
+      gridW: 1,
+      gridH: 1,
+      pixelW: 800,
+      pixelH: 480,
+      special: 'relic_pedestal',
+      focalX: 460,
+      focalY: 408,
+      leftRoomId: 'relic_ground_slam',
+      leftDoorFloorY: 408,
+      groundNodes: [
+        { x: 0, y: 408, style: 'crypt_stone' },
+        { x: 800, y: 408, style: 'crypt_stone' },
+      ],
+      solidBlocks: [{ x: 330, y: 372, w: 260, h: 36 }],
+      ceilingSpans: [{ x1: 0, x2: 800, bottomY: 36, style: 'crypt_vault' }],
+      shafts: [],
+      decorProps: [
+        { kind: 'dragon_brazier', x: 210, y: 408, scale: 0.94 },
+        { kind: 'weapon_rack', x: 665, y: 408, scale: 0.94 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [{ x: 590, y: 328 }],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [],
+      pickups: [
+        { id: 'pk_sec_whip_fire', kind: 'weapon', itemId: 'whip_fire', x: 410, y: 372 },
+        { id: 'pk_sec_jingang', kind: 'consumable', itemId: 'jingang_dan', x: 525, y: 372 },
+      ],
+    },
+
+    // 4. 九幽白骨冥廊（深层地底墓穴长廊，致敬月下地下墓地 Catacombs！）
+    {
+      id: 'catacomb_hall',
+      name: '九幽白骨冥廊',
+      subtitle: '深层古墓 · 蚀骨毒刺与镇墓铜甲卫',
+      region: 'prison',
+      bgKey: 'bg_cavern_waterfall',
+      realm: 'normal',
+      indoor: true,
+      mapX: 3,
+      mapY: 6,
+      gridW: 2,
+      gridH: 1,
+      pixelW: 1600,
+      pixelH: 500,
+      special: 'none',
+      focalX: 800,
+      focalY: 420,
+      leftRoomId: 'secret_catacomb_treasury',
+      leftDoorFloorY: 420,
+      leftDoorSecretId: 'sec_door_mojin',
+      rightRoomId: 'catacomb_shrine',
+      rightDoorFloorY: 420,
+      groundNodes: [
+        { x: 0, y: 420, style: 'crypt_stone' },
+        { x: 1600, y: 420, style: 'crypt_stone' },
+      ],
+      solidBlocks: [
+        { x: 520, y: 336, w: 160, h: 32 },
+        { x: 430, y: 252, w: 160, h: 32 },
+        { x: 340, y: 168, w: 160, h: 30 },
+        { x: 245, y: 86, w: 145, h: 26 },
+        { x: 1020, y: 340, w: 230, h: 34 },
+      ],
+      ceilingSpans: [
+        { x1: 0, x2: 220, bottomY: 34, style: 'crypt_vault' },
+        { x1: 400, x2: 1600, bottomY: 34, style: 'crypt_vault' },
+      ],
+      shafts: [{ x1: 220, x2: 400, dir: 'up', targetRoomId: 'prison_waterway' }],
+      decorProps: [
+        { kind: 'guardian_statue', x: 145, y: 420, scale: 0.92 },
+        { kind: 'dragon_brazier', x: 830, y: 420, scale: 0.9 },
+        { kind: 'guardian_statue', x: 1440, y: 420, scale: 0.92 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 690, y: 342 },
+        { x: 1135, y: 264 },
+        { x: 1360, y: 342 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'plague_toad', x: 760, y: 420 },
+        { kind: 'bronze_guard', x: 1135, y: 340 },
+        { kind: 'lantern_ghost', x: 1340, y: 240 },
+      ],
+      pickups: [
+        { id: 'pk_cat_poison_dag', kind: 'weapon', itemId: 'daggers_poison', x: 1135, y: 340 },
+      ],
+    },
+
+    // 5. 独立隐藏密室三：摸金古墓宝库（由九幽白骨冥廊西端暗壁破开进入！）
+    {
+      id: 'secret_catacomb_treasury',
+      name: '摸金古墓宝库',
+      subtitle: '独立隐藏密室 · 摸金寻宝天师符秘冢',
+      region: 'prison',
+      bgKey: 'bg_cavern_waterfall',
+      realm: 'normal',
+      indoor: true,
+      isSecretRoom: true,
+      mapX: 2,
+      mapY: 6,
+      gridW: 1,
+      gridH: 1,
+      pixelW: 800,
+      pixelH: 460,
+      special: 'relic_pedestal',
+      focalX: 360,
+      focalY: 396,
+      rightRoomId: 'catacomb_hall',
+      rightDoorFloorY: 396,
+      groundNodes: [
+        { x: 0, y: 396, style: 'crypt_stone' },
+        { x: 800, y: 396, style: 'crypt_stone' },
+      ],
+      solidBlocks: [{ x: 240, y: 360, w: 260, h: 36 }],
+      ceilingSpans: [{ x1: 0, x2: 800, bottomY: 36, style: 'crypt_vault' }],
+      shafts: [],
+      decorProps: [
+        { kind: 'guardian_statue', x: 145, y: 396, scale: 0.94 },
+        { kind: 'incense_burner', x: 590, y: 396, scale: 0.92 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [{ x: 520, y: 318 }],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [],
+      pickups: [
+        { id: 'pk_sec_mojin', kind: 'armor', itemId: 'mojin_talisman', x: 320, y: 360 },
+        { id: 'pk_sec_cat_hp', kind: 'max_up', itemId: 'hp_vessel', x: 430, y: 360 },
+      ],
+    },
+
+    // 6. 冥廊镇魂碑林（冥廊东端古墓祭堂，供奉贪狼饮血古玉）
+    {
+      id: 'catacomb_shrine',
+      name: '冥廊镇魂碑林',
+      subtitle: '古墓深处 · 贪狼饮血古玉祭坛',
+      region: 'prison',
+      bgKey: 'bg_cavern_waterfall',
+      realm: 'normal',
+      indoor: true,
+      mapX: 5,
+      mapY: 6,
+      gridW: 1,
+      gridH: 1,
+      pixelW: 800,
+      pixelH: 460,
+      special: 'relic_pedestal',
+      focalX: 520,
+      focalY: 396,
+      leftRoomId: 'catacomb_hall',
+      leftDoorFloorY: 396,
+      groundNodes: [
+        { x: 0, y: 396, style: 'crypt_stone' },
+        { x: 800, y: 396, style: 'crypt_stone' },
+      ],
+      solidBlocks: [{ x: 450, y: 356, w: 230, h: 40 }],
+      ceilingSpans: [{ x1: 0, x2: 800, bottomY: 36, style: 'crypt_vault' }],
+      shafts: [],
+      decorProps: [
+        { kind: 'dragon_brazier', x: 240, y: 396, scale: 0.92 },
+        { kind: 'guardian_statue', x: 705, y: 396, scale: 0.92 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [{ x: 350, y: 318 }],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'bronze_guard', x: 340, y: 396 },
+        { kind: 'scroll_demon', x: 540, y: 215 },
+      ],
+      pickups: [
+        { id: 'pk_shrine_wolf_jade', kind: 'armor', itemId: 'greedy_wolf_jade', x: 565, y: 356 },
+      ],
+    },
+
+    // 7. 独立隐藏密室四：寒髓冰泉秘洞（由玄鸟秘宝冢东侧暗壁破开进入！）
+    {
+      id: 'secret_ice_spring',
+      name: '寒髓冰泉秘洞',
+      subtitle: '独立隐藏密室 · 玄冥寒魄名剑封冰坛',
+      region: 'prison',
+      bgKey: 'bg_cavern_waterfall',
+      realm: 'normal',
+      indoor: true,
+      isSecretRoom: true,
+      mapX: 9,
+      mapY: 5,
+      gridW: 1,
+      gridH: 1,
+      pixelW: 800,
+      pixelH: 480,
+      special: 'relic_pedestal',
+      focalX: 460,
+      focalY: 408,
+      leftRoomId: 'relic_mist_vault',
+      leftDoorFloorY: 408,
+      groundNodes: [
+        { x: 0, y: 408, style: 'crypt_stone' },
+        { x: 800, y: 408, style: 'crypt_stone' },
+      ],
+      solidBlocks: [{ x: 340, y: 364, w: 250, h: 44 }],
+      ceilingSpans: [{ x1: 0, x2: 800, bottomY: 36, style: 'crypt_vault' }],
+      shafts: [],
+      waterZones: [{ x1: 180, x2: 700, surfaceY: 394 }],
+      decorProps: [{ kind: 'guardian_statue', x: 690, y: 408, scale: 0.92 }],
+      pavilions: [],
+      archways: [],
+      torches: [{ x: 260, y: 326 }],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [],
+      pickups: [
+        { id: 'pk_sec_sword_frost', kind: 'weapon', itemId: 'sword_frost', x: 420, y: 364 },
+        { id: 'pk_sec_jiuzhuan_1', kind: 'consumable', itemId: 'jiuzhuan_jin_dan', x: 525, y: 364 },
+      ],
+    },
+
+    // 8. 独立隐藏密室五：翰林藏珍暗阁（由藏书万宝斋西侧书架暗壁破开进入！）
+    {
+      id: 'secret_library_study',
+      name: '翰林藏珍暗阁',
+      subtitle: '独立隐藏密室 · 水墨道袍与天山雪莲密库',
+      region: 'library',
+      bgKey: 'bg_library_opera',
+      realm: 'normal',
+      indoor: true,
+      isSecretRoom: true,
+      mapX: 5,
+      mapY: 2,
+      gridW: 1,
+      gridH: 1,
+      pixelW: 800,
+      pixelH: 440,
+      special: 'relic_pedestal',
+      focalX: 360,
+      focalY: 384,
+      rightRoomId: 'library_shop',
+      rightDoorFloorY: 384,
+      groundNodes: [
+        { x: 0, y: 384, style: 'marble' },
+        { x: 800, y: 384, style: 'marble' },
+      ],
+      solidBlocks: [{ x: 220, y: 348, w: 300, h: 36 }],
+      ceilingSpans: [{ x1: 0, x2: 800, bottomY: 36, style: 'palace_timber' }],
+      shafts: [],
+      decorProps: [
+        { kind: 'bookshelf', x: 135, y: 384, scale: 0.95 },
+        { kind: 'bookshelf', x: 625, y: 384, scale: 0.95 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [{ x: 545, y: 308 }],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [],
+      pickups: [
+        { id: 'pk_sec_ink_robe', kind: 'armor', itemId: 'ink_scholar_robe', x: 285, y: 348 },
+        { id: 'pk_sec_lib_mp', kind: 'max_up', itemId: 'mp_vessel', x: 380, y: 348 },
+        { id: 'pk_sec_shenxing', kind: 'consumable', itemId: 'shenxing_san', x: 465, y: 348 },
+      ],
+    },
+
+    // 9. 东垣观星飞虹桥（东垣传送室东侧露天星汉廊桥，连接城东最深处的太白剑冢！）
+    {
+      id: 'observatory_bridge',
+      name: '东垣观星飞虹桥',
+      subtitle: '星汉长桥 · 天罡聚气扳指与飞燕宫灯',
+      region: 'clock_tower',
+      bgKey: 'bg_chapel_spire',
+      realm: 'normal',
+      mapX: 11,
+      mapY: 3,
+      gridW: 2,
+      gridH: 1,
+      pixelW: 1600,
+      pixelH: 500,
+      special: 'none',
+      focalX: 800,
+      focalY: 412,
+      leftRoomId: 'east_warp',
+      leftDoorFloorY: 412,
+      rightRoomId: 'secret_sword_tomb',
+      rightDoorFloorY: 412,
+      rightDoorSecretId: 'sec_door_lotus',
+      groundNodes: [
+        { x: 0, y: 412, style: 'marble' },
+        { x: 460, y: 412, style: 'arch_bridge' },
+        { x: 800, y: 368, style: 'arch_bridge' },
+        { x: 1140, y: 412, style: 'marble' },
+        { x: 1600, y: 412, style: 'marble' },
+      ],
+      solidBlocks: [{ x: 660, y: 224, w: 280, h: 34 }],
+      ceilingSpans: [],
+      shafts: [],
+      decorProps: [
+        { kind: 'dragon_brazier', x: 220, y: 412, scale: 0.92 },
+        { kind: 'dragon_brazier', x: 1380, y: 412, scale: 0.92 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [{ x: 1450, title: '望月观星阙' }],
+      torches: [
+        { x: 340, y: 336 },
+        { x: 800, y: 292 },
+        { x: 1260, y: 336 },
+      ],
+      foregrounds: [{ x: 800, kind: 'hanging_lantern', parallax: 1.18 }],
+      lanterns: [
+        { x: 560, y: 175 },
+        { x: 1040, y: 175 },
+      ],
+      npcs: [],
+      spawns: [
+        { kind: 'bell_gargoyle', x: 580, y: 235 },
+        { kind: 'opera_puppet', x: 1180, y: 412 },
+      ],
+      pickups: [
+        { id: 'pk_obs_qi_ring', kind: 'armor', itemId: 'celestial_qi_ring', x: 800, y: 224 },
+      ],
+    },
+
+    // 10. 独立隐藏密室六：青莲太白剑冢（由观星飞虹桥尽头暗壁破开进入；倒悬里城此室更封藏终极千影神剑！）
+    {
+      id: 'secret_sword_tomb',
+      name: '青莲太白剑冢',
+      subtitle: '独立隐藏密室 · 剑仙遗蜕与仙丹洞天',
+      region: 'altar',
+      bgKey: 'bg_chapel_spire',
+      realm: 'normal',
+      indoor: true,
+      isSecretRoom: true,
+      mapX: 13,
+      mapY: 3,
+      gridW: 1,
+      gridH: 1,
+      pixelW: 800,
+      pixelH: 460,
+      special: 'relic_pedestal',
+      focalX: 460,
+      focalY: 396,
+      leftRoomId: 'observatory_bridge',
+      leftDoorFloorY: 396,
+      groundNodes: [
+        { x: 0, y: 396, style: 'marble' },
+        { x: 800, y: 396, style: 'marble' },
+      ],
+      solidBlocks: [{ x: 320, y: 356, w: 280, h: 40 }],
+      ceilingSpans: [{ x1: 0, x2: 800, bottomY: 36, style: 'palace_timber' }],
+      shafts: [],
+      decorProps: [
+        { kind: 'weapon_rack', x: 205, y: 396, scale: 0.95 },
+        { kind: 'guardian_statue', x: 685, y: 396, scale: 0.95 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 270, y: 318 },
+        { x: 625, y: 318 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [],
+      pickups: [
+        { id: 'pk_sec_tomb_hp', kind: 'max_up', itemId: 'hp_vessel', x: 390, y: 356 },
+        { id: 'pk_sec_tomb_mp', kind: 'max_up', itemId: 'mp_vessel', x: 475, y: 356 },
+        { id: 'pk_sec_tomb_jz', kind: 'consumable', itemId: 'jiuzhuan_jin_dan', x: 555, y: 356 },
+      ],
+    },
+
+    // 11. 独立隐藏密室七：紫电雷池秘殿（由雷音镇钟天阙东壁破开进入，供奉紫电惊雷神枪！）
+    {
+      id: 'secret_thunder_vault',
+      name: '紫电雷池秘殿',
+      subtitle: '独立隐藏密室 · 紫电惊雷神枪封藏坛',
+      region: 'clock_tower',
+      bgKey: 'bg_chapel_spire',
+      realm: 'normal',
+      indoor: true,
+      isSecretRoom: true,
+      mapX: 12,
+      mapY: 2,
+      gridW: 1,
+      gridH: 1,
+      pixelW: 800,
+      pixelH: 480,
+      special: 'relic_pedestal',
+      focalX: 450,
+      focalY: 408,
+      leftRoomId: 'clock_boss_spire',
+      leftDoorFloorY: 408,
+      groundNodes: [
+        { x: 0, y: 408, style: 'marble' },
+        { x: 800, y: 408, style: 'marble' },
+      ],
+      solidBlocks: [{ x: 330, y: 368, w: 250, h: 40 }],
+      ceilingSpans: [{ x1: 0, x2: 800, bottomY: 36, style: 'palace_timber' }],
+      shafts: [],
+      decorProps: [
+        { kind: 'dragon_brazier', x: 215, y: 408, scale: 0.94 },
+        { kind: 'giant_bell', x: 660, y: 245, scale: 0.9 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [{ x: 280, y: 328 }],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [],
+      pickups: [
+        { id: 'pk_sec_spear_thunder', kind: 'weapon', itemId: 'spear_thunder', x: 415, y: 368 },
+        { id: 'pk_sec_thun_wine', kind: 'consumable', itemId: 'tiger_bone_wine', x: 525, y: 368 },
+      ],
+    },
+  ];
+
+  return [...coreRooms.map((r) => ({ ...r, mapX: r.mapX + 1 })), ...expandedRooms];
 }
 
 /**
- * 180° 九幽倒悬里城生成器（完整镜像翻转全部 22 座手工关卡、实心石台与门廊，组成 200% 双城探索终局！）
+ * 180° 九幽倒悬里城生成器（完整镜像翻转全部 42 座手工关卡、破壁密室与门廊，组成超 200% 双城探索终局！）
  */
 function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
   const invertedUpgradePickups: Record<string, ScenePickup[]> = {
-    west_armory: [{ id: 'inv_pk_gs3', kind: 'weapon', itemId: 'greatsword_3', x: 520, y: 296 }],
-    secret_archive: [{ id: 'inv_pk_sw3', kind: 'weapon', itemId: 'sword_3', x: 390, y: 348 }],
-    relic_double_jump: [{ id: 'inv_pk_sp3', kind: 'weapon', itemId: 'spear_3', x: 420, y: 348 }],
-    relic_mist_vault: [{ id: 'inv_pk_dg3', kind: 'weapon', itemId: 'daggers_3', x: 480, y: 372 }],
-    relic_grapple_vault: [{ id: 'inv_pk_wh3', kind: 'weapon', itemId: 'whip_3', x: 440, y: 348 }],
+    west_armory: [{ id: 'inv_pk_gs3', kind: 'weapon', itemId: 'greatsword_3', x: 520 }],
+    secret_archive: [{ id: 'inv_pk_sw3', kind: 'weapon', itemId: 'sword_3', x: 390 }],
+    relic_double_jump: [{ id: 'inv_pk_sp3', kind: 'weapon', itemId: 'spear_3', x: 420 }],
+    relic_mist_vault: [{ id: 'inv_pk_dg3', kind: 'weapon', itemId: 'daggers_3', x: 480 }],
+    relic_grapple_vault: [{ id: 'inv_pk_wh3', kind: 'weapon', itemId: 'whip_3', x: 440 }],
     relic_wall_vault: [
-      { id: 'inv_pk_robe_xn', kind: 'armor', itemId: 'xuanniao_robe', x: 210, y: 360 },
+      { id: 'inv_pk_robe_xn', kind: 'armor', itemId: 'xuanniao_robe', x: 210 },
     ],
     relic_ground_slam: [
-      { id: 'inv_pk_gourd', kind: 'armor', itemId: 'fortune_gourd', x: 220, y: 372 },
+      { id: 'inv_pk_gourd', kind: 'armor', itemId: 'fortune_gourd', x: 220 },
     ],
     library_shop: [
-      { id: 'inv_pk_armor_mg', kind: 'armor', itemId: 'mingguang_armor', x: 440, y: 384 },
+      { id: 'inv_pk_armor_mg', kind: 'armor', itemId: 'mingguang_armor', x: 440 },
+    ],
+    bamboo_outpost: [
+      { id: 'inv_pk_wind_pend', kind: 'armor', itemId: 'wind_step_pendant', x: 530 },
+    ],
+    secret_armory_vault: [
+      { id: 'inv_pk_gs_sunder', kind: 'weapon', itemId: 'greatsword_sunder', x: 430 },
+    ],
+    secret_forge_smeltery: [
+      { id: 'inv_pk_smelt_hp', kind: 'max_up', itemId: 'hp_vessel', x: 340 },
+      { id: 'inv_pk_smelt_jg', kind: 'consumable', itemId: 'jingang_dan', x: 430 },
+    ],
+    catacomb_shrine: [
+      { id: 'inv_pk_sw_blood', kind: 'weapon', itemId: 'sword_blood', x: 240 },
+    ],
+    secret_catacomb_treasury: [
+      { id: 'inv_pk_cat_mp', kind: 'max_up', itemId: 'mp_vessel', x: 420 },
+      { id: 'inv_pk_cat_jz', kind: 'consumable', itemId: 'jiuzhuan_jin_dan', x: 510 },
+    ],
+    secret_ice_spring: [
+      { id: 'inv_pk_ice_hp', kind: 'max_up', itemId: 'hp_vessel', x: 340 },
+      { id: 'inv_pk_ice_wine', kind: 'consumable', itemId: 'tiger_bone_wine', x: 430 },
+    ],
+    secret_library_study: [
+      { id: 'inv_pk_dg_phantom', kind: 'weapon', itemId: 'daggers_phantom', x: 420 },
+    ],
+    observatory_bridge: [
+      { id: 'inv_pk_obs_mp', kind: 'max_up', itemId: 'mp_vessel', x: 800 },
+    ],
+    secret_sword_tomb: [
+      { id: 'inv_pk_sw_phantom', kind: 'weapon', itemId: 'sword_phantom', x: 330 },
+      { id: 'inv_pk_tomb_jz', kind: 'consumable', itemId: 'jiuzhuan_jin_dan', x: 430 },
+    ],
+    secret_thunder_vault: [
+      { id: 'inv_pk_thun_hp', kind: 'max_up', itemId: 'hp_vessel', x: 340 },
+      { id: 'inv_pk_thun_sx', kind: 'consumable', itemId: 'shenxing_san', x: 430 },
     ],
   };
 
@@ -2084,6 +2701,7 @@ function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
         targetRoomId: d.targetRoomId,
         targetFloorY: d.targetFloorY,
         rowOffset: invRow,
+        secretWallId: d.secretWallId ? `inv_${d.secretWallId}` : undefined,
       };
     });
 
@@ -2167,7 +2785,8 @@ function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
       isTrueFinalRoom ||
       isEntryAltar ||
       rm.special === 'save_shrine' ||
-      rm.special === 'warp_bagua'
+      rm.special === 'warp_bagua' ||
+      (rm.isSecretRoom && rm.id !== 'secret_sword_tomb')
         ? []
         : W >= 1500
           ? [
@@ -2185,6 +2804,7 @@ function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
       bgKey: rm.bgKey,
       realm: 'inverted',
       indoor: rm.indoor,
+      isSecretRoom: rm.isSecretRoom,
       mapX: invMapX,
       mapY: invMapY,
       gridW: rm.gridW,
@@ -2285,7 +2905,10 @@ class CastleWorldRegistry {
     const normals = createNormalCastleRooms();
     for (const rm of normals) {
       this.normalRooms.set(rm.id, rm);
-      this.normalCellCount += rm.gridW * rm.gridH;
+      // 非隐藏主城占基准 100%（双城主厅 200%，破壁踏入 14 座独立隐藏密室可突破至 228%，致敬月下 200.6%！）
+      if (!rm.isSecretRoom) {
+        this.normalCellCount += rm.gridW * rm.gridH;
+      }
     }
     for (const irm of createInvertedCastleRooms(normals)) {
       this.invertedRooms.set(irm.id, irm);
@@ -2308,9 +2931,20 @@ class CastleWorldRegistry {
   public resolveTransition(
     cur: BuiltRoom,
     dir: 'left' | 'right',
-    playerY?: number
-  ): { nextRoom: BuiltRoom; nextX: number; nextFloorY: number; curFloorY: number } | null {
-    const doors = getRoomSideDoors(cur, dir);
+    playerY?: number,
+    brokenSecretWalls?: string[]
+  ): {
+    nextRoom: BuiltRoom;
+    nextX: number;
+    nextFloorY: number;
+    curFloorY: number;
+    chosenDoor: SideDoor;
+    backDoor?: SideDoor;
+  } | null {
+    const allDoors = getRoomSideDoors(cur, dir);
+    const doors = brokenSecretWalls
+      ? allDoors.filter((d) => !d.secretWallId || brokenSecretWalls.includes(d.secretWallId))
+      : allDoors;
     if (doors.length === 0) return null;
 
     let chosen = doors[0];
@@ -2335,7 +2969,14 @@ class CastleWorldRegistry {
 
     const nextFloorY =
       chosen.targetFloorY ?? backDoor?.floorY ?? sampleSolidGroundY(nextRoom, nextX);
-    return { nextRoom, nextX, nextFloorY, curFloorY: chosen.floorY };
+    return {
+      nextRoom,
+      nextX,
+      nextFloorY,
+      curFloorY: chosen.floorY,
+      chosenDoor: chosen,
+      backDoor,
+    };
   }
 
   public resolveVerticalShaft(
@@ -2398,7 +3039,7 @@ class CastleWorldRegistry {
 
     const totalBase = Math.max(1, this.normalCellCount);
     const pct = Math.round(((normalSet.size + invSet.size) / totalBase) * 100);
-    return Math.min(200, pct);
+    return Math.min(240, pct);
   }
 }
 

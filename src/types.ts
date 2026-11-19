@@ -37,6 +37,14 @@ export type RegionId =
   | 'clock_tower' // 7. 百丈晨钟暮鼓楼
   | 'altar'; // 8. 凌霄祭天坛
 
+export type WeaponSpecialEffect =
+  | 'frost_slow'
+  | 'burn_dot'
+  | 'blood_leech'
+  | 'chain_lightning'
+  | 'multi_phantom'
+  | 'armor_sunder';
+
 export interface WeaponDef {
   id: string;
   name: string;
@@ -55,6 +63,8 @@ export interface WeaponDef {
   price: number;
   upgradeCost?: number;
   upgradeTo?: string;
+  specialEffect?: WeaponSpecialEffect;
+  lifestealBonus?: number;
   desc: string;
   traitDesc: string;
 }
@@ -79,6 +89,10 @@ export interface ArmorDef {
   intBonus: number;
   lckBonus: number;
   price: number;
+  lifestealBonus?: number;
+  speedBonus?: number;
+  mpOnHitBonus?: number;
+  dropRateMult?: number;
   desc: string;
 }
 
@@ -89,18 +103,25 @@ export interface YaoCoreDef {
   color: string;
   desc: string;
   atkPct?: number;
+  defPct?: number;
   mpRegenBonus?: number;
   lifestealRatio?: number;
   critPct?: number;
   speedPct?: number;
   subWeaponMult?: number;
+  poisonOnHit?: boolean;
 }
+
+export type CombatBuffKind = 'berserk_wine' | 'iron_skin' | 'wind_crit';
 
 export interface ConsumableDef {
   id: string;
   name: string;
   hpRestore: number;
   mpRestore: number;
+  fullRestore?: boolean;
+  buffKind?: CombatBuffKind;
+  buffSec?: number;
   price: number;
   desc: string;
 }
@@ -229,6 +250,7 @@ export interface SaveSlotData {
   consumables: Record<string, number>;
   weaponTemperLv?: Record<string, number>;
   bestiaryKills?: Record<string, number>;
+  discoveredDrops?: string[];
   familiarExp?: number;
   invertedUnlocked?: boolean;
   visitedRooms: string[]; // 'normal:room_id' | 'inverted:room_id' | 'cell:normal:x,y' | 'cell:inverted:x,y'

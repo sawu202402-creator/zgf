@@ -313,9 +313,17 @@ function drawSingleCurvedDagger(
   ctx.fill();
   ctx.stroke();
 
-  // 弯月分水刃身（一阶寒铁翠芒 / 二阶幽冥鬼爪紫刃 / 三阶阴阳残月赤金刃）
+  // 弯月分水刃身（一阶寒铁翠芒 / 二阶幽冥紫刃或碧蟾毒芒 / 三阶残月赤金刃或鸳鸯追魂紫金刃）
   const bg = ctx.createLinearGradient(2, 0, len, -4);
-  if (wDef.tier === 3) {
+  if (wDef.id === 'daggers_poison') {
+    bg.addColorStop(0, '#064e3b');
+    bg.addColorStop(0.55, '#10b981');
+    bg.addColorStop(1, '#bbf7d0');
+  } else if (wDef.id === 'daggers_phantom') {
+    bg.addColorStop(0, '#3b0764');
+    bg.addColorStop(0.55, '#c084fc');
+    bg.addColorStop(1, '#fef08a');
+  } else if (wDef.tier === 3) {
     bg.addColorStop(0, '#4c0519');
     bg.addColorStop(0.55, '#f43f5e');
     bg.addColorStop(1, '#fef08a');
@@ -386,8 +394,8 @@ function drawEquippedWeaponInHeroHands(
       const b = transformSpinePoint(bladeSeg.p1[0], bladeSeg.p1[1], metrics, joints);
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      ctx.strokeStyle = wDef.tier === 3 ? 'rgba(253, 224, 71, 0.82)' : 'rgba(251, 146, 60, 0.78)';
-      ctx.lineWidth = wDef.tier === 3 ? 4.2 : 3.2;
+      ctx.strokeStyle = wDef.glowColor || (wDef.tier === 3 ? 'rgba(253, 224, 71, 0.82)' : 'rgba(251, 146, 60, 0.78)');
+      ctx.lineWidth = wDef.tier === 3 ? 4.4 : 3.2;
       ctx.beginPath();
       ctx.moveTo(a.x, a.y);
       ctx.lineTo(b.x, b.y);
@@ -515,10 +523,24 @@ function drawEquippedWeaponInHeroHands(
     return;
   }
 
-  // 3. 乌金九节鞭 / 缚魂赤铜锁链刀 / 紫电雷音打神鞭：高举抖鞭蓄势 ➔ 振臂甩链！
+  // 3. 乌金九节鞭 / 缚魂赤铜锁链刀 / 赤练火龙软鞭 / 紫电雷音打神鞭：高举抖鞭蓄势 ➔ 振臂甩链！
   if (wDef.archetype === 'whip') {
-    const rodCol = wDef.tier === 3 ? '#581c87' : wDef.tier === 2 ? '#7c2d12' : '#1e293b';
-    const ringCol = wDef.tier === 3 ? '#fde047' : wDef.tier === 2 ? '#fb923c' : '#eab308';
+    const rodCol =
+      wDef.id === 'whip_fire'
+        ? '#991b1b'
+        : wDef.tier === 3
+          ? '#581c87'
+          : wDef.tier === 2
+            ? '#7c2d12'
+            : '#1e293b';
+    const ringCol =
+      wDef.id === 'whip_fire'
+        ? '#fb923c'
+        : wDef.tier === 3
+          ? '#fde047'
+          : wDef.tier === 2
+            ? '#fb923c'
+            : '#eab308';
 
     ctx.save();
     ctx.translate(rHand.x, rHand.y);
@@ -642,11 +664,11 @@ function drawEquippedWeaponInHeroHands(
 
   ctx.drawImage(swImg, -swLen * 0.14, -swH * 0.5, swLen, swH);
 
-  // 二阶墨渊秋水蓝芒 / 三阶七星龙渊北斗金芒（换不同名剑抬手即见神剑异象！）
+  // 二阶/三阶与秘藏神剑异象（寒魄冰芒 / 泣血赤霄 / 七星北斗 / 青莲千影翠星！）
   if (wDef.tier === 2) {
     ctx.globalCompositeOperation = 'lighter';
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.85)';
-    ctx.lineWidth = 2.0;
+    ctx.strokeStyle = wDef.glowColor || 'rgba(56, 189, 248, 0.85)';
+    ctx.lineWidth = 2.1;
     ctx.beginPath();
     ctx.moveTo(swLen * 0.14, 0);
     ctx.lineTo(swLen * 0.82, 0);
@@ -654,16 +676,16 @@ function drawEquippedWeaponInHeroHands(
     ctx.globalCompositeOperation = 'source-over';
   } else if (wDef.tier === 3) {
     ctx.globalCompositeOperation = 'lighter';
-    ctx.strokeStyle = 'rgba(253, 224, 71, 0.9)';
-    ctx.lineWidth = 2.2;
+    ctx.strokeStyle = wDef.glowColor || 'rgba(253, 224, 71, 0.9)';
+    ctx.lineWidth = 2.4;
     ctx.beginPath();
     ctx.moveTo(swLen * 0.12, 0);
-    ctx.lineTo(swLen * 0.84, 0);
+    ctx.lineTo(swLen * 0.86, 0);
     ctx.stroke();
-    ctx.fillStyle = '#fef9c3';
+    ctx.fillStyle = wDef.id === 'sword_phantom' ? '#d1fae5' : wDef.id === 'sword_blood' ? '#fecaca' : '#fef9c3';
     for (let st = 0; st < 5; st++) {
       ctx.beginPath();
-      ctx.arc(swLen * (0.22 + st * 0.13), (st % 2 === 0 ? -0.8 : 0.8), 1.3, 0, Math.PI * 2);
+      ctx.arc(swLen * (0.22 + st * 0.13), st % 2 === 0 ? -0.9 : 0.9, 1.35, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.globalCompositeOperation = 'source-over';
@@ -1166,6 +1188,35 @@ export function drawMonsterOrBoss(
       },
       joints
     );
+    ctx.restore();
+  }
+
+  // 玄冥寒魄霜冻迟缓与赤练/碧蟾持续灼毒视觉反馈！
+  if ((e.chillTimer || 0) > 0) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const cg = ctx.createRadialGradient(0, -h * 0.52, 4, 0, -h * 0.52, w * 0.72);
+    cg.addColorStop(0, 'rgba(186, 230, 253, 0.34)');
+    cg.addColorStop(0.6, 'rgba(56, 189, 248, 0.18)');
+    cg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = cg;
+    ctx.beginPath();
+    ctx.arc(0, -h * 0.52, w * 0.72, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  if ((e.dotTimer || 0) > 0) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const isPoison = e.dotColor === '#4ade80';
+    ctx.fillStyle = isPoison ? 'rgba(74, 222, 128, 0.72)' : 'rgba(251, 146, 60, 0.78)';
+    for (let k = 0; k < 3; k++) {
+      const ox = Math.sin(t * 6 + k * 2.1 + e.id) * (w * 0.34);
+      const oy = -h * (0.25 + ((t * 1.4 + k * 0.33) % 0.75));
+      ctx.beginPath();
+      ctx.arc(ox, oy, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.restore();
   }
 
