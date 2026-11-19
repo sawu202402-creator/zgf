@@ -2,7 +2,7 @@ import { WEAPONS } from '../data/itemsAndSkills';
 import { SceneNpc } from '../data/worldMap';
 import { WeaponArchetype, WeaponDef } from '../types';
 import { AssetKey, Assets } from './AssetLoader';
-import { ActiveSlash, EnemyEntity, GameEngine, WorldDrop } from './GameEngine';
+import { ActiveSkillAnim, ActiveSlash, EnemyEntity, GameEngine, WorldDrop } from './GameEngine';
 import { drawCelShadedWeapon } from './GuofengWorldArt';
 import {
   buildEntitySpineJoints,
@@ -114,6 +114,7 @@ export interface HeroRenderState {
   equippedWeaponId: string;
   secondaryWeaponId?: string;
   slash: ActiveSlash | null;
+  skillAnim?: ActiveSkillAnim | null;
   scale?: number;
   isXiaoMode?: boolean;
   crouching?: boolean;
@@ -129,6 +130,7 @@ export function selectHeroSpriteFrame(opts: {
   animTime: number;
   isHeavy: boolean;
   slash: ActiveSlash | null;
+  skillAnim?: ActiveSkillAnim | null;
   isXiaoMode?: boolean;
   crouching?: boolean;
   sliding?: boolean;
@@ -142,6 +144,7 @@ export function selectHeroSpriteFrame(opts: {
     animTime,
     isHeavy,
     slash,
+    skillAnim,
     isXiaoMode,
     crouching,
     sliding,
@@ -149,12 +152,40 @@ export function selectHeroSpriteFrame(opts: {
   } = opts;
 
   if (isXiaoMode) {
-    if (slash || sliding || diveKicking) {
-      return slash && slash.progress < 0.25 ? 'boss_xiao_1' : 'boss_xiao_2';
+    if (skillAnim || slash || sliding || diveKicking) {
+      const pr = skillAnim ? skillAnim.progress : slash ? slash.progress : 0.5;
+      return pr < 0.25 ? 'boss_xiao_1' : 'boss_xiao_2';
     }
     return Math.abs(vx) > 30 && Math.floor(runCycle * 0.6) % 2 === 1
       ? 'boss_xiao_1'
       : 'boss_xiao_0';
+  }
+
+  // 0A. 五大真气绝学与奇门副器专属武道身姿序列帧！
+  if (skillAnim) {
+    const sp = skillAnim.progress;
+    if (skillAnim.kind === 'shuofeng_wave') {
+      if (isHeavy) return sp < 0.28 ? 'h18_modao_windup' : 'h18_modao_cleave';
+      return sp < 0.28 ? 'h18_sword_0' : 'h18_sword_2';
+    }
+    if (skillAnim.kind === 'shunying_flash') {
+      if (sp < 0.2) return 'h18_crouch';
+      if (sp < 0.68) return isHeavy ? 'h18_modao_cleave' : 'h18_sword_2';
+      return 'h18_idle_1';
+    }
+    if (skillAnim.kind === 'jinghong_rising') {
+      if (sp < 0.16) return 'h18_crouch';
+      return isHeavy ? 'h18_modao_windup' : 'h18_sword_1';
+    }
+    if (skillAnim.kind === 'taiji_parry') {
+      return sp < 0.28 ? 'h18_sword_0' : 'h18_idle_1';
+    }
+    if (skillAnim.kind === 'jiuyou_soulsteal') {
+      return sp < 0.28 ? 'h18_idle_1' : 'h18_sword_1';
+    }
+    if (skillAnim.kind === 'sub_throw') {
+      return sp < 0.24 ? 'h18_sword_0' : 'h18_sword_2';
+    }
   }
 
   // 0. 经典体术帧：贴地滑铲踢 (`↓ + 跃`) / 凌空下踢 (`二段跳后 ↓ + 跃`) / 下蹲低斩！
@@ -324,6 +355,7 @@ function drawEquippedWeaponInHeroHands(
   frameKey: AssetKey,
   wDef: WeaponDef,
   slash: ActiveSlash | null,
+  skillAnim: ActiveSkillAnim | null | undefined,
   animTime: number,
   runCycle: number,
   joints: SpineJointRow[]
@@ -433,6 +465,30 @@ function drawEquippedWeaponInHeroHands(
         ctx.stroke();
         ctx.globalCompositeOperation = 'source-over';
       }
+      drawFistKnuckleClasp(ctx);
+    } else if (
+      skillAnim &&
+      (skillAnim.kind === 'jinghong_rising' ||
+        skillAnim.kind === 'shuofeng_wave' ||
+        skillAnim.kind === 'shunying_flash')
+    ) {
+      // 长枪施展绝学：惊鸿升龙直刺苍穹，朔风/瞬影破空平刺！
+      const skAng =
+        skillAnim.kind === 'jinghong_rising'
+          ? -1.28 + rHand.angle
+          : rHand.angle;
+      const thrust = skillAnim.progress > 0.2 ? 22 * Math.sin(skillAnim.progress * Math.PI) : -6;
+      ctx.translate(rHand.x + thrust * Math.cos(skAng), rHand.y + thrust * Math.sin(skAng));
+      ctx.rotate(skAng);
+      ctx.drawImage(spImg, -spLen * 0.26, -spH * 0.5, spLen, spH);
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = skillAnim.color;
+      ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      ctx.moveTo(spLen * 0.18, 0);
+      ctx.lineTo(spLen * 0.78, 0);
+      ctx.stroke();
+      ctx.globalCompositeOperation = 'source-over';
       drawFistKnuckleClasp(ctx);
     } else {
       // 待机 / 疾奔 / 腾跃 / 下蹲：斜提红缨长枪（枪锋斜扬不戳地，步态自然起伏）
@@ -563,8 +619,17 @@ function drawEquippedWeaponInHeroHands(
 
   ctx.save();
   ctx.translate(rHand.x, rHand.y);
-  const swAng =
+  let swAng =
     slash && slash.pogoDown ? 1.18 + rHand.angle : sock.rAngle + rHand.angle;
+  if (skillAnim) {
+    if (skillAnim.kind === 'jinghong_rising' && skillAnim.progress >= 0.16) {
+      // 惊鸿升龙破：右手擎剑直指九霄！
+      swAng = -1.36 + rHand.angle;
+    } else if (skillAnim.kind === 'jiuyou_soulsteal' && skillAnim.progress >= 0.28) {
+      // 九幽噬魂引：立剑祭印！
+      swAng = -1.55 + rHand.angle;
+    }
+  }
   ctx.rotate(swAng);
 
   // 剑柄红绸/翠绸剑穗
@@ -644,6 +709,7 @@ export function renderModularLiYichengRig(
     animTime: opts.animTime,
     isHeavy,
     slash: opts.slash,
+    skillAnim: opts.skillAnim,
     isXiaoMode: opts.isXiaoMode,
     crouching: opts.crouching,
     sliding: opts.sliding,
@@ -667,6 +733,8 @@ export function renderModularLiYichengRig(
     diveKicking: opts.diveKicking,
     slashProgress: opts.slash ? opts.slash.progress : null,
     slashArchetype: opts.slash?.archetype,
+    skillKind: opts.skillAnim?.kind,
+    skillProgress: opts.skillAnim ? opts.skillAnim.progress : null,
     isStagePreview,
   });
   const chestJoint = joints[3];
@@ -718,7 +786,10 @@ export function renderModularLiYichengRig(
   // 背部挂载副武器（实时绑定于 Spine 胸椎骨骼节点 `chestJoint`，随呼吸、前倾与挥斩同步起伏！）
   const speedRatio = Math.min(1, Math.abs(opts.vx) / 220);
   const carryingHeavyWhileMoving =
-    isHeavy && !opts.slash && (!opts.onGround || speedRatio > 0.12);
+    isHeavy &&
+    !opts.slash &&
+    (!opts.skillAnim || opts.skillAnim.kind === 'taiji_parry') &&
+    (!opts.onGround || speedRatio > 0.12);
   if (carryingHeavyWhileMoving) {
     drawBackCarriedWeapon(
       ctx,
@@ -772,12 +843,13 @@ export function renderModularLiYichengRig(
         joints
       );
 
-      // 3. 实时手部骨骼武器挂载：15把神兵在待机、奔跑、跳跃、抬手蓄势与挥击全帧随装备实时变换！
+      // 3. 实时手部骨骼武器挂载：15把神兵在待机、奔跑、跳跃、抬手蓄势、绝技与挥击全帧随装备实时变换！
       drawEquippedWeaponInHeroHands(
         ctx,
         frameKey,
         wDef,
         opts.slash,
+        opts.skillAnim,
         opts.animTime,
         opts.runCycle,
         joints
@@ -812,7 +884,8 @@ export function drawHeroCharacter(
   const s = engine.slot;
   if (!s) return;
 
-  if (p.invulnTimer > 0 && Math.floor(p.invulnTimer * 20) % 2 === 0 && p.mistDashTimer <= 0) {
+  // 仅在真正受击掉血后的硬直保护期闪烁，释放绝技/闪避无敌帧期间角色全程清晰稳定！
+  if (p.hurtBlinkTimer > 0 && Math.floor(p.hurtBlinkTimer * 20) % 2 === 0 && p.mistDashTimer <= 0) {
     return;
   }
 
@@ -852,6 +925,7 @@ export function drawHeroCharacter(
     equippedWeaponId: s.equippedWeapon,
     secondaryWeaponId: secondaryId,
     slash: engine.activeSlash,
+    skillAnim: engine.activeSkillAnim,
     isXiaoMode: s.mode === 'xiaoduanshui',
     crouching: p.crouching,
     sliding: p.slideTimer > 0,

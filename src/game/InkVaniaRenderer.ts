@@ -126,7 +126,9 @@ export class InkVaniaRenderer {
     }
 
     drawSwordFamiliar(ctx, engine, this.ambientTime);
+    this.renderSkillGroundFormation(ctx, engine);
     drawHeroCharacter(ctx, engine, this.ambientTime);
+    this.renderActiveSkillWorldVfx(ctx, engine);
     this.renderOrbitingSwordsAndLevelUp(ctx, engine);
     this.renderActiveSlashRibbon(ctx, engine);
     this.renderProjectiles(ctx, engine);
@@ -725,6 +727,7 @@ export class InkVaniaRenderer {
       animTime: p.animTime,
       isHeavy: wDef.archetype === 'greatsword',
       slash: engine.activeSlash,
+      skillAnim: engine.activeSkillAnim,
       isXiaoMode: slot?.mode === 'xiaoduanshui',
       crouching: p.crouching,
       sliding: p.slideTimer > 0,
@@ -1278,46 +1281,341 @@ export class InkVaniaRenderer {
     ctx.restore();
   }
 
+  /**
+   * 绝学地面法阵与足底气劲层（位于主角双靴之下：阴阳双鱼太极八卦阵、九幽玄阴噬魂血阵、升龙拔地气环）
+   */
+  private renderSkillGroundFormation(ctx: CanvasRenderingContext2D, engine: GameEngine): void {
+    const sk = engine.activeSkillAnim;
+    if (!sk) return;
+    const p = engine.player;
+    const pr = sk.progress;
+    const fade = Math.sin(Math.min(1, pr) * Math.PI);
+
+    if (sk.kind === 'taiji_parry') {
+      const r = sk.parrySuccess ? 98 : 74;
+      ctx.save();
+      ctx.translate(p.x, p.y - 2);
+      ctx.scale(1, 0.32);
+      ctx.rotate(pr * Math.PI * 1.6);
+
+      // 外八卦金环与浓墨衬底
+      ctx.fillStyle = `rgba(6, 10, 18, ${0.55 * fade})`;
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = sk.parrySuccess
+        ? `rgba(253, 224, 71, ${0.92 * fade})`
+        : `rgba(45, 212, 191, ${0.75 * fade})`;
+      ctx.lineWidth = 3.2;
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // 八卦方位短爻刻度
+      for (let i = 0; i < 8; i++) {
+        const a = (i * Math.PI) / 4;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * (r * 0.78), Math.sin(a) * (r * 0.78));
+        ctx.lineTo(Math.cos(a) * (r * 0.94), Math.sin(a) * (r * 0.94));
+        ctx.stroke();
+      }
+
+      // 阴阳双鱼太极内旋弧
+      ctx.strokeStyle = `rgba(254, 240, 138, ${0.85 * fade})`;
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.arc(0, -r * 0.32, r * 0.32, -Math.PI * 0.5, Math.PI * 0.5);
+      ctx.arc(0, r * 0.32, r * 0.32, Math.PI * 1.5, Math.PI * 0.5, true);
+      ctx.stroke();
+      ctx.restore();
+    } else if (sk.kind === 'jiuyou_soulsteal') {
+      ctx.save();
+      ctx.translate(p.x, p.y - 2);
+      ctx.scale(1, 0.3);
+      ctx.rotate(-pr * Math.PI * 2.1);
+      ctx.fillStyle = `rgba(24, 4, 12, ${0.65 * fade})`;
+      ctx.beginPath();
+      ctx.arc(0, 0, 118, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = `rgba(244, 63, 94, ${0.82 * fade})`;
+      ctx.lineWidth = 3.4;
+      ctx.beginPath();
+      ctx.arc(0, 0, 112 * (0.4 + pr * 0.65), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = `rgba(192, 132, 252, ${0.65 * fade})`;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(-64, -64, 128, 128);
+      ctx.restore();
+    } else if (sk.kind === 'jinghong_rising' && pr < 0.65) {
+      const k = pr / 0.65;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = `rgba(56, 189, 248, ${(1 - k) * 0.85})`;
+      ctx.lineWidth = 3.2 * (1 - k);
+      ctx.beginPath();
+      ctx.ellipse(sk.startX, sk.startY - 2, 24 + k * 64, 7 + k * 14, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  /**
+   * 五大真气绝学与奇门副器世界空间水墨光影演出（与主角 Spine 身姿严丝合缝联动！）
+   */
+  private renderActiveSkillWorldVfx(ctx: CanvasRenderingContext2D, engine: GameEngine): void {
+    const sk = engine.activeSkillAnim;
+    if (!sk) return;
+    const p = engine.player;
+    const pr = sk.progress;
+
+    if (sk.kind === 'shuofeng_wave') {
+      if (pr < 0.28) {
+        // 拧腰聚气：3道旋风气丝向掌中兵刃急速收束！
+        const u = pr / 0.28;
+        const cx = p.x - sk.facing * 12;
+        const cy = p.y - 44;
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.strokeStyle = sk.color;
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 3; i++) {
+          const a = this.ambientTime * 14 + (i * Math.PI * 2) / 3;
+          const r = (1 - u) * 44 + 8;
+          ctx.globalAlpha = 0.75 * u;
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, a, a + 1.35);
+          ctx.stroke();
+        }
+        ctx.restore();
+      } else {
+        // 振臂劈风：身前绽放 155° 水墨破空半月大刀弧！
+        const u = (pr - 0.28) / 0.72;
+        drawInkSlashRibbon(
+          ctx,
+          p.x + sk.facing * 14,
+          p.y - 42,
+          sk.facing,
+          false,
+          78 + u * 18,
+          28 * (1 - u * 0.6),
+          -1.28,
+          1.18,
+          sk.color,
+          Math.max(0, 1 - u * 0.9)
+        );
+      }
+    } else if (sk.kind === 'shunying_flash') {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      if (pr < 0.22) {
+        // 居合按柄十字寒星！
+        const s = Math.sin((pr / 0.22) * Math.PI);
+        const gx = sk.startX + sk.facing * 10;
+        const gy = sk.startY - 34;
+        ctx.strokeStyle = '#fef9c3';
+        ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        ctx.moveTo(gx - 18 * s, gy);
+        ctx.lineTo(gx + 18 * s, gy);
+        ctx.moveTo(gx, gy - 18 * s);
+        ctx.lineTo(gx, gy + 18 * s);
+        ctx.stroke();
+      } else {
+        // 瞬影路径电光主线 + 三段错落残影十字剑痕依次炸裂！
+        const fade = Math.max(0, 1 - (pr - 0.2) / 0.8);
+        ctx.strokeStyle = `rgba(253, 230, 138, ${0.85 * fade})`;
+        ctx.lineWidth = 3.5 * fade;
+        ctx.beginPath();
+        ctx.moveTo(sk.startX, sk.startY - 38);
+        ctx.lineTo(sk.endX, sk.endY - 38);
+        ctx.stroke();
+
+        for (let k = 0; k < 3; k++) {
+          const trig = 0.22 + k * 0.14;
+          if (pr < trig) continue;
+          const localP = Math.min(1, (pr - trig) / 0.36);
+          const alpha = (1 - localP) * 0.92;
+          const sx = sk.startX + ((sk.endX - sk.startX) * (k + 0.8)) / 3.4;
+          const sy = sk.endY - 42 + (k % 2 === 0 ? -6 : 6);
+          const ang = (k % 2 === 0 ? -0.58 : 0.54) * sk.facing;
+          ctx.save();
+          ctx.translate(sx, sy);
+          ctx.rotate(ang);
+          ctx.strokeStyle = `rgba(254, 240, 138, ${alpha})`;
+          ctx.lineWidth = 3.2 * (1 - localP * 0.6);
+          const L = 34 + localP * 16;
+          ctx.beginPath();
+          ctx.moveTo(-L, 0);
+          ctx.lineTo(L, 0);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // 收刀归鞘寒星闪烁
+        if (pr > 0.68) {
+          const sh = Math.sin(((pr - 0.68) / 0.32) * Math.PI);
+          const kx = p.x - sk.facing * 8;
+          const ky = p.y - 38;
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(kx - 13 * sh, ky);
+          ctx.lineTo(kx + 13 * sh, ky);
+          ctx.moveTo(kx, ky - 13 * sh);
+          ctx.lineTo(kx, ky + 13 * sh);
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+    } else if (sk.kind === 'jinghong_rising') {
+      // 双盘升龙水墨苍龙气柱 + 冲天剑弧！
+      const fade = Math.max(0, 1 - pr * 0.85);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (let strand = 0; strand < 2; strand++) {
+        ctx.strokeStyle =
+          strand === 0
+            ? `rgba(56, 189, 248, ${0.88 * fade})`
+            : `rgba(224, 242, 254, ${0.75 * fade})`;
+        ctx.lineWidth = strand === 0 ? 4.2 * fade : 2.4 * fade;
+        ctx.beginPath();
+        const botY = sk.startY - 6;
+        const topY = p.y - 88;
+        const steps = 14;
+        for (let i = 0; i <= steps; i++) {
+          const t = i / steps;
+          const yy = botY + (topY - botY) * t;
+          const phase = t * Math.PI * 3.2 - pr * 11 + strand * Math.PI;
+          const xx = p.x + Math.sin(phase) * (24 * (1 - t * 0.35));
+          if (i === 0) ctx.moveTo(xx, yy);
+          else ctx.lineTo(xx, yy);
+        }
+        ctx.stroke();
+      }
+      drawInkSlashRibbon(
+        ctx,
+        p.x + sk.facing * 8,
+        p.y - 52,
+        sk.facing,
+        false,
+        66,
+        22 * fade,
+        -2.25,
+        -0.45,
+        '#38bdf8',
+        fade
+      );
+      ctx.restore();
+    } else if (sk.kind === 'taiji_parry') {
+      // 周身阴阳回旋护体气罩（成功弹反时绽放耀金破招穹顶！）
+      const fade = Math.sin(pr * Math.PI);
+      const rad = (sk.parrySuccess ? 86 : 62) * (0.55 + pr * 0.55);
+      ctx.save();
+      ctx.translate(p.x, p.y - 42);
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 2; i++) {
+        const baseA = pr * Math.PI * 3.4 + i * Math.PI;
+        ctx.strokeStyle =
+          i === 0
+            ? `rgba(253, 224, 71, ${0.9 * fade})`
+            : `rgba(45, 212, 191, ${0.85 * fade})`;
+        ctx.lineWidth = sk.parrySuccess ? 4.4 : 3;
+        ctx.beginPath();
+        ctx.arc(0, 0, rad, baseA, baseA + Math.PI * 0.72);
+        ctx.stroke();
+      }
+      ctx.restore();
+    } else if (sk.kind === 'jiuyou_soulsteal') {
+      // 九幽噬魂血链：自悬空立剑的主角胸前射出弧形墨红锁链直贯群妖并牵引魂珠归体！
+      const fade = Math.sin(pr * Math.PI);
+      const hx = p.x;
+      const hy = p.y - 52;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      if (sk.soulTargets && sk.soulTargets.length > 0) {
+        for (let i = 0; i < sk.soulTargets.length; i++) {
+          const tg = sk.soulTargets[i];
+          const midX = (hx + tg.x) * 0.5;
+          const midY = Math.min(hy, tg.y) - 36 - (i % 2) * 18;
+          ctx.strokeStyle = `rgba(244, 63, 94, ${0.82 * fade})`;
+          ctx.lineWidth = 2.6;
+          ctx.beginPath();
+          ctx.moveTo(hx, hy);
+          ctx.quadraticCurveTo(midX, midY, tg.x, tg.y);
+          ctx.stroke();
+
+          // 沿锁链飞向主角胸口的赤红魂魄光球
+          const u = 1 - pr;
+          const ox = (1 - u) * (1 - u) * hx + 2 * (1 - u) * u * midX + u * u * tg.x;
+          const oy = (1 - u) * (1 - u) * hy + 2 * (1 - u) * u * midY + u * u * tg.y;
+          ctx.fillStyle = '#fef08a';
+          ctx.beginPath();
+          ctx.arc(ox, oy, 4.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      // 周身盘旋玄阴赤雾弧
+      for (let i = 0; i < 3; i++) {
+        const a = -pr * 8 + (i * Math.PI * 2) / 3;
+        ctx.strokeStyle = `rgba(239, 68, 68, ${0.72 * fade})`;
+        ctx.lineWidth = 2.8;
+        ctx.beginPath();
+        ctx.arc(hx, hy, 42 + pr * 48, a, a + 1.2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    } else if (sk.kind === 'sub_throw') {
+      // 奇门副器脱手瞬间：掌心符印金芒绽放！
+      const s = Math.sin(pr * Math.PI);
+      const tx = p.x + sk.facing * 24;
+      const ty = p.y - 42;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = sk.color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(tx, ty, 8 + pr * 16, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = `rgba(254, 249, 195, ${0.85 * s})`;
+      ctx.beginPath();
+      ctx.arc(tx, ty, 4.5 * s, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
   private renderScreenSkillOverlays(
     ctx: CanvasRenderingContext2D,
     viewW: number,
     viewH: number,
     engine: GameEngine
   ): void {
-    if (engine.taijiFlashTimer > 0) {
-      ctx.save();
-      ctx.globalAlpha = engine.taijiFlashTimer * 1.6;
-      ctx.strokeStyle = '#fde047';
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.arc(viewW * 0.5, viewH * 0.55, (0.45 - engine.taijiFlashTimer) * 420, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.restore();
-    }
-
     if (engine.soulStealFlashTimer > 0) {
-      ctx.fillStyle = `rgba(153, 27, 27, ${engine.soulStealFlashTimer * 0.38})`;
+      ctx.fillStyle = `rgba(127, 29, 29, ${engine.soulStealFlashTimer * 0.24})`;
       ctx.fillRect(0, 0, viewW, viewH);
     }
 
     if (engine.skillBanner) {
       const sb = engine.skillBanner;
       ctx.save();
-      ctx.globalAlpha = Math.min(1, sb.timer * 1.8);
-      const y = viewH * 0.17;
-      // 泼墨飞白卷轴底衬 + 书法招式大字
-      const g = ctx.createLinearGradient(viewW * 0.5 - 170, 0, viewW * 0.5 + 170, 0);
+      ctx.globalAlpha = Math.min(0.92, sb.timer * 1.8);
+      const y = viewH * 0.14;
+      const g = ctx.createLinearGradient(viewW * 0.5 - 125, 0, viewW * 0.5 + 125, 0);
       g.addColorStop(0, 'rgba(5, 7, 12, 0)');
-      g.addColorStop(0.2, 'rgba(5, 7, 12, 0.9)');
-      g.addColorStop(0.8, 'rgba(5, 7, 12, 0.9)');
+      g.addColorStop(0.25, 'rgba(5, 7, 12, 0.78)');
+      g.addColorStop(0.75, 'rgba(5, 7, 12, 0.78)');
       g.addColorStop(1, 'rgba(5, 7, 12, 0)');
       ctx.fillStyle = g;
-      ctx.fillRect(viewW * 0.5 - 170, y - 26, 340, 42);
+      ctx.fillRect(viewW * 0.5 - 125, y - 18, 250, 30);
 
-      ctx.font = '900 30px "STKaiti", "KaiTi", serif';
+      ctx.font = '900 20px "STKaiti", "KaiTi", serif';
       ctx.textAlign = 'center';
       ctx.fillStyle = sb.color;
-      ctx.fillText(sb.name, viewW * 0.5, y + 5);
+      ctx.fillText(sb.name, viewW * 0.5, y + 3);
       ctx.restore();
     }
   }

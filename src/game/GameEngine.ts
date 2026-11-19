@@ -52,6 +52,20 @@ export interface ActiveSlash {
   slammedGround?: boolean;
 }
 
+export interface ActiveSkillAnim {
+  kind: SkillId | 'sub_throw';
+  progress: number; // 0..1
+  duration: number;
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+  facing: 1 | -1;
+  color: string;
+  parrySuccess?: boolean;
+  soulTargets?: { x: number; y: number }[];
+}
+
 export interface Projectile {
   fromPlayer: boolean;
   kind: 'qi_wave' | 'dagger' | 'holy_fire' | 'fire_pillar' | 'bagua' | 'seal' | 'ink_spear';
@@ -247,6 +261,7 @@ export class GameEngine {
     trailSpawnTimer: 0,
     groundSlamming: false,
     invulnTimer: 0,
+    hurtBlinkTimer: 0,
     orbitSwordTimer: 0,
     orbitAngle: 0,
     animTime: 0,
@@ -268,6 +283,7 @@ export class GameEngine {
   };
 
   public activeSlash: ActiveSlash | null = null;
+  public activeSkillAnim: ActiveSkillAnim | null = null;
   private slashHitIds = new Set<number>();
   private kickHitIds = new Set<number>();
   public skillBanner: { name: string; timer: number; color: string } | null = null;
@@ -510,6 +526,7 @@ export class GameEngine {
     this.drops = [];
     this.slashImpacts = [];
     this.activeSlash = null;
+    this.activeSkillAnim = null;
     this.player.diveKicking = false;
     this.player.slideTimer = 0;
     this.player.dropThroughTimer = 0;
@@ -747,6 +764,12 @@ export class GameEngine {
       this.skillBanner.timer -= dt;
       if (this.skillBanner.timer <= 0) this.skillBanner = null;
     }
+    if (this.activeSkillAnim) {
+      this.activeSkillAnim.progress += dt / Math.max(0.05, this.activeSkillAnim.duration);
+      if (this.activeSkillAnim.progress >= 1) {
+        this.activeSkillAnim = null;
+      }
+    }
 
     if (this.hitstopTimer > 0) {
       this.hitstopTimer -= dt;
@@ -813,6 +836,7 @@ export class GameEngine {
     p.animTime += dt;
 
     if (p.invulnTimer > 0) p.invulnTimer -= dt;
+    if (p.hurtBlinkTimer > 0) p.hurtBlinkTimer = Math.max(0, p.hurtBlinkTimer - dt);
     if (p.attackCooldown > 0) p.attackCooldown -= dt;
     if (p.skillCooldown > 0) p.skillCooldown = Math.max(0, p.skillCooldown - dt);
     if (p.subWeaponCooldown > 0) p.subWeaponCooldown = Math.max(0, p.subWeaponCooldown - dt);
@@ -1382,9 +1406,11 @@ export class GameEngine {
     }
 
     p.mp -= sk.mpCost;
-    p.attackCooldown = 0.3;
+    p.attackCooldown = 0.34;
+    this.activeSlash = null;
     p.skillCooldown =
       skillId === 'jiuyou_soulsteal' ? 4.5 : skillId === 'taiji_parry' ? 2.4 : 1.6;
+    this.skillBanner = { name: sk.name, timer: 0.72, color: sk.color };
     AudioFX.playSkillCast();
     NativeApp.haptic('medium');
 
@@ -1394,16 +1420,28 @@ export class GameEngine {
     const isHeavy = w.archetype === 'greatsword';
 
     if (skillId === 'shuofeng_wave') {
+      const waveCol = isHeavy ? '#f97316' : '#2dd4bf';
+      this.activeSkillAnim = {
+        kind: 'shuofeng_wave',
+        progress: 0,
+        duration: 0.4,
+        startX: p.x,
+        startY: p.y,
+        endX: p.x,
+        endY: p.y,
+        facing: p.facing,
+        color: waveCol,
+      };
       this.projectiles.push({
         fromPlayer: true,
         kind: 'qi_wave',
-        x: p.x + p.facing * 30,
+        x: p.x + p.facing * 34,
         y: p.y - 38,
-        vx: p.facing * (isHeavy ? 450 : 560),
+        vx: p.facing * (isHeavy ? 460 : 560),
         vy: 0,
         r: isHeavy ? 38 : 28,
         dmg: skillDmg,
-        color: isHeavy ? '#f97316' : '#2dd4bf',
+        color: waveCol,
         life: 0.62,
         maxLife: 0.62,
         pierce: 3,
@@ -1418,15 +1456,27 @@ export class GameEngine {
       );
     } else if (skillId === 'shunying_flash') {
       const startX = p.x;
+      const startY = p.y;
       const dest = this.computeSafeFlashEndX(startX, p.facing, 144);
       const endX = dest.x;
-      p.invulnTimer = Math.max(p.invulnTimer, 0.22);
+      p.invulnTimer = Math.max(p.invulnTimer, 0.24);
       for (let i = 1; i <= 5; i++) {
         const ix = startX + ((endX - startX) * i) / 5;
-        this.afterImages.push({ x: ix, y: p.y, facing: p.facing, color: '#fde68a', alpha: 0.8 });
+        this.afterImages.push({ x: ix, y: p.y, facing: p.facing, color: '#fde68a', alpha: 0.82 });
       }
       p.x = endX;
       p.y = dest.y;
+      this.activeSkillAnim = {
+        kind: 'shunying_flash',
+        progress: 0,
+        duration: 0.44,
+        startX,
+        startY,
+        endX,
+        endY: dest.y,
+        facing: p.facing,
+        color: '#fde68a',
+      };
       this.slashImpacts.push({
         x: (startX + endX) * 0.5,
         y: p.y - 42,
@@ -1435,19 +1485,32 @@ export class GameEngine {
         thickness: 8,
         color: '#fde68a',
         ringRadius: 42,
-        life: 0.22,
-        maxLife: 0.22,
+        life: 0.24,
+        maxLife: 0.24,
       });
       const minX = Math.min(startX, endX) - 22;
       const maxX = Math.max(startX, endX) + 22;
       this.damageEnemiesInBox(minX, p.y - 80, maxX - minX, 88, skillDmg, false, 32);
       this.screenShake = 4;
     } else if (skillId === 'jinghong_rising') {
+      const launchX = p.x;
+      const launchY = p.y;
       // 升龙高度严格控制在 99px（低于常规单跳 117px），纯粹服务防空挑斩，绝不顶替二段跳跳关！
       p.vy = -560;
       p.onGround = false;
       p.coyoteTimer = 0;
-      p.invulnTimer = Math.max(p.invulnTimer, 0.2);
+      p.invulnTimer = Math.max(p.invulnTimer, 0.22);
+      this.activeSkillAnim = {
+        kind: 'jinghong_rising',
+        progress: 0,
+        duration: 0.48,
+        startX: launchX,
+        startY: launchY,
+        endX: launchX,
+        endY: launchY - 96,
+        facing: p.facing,
+        color: '#38bdf8',
+      };
       this.slashImpacts.push({
         x: p.x + p.facing * 18,
         y: p.y - 64,
@@ -1464,8 +1527,8 @@ export class GameEngine {
       this.screenShake = 4;
     } else if (skillId === 'taiji_parry') {
       // 真正吃时机的弹反绝技：仅当抹除敌方飞弹或抓准敌方出招瞬间(windup/lunge_slash)才触发高伤破招；盲目空放威力减半且不晕 Boss！
-      this.taijiFlashTimer = 0.36;
-      p.invulnTimer = Math.max(p.invulnTimer, 0.18);
+      this.taijiFlashTimer = 0.42;
+      p.invulnTimer = Math.max(p.invulnTimer, 0.2);
       let deflectedBullet = false;
       for (let i = this.projectiles.length - 1; i >= 0; i--) {
         const pr = this.projectiles[i];
@@ -1485,7 +1548,6 @@ export class GameEngine {
             parriedAnyStrike = true;
             p.invulnTimer = Math.max(p.invulnTimer, 0.42);
             if (e.profile.isBoss) {
-              // Boss 仅被打断当前扑斩进入短暂收招破绽，绝不会被无限眩晕屈死！
               e.aiState = 'recover';
               e.stateTimer = 0.65;
               e.vx = 0;
@@ -1516,6 +1578,18 @@ export class GameEngine {
           }
         }
       }
+      this.activeSkillAnim = {
+        kind: 'taiji_parry',
+        progress: 0,
+        duration: 0.52,
+        startX: p.x,
+        startY: p.y,
+        endX: p.x,
+        endY: p.y,
+        facing: p.facing,
+        color: '#fde047',
+        parrySuccess: parriedAnyStrike,
+      };
       if (parriedAnyStrike) {
         p.mp = Math.min(p.maxMp, p.mp + 10);
       }
@@ -1523,12 +1597,26 @@ export class GameEngine {
       this.soulStealFlashTimer = 0.55;
       p.invulnTimer = Math.max(p.invulnTimer, 0.35);
       let totalHeal = 0;
+      const targets: { x: number; y: number }[] = [];
       for (const e of [...this.enemies]) {
         if (Math.hypot(e.x - p.x, e.y - p.y) > 420) continue;
+        targets.push({ x: e.x, y: e.y - e.profile.h * 0.52 });
         this.spawnInkBurst(e.x, e.y - e.profile.h * 0.5, '#ef4444', '#090d16', 14);
         this.applyDamageToEnemy(e, skillDmg, false, 40);
         totalHeal += 8;
       }
+      this.activeSkillAnim = {
+        kind: 'jiuyou_soulsteal',
+        progress: 0,
+        duration: 0.68,
+        startX: p.x,
+        startY: p.y,
+        endX: p.x,
+        endY: p.y,
+        facing: p.facing,
+        color: '#ef4444',
+        soulTargets: targets,
+      };
       totalHeal = Math.min(32, totalHeal);
       if (totalHeal > 0) {
         p.hp = Math.min(p.maxHp, p.hp + totalHeal);
@@ -1568,6 +1656,17 @@ export class GameEngine {
 
     this.slot.talismanHearts -= sub.talismanCost;
     this.player.subWeaponCooldown = 0.48;
+    this.activeSkillAnim = {
+      kind: 'sub_throw',
+      progress: 0,
+      duration: 0.25,
+      startX: this.player.x,
+      startY: this.player.y,
+      endX: this.player.x,
+      endY: this.player.y,
+      facing: this.player.facing,
+      color: sub.color,
+    };
     const core = this.slot.equippedYaoCore ? YAO_CORES[this.slot.equippedYaoCore] : undefined;
     const subMult = 1 + (core?.subWeaponMult || 0);
     const dmg = Math.round((sub.baseDmg + this.player.int * 1.0) * subMult);
@@ -2767,25 +2866,24 @@ export class GameEngine {
       s.defeatedBosses.push(bossKey);
     }
 
-    // 3) 水牢宿敌【少统领·萧断水】战后赠予缩地化雾符与名枪【寒星龙胆枪】！
+    // 3) 首战宿敌【少统领·萧断水】战后赠予镇军信物【白虎啸风兵符】（不再越级提前赠送缩地化雾！）
     if (e.profile.kind === 'boss_xiao_duanshui') {
-      if (!s.ownedWeapons.includes('spear_2')) {
+      if (!s.ownedArmors.includes('tiger_tally')) {
         this.drops.push({
-          id: 'boss_drop_spear2',
+          id: 'boss_drop_tiger_tally',
           isStaticPickup: false,
-          kind: 'weapon',
-          itemId: 'spear_2',
+          kind: 'armor',
+          itemId: 'tiger_tally',
           amount: 1,
           x: e.x,
           y: e.y - 24,
           vy: -240,
-          color: '#38bdf8',
-          label: WEAPONS.spear_2.name,
+          color: '#f59e0b',
+          label: ARMORS.tiger_tally.name,
         });
       }
       if (s.mode === 'story' && STORY_SCENES.boss_xiao_post) {
         this.cb.onStartStory(STORY_SCENES.boss_xiao_post, () => {
-          this.grantAbility('mist_dash');
           SaveManager.saveSlot(s);
         });
         return;
@@ -2807,7 +2905,9 @@ export class GameEngine {
     const dmg = Math.max(3, Math.round(rawAtk - p.def * 0.55));
     p.hp = Math.max(0, p.hp - dmg);
     p.invulnTimer = 0.85;
+    p.hurtBlinkTimer = 0.85;
     this.activeSlash = null;
+    this.activeSkillAnim = null;
     p.vx = knockDir * 250;
     p.vy = -220;
     p.onGround = false;

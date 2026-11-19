@@ -268,6 +268,8 @@ class HeroSpineController {
     diveKicking?: boolean;
     slashProgress: number | null; // 0..1 or null
     slashArchetype?: string;
+    skillKind?: string;
+    skillProgress?: number | null;
     isStagePreview?: boolean;
   }): { joints: SpineJointRow[]; headWorldOffset: { dx: number; dy: number } } {
     const dt =
@@ -281,13 +283,68 @@ class HeroSpineController {
     const absSpd = Math.abs(opts.vx);
     const speedRatio = Math.min(1.25, absSpd / 250);
 
-    // 1. 目标脊柱倾斜量解算（疾跑前倾 / 空中仰俯 / 蓄力拧腰 -> 破空前突！）
+    // 1. 目标脊柱倾斜量解算（武学绝技多段身姿 / 蓄力拧腰 -> 破空前突！）
     let targetLean = 0;
     let chestLift = 0;
     let ribExpand = 1.0;
     let shoulderTwist = 0;
+    let rootFloatY = 0;
 
-    if (opts.slashProgress !== null) {
+    if (opts.skillKind && opts.skillProgress !== undefined && opts.skillProgress !== null) {
+      const sp = opts.skillProgress;
+      if (opts.skillKind === 'shuofeng_wave') {
+        if (sp < 0.28) {
+          const w = sp / 0.28;
+          targetLean = -14.5 * Math.sin(w * Math.PI * 0.5);
+          chestLift = -2.8 * w;
+          shoulderTwist = -0.13 * w;
+        } else {
+          const s = (sp - 0.28) / 0.72;
+          const burst = Math.sin(Math.min(1, s * 1.45) * Math.PI * 0.5) * (1 - s * 0.45);
+          targetLean = 18.5 * burst;
+          chestLift = 2.6 * burst;
+          ribExpand = 1.07;
+          shoulderTwist = 0.14 * burst;
+        }
+      } else if (opts.skillKind === 'shunying_flash') {
+        if (sp < 0.2) {
+          targetLean = -6;
+          chestLift = 5.5;
+        } else if (sp < 0.68) {
+          const u = 1 - (sp - 0.2) / 0.48;
+          targetLean = 19.5 * (0.45 + 0.55 * u);
+          chestLift = 4.5 * u;
+          shoulderTwist = 0.14 * u;
+        } else {
+          const r = 1 - (sp - 0.68) / 0.32;
+          targetLean = 4.5 * r;
+          chestLift = -2.2 * (1 - r);
+          ribExpand = 1.04;
+        }
+      } else if (opts.skillKind === 'jinghong_rising') {
+        const arc = Math.sin(sp * Math.PI * 0.85);
+        targetLean = -7.5 * arc;
+        chestLift = -6.8 * arc;
+        ribExpand = 1.06;
+        shoulderTwist = -0.1 * arc;
+      } else if (opts.skillKind === 'taiji_parry') {
+        const wave = Math.sin(sp * Math.PI);
+        targetLean = -4.8 * wave;
+        chestLift = 3.2 * wave;
+        ribExpand = 1 + 0.08 * wave;
+        shoulderTwist = -0.07 * wave;
+      } else if (opts.skillKind === 'jiuyou_soulsteal') {
+        const lev = Math.sin(sp * Math.PI);
+        targetLean = -5.5 * lev;
+        chestLift = -5.5 * lev;
+        rootFloatY = -10 * lev;
+        ribExpand = 1 + 0.09 * lev;
+      } else if (opts.skillKind === 'sub_throw') {
+        const flick = Math.sin(sp * Math.PI);
+        targetLean = 12 * flick;
+        shoulderTwist = 0.1 * flick;
+      }
+    } else if (opts.slashProgress !== null) {
       const p = opts.slashProgress;
       const isHeavy = opts.slashArchetype === 'greatsword';
       if (p < 0.24) {
@@ -365,7 +422,10 @@ class HeroSpineController {
       const spineCurve = Math.pow(heightFactor, 1.35);
 
       let dx = this.smoothLean * spineCurve;
-      let dy = chestLift * Math.sin(heightFactor * Math.PI * 0.82) + this.kneeBounce * Math.sin(v * Math.PI);
+      let dy =
+        rootFloatY +
+        chestLift * Math.sin(heightFactor * Math.PI * 0.82) +
+        this.kneeBounce * Math.sin(v * Math.PI);
       let angle = (this.smoothLean * 0.011 + shoulderTwist) * spineCurve;
       let leftScale = 1.0;
       let rightScale = 1.0;
