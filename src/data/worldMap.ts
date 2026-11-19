@@ -130,6 +130,11 @@ export interface SceneNpc {
   defaultFacing: 1 | -1;
 }
 
+export interface SceneStele {
+  id: string;
+  x: number;
+}
+
 export type CastleDecorKind =
   | 'bookshelf'
   | 'chandelier'
@@ -201,6 +206,7 @@ export interface BuiltRoom {
   foregrounds: ForegroundProp[];
   lanterns: LanternAnchor[];
   npcs: SceneNpc[];
+  steles?: SceneStele[];
   spawns: SceneSpawn[];
   pickups: ScenePickup[];
 }
@@ -357,6 +363,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       pixelW: 1600,
       pixelH: 480,
       special: 'none',
+      storyTriggerId: 'intro_gate',
       focalX: 240,
       focalY: 404,
       leftRoomId: 'bamboo_outpost',
@@ -556,9 +563,11 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       decorProps: [
         { kind: 'incense_burner', x: 180, y: 424, scale: 0.94 },
+        { kind: 'coiled_pillar', x: 520, y: 424, scale: 0.92 },
         { kind: 'dragon_brazier', x: 760, y: 424, scale: 0.92 },
         { kind: 'weapon_rack', x: 1450, y: 424, scale: 0.92 },
       ],
+      steles: [{ id: 'stele_alchemy_edict', x: 260 }],
       waterZones: [],
       pavilions: [
         // 承接下方瓮城天井跃上的单向安全木栈板（不会刚跳上来又掉回去！）
@@ -656,6 +665,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       pixelH: 480,
       special: 'boss_room',
       bossKind: 'boss_xiao_duanshui',
+      storyTriggerId: 'boss_xiao_pre',
       focalX: 1080,
       focalY: 404,
       leftRoomId: 'relic_double_jump',
@@ -793,6 +803,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       pixelW: 2200,
       pixelH: 520,
       special: 'none',
+      storyTriggerId: 'enter_main_hall',
       focalX: 1100,
       focalY: 432,
       leftRoomId: 'gate_save',
@@ -812,11 +823,14 @@ function createNormalCastleRooms(): BuiltRoom[] {
       shafts: [{ x1: 320, x2: 460, dir: 'down', targetRoomId: 'central_warp' }],
       decorProps: [
         { kind: 'silk_banner', x: 165, y: 256, scale: 0.9 },
+        { kind: 'coiled_pillar', x: 260, y: 432, scale: 0.96 },
         { kind: 'lattice_window', x: 520, y: 268, scale: 0.92 },
         { kind: 'dragon_brazier', x: 640, y: 432, scale: 0.94 },
         { kind: 'chandelier', x: 950, y: 18, scale: 0.94 },
+        { kind: 'coiled_pillar', x: 1120, y: 432, scale: 0.96 },
         { kind: 'lattice_window', x: 1460, y: 268, scale: 0.92 },
         { kind: 'dragon_brazier', x: 1580, y: 432, scale: 0.94 },
+        { kind: 'coiled_pillar', x: 1730, y: 432, scale: 0.96 },
         { kind: 'silk_banner', x: 1960, y: 186, scale: 0.86 },
       ],
       waterZones: [],
@@ -995,6 +1009,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'dragon_brazier', x: 135, y: 408, scale: 0.9 },
         { kind: 'weapon_rack', x: 725, y: 408, scale: 0.9 },
       ],
+      steles: [{ id: 'stele_forge_arm', x: 205 }],
       pavilions: [],
       archways: [],
       torches: [{ x: 180, y: 330 }],
@@ -1194,6 +1209,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       pixelH: 480,
       special: 'boss_room',
       bossKind: 'boss_scroll_king',
+      storyTriggerId: 'boss_scroll_pre',
       focalX: 980,
       focalY: 408,
       leftRoomId: 'prison_waterway',
@@ -1685,6 +1701,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'chandelier', x: 600, y: 20, scale: 0.92 },
         { kind: 'silk_banner', x: 1450, y: 246, scale: 0.92 },
       ],
+      steles: [{ id: 'stele_opera_nuo', x: 190 }],
       waterZones: [],
       pavilions: [{ x: 724, y: 424, w: 212, hasPillars: false }],
       archways: [],
@@ -1722,6 +1739,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       pixelH: 480,
       special: 'boss_room',
       bossKind: 'boss_opera_god',
+      storyTriggerId: 'boss_opera_pre',
       focalX: 520,
       focalY: 408,
       leftRoomId: 'relic_grapple_vault',
@@ -1869,6 +1887,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       pixelH: 480,
       special: 'boss_room',
       bossKind: 'boss_thunder_yaksha',
+      storyTriggerId: 'boss_yaksha_pre',
       focalX: 540,
       focalY: 408,
       leftRoomId: 'clock_gear_hall',
@@ -2010,6 +2029,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       pixelH: 500,
       special: 'boss_room',
       bossKind: 'boss_pei_wuji',
+      storyTriggerId: 'boss_pei_pre',
       focalX: 1120,
       focalY: 340,
       leftRoomId: 'altar_save',
@@ -2051,7 +2071,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       name: '苍竹断崖古亭',
       subtitle: '西郊悬崖 · 侠客古碑与烈酒藏瓮',
       region: 'gatehouse',
-      bgKey: 'bg_gatehouse',
+      bgKey: 'bg_bamboo_cliff',
       realm: 'normal',
       mapX: 0,
       mapY: 3,
@@ -2075,6 +2095,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'guardian_statue', x: 110, y: 404, scale: 0.92 },
         { kind: 'dragon_brazier', x: 540, y: 404, scale: 0.9 },
       ],
+      steles: [{ id: 'stele_outpost_oath', x: 635 }],
       waterZones: [],
       pavilions: [],
       archways: [],
@@ -2196,7 +2217,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       name: '九幽白骨冥廊',
       subtitle: '深层古墓 · 蚀骨毒刺与镇墓铜甲卫',
       region: 'prison',
-      bgKey: 'bg_cavern_waterfall',
+      bgKey: 'bg_catacomb_tomb',
       realm: 'normal',
       indoor: true,
       mapX: 3,
@@ -2234,6 +2255,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'dragon_brazier', x: 830, y: 420, scale: 0.9 },
         { kind: 'guardian_statue', x: 1440, y: 420, scale: 0.92 },
       ],
+      steles: [{ id: 'stele_catacomb_origin', x: 925 }],
       waterZones: [],
       pavilions: [],
       archways: [],
@@ -2261,7 +2283,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       name: '摸金古墓宝库',
       subtitle: '独立隐藏密室 · 摸金寻宝天师符秘冢',
       region: 'prison',
-      bgKey: 'bg_cavern_waterfall',
+      bgKey: 'bg_catacomb_tomb',
       realm: 'normal',
       indoor: true,
       isSecretRoom: true,
@@ -2307,7 +2329,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       name: '冥廊镇魂碑林',
       subtitle: '古墓深处 · 贪狼饮血古玉祭坛',
       region: 'prison',
-      bgKey: 'bg_cavern_waterfall',
+      bgKey: 'bg_catacomb_tomb',
       realm: 'normal',
       indoor: true,
       mapX: 5,
@@ -2423,6 +2445,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'bookshelf', x: 135, y: 384, scale: 0.95 },
         { kind: 'bookshelf', x: 625, y: 384, scale: 0.95 },
       ],
+      steles: [{ id: 'stele_library_star', x: 560 }],
       waterZones: [],
       pavilions: [],
       archways: [],
@@ -2474,6 +2497,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'dragon_brazier', x: 220, y: 412, scale: 0.92 },
         { kind: 'dragon_brazier', x: 1380, y: 412, scale: 0.92 },
       ],
+      steles: [{ id: 'stele_observatory_mirror', x: 315 }],
       waterZones: [],
       pavilions: [],
       archways: [{ x: 1450, title: '望月观星阙' }],
@@ -2529,6 +2553,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'weapon_rack', x: 205, y: 396, scale: 0.95 },
         { kind: 'guardian_statue', x: 685, y: 396, scale: 0.95 },
       ],
+      steles: [{ id: 'stele_sword_tomb', x: 245 }],
       waterZones: [],
       pavilions: [],
       archways: [],
@@ -2817,6 +2842,7 @@ function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
           ? 'none'
           : rm.special,
       bossKind: isTrueFinalRoom ? 'boss_zhuyin' : undefined,
+      storyTriggerId: isTrueFinalRoom ? 'boss_zhuyin_pre' : undefined,
       warpName: rm.warpName ? `里 · ${rm.warpName}` : undefined,
       focalX: W - rm.focalX,
       focalY: rm.focalY,

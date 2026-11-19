@@ -9,7 +9,7 @@ import {
   WEAPONS,
   YAO_CORES,
 } from '../data/itemsAndSkills';
-import { CHARACTER_BIOS } from '../data/storyAndNpcs';
+import { CHARACTER_BIOS, LORE_STELES } from '../data/storyAndNpcs';
 import {
   getRoomSideDoors,
   MAP_GRID_TOTAL_H,
@@ -103,7 +103,7 @@ export class UIManager {
         <div class="zx-red-stamp">镇妖司密录</div>
         <div>
           <h1 class="zx-main-title">玄城夜行</h1>
-          <div class="zx-subtitle">阴阳双城 · 最高探索 ${meta.bestExplorationPct}% / 200%</div>
+          <div class="zx-subtitle">阴阳双城 · 最高探索 ${meta.bestExplorationPct}% / 200%+</div>
         </div>
       </div>
 
@@ -562,22 +562,57 @@ export class UIManager {
       footerLeft = '镇妖司百鬼图鉴：记录妖邪属性、常掉补给、稀世神兵掉宝与本命妖丹';
     } else if (this.pauseTab === 'lore') {
       const compact = window.innerHeight < 540;
+      const readList = s.readSteles || [];
+      const steleEntries = Object.values(LORE_STELES);
+      const steleCardsHtml = steleEntries
+        .map((st) => {
+          const unlocked = readList.includes(st.id);
+          return `
+            <div class="zx-item-row" style="flex-direction:column;align-items:flex-start;gap:6px;cursor:default;border-color:${unlocked ? 'rgba(56,189,248,0.45)' : 'rgba(148,163,184,0.16)'};">
+              <div style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                <span style="font-size:13.5px;font-weight:900;color:${unlocked ? '#7dd3fc' : '#64748b'};letter-spacing:1.5px;">
+                  ${st.volume} ${unlocked ? st.title : '· 【尚未拓印】'}
+                </span>
+                <span style="font-size:11px;color:${unlocked ? 'var(--jade)' : '#94a3b8'};">
+                  ${st.locationHint}
+                </span>
+              </div>
+              ${
+                unlocked
+                  ? `<div style="font-size:11px;color:var(--bronze);">${st.author}</div>
+                     <div style="font-size:12px;color:#e2e8f0;line-height:1.6;">${st.content}</div>`
+                  : `<div style="font-size:12px;color:#64748b;line-height:1.5;">秘档残碑散落于【${st.locationHint}】，靠近残碑按【斩】即可拓印研读甲申血月之变真相。</div>`
+              }
+            </div>`;
+        })
+        .join('');
+
       mainHtml = `
-        <div class="zx-scroll-pane zx-card-grid">
-          ${CHARACTER_BIOS.map(
-            (b) => `
-              <div class="zx-item-row" style="gap:12px;align-items:flex-end;cursor:default;overflow:hidden;padding-bottom:0;">
-                <div style="flex-shrink:0;line-height:0;">${getSpeakerPortraitSvg(b.name, compact ? 92 : 132)}</div>
-                <div style="padding-bottom:10px;">
-                  <div style="font-size:15px;font-weight:900;color:${b.color};letter-spacing:2px;">${b.name}</div>
-                  <div style="font-size:11px;color:var(--bronze);margin:2px 0 4px;">${b.ageTitle}</div>
-                  <div style="font-size:12px;color:#cbd5e1;line-height:1.5;">${b.summary}</div>
-                </div>
-              </div>`
-          ).join('')}
+        <div class="zx-scroll-pane" style="display:flex;flex-direction:column;gap:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(212,175,55,0.22);padding-bottom:6px;">
+            <strong style="color:var(--bronze-light);letter-spacing:2px;font-size:14px;">甲申血月 · 镇妖司残碑秘档</strong>
+            <span style="font-size:12px;color:#38bdf8;font-weight:800;">已拓印 ${readList.length} / ${steleEntries.length} 卷</span>
+          </div>
+          <div class="zx-card-grid">${steleCardsHtml}</div>
+          <div style="border-bottom:1px solid rgba(212,175,55,0.22);padding-bottom:6px;margin-top:4px;">
+            <strong style="color:var(--bronze-light);letter-spacing:2px;font-size:14px;">镇妖司与玄城人物列传</strong>
+          </div>
+          <div class="zx-card-grid">
+            ${CHARACTER_BIOS.map(
+              (b) => `
+                <div class="zx-item-row" style="gap:12px;align-items:flex-end;cursor:default;overflow:hidden;padding-bottom:0;">
+                  <div style="flex-shrink:0;line-height:0;">${getSpeakerPortraitSvg(b.name, compact ? 92 : 124)}</div>
+                  <div style="padding-bottom:10px;">
+                    <div style="font-size:15px;font-weight:900;color:${b.color};letter-spacing:2px;">${b.name}</div>
+                    <div style="font-size:11px;color:var(--bronze);margin:2px 0 4px;">${b.ageTitle}</div>
+                    <div style="font-size:12px;color:#cbd5e1;line-height:1.5;">${b.summary}</div>
+                  </div>
+                </div>`
+            ).join('')}
+          </div>
         </div>
       `;
-      footerLeft = '镇妖司人物密档';
+      footerLeft = `甲申血月秘档（${readList.length}/${steleEntries.length}） · 镇妖司人物密档`;
     } else {
       const mute = AudioFX.getMuteState();
       mainHtml = `
@@ -2017,7 +2052,7 @@ export class UIManager {
           : '结 局 一 · 折 剑 归 尘';
     const desc =
       kind === 'true'
-        ? `十八岁少年剑破九幽，太古尸仙烛阴伏诛，血月终散！<br/>双城探索度：<strong style="color:#fde047;">${pct}% / 200%</strong> · 历时：<strong>${timeStr}</strong><br/><span style="color:#2dd4bf;">已永久解锁标题画面【少统领传·萧断水】与【百鬼试炼·镇妖塔】！</span>`
+        ? `十八岁少年剑破九幽，太古尸仙烛阴伏诛，血月终散！<br/>双城探索度：<strong style="color:#fde047;">${pct}% / 200%+</strong> · 历时：<strong>${timeStr}</strong><br/><span style="color:#2dd4bf;">已永久解锁标题画面【少统领传·萧断水】与【百鬼试炼·镇妖塔】！</span>`
         : kind === 'boss_rush'
           ? `七大妖王与宿敌尽败于枪剑之下！通关用时：<strong style="color:#fde047;">${timeStr}</strong>`
           : `未能识破恩师眉心的九幽蚀心蛊，里城真凶尚未授首……<br/>提示：自寒潭水脉深处【玄鸟秘宝冢】习得【缩地化雾】并取【玄鸟合璧佩】，再登东垣望月竖塔顶层穿紫瘴入【天机秘阁】寻得【破妄古镜】，重登凌霄祭天坛即可开启 <strong>180° 九幽倒悬里城</strong>！`;

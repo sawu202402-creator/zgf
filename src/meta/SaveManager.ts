@@ -40,6 +40,7 @@ export function createFreshSaveSlot(slotIndex: number, mode: GameMode = 'story')
     collectedPickups: [],
     defeatedBosses: [],
     triggeredStories: [],
+    readSteles: [],
     brokenSecretWalls: [],
     playTimeSec: 0,
   };

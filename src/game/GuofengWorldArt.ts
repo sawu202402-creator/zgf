@@ -296,48 +296,89 @@ export function bakeOrthographicRoomTerrain(bctx: CanvasRenderingContext2D, room
       );
     }
 
-    // 1C. 渲染《恶魔城：月下夜想曲》式实心石砌高低台与壁挂石阶 (`room.solidBlocks`)
+    // 1C. 渲染《月下夜想曲 / 斩妖行》式纯手绘高低悬台与须弥石座 (`room.solidBlocks`)——彻底根除生硬几何方框线！
     if (room.solidBlocks && room.solidBlocks.length > 0) {
+      const indoorLedgeImg = Assets.get('env_indoor_ledge');
+      const pavilionImg = Assets.get('env_pavilion');
+
       for (const sb of room.solidBlocks) {
-        const topDrawY = sb.y - surfaceTopOffset;
-        const totalDrawH = sb.h + surfaceTopOffset;
+        const groundAtMid = sampleSolidGroundY(room, sb.x + sb.w * 0.5);
+        const isFloatingLedge = sb.y + sb.h < groundAtMid - 14 && sb.h <= 46 && !sb.blocking;
 
-        // 石台底面柔和遮蔽投影
-        const dropG = bctx.createLinearGradient(0, sb.y + sb.h, 0, sb.y + sb.h + 18);
-        dropG.addColorStop(0, 'rgba(3, 5, 11, 0.52)');
-        dropG.addColorStop(1, 'rgba(3, 5, 11, 0)');
-        bctx.fillStyle = dropG;
-        bctx.fillRect(sb.x + 2, sb.y + sb.h, Math.max(0, sb.w - 4), 18);
-
-        bctx.save();
-        bctx.beginPath();
-        bctx.rect(sb.x, topDrawY, sb.w, totalDrawH);
-        bctx.clip();
-
-        bctx.fillStyle = '#090e1a';
-        bctx.fillRect(sb.x, topDrawY, sb.w, totalDrawH);
-
-        // 下部砌体纹理（用于厚实高台 h > 44）
-        if (totalDrawH > srcCapH - 4) {
-          for (let y = topDrawY + srcCapH - 8; y < topDrawY + totalDrawH; y += subSrcH - 3) {
-            for (let x = sb.x; x < sb.x + sb.w; x += sw) {
-              const wClip = Math.min(sw, sb.x + sb.w - x);
-              bctx.drawImage(floorImg, 0, subSrcY, wClip, subSrcH, x, y, wClip + 0.5, subSrcH);
+        // 宫殿/书阁/梨园/钟楼/古亭内的悬空踏台：直接采用纯手绘雕栏红木飞阁 `env_indoor_ledge` / `env_pavilion`！
+        if (isFloatingLedge && (usePalaceMarble || room.region === 'gatehouse')) {
+          const deckImg = (room.indoor ? indoorLedgeImg : pavilionImg) || indoorLedgeImg || pavilionImg;
+          if (deckImg) {
+            const chunks = sb.w > 300 ? Math.ceil(sb.w / 250) : 1;
+            const cw = sb.w / chunks;
+            for (let i = 0; i < chunks; i++) {
+              const cx = sb.x + i * cw;
+              const drawW = cw + 12;
+              const ratio = deckImg.height / deckImg.width;
+              const drawH = Math.min(98, Math.max(62, drawW * ratio));
+              const topAlignRatio = deckImg === indoorLedgeImg ? 0.38 : 0.42;
+              bctx.drawImage(deckImg, cx - 6, sb.y - drawH * topAlignRatio, drawW, drawH);
             }
+            continue;
           }
         }
 
-        // 顶面完整原画青石板 / 墨玉压顶石
-        for (let x = sb.x; x < sb.x + sb.w; x += sw) {
-          const wClip = Math.min(sw, sb.x + sb.w - x);
-          bctx.drawImage(floorImg, 0, srcTopY, wClip, srcCapH, x, topDrawY, wClip + 0.5, srcCapH);
+        // 地宫暗渠悬空石挑台或落地须弥石坛/断崖：采用挑檐压顶青石板 + 层叠凿石基座 + 自然接触暗影（零 strokeRect！）
+        const topDrawY = sb.y - surfaceTopOffset;
+        const totalDrawH = sb.h + surfaceTopOffset;
+
+        // 底部柔和环境遮蔽暗影（接地石坛投射横向接地影，悬空石台投射下垂暗晕）
+        if (isFloatingLedge) {
+          const dropG = bctx.createLinearGradient(0, sb.y + sb.h - 4, 0, sb.y + sb.h + 22);
+          dropG.addColorStop(0, 'rgba(3, 5, 11, 0.58)');
+          dropG.addColorStop(1, 'rgba(3, 5, 11, 0)');
+          bctx.fillStyle = dropG;
+          bctx.fillRect(sb.x + 6, sb.y + sb.h - 4, Math.max(0, sb.w - 12), 24);
+        } else {
+          bctx.fillStyle = 'rgba(2, 4, 10, 0.62)';
+          bctx.beginPath();
+          bctx.ellipse(sb.x + sb.w * 0.5, sb.y + sb.h + 2, sb.w * 0.52, 7, 0, 0, Math.PI * 2);
+          bctx.fill();
+        }
+
+        // 下层内收式凿石承重墩身（比顶板略内收 4px，形成真实中式须弥座挑檐立体感！）
+        const bodyX = sb.x + (isFloatingLedge ? 6 : 3);
+        const bodyW = Math.max(16, sb.w - (isFloatingLedge ? 12 : 6));
+        const bodyTopY = topDrawY + Math.min(20, Math.floor(totalDrawH * 0.42));
+        const bodyH = Math.max(0, topDrawY + totalDrawH - bodyTopY);
+        if (bodyH > 2) {
+          bctx.save();
+          bctx.beginPath();
+          bctx.rect(bodyX, bodyTopY, bodyW, bodyH);
+          bctx.clip();
+          for (let y = bodyTopY; y < bodyTopY + bodyH; y += subSrcH - 3) {
+            for (let x = bodyX; x < bodyX + bodyW; x += sw) {
+              const wClip = Math.min(sw, bodyX + bodyW - x);
+              bctx.drawImage(floorImg, 0, subSrcY, wClip, subSrcH, x, y, wClip + 0.6, subSrcH);
+            }
+          }
+          // 墩身暗部体积光影渐变
+          const shadeG = bctx.createLinearGradient(0, bodyTopY, 0, bodyTopY + bodyH);
+          shadeG.addColorStop(0, 'rgba(4, 7, 14, 0.36)');
+          shadeG.addColorStop(1, 'rgba(3, 5, 11, 0.65)');
+          bctx.fillStyle = shadeG;
+          bctx.fillRect(bodyX, bodyTopY, bodyW, bodyH);
+          bctx.restore();
+        }
+
+        // 顶层挑檐完整手绘青石压顶板（左右自然挑出 4px，消除刀切方块感！）
+        const capX = sb.x - 4;
+        const capW = sb.w + 8;
+        const capH = Math.min(srcCapH, isFloatingLedge ? 30 : srcCapH);
+        bctx.save();
+        bctx.beginPath();
+        bctx.rect(capX, topDrawY, capW, capH);
+        bctx.clip();
+        for (let x = capX; x < capX + capW; x += sw) {
+          const wClip = Math.min(sw, capX + capW - x);
+          bctx.drawImage(floorImg, 0, srcTopY, wClip, capH, x, topDrawY, wClip + 0.6, capH);
         }
         bctx.restore();
-
-        // 侧立面与底沿深色石缝收边
-        bctx.strokeStyle = '#070b14';
-        bctx.lineWidth = 1.6;
-        bctx.strokeRect(sb.x + 0.5, sb.y, sb.w - 1, sb.h);
       }
     }
   }

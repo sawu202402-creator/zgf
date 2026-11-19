@@ -1533,47 +1533,34 @@ export function drawWorldDrop(
       }
     }
   } else if (d.kind === 'yao_core') {
-    const floatY = -18 + Math.sin(t * 4.5) * 3;
-    const cg = ctx.createRadialGradient(0, floatY, 2, 0, floatY, 14);
-    cg.addColorStop(0, '#ffffff');
-    cg.addColorStop(0.4, '#d8b4fe');
-    cg.addColorStop(1, 'rgba(147, 51, 234, 0)');
-    ctx.fillStyle = cg;
-    ctx.beginPath();
-    ctx.arc(0, floatY, 14, 0, Math.PI * 2);
-    ctx.fill();
+    const floatY = -22 + Math.sin(t * 4.5) * 3.5;
+    const coreImg = Assets.get('item_yao_core');
+    if (coreImg) {
+      const h = 38;
+      const w = coreImg.width * (h / coreImg.height);
+      ctx.drawImage(coreImg, -w * 0.5, floatY - h * 0.5, w, h);
+    }
   } else if (d.kind === 'gold') {
-    // 纹银元宝锭
-    ctx.fillStyle = '#fef08a';
-    ctx.strokeStyle = '#78350f';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(-9, -6);
-    ctx.quadraticCurveTo(0, 0, 9, -6);
-    ctx.lineTo(6, -1);
-    ctx.lineTo(-6, -1);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
+    // 纯手绘纹银元宝锭 (`item_silver_sycee.webp`)
+    const syceeImg = Assets.get('item_silver_sycee');
+    if (syceeImg) {
+      const h = 26;
+      const w = syceeImg.width * (h / syceeImg.height);
+      ctx.drawImage(syceeImg, -w * 0.5, -h + 3, w, h);
+    }
   } else {
-    // 随风微颤的朱砂黄纸灵符
-    const tilt = Math.sin(t * 5 + d.x) * 0.12;
-    ctx.save();
-    ctx.translate(0, -11);
-    ctx.rotate(tilt);
-    ctx.fillStyle = '#fde047';
-    ctx.strokeStyle = '#92400e';
-    ctx.lineWidth = 1.3;
-    ctx.fillRect(-4.5, -8, 9, 16);
-    ctx.strokeRect(-4.5, -8, 9, 16);
-    ctx.strokeStyle = '#dc2626';
-    ctx.beginPath();
-    ctx.moveTo(0, -5);
-    ctx.lineTo(0, 5);
-    ctx.moveTo(-2.5, -1);
-    ctx.lineTo(2.5, 1);
-    ctx.stroke();
-    ctx.restore();
+    // 随风微颤的纯手绘朱砂灵符 (`item_talisman_scroll.webp`)
+    const tilt = Math.sin(t * 5 + d.x) * 0.11;
+    const talImg = Assets.get('item_talisman_scroll');
+    if (talImg) {
+      const h = 30;
+      const w = talImg.width * (h / talImg.height);
+      ctx.save();
+      ctx.translate(0, -14);
+      ctx.rotate(tilt);
+      ctx.drawImage(talImg, -w * 0.5, -h * 0.5, w, h);
+      ctx.restore();
+    }
   }
 
   // 仅当少年靠近时浮现无框水墨金字题名（彻底取消丑陋的半透明黑方框标签！）

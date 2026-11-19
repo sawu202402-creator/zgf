@@ -257,6 +257,7 @@ export interface SaveSlotData {
   collectedPickups: string[];
   defeatedBosses: string[];
   triggeredStories: string[];
+  readSteles?: string[];
   brokenSecretWalls: string[];
   playTimeSec: number;
 }

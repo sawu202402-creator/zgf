@@ -9,7 +9,7 @@ import {
   WEAPONS,
   YAO_CORES,
 } from '../data/itemsAndSkills';
-import { STORY_SCENES } from '../data/storyAndNpcs';
+import { LORE_STELES, STORY_SCENES } from '../data/storyAndNpcs';
 import {
   BuiltRoom,
   CELL_PIXEL_W,
@@ -325,7 +325,15 @@ export class GameEngine {
   private nextEntityId = 1;
   private lastVisitedRegion = '';
   public nearbyInteract: {
-    kind: 'save' | 'warp' | 'smith' | 'merchant' | 'su_qingyan' | 'invert_portal';
+    kind:
+      | 'save'
+      | 'warp'
+      | 'smith'
+      | 'merchant'
+      | 'su_qingyan'
+      | 'invert_portal'
+      | 'stele';
+    steleId?: string;
     label: string;
     x: number;
     y: number;
@@ -342,6 +350,7 @@ export class GameEngine {
     this.bossRushWave = 0;
     this.activeBuffs = { berserk_wine: 0, iron_skin: 0, wind_crit: 0 };
     if (!slot.discoveredDrops) slot.discoveredDrops = [];
+    if (!slot.readSteles) slot.readSteles = [];
     this.recalcStats(true);
 
     if (slot.mode === 'boss_rush') {
@@ -3204,6 +3213,22 @@ export class GameEngine {
       this.grantAbility(e.profile.rewardAbility);
       SaveManager.saveSlot(s);
     }
+
+    if (s.mode === 'story' && this.room.realm === 'normal') {
+      const postBossSceneMap: Partial<Record<EnemyKind, string>> = {
+        boss_furnace_titan: 'boss_titan_post',
+        boss_scroll_king: 'boss_scroll_post',
+        boss_opera_god: 'boss_opera_post',
+        boss_thunder_yaksha: 'boss_yaksha_post',
+      };
+      const postKey = postBossSceneMap[e.profile.kind];
+      const postScene = postKey ? STORY_SCENES[postKey] : undefined;
+      if (postKey && postScene && !s.triggeredStories.includes(postKey)) {
+        s.triggeredStories.push(postKey);
+        SaveManager.saveSlot(s);
+        this.cb.onStartStory(postScene);
+      }
+    }
   }
 
   public getExpForNextLevel(lv: number): number {
@@ -3898,6 +3923,23 @@ export class GameEngine {
       }
     }
 
+    if (this.room.steles) {
+      for (const st of this.room.steles) {
+        const gy = sampleSolidGroundY(this.room, st.x);
+        if (Math.abs(p.x - st.x) < 76 && Math.abs(p.y - gy) < 82) {
+          const isRead = this.slot.readSteles?.includes(st.id);
+          this.nearbyInteract = {
+            kind: 'stele',
+            steleId: st.id,
+            label: isRead ? '按【斩】重温残碑秘档' : '按【斩】拓印血月残碑',
+            x: st.x,
+            y: gy,
+          };
+          return;
+        }
+      }
+    }
+
     if (this.room.special === 'save_shrine') {
       const cx = this.room.focalX;
       const gy = this.room.focalY;
@@ -3925,6 +3967,44 @@ export class GameEngine {
 
   private executeInteract(kind: NonNullable<GameEngine['nearbyInteract']>['kind']): void {
     if (!this.slot || !this.room) return;
+    if (kind === 'stele') {
+      const steleId = this.nearbyInteract?.steleId;
+      const entry = steleId ? LORE_STELES[steleId] : undefined;
+      if (!steleId || !entry) return;
+      if (!this.slot.readSteles) this.slot.readSteles = [];
+      const firstRead = !this.slot.readSteles.includes(steleId);
+      if (firstRead) {
+        this.slot.readSteles.push(steleId);
+        SaveManager.saveSlot(this.slot);
+      }
+      AudioFX.playRelicBell();
+      NativeApp.haptic('medium');
+      this.spawnInkBurst(this.player.x, this.player.y - 36, '#38bdf8', '#090d16', 18);
+      const steleScene: StoryScene = {
+        id: `stele_${steleId}`,
+        title: entry.volume,
+        lines: [
+          {
+            speaker: entry.title,
+            role: `${entry.author} · ${entry.locationHint}`,
+            portraitColor: '#38bdf8',
+            text: entry.content,
+          },
+          ...(firstRead
+            ? [
+                {
+                  speaker: '李逸承',
+                  role: '已拓印收录至【兵匣 -> 列传】',
+                  portraitColor: '#48c9b0',
+                  text: `已将${entry.title}拓印入册（当前已集齐 ${this.slot.readSteles.length} / ${Object.keys(LORE_STELES).length} 卷血月残碑）。`,
+                },
+              ]
+            : []),
+        ],
+      };
+      this.cb.onStartStory(steleScene);
+      return;
+    }
     if (kind === 'save') {
       this.recalcStats(true);
       SaveManager.saveSlot(this.slot);
@@ -3959,7 +4039,21 @@ export class GameEngine {
         this.cb.onStartStory(sc);
       }
     } else if (kind === 'smith' || kind === 'merchant') {
-      this.cb.onOpenInteractModal(kind);
+      const firstMeetKey = kind === 'smith' ? 'meet_smith_ouye' : 'meet_merchant_bai';
+      const firstScene = STORY_SCENES[firstMeetKey];
+      if (
+        this.slot.mode === 'story' &&
+        firstScene &&
+        !this.slot.triggeredStories.includes(firstMeetKey)
+      ) {
+        this.slot.triggeredStories.push(firstMeetKey);
+        SaveManager.saveSlot(this.slot);
+        this.cb.onStartStory(firstScene, () => {
+          this.cb.onOpenInteractModal(kind);
+        });
+      } else {
+        this.cb.onOpenInteractModal(kind);
+      }
     }
   }
 

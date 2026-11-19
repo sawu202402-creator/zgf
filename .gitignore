@@ -2,6 +2,7 @@ node_modules/
 raw_assets/
 android/
 ios/
+StudioBase_Game_Framework/
 .DS_Store
 .wrangler/
 __pycache__/

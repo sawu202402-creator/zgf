@@ -8,6 +8,8 @@ export type AssetKey =
   | 'bg_molten_forge'
   | 'bg_chapel_spire'
   | 'bg_cavern_waterfall'
+  | 'bg_catacomb_tomb'
+  | 'bg_bamboo_cliff'
   | 'env_ground_slab'
   | 'env_palace_floor'
   | 'env_bridge'
@@ -25,10 +27,20 @@ export type AssetKey =
   | 'prop_incense_burner'
   | 'prop_giant_bell'
   | 'prop_stone_wall_tex'
+  | 'prop_iron_gate'
+  | 'prop_mist_barrier'
+  | 'prop_bagua_altar'
+  | 'prop_secret_arch'
   | 'item_sword_altar'
   | 'item_armor_stand'
   | 'item_celadon_gourd'
   | 'item_lotus_chicken'
+  | 'item_silver_sycee'
+  | 'item_talisman_scroll'
+  | 'item_yao_core'
+  | 'item_sub_seal'
+  | 'item_sub_bagua'
+  | 'item_sub_fire_gourd'
   | 'prop_shrine'
   | 'prop_lantern'
   | 'prop_stone_arch'
@@ -98,7 +110,7 @@ export type AssetKey =
   | 'boss_op_0'
   | 'boss_op_1';
 
-const ASSET_VERSION = 'painted_v9';
+const ASSET_VERSION = 'painted_v10';
 
 const ASSET_FILES: Record<AssetKey, string> = {
   bg_title: './assets/bg_title.webp',
@@ -110,6 +122,8 @@ const ASSET_FILES: Record<AssetKey, string> = {
   bg_molten_forge: './assets/bg_molten_forge.webp',
   bg_chapel_spire: './assets/bg_chapel_spire.webp',
   bg_cavern_waterfall: './assets/bg_cavern_waterfall.webp',
+  bg_catacomb_tomb: './assets/bg_catacomb_tomb.webp',
+  bg_bamboo_cliff: './assets/bg_bamboo_cliff.webp',
   env_ground_slab: './assets/env_ground_slab.webp',
   env_palace_floor: './assets/env_palace_floor.webp',
   env_bridge: './assets/env_bridge.webp',
@@ -127,10 +141,20 @@ const ASSET_FILES: Record<AssetKey, string> = {
   prop_incense_burner: './assets/prop_incense_burner.webp',
   prop_giant_bell: './assets/prop_giant_bell.webp',
   prop_stone_wall_tex: './assets/prop_stone_wall_tex.webp',
+  prop_iron_gate: './assets/prop_iron_gate.webp',
+  prop_mist_barrier: './assets/prop_mist_barrier.webp',
+  prop_bagua_altar: './assets/prop_bagua_altar.webp',
+  prop_secret_arch: './assets/prop_secret_arch.webp',
   item_sword_altar: './assets/item_sword_altar.webp',
   item_armor_stand: './assets/item_armor_stand.webp',
   item_celadon_gourd: './assets/item_celadon_gourd.webp',
   item_lotus_chicken: './assets/item_lotus_chicken.webp',
+  item_silver_sycee: './assets/item_silver_sycee.webp',
+  item_talisman_scroll: './assets/item_talisman_scroll.webp',
+  item_yao_core: './assets/item_yao_core.webp',
+  item_sub_seal: './assets/item_sub_seal.webp',
+  item_sub_bagua: './assets/item_sub_bagua.webp',
+  item_sub_fire_gourd: './assets/item_sub_fire_gourd.webp',
   prop_shrine: './assets/prop_shrine.webp',
   prop_lantern: './assets/prop_lantern.webp',
   prop_stone_arch: './assets/prop_stone_arch.webp',

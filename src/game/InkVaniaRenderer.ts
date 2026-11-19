@@ -1,4 +1,5 @@
 import { WEAPONS } from '../data/itemsAndSkills';
+import { LORE_STELES } from '../data/storyAndNpcs';
 import {
   BuiltRoom,
   getRoomSideDoors,
@@ -205,11 +206,13 @@ export class InkVaniaRenderer {
         ctx.fillStyle = glow;
         ctx.fillRect(wz.x1, wz.surfaceY - 88, w, 112);
 
-        for (let i = 0; i < 12; i++) {
+        for (let i = 0; i < 10; i++) {
           const rx = wz.x1 + ((i * 97 + this.ambientTime * 28) % Math.max(40, w - 20)) + 10;
           const ry = wz.surfaceY + 4 + (i % 3) * 6;
-          ctx.fillStyle = 'rgba(254, 249, 195, 0.72)';
-          ctx.fillRect(rx - 14, ry, 28, 2.5);
+          ctx.fillStyle = 'rgba(254, 249, 195, 0.58)';
+          ctx.beginPath();
+          ctx.ellipse(rx, ry, 15, 1.8, 0, 0, Math.PI * 2);
+          ctx.fill();
         }
         ctx.restore();
         continue;
@@ -223,15 +226,20 @@ export class InkVaniaRenderer {
       ctx.fillRect(wz.x1, wz.surfaceY, w, h);
 
       const isCavern = room.region === 'prison';
-      for (let i = 0; i < 16; i++) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 14; i++) {
         const ry = wz.surfaceY + 6 + i * 5;
-        const rx = wz.x1 + w * 0.52 + Math.sin(this.ambientTime * 3.5 + i * 0.8) * (18 + i * 2);
-        const rw = Math.max(12, 82 - i * 3.5);
+        const rx = wz.x1 + w * 0.5 + Math.sin(this.ambientTime * 2.4 + i * 0.85) * (20 + i * 2.2);
+        const rw = Math.max(10, 44 - i * 2.1);
         ctx.fillStyle = isCavern
-          ? `rgba(45, 212, 191, ${0.28 - i * 0.015})`
-          : `rgba(248, 113, 113, ${0.28 - i * 0.015})`;
-        ctx.fillRect(rx - rw * 0.5, ry, rw, 2.2);
+          ? `rgba(45, 212, 191, ${0.22 - i * 0.012})`
+          : `rgba(186, 230, 253, ${0.2 - i * 0.011})`;
+        ctx.beginPath();
+        ctx.ellipse(rx, ry, rw, 1.3, 0, 0, Math.PI * 2);
+        ctx.fill();
       }
+      ctx.restore();
 
       ctx.strokeStyle = isCavern ? 'rgba(94, 234, 212, 0.42)' : 'rgba(148, 163, 184, 0.36)';
       ctx.lineWidth = 1.4;
@@ -306,7 +314,7 @@ export class InkVaniaRenderer {
   }
 
   private ensureBakedStoneContour(room: BuiltRoom): void {
-    const readyKey = `${room.realm}:${room.id}:${Boolean(Assets.get('env_ground_slab'))}:${Boolean(Assets.get('env_palace_floor'))}:${Boolean(Assets.get('prop_stone_wall_tex'))}:${Boolean(Assets.get('env_bridge'))}`;
+    const readyKey = `${room.realm}:${room.id}:${Boolean(Assets.get('env_ground_slab'))}:${Boolean(Assets.get('env_palace_floor'))}:${Boolean(Assets.get('env_indoor_ledge'))}:${Boolean(Assets.get('env_pavilion'))}:${Boolean(Assets.get('env_bridge'))}`;
     if (this.terrainCanvas && this.cachedTerrainKey === readyKey) return;
 
     this.cachedTerrainKey = readyKey;
@@ -331,17 +339,16 @@ export class InkVaniaRenderer {
     const bossCleared = engine.isBossClearedInRoom(room);
 
     // 1. 上下层竖井天光引路光束与井口提示
+    const ironGateImg = Assets.get('prop_iron_gate');
     for (const sh of room.shafts) {
       const cx = (sh.x1 + sh.x2) * 0.5;
       const w = sh.x2 - sh.x1;
       if (sh.dir === 'up') {
         if (sh.requireBossClear && !bossCleared) {
-          // 击败妖王前，顶棚天井由重型青铜封魔栅栏锁闭
-          ctx.fillStyle = '#292524';
-          ctx.strokeStyle = '#cfa349';
-          ctx.lineWidth = 2;
-          ctx.fillRect(sh.x1, 68, w, 10);
-          ctx.strokeRect(sh.x1, 68, w, 10);
+          // 击败妖王前，顶棚天井由纯手绘青铜重梁横锁
+          if (ironGateImg) {
+            ctx.drawImage(ironGateImg, 0, 12, ironGateImg.width, 46, sh.x1, 48, w, 24);
+          }
         } else {
           // 敞开的天井倾泻而下的皎洁月华/藏书阁金光，视觉引导玩家向上二段跳探索！
           ctx.save();
@@ -363,11 +370,9 @@ export class InkVaniaRenderer {
       } else {
         if (sh.requireBossClear && !bossCleared) {
           const floorAtSh = sampleSolidGroundY(room, cx);
-          ctx.fillStyle = '#1c1917';
-          ctx.strokeStyle = '#cfa349';
-          ctx.lineWidth = 2;
-          ctx.fillRect(sh.x1, floorAtSh - 6, w, 10);
-          ctx.strokeRect(sh.x1, floorAtSh - 6, w, 10);
+          if (ironGateImg) {
+            ctx.drawImage(ironGateImg, 0, 12, ironGateImg.width, 46, sh.x1, floorAtSh - 14, w, 22);
+          }
         } else {
           // 向下竖井升腾的地底幽青寒雾
           ctx.save();
@@ -382,89 +387,40 @@ export class InkVaniaRenderer {
       }
     }
 
-    // 2. 国风精雕【饕餮青铜千斤闸（重刃破开）】与【九幽符箓紫瘴障（缩地化雾穿过）】！
+    // 2. 100% 纯手绘【饕餮青铜千斤闸 (`prop_iron_gate`)】与【九幽紫瘴封魔栅 (`prop_mist_barrier`)】！
     if (room.ironGate && engine.slot && !engine.slot.brokenSecretWalls.includes(room.ironGate.id)) {
       const g = room.ironGate;
       const drawTop = Math.max(28, g.topY);
-      const drawH = Math.max(80, g.bottomY - drawTop);
-      const midY = drawTop + drawH * 0.55;
+      const drawH = Math.max(88, g.bottomY - drawTop);
+      const midY = drawTop + drawH * 0.52;
       const isMistGate = g.gateKind === 'mist_only';
 
       ctx.save();
       if (isMistGate) {
-        const bgGrad = ctx.createLinearGradient(g.x - 18, 0, g.x + 18, 0);
-        bgGrad.addColorStop(0, 'rgba(46, 16, 101, 0.15)');
-        bgGrad.addColorStop(0.5, 'rgba(88, 28, 135, 0.72)');
-        bgGrad.addColorStop(1, 'rgba(46, 16, 101, 0.15)');
-        ctx.fillStyle = bgGrad;
-        ctx.fillRect(g.x - 18, drawTop, 36, drawH);
-
-        for (const off of [-9, 0, 9]) {
-          ctx.fillStyle = '#2e1065';
-          ctx.strokeStyle = '#c084fc';
-          ctx.lineWidth = 1.3;
-          ctx.fillRect(g.x + off - 2, drawTop, 4, drawH);
-          ctx.strokeRect(g.x + off - 2, drawTop, 4, drawH);
-        }
-
+        const mistImg = Assets.get('prop_mist_barrier');
         ctx.globalCompositeOperation = 'lighter';
-        const mg = ctx.createRadialGradient(g.x, midY, 6, g.x, midY, 68);
-        mg.addColorStop(0, 'rgba(216, 180, 254, 0.5)');
-        mg.addColorStop(0.55, 'rgba(147, 51, 234, 0.22)');
+        const mg = ctx.createRadialGradient(g.x, midY, 8, g.x, midY, 84);
+        mg.addColorStop(0, 'rgba(216, 180, 254, 0.42)');
+        mg.addColorStop(0.6, 'rgba(147, 51, 234, 0.16)');
         mg.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = mg;
-        ctx.fillRect(g.x - 42, drawTop, 84, drawH);
+        ctx.beginPath();
+        ctx.arc(g.x, midY, 84, 0, Math.PI * 2);
+        ctx.fill();
         ctx.globalCompositeOperation = 'source-over';
 
-        const bob = Math.sin(this.ambientTime * 3.8) * 4;
-        ctx.fillStyle = '#fef08a';
-        ctx.strokeStyle = '#b45309';
-        ctx.lineWidth = 1.4;
-        ctx.fillRect(g.x - 7, midY - 14 + bob, 14, 28);
-        ctx.strokeRect(g.x - 7, midY - 14 + bob, 14, 28);
-        ctx.fillStyle = '#dc2626';
-        ctx.font = 'bold 11px "STKaiti", "KaiTi", serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('敕', g.x, midY + bob);
-      } else {
-        const ironG = ctx.createLinearGradient(g.x - 16, 0, g.x + 16, 0);
-        ironG.addColorStop(0, '#090d16');
-        ironG.addColorStop(0.5, '#1e293b');
-        ironG.addColorStop(1, '#090d16');
-        ctx.fillStyle = ironG;
-        ctx.fillRect(g.x - 15, drawTop, 30, drawH);
-
-        for (const off of [-10, 0, 10]) {
-          ctx.fillStyle = '#334155';
-          ctx.strokeStyle = '#0f172a';
-          ctx.lineWidth = 1.5;
-          ctx.fillRect(g.x + off - 2.5, drawTop, 5, drawH);
-          ctx.strokeRect(g.x + off - 2.5, drawTop, 5, drawH);
+        if (mistImg) {
+          const mw = Math.min(108, Math.max(72, drawH * 0.36));
+          ctx.drawImage(mistImg, g.x - mw * 0.5, drawTop, mw, drawH + 4);
         }
-
-        for (const ry of [drawTop + 26, midY - 38, midY + 38, g.bottomY - 24]) {
-          if (ry <= drawTop + 8 || ry >= g.bottomY - 8) continue;
-          ctx.fillStyle = '#78350f';
-          ctx.strokeStyle = '#d97706';
-          ctx.lineWidth = 1.4;
-          ctx.fillRect(g.x - 17, ry - 5, 34, 10);
-          ctx.strokeRect(g.x - 17, ry - 5, 34, 10);
-        }
-
-        ctx.fillStyle = '#451a03';
-        ctx.strokeStyle = '#f59e0b';
-        ctx.lineWidth = 2.2;
+      } else if (ironGateImg) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.62)';
         ctx.beginPath();
-        ctx.arc(g.x, midY, 13, 0, Math.PI * 2);
+        ctx.ellipse(g.x, g.bottomY + 2, 34, 6.5, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.stroke();
 
-        ctx.strokeStyle = '#fde047';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(g.x, midY + 6, 5.5, 0, Math.PI * 2);
-        ctx.stroke();
+        const gw = 72;
+        ctx.drawImage(ironGateImg, g.x - gw * 0.5, drawTop, gw, drawH + 4);
       }
       ctx.restore();
     }
@@ -478,9 +434,9 @@ export class InkVaniaRenderer {
         if (slabImg) {
           ctx.drawImage(slabImg, 18, 28, sw.w, 84, sw.x, sw.y, sw.w, sw.h);
         }
-        // 金色微光暗裂纹提示细心探索的恶魔城玩家挥剑试探！
-        ctx.strokeStyle = 'rgba(253, 224, 71, 0.55)';
-        ctx.lineWidth = 1.5;
+        const shimmer = 0.38 + 0.2 * Math.sin(this.ambientTime * 3.4 + sw.x);
+        ctx.strokeStyle = `rgba(253, 224, 71, ${shimmer})`;
+        ctx.lineWidth = 1.4;
         ctx.beginPath();
         ctx.moveTo(sw.x + sw.w * 0.28, sw.y + sw.h * 0.22);
         ctx.lineTo(sw.x + sw.w * 0.55, sw.y + sw.h * 0.48);
@@ -492,29 +448,26 @@ export class InkVaniaRenderer {
       }
     }
 
-    // 2B-2. 独立隐藏密室封门古壁（未击碎时呈手绘青石封门与暗金裂隙；击碎后洞开幽邃拱门直通独立密室！）
+    // 2B-2. 独立隐藏密室封门古壁（未击碎时呈手绘青石封门与暗金裂隙；击碎后显现纯手绘幽邃古墓暗门 `prop_secret_arch`！）
     if (engine.slot) {
       const slabImg = Assets.get('env_ground_slab');
+      const secArchImg = Assets.get('prop_secret_arch');
       for (const sd of getRoomSideDoors(room)) {
         if (!sd.secretWallId) continue;
         const isBroken = engine.slot.brokenSecretWalls.includes(sd.secretWallId);
-        const wx = sd.side === 'left' ? 0 : room.pixelW - 38;
-        const wy = sd.floorY - 118;
-        const ww = 38;
-        const wh = 120;
+        const wx = sd.side === 'left' ? 0 : room.pixelW - 42;
+        const wy = sd.floorY - 122;
+        const ww = 42;
+        const wh = 124;
 
         ctx.save();
         if (!isBroken) {
           if (slabImg) {
             ctx.drawImage(slabImg, 8, 22, 56, 92, wx, wy, ww, wh);
-          } else {
-            ctx.fillStyle = '#1e293b';
-            ctx.fillRect(wx, wy, ww, wh);
           }
-          // 封门石缝暗影与呼吸微光金丝裂纹
-          const shimmer = 0.42 + 0.24 * Math.sin(this.ambientTime * 3.2 + sd.floorY);
+          const shimmer = 0.4 + 0.22 * Math.sin(this.ambientTime * 3.2 + sd.floorY);
           ctx.strokeStyle = `rgba(253, 224, 71, ${shimmer})`;
-          ctx.lineWidth = 1.6;
+          ctx.lineWidth = 1.5;
           ctx.beginPath();
           const cx = wx + ww * 0.5;
           ctx.moveTo(cx - 5, wy + 22);
@@ -524,59 +477,48 @@ export class InkVaniaRenderer {
           ctx.moveTo(cx + 4, wy + 52);
           ctx.lineTo(cx + (sd.side === 'left' ? 11 : -11), wy + 68);
           ctx.stroke();
-        } else {
-          // 已破壁洞开的幽邃石拱门洞 + 微光引导气韵
-          const portalG = ctx.createLinearGradient(
-            sd.side === 'left' ? 0 : room.pixelW,
-            0,
-            sd.side === 'left' ? 48 : room.pixelW - 48,
-            0
-          );
-          portalG.addColorStop(0, 'rgba(4, 6, 14, 0.94)');
-          portalG.addColorStop(0.7, 'rgba(15, 23, 42, 0.55)');
-          portalG.addColorStop(1, 'rgba(15, 23, 42, 0)');
-          ctx.fillStyle = portalG;
-          ctx.beginPath();
-          ctx.moveTo(wx, sd.floorY + 2);
-          ctx.lineTo(wx, wy + 28);
-          ctx.quadraticCurveTo(wx + ww * 0.5, wy - 4, wx + ww, wy + 28);
-          ctx.lineTo(wx + ww, sd.floorY + 2);
-          ctx.closePath();
-          ctx.fill();
-
-          ctx.strokeStyle = 'rgba(207, 163, 73, 0.52)';
-          ctx.lineWidth = 1.8;
-          ctx.stroke();
+        } else if (secArchImg) {
+          const ah = 148;
+          const aw = secArchImg.width * (ah / secArchImg.height);
+          const ax = sd.side === 'left' ? -14 : room.pixelW - aw + 14;
+          ctx.drawImage(secArchImg, ax, sd.floorY - ah + 6, aw, ah);
         }
         ctx.restore();
       }
     }
 
-    // 2C. 凌霄祭天坛【乾坤倒悬裂隙】（通往 180° 九幽倒悬里城！）
+    // 2C. 凌霄祭天坛【乾坤倒悬裂隙】（纯手绘暗门石券 + 旋转本命紫金星璇，零几何方框！）
     if (
       room.id === 'sky_altar' &&
       engine.slot?.invertedUnlocked &&
       !engine.enemies.some((e) => e.profile.isBoss)
     ) {
       const cx = room.focalX;
-      const cy = sampleSolidGroundY(room, cx) - 58;
+      const gy = sampleSolidGroundY(room, cx);
+      const secArchImg = Assets.get('prop_secret_arch');
+      const coreImg = Assets.get('item_yao_core');
+      if (secArchImg) {
+        const ah = 168;
+        const aw = secArchImg.width * (ah / secArchImg.height);
+        ctx.drawImage(secArchImg, cx - aw * 0.5, gy - ah + 5, aw, ah);
+      }
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      const pg = ctx.createRadialGradient(cx, cy, 6, cx, cy, 78 + Math.sin(this.ambientTime * 5) * 6);
-      pg.addColorStop(0, 'rgba(254, 240, 138, 0.85)');
-      pg.addColorStop(0.4, 'rgba(244, 63, 94, 0.55)');
-      pg.addColorStop(0.75, 'rgba(168, 85, 247, 0.32)');
+      const cy = gy - 72;
+      const pg = ctx.createRadialGradient(cx, cy, 6, cx, cy, 84 + Math.sin(this.ambientTime * 4.5) * 6);
+      pg.addColorStop(0, 'rgba(254, 240, 138, 0.78)');
+      pg.addColorStop(0.45, 'rgba(244, 63, 94, 0.46)');
+      pg.addColorStop(0.8, 'rgba(168, 85, 247, 0.24)');
       pg.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = pg;
       ctx.beginPath();
-      ctx.ellipse(cx, cy, 46, 72, 0, 0, Math.PI * 2);
+      ctx.ellipse(cx, cy, 42, 66, 0, 0, Math.PI * 2);
       ctx.fill();
-
-      ctx.translate(cx, cy);
-      ctx.rotate(-this.ambientTime * 2.2);
-      ctx.strokeStyle = '#fde047';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(-26, -26, 52, 52);
+      if (coreImg) {
+        ctx.translate(cx, cy);
+        ctx.rotate(-this.ambientTime * 1.4);
+        ctx.drawImage(coreImg, -28, -28, 56, 56);
+      }
       ctx.restore();
     }
 
@@ -589,16 +531,12 @@ export class InkVaniaRenderer {
     ) {
       const gx = peiBoss.x + Math.sin(this.ambientTime * 5) * 18;
       const gy = peiBoss.y - 118 + Math.cos(this.ambientTime * 6.5) * 8;
+      const coreImg = Assets.get('item_yao_core');
       ctx.save();
+      if (coreImg) {
+        ctx.drawImage(coreImg, gx - 16, gy - 16, 32, 32);
+      }
       ctx.globalCompositeOperation = 'lighter';
-      const gg = ctx.createRadialGradient(gx, gy, 2, gx, gy, 24);
-      gg.addColorStop(0, '#ffffff');
-      gg.addColorStop(0.45, '#c084fc');
-      gg.addColorStop(1, 'rgba(168, 85, 247, 0)');
-      ctx.fillStyle = gg;
-      ctx.beginPath();
-      ctx.arc(gx, gy, 24, 0, Math.PI * 2);
-      ctx.fill();
       ctx.font = 'bold 11px "STKaiti", "KaiTi", serif';
       ctx.textAlign = 'center';
       ctx.fillStyle = '#f5d0fe';
@@ -606,34 +544,79 @@ export class InkVaniaRenderer {
       ctx.restore();
     }
 
-    // 3. 地脉太极八卦传送阵法坛
+    // 3. 纯手绘【乾坤太极八卦传送石坛 (`prop_bagua_altar`)】
     if (room.special === 'warp_bagua') {
       const cx = room.focalX;
       const gy = room.focalY;
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      const wg = ctx.createRadialGradient(cx, gy - 26, 4, cx, gy - 26, 95);
-      wg.addColorStop(0, 'rgba(45, 212, 191, 0.42)');
-      wg.addColorStop(0.6, 'rgba(56, 189, 248, 0.14)');
-      wg.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = wg;
+      const altarImg = Assets.get('prop_bagua_altar');
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.58)';
       ctx.beginPath();
-      ctx.arc(cx, gy - 26, 95, 0, Math.PI * 2);
+      ctx.ellipse(cx, gy + 3, 94, 8, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // 地面旋转乾坤八卦光阵
-      ctx.translate(cx, gy - 2);
-      ctx.scale(1, 0.28);
-      ctx.rotate(this.ambientTime * 1.4);
-      ctx.strokeStyle = '#2dd4bf';
-      ctx.lineWidth = 3;
+      if (altarImg) {
+        const aw = 196;
+        const ah = aw * (altarImg.height / altarImg.width);
+        ctx.drawImage(altarImg, cx - aw * 0.5, gy - ah + 8, aw, ah);
+      }
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const wg = ctx.createRadialGradient(cx, gy - 34, 6, cx, gy - 34, 108);
+      wg.addColorStop(0, 'rgba(45, 212, 191, 0.36)');
+      wg.addColorStop(0.6, 'rgba(56, 189, 248, 0.12)');
+      wg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = wg;
       ctx.beginPath();
-      ctx.arc(0, 0, 56, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.strokeStyle = '#fde047';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(-38, -38, 76, 76);
+      ctx.arc(cx, gy - 34, 108, 0, Math.PI * 2);
+      ctx.fill();
       ctx.restore();
+    }
+
+    // 4. 镇妖司血月残碑秘档 (`room.steles`)：纯手绘古石碑 + 灵萤微光指引
+    if (room.steles && engine.slot) {
+      const steleImg = Assets.get('item_relic_pedestal');
+      for (const st of room.steles) {
+        const gy = sampleSolidGroundY(room, st.x);
+        const isRead = Boolean(engine.slot.readSteles?.includes(st.id));
+        ctx.save();
+        ctx.translate(st.x, gy);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.56)';
+        ctx.beginPath();
+        ctx.ellipse(0, 2, 26, 5.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (steleImg) {
+          const sh = 108;
+          const sw = steleImg.width * (sh / steleImg.height);
+          ctx.drawImage(steleImg, -sw * 0.5, -sh + 4, sw, sh);
+        }
+
+        if (!isRead) {
+          ctx.globalCompositeOperation = 'lighter';
+          const sg = ctx.createRadialGradient(0, -52, 3, 0, -52, 46);
+          sg.addColorStop(0, 'rgba(125, 211, 252, 0.36)');
+          sg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          ctx.fillStyle = sg;
+          ctx.beginPath();
+          ctx.arc(0, -52, 46, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        if (Math.abs(engine.player.x - st.x) < 165) {
+          const def = LORE_STELES[st.id];
+          if (def) {
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.font = 'bold 12px "STKaiti", "KaiTi", serif';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+            ctx.fillText(def.title, 1.1, -112.8);
+            ctx.fillStyle = isRead ? '#cbd5e1' : '#7dd3fc';
+            ctx.fillText(def.title, 0, -114);
+          }
+        }
+        ctx.restore();
+      }
     }
   }
 
@@ -1152,14 +1135,18 @@ export class InkVaniaRenderer {
           ctx.stroke();
         }
         ctx.restore();
+      } else if (pr.kind === 'holy_fire' && Assets.get('item_sub_fire_gourd')) {
+        const fgImg = Assets.get('item_sub_fire_gourd')!;
+        ctx.save();
+        ctx.rotate(this.ambientTime * 8);
+        ctx.drawImage(fgImg, -15, -18, 30, 36);
+        ctx.restore();
       } else if (pr.kind === 'fire_pillar' || pr.kind === 'holy_fire') {
-        // 多层跃动三昧真火（浓烟暗红底 -> 烈焰赤橙 -> 炽白火芯）
         const hMul = pr.kind === 'fire_pillar' ? 1 : 0.42;
         const sway1 = Math.sin(this.ambientTime * 24 + pr.x * 0.1) * 8 * hMul;
         const sway2 = Math.cos(this.ambientTime * 31 + pr.x * 0.2) * 5 * hMul;
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
-        // 外焰
         ctx.fillStyle = 'rgba(234, 88, 12, 0.65)';
         ctx.beginPath();
         ctx.moveTo(-16 * hMul, 2);
@@ -1167,7 +1154,6 @@ export class InkVaniaRenderer {
         ctx.quadraticCurveTo(10 * hMul, -34 * hMul, 16 * hMul, 2);
         ctx.closePath();
         ctx.fill();
-        // 内焰白金火芯
         ctx.fillStyle = 'rgba(254, 240, 138, 0.85)';
         ctx.beginPath();
         ctx.moveTo(-8 * hMul, 2);
@@ -1177,49 +1163,32 @@ export class InkVaniaRenderer {
         ctx.fill();
         ctx.restore();
       } else if (pr.kind === 'seal') {
-        // 镇岳金印（高抛翻转重印 + 金色流光残影）
+        // 镇岳盘龙金印（纯手绘 `item_sub_seal.webp` 高抛翻转重印 + 金色流光残影）
+        const sealImg = Assets.get('item_sub_seal');
         ctx.save();
-        ctx.rotate(this.ambientTime * 11);
-        ctx.fillStyle = '#92400e';
-        ctx.strokeStyle = '#fde047';
-        ctx.lineWidth = 2;
-        ctx.fillRect(-13, -11, 26, 22);
-        ctx.strokeRect(-13, -11, 26, 22);
-        ctx.fillStyle = '#fef08a';
-        ctx.fillRect(-5, -16, 10, 5);
+        ctx.rotate(this.ambientTime * 9.5);
+        if (sealImg) {
+          ctx.drawImage(sealImg, -20, -20, 40, 40);
+        }
         ctx.restore();
       } else if (pr.kind === 'bagua') {
-        // 乾坤流光八卦盘（正八边形金青法阵 + 破风流光环）
+        // 乾坤流光八卦轮（纯手绘 `item_sub_bagua.webp` 疾旋刃轮）
+        const baguaImg = Assets.get('item_sub_bagua');
         ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
         ctx.rotate(this.ambientTime * 15);
-        ctx.strokeStyle = pr.color;
-        ctx.lineWidth = 2.2;
-        ctx.beginPath();
-        for (let s = 0; s < 8; s++) {
-          const a = (s * Math.PI) / 4;
-          const px = Math.cos(a) * 16;
-          const py = Math.sin(a) * 16;
-          if (s === 0) ctx.moveTo(px, py);
-          else ctx.lineTo(px, py);
+        if (baguaImg) {
+          ctx.drawImage(baguaImg, -22, -22, 44, 44);
         }
-        ctx.closePath();
-        ctx.stroke();
-        ctx.strokeStyle = '#fde047';
-        ctx.lineWidth = 1.6;
-        ctx.beginPath();
-        ctx.arc(0, 0, 8, 0, Math.PI * 2);
-        ctx.stroke();
         ctx.restore();
       } else {
-        // 柳叶寒铁飞刀 + 破空银芒尾线
+        // 柳叶寒铁飞刀（手绘短刃贴图 + 破空银芒尾线）
         const ang = Math.atan2(pr.vy, pr.vx);
         ctx.rotate(ang);
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
         const tailG = ctx.createLinearGradient(-38, 0, 10, 0);
         tailG.addColorStop(0, 'rgba(45, 212, 191, 0)');
-        tailG.addColorStop(1, 'rgba(226, 232, 240, 0.85)');
+        tailG.addColorStop(1, pr.fromPlayer ? 'rgba(226, 232, 240, 0.85)' : 'rgba(244, 114, 182, 0.85)');
         ctx.strokeStyle = tailG;
         ctx.lineWidth = 2.4;
         ctx.beginPath();
@@ -1228,17 +1197,10 @@ export class InkVaniaRenderer {
         ctx.stroke();
         ctx.restore();
 
-        ctx.fillStyle = '#f8fafc';
-        ctx.strokeStyle = '#0f172a';
-        ctx.lineWidth = 1.2;
-        ctx.beginPath();
-        ctx.moveTo(12, 0);
-        ctx.lineTo(-4, -3.2);
-        ctx.lineTo(-8, 0);
-        ctx.lineTo(-4, 3.2);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
+        const bladeImg = Assets.get('part_wpn_sword');
+        if (bladeImg) {
+          ctx.drawImage(bladeImg, -16, -4.5, 32, 9);
+        }
       }
       ctx.restore();
     }
