@@ -200,6 +200,8 @@ export class GameEngine {
 
   public camX = 440;
   public camY = 280;
+  private camLookX = 0;
+  private camAnchorY = 404;
 
   public player = {
     x: 190,
@@ -491,8 +493,11 @@ export class GameEngine {
       this.player.vy = 0;
     }
     this.markCurrentMapCellVisited();
-    this.camX = this.player.x + this.player.facing * 50;
-    this.camY = this.player.y - 95;
+    this.camLookX = 0;
+    this.camAnchorY = this.player.y;
+    this.camX = this.player.x;
+    this.camY =
+      nextRoom.pixelH <= 520 ? nextRoom.pixelH - 210 : this.player.y - 95;
 
     this.enemies = [];
     this.dyingSouls = [];
@@ -767,11 +772,35 @@ export class GameEngine {
 
   private updateCamera(dt: number): void {
     const p = this.player;
-    const targetX = p.x + p.facing * 55;
-    const targetY = p.y - 98;
-    const smooth = 1 - Math.pow(0.0006, dt);
-    this.camX += (targetX - this.camX) * smooth;
-    this.camY += (targetY - this.camY) * smooth;
+    const room = this.room;
+
+    // 1. 横向防眩晕平滑跟随：告别原地转身 110px 甩镜头！仅在持续奔跑时轻柔前瞻，带 16px 静止死区
+    const desiredLookX = Math.abs(p.vx) > 90 ? Math.max(-24, Math.min(24, p.vx * 0.08)) : 0;
+    this.camLookX += (desiredLookX - this.camLookX) * (1 - Math.pow(0.04, dt));
+
+    const focusX = p.x + this.camLookX;
+    let targetX = this.camX;
+    if (focusX > this.camX + 16) targetX = focusX - 16;
+    else if (focusX < this.camX - 16) targetX = focusX + 16;
+
+    const smoothX = 1 - Math.pow(0.004, dt);
+    this.camX += (targetX - this.camX) * smoothX;
+
+    // 2. 纵向《月下》平台锚定防抖：单层厅堂地面跳跃镜头稳如泰山，仅登高台或竖塔跨层时柔和升降！
+    if (p.onGround) {
+      this.camAnchorY = p.y;
+    } else if (p.y > this.camAnchorY + 55) {
+      this.camAnchorY = p.y - 55;
+    } else if (p.y < this.camAnchorY - 135) {
+      this.camAnchorY = p.y + 135;
+    }
+
+    let targetY = this.camAnchorY - 96;
+    if (room && room.pixelH <= 520 && this.camAnchorY > 235) {
+      targetY = room.pixelH - 208;
+    }
+    const smoothY = 1 - Math.pow(0.012, dt);
+    this.camY += (targetY - this.camY) * smoothY;
   }
 
   private updatePlayer(dt: number): void {

@@ -130,15 +130,21 @@ export function drawSeamlessParallaxBackdrop(
   const bg = Assets.get(bgKey) || Assets.get('bg_gatehouse');
   if (bg) {
     const aspect = bg.width / bg.height;
-    const drawW = Math.max(vW * 1.22, vH * 1.18 * aspect);
+    // 采用恒定物理远景视差系数（横向仅 0.11x、纵向仅 0.03x~0.06x），彻底根除按房间余量归一化导致的跳跃/窄厅远景暴冲晃眼问题！
+    const parallaxX = 0.11;
+    const parallaxY = room.gridH > 1 ? 0.06 : 0.025;
+    const maxCamX = Math.max(0, room.pixelW - vW);
+    const maxCamY = Math.max(0, room.pixelH - vH);
+
+    const reqW = vW + maxCamX * parallaxX + 12;
+    const reqH = vH + maxCamY * parallaxY + 12;
+    const drawW = Math.max(reqW, reqH * aspect);
     const drawH = drawW / aspect;
 
-    const maxScrollX = Math.max(1, room.pixelW - vW);
-    const maxScrollY = Math.max(1, room.pixelH - vH);
-    const ux = Math.max(0, Math.min(1, camLeft / maxScrollX));
-    const uy = Math.max(0, Math.min(1, camTop / maxScrollY));
-    const px = -ux * (drawW - vW);
-    const py = -uy * (drawH - vH);
+    const extraW = Math.max(0, drawW - reqW);
+    const extraH = Math.max(0, drawH - reqH);
+    const px = Math.max(vW - drawW, Math.min(0, -extraW * 0.5 - camLeft * parallaxX));
+    const py = Math.max(vH - drawH, Math.min(0, -extraH * 0.45 - camTop * parallaxY));
 
     if (room.realm === 'inverted') {
       ctx.save();
@@ -148,18 +154,19 @@ export function drawSeamlessParallaxBackdrop(
       ctx.restore();
 
       const invGrad = ctx.createLinearGradient(0, 0, 0, vH);
-      invGrad.addColorStop(0, 'rgba(92, 14, 38, 0.28)');
-      invGrad.addColorStop(0.62, 'rgba(28, 9, 36, 0.24)');
-      invGrad.addColorStop(1, 'rgba(7, 5, 14, 0.62)');
+      invGrad.addColorStop(0, 'rgba(92, 14, 38, 0.34)');
+      invGrad.addColorStop(0.55, 'rgba(24, 9, 34, 0.32)');
+      invGrad.addColorStop(1, 'rgba(7, 5, 14, 0.66)');
       ctx.fillStyle = invGrad;
       ctx.fillRect(0, 0, vW, vH);
     } else {
       ctx.drawImage(bg, px, py, drawW, drawH);
 
+      // 柔和空气透视薄暮层：适度压稳远景高频细节对比度，突出中景角色与刀光，久看不累眼
       const depthGrad = ctx.createLinearGradient(0, 0, 0, vH);
-      depthGrad.addColorStop(0, 'rgba(5, 8, 15, 0.06)');
-      depthGrad.addColorStop(0.68, 'rgba(6, 10, 18, 0.18)');
-      depthGrad.addColorStop(1, 'rgba(4, 7, 13, 0.56)');
+      depthGrad.addColorStop(0, 'rgba(5, 8, 15, 0.18)');
+      depthGrad.addColorStop(0.62, 'rgba(6, 10, 18, 0.28)');
+      depthGrad.addColorStop(1, 'rgba(4, 7, 13, 0.6)');
       ctx.fillStyle = depthGrad;
       ctx.fillRect(0, 0, vW, vH);
     }

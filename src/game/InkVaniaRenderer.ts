@@ -57,8 +57,9 @@ export class InkVaniaRenderer {
     camLeft = Math.max(0, Math.min(Math.max(0, room.pixelW - vW), camLeft));
     camTop = Math.max(0, Math.min(Math.max(0, room.pixelH - vH), camTop));
 
-    const shakeX = engine.screenShake > 0 ? (Math.random() - 0.5) * engine.screenShake * 1.6 : 0;
-    const shakeY = engine.screenShake > 0 ? (Math.random() - 0.5) * engine.screenShake * 1.6 : 0;
+    const shakeAmp = Math.min(4.5, engine.screenShake * 0.75);
+    const shakeX = shakeAmp > 0.2 ? (Math.random() - 0.5) * shakeAmp : 0;
+    const shakeY = shakeAmp > 0.2 ? (Math.random() - 0.5) * shakeAmp : 0;
 
     ctx.save();
     ctx.scale(scale, scale);
@@ -1224,7 +1225,7 @@ export class InkVaniaRenderer {
     const lanternImg = Assets.get('prop_lantern');
 
     for (const fg of room.foregrounds) {
-      const sx = (fg.x - camLeft) * fg.parallax;
+      const sx = fg.x - camLeft * 1.04;
       if (sx < -160 || sx > vW + 160) continue;
 
       if (fg.kind === 'hanging_lantern' && lanternImg) {
@@ -1253,25 +1254,25 @@ export class InkVaniaRenderer {
       room.region === 'opera' || room.region === 'forge' || room.region === 'main_hall';
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 8; i++) {
       const wx =
-        (((i * 277 - camLeft * 1.24 + this.ambientTime * (14 + (i % 4) * 5)) % (vW + 120)) +
+        (((i * 317 - camLeft * 0.28 + this.ambientTime * (7 + (i % 3) * 3)) % (vW + 120)) +
           (vW + 120)) %
           (vW + 120) -
         60;
       const wy =
-        (((i * 173 - this.ambientTime * (11 + (i % 3) * 4)) % (vH + 80)) + (vH + 80)) %
+        (((i * 193 - this.ambientTime * (6 + (i % 3) * 2.5)) % (vH + 80)) + (vH + 80)) %
           (vH + 80) -
         40;
       ctx.fillStyle = warmRegion
         ? i % 2 === 0
-          ? 'rgba(253, 224, 71, 0.55)'
-          : 'rgba(251, 113, 133, 0.45)'
+          ? 'rgba(253, 224, 71, 0.28)'
+          : 'rgba(251, 146, 60, 0.22)'
         : i % 2 === 0
-          ? 'rgba(253, 224, 71, 0.48)'
-          : 'rgba(45, 212, 191, 0.42)';
+          ? 'rgba(253, 224, 71, 0.24)'
+          : 'rgba(45, 212, 191, 0.22)';
       ctx.beginPath();
-      ctx.arc(wx, wy, 1.7 + (i % 2), 0, Math.PI * 2);
+      ctx.arc(wx, wy, 1.5 + (i % 2) * 0.6, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.restore();
