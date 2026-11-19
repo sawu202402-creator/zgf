@@ -279,9 +279,17 @@ export class UIManager {
 
       <div class="zx-hud-right">
         <div class="zx-hud-btn-row">
-          <button class="zx-seal-btn" id="btn-hud-arsenal">兵匣 [B]</button>
-          <button class="zx-seal-btn" id="btn-hud-map">堪舆 [M]</button>
-          <button class="zx-seal-btn" id="btn-hud-skills">剑诀</button>
+          <button class="zx-seal-btn" id="btn-hud-arsenal">${
+            this.engine.input.usingTouch || NativeApp.isMobileOrTablet() ? '兵匣' : '兵匣 [B]'
+          }</button>
+          <button class="zx-seal-btn" id="btn-hud-map">${
+            this.engine.input.usingTouch || NativeApp.isMobileOrTablet() ? '堪舆' : '堪舆 [M]'
+          }</button>
+          ${
+            this.engine.input.usingTouch || NativeApp.isMobileOrTablet()
+              ? ''
+              : '<button class="zx-seal-btn" id="btn-hud-skills">剑诀</button>'
+          }
         </div>
         <div class="zx-minimap-box" id="hud-minimap-box" title="点击展开玄城全境堪舆图 [M]">
           <canvas id="hud-minimap-canvas" width="144" height="58"></canvas>
@@ -561,10 +569,13 @@ export class UIManager {
       mainHtml = `
         <div style="flex:1;padding:20px 0;display:flex;flex-direction:column;gap:14px;max-width:520px;">
           <div class="zx-item-row" style="cursor:default;flex-direction:column;align-items:flex-start;gap:10px;">
-            <strong style="color:var(--bronze-light);letter-spacing:2px;">视听与全屏</strong>
+            <strong style="color:var(--bronze-light);letter-spacing:2px;">视听、手柄按键与全屏</strong>
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
               <button class="zx-seal-btn" id="set-bgm-mute">古琴配乐：${mute.bgmMuted ? '已静音' : '开启'}</button>
               <button class="zx-seal-btn" id="set-sfx-mute">金石刀音：${mute.sfxMuted ? '已静音' : '开启'}</button>
+              <button class="zx-seal-btn" id="set-pad-style">左手按键：${
+                this.engine.input.controlStyle === 'dpad' ? '经典十字键' : '手柄左摇杆'
+              }</button>
               <button class="zx-seal-btn" id="set-fullscreen">全屏横屏锁定</button>
             </div>
           </div>
@@ -1295,6 +1306,13 @@ export class UIManager {
     });
     overlay.querySelector('#set-fullscreen')?.addEventListener('click', () => {
       NativeApp.requestFullscreenAndLandscape();
+    });
+    overlay.querySelector('#set-pad-style')?.addEventListener('click', () => {
+      const next = this.engine.input.controlStyle === 'joystick' ? 'dpad' : 'joystick';
+      this.engine.input.controlStyle = next;
+      SaveManager.saveMeta({ controlStyle: next });
+      AudioFX.playHit(false);
+      this.renderArsenalModal();
     });
     overlay.querySelector('#dev-grant-pack')?.addEventListener('click', () => {
       for (const id of [

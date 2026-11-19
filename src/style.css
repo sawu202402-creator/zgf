@@ -796,3 +796,26 @@ body {
     display: none;
   }
 }
+
+@media (max-height: 520px), (pointer: coarse) {
+  .zx-hud-right .zx-seal-btn {
+    padding: 4px 11px;
+    font-size: 11.5px;
+    border-radius: 99px;
+  }
+  .zx-minimap-box {
+    padding: 3px 5px 2px;
+  }
+  #hud-minimap-canvas {
+    width: 118px;
+    height: 46px;
+  }
+  .interact-prompt {
+    bottom: calc(36px + var(--safe-bottom));
+    padding: 6px 24px;
+    font-size: 13px;
+    border-radius: 99px;
+    background: rgba(8, 12, 22, 0.9);
+    border: 1px solid var(--bronze);
+  }
+}

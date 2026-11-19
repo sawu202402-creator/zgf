@@ -1181,62 +1181,239 @@ export class InkVaniaRenderer {
     }
   }
 
+  /**
+   * 标准主机手柄式移动端虚拟按键渲染器：
+   * 左手：黑曜鎏金凹槽摇杆 / 一体式十字方向键 + L1 肩键；
+   * 右手：手柄菱形底座托盘 + 等大对称 ABXY 四键（X斩 / A跃 / B闪 / Y符） + R1 肩键！
+   */
   private renderVirtualControls(ctx: CanvasRenderingContext2D, input: InputController): void {
     ctx.save();
+
     const bx = input.stickBaseX;
     const by = input.stickBaseY;
-    ctx.fillStyle = 'rgba(8, 11, 18, 0.52)';
-    ctx.strokeStyle = 'rgba(207, 163, 73, 0.5)';
-    ctx.lineWidth = 2;
+    const wellR = 52;
+
+    // ==================== 1. 左手：主机手柄方向总成（左摇杆 / 经典十字键） ====================
+    ctx.fillStyle = 'rgba(7, 10, 18, 0.56)';
+    ctx.strokeStyle = 'rgba(198, 154, 69, 0.42)';
+    ctx.lineWidth = 1.8;
     ctx.beginPath();
-    ctx.arc(bx, by, 56, 0, Math.PI * 2);
+    ctx.arc(bx, by, wellR, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
-    for (let i = 0; i < 8; i++) {
-      const a = (i * Math.PI) / 4;
-      ctx.fillStyle = 'rgba(207, 163, 73, 0.36)';
-      ctx.beginPath();
-      ctx.arc(bx + Math.cos(a) * 45, by + Math.sin(a) * 45, 2.2, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    if (input.touchTrail.length > 1) {
-      for (let i = 1; i < input.touchTrail.length; i++) {
-        const p0 = input.touchTrail[i - 1];
-        const p1 = input.touchTrail[i];
-        ctx.strokeStyle = `rgba(45, 212, 191, ${p1.alpha * 0.9})`;
-        ctx.lineWidth = 5;
-        ctx.beginPath();
-        ctx.moveTo(p0.x, p0.y);
-        ctx.lineTo(p1.x, p1.y);
-        ctx.stroke();
-      }
-    }
-
-    ctx.fillStyle = input.stickActive ? 'rgba(45, 212, 191, 0.85)' : 'rgba(207, 163, 73, 0.72)';
+    // 内圈暗金刻度环
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.16)';
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.arc(input.stickKnobX, input.stickKnobY, 23, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.arc(bx, by, wellR - 7, 0, Math.PI * 2);
+    ctx.stroke();
 
-    for (const b of input.buttons) {
-      ctx.fillStyle = b.pressed ? b.color : 'rgba(10, 14, 22, 0.72)';
-      ctx.strokeStyle = b.color;
-      ctx.lineWidth = b.pressed ? 3.5 : 2;
+    if (input.controlStyle === 'dpad') {
+      // 经典一体式主机十字方向键 (Cross D-Pad)
+      const armLen = 40;
+      const armHalf = 14;
+      ctx.fillStyle = 'rgba(15, 21, 34, 0.88)';
+      ctx.strokeStyle = 'rgba(207, 163, 73, 0.62)';
+      ctx.lineWidth = 1.6;
       ctx.beginPath();
-      ctx.arc(b.cx, b.cy, b.r, 0, Math.PI * 2);
+      ctx.moveTo(bx - armHalf, by - armLen);
+      ctx.lineTo(bx + armHalf, by - armLen);
+      ctx.lineTo(bx + armHalf, by - armHalf);
+      ctx.lineTo(bx + armLen, by - armHalf);
+      ctx.lineTo(bx + armLen, by + armHalf);
+      ctx.lineTo(bx + armHalf, by + armHalf);
+      ctx.lineTo(bx + armHalf, by + armLen);
+      ctx.lineTo(bx - armHalf, by + armLen);
+      ctx.lineTo(bx - armHalf, by + armHalf);
+      ctx.lineTo(bx - armLen, by + armHalf);
+      ctx.lineTo(bx - armLen, by - armHalf);
+      ctx.lineTo(bx - armHalf, by - armHalf);
+      ctx.closePath();
       ctx.fill();
       ctx.stroke();
 
-      ctx.fillStyle = '#fff8eb';
-      ctx.font = `bold ${Math.round(b.r * 0.56)}px "STKaiti", "KaiTi", serif`;
+      // 中央十字转轴圆凹槽
+      ctx.fillStyle = 'rgba(7, 10, 18, 0.75)';
+      ctx.beginPath();
+      ctx.arc(bx, by, 7, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 四向三角指示标（按下对应方向高亮翠玉金芒）
+      const dirs: { dx: number; dy: number; active: boolean }[] = [
+        { dx: 0, dy: -1, active: input.moveY < 0 },
+        { dx: 0, dy: 1, active: input.moveY > 0 },
+        { dx: -1, dy: 0, active: input.moveX < 0 },
+        { dx: 1, dy: 0, active: input.moveX > 0 },
+      ];
+      for (const d of dirs) {
+        const tx = bx + d.dx * 27;
+        const ty = by + d.dy * 27;
+        ctx.fillStyle = d.active ? '#2dd4bf' : 'rgba(226, 232, 240, 0.55)';
+        ctx.beginPath();
+        if (d.dy !== 0) {
+          ctx.moveTo(tx, ty + d.dy * 6);
+          ctx.lineTo(tx - 6, ty - d.dy * 4);
+          ctx.lineTo(tx + 6, ty - d.dy * 4);
+        } else {
+          ctx.moveTo(tx + d.dx * 6, ty);
+          ctx.lineTo(tx - d.dx * 4, ty - 6);
+          ctx.lineTo(tx - d.dx * 4, ty + 6);
+        }
+        ctx.closePath();
+        ctx.fill();
+      }
+    } else {
+      // 主机左摇杆模式：底座四向微刻箭头 + 手搓残影轨迹 + 立体防滑摇杆帽
+      const chevrons: [number, number][] = [
+        [0, -1],
+        [0, 1],
+        [-1, 0],
+        [1, 0],
+      ];
+      for (const [dx, dy] of chevrons) {
+        const active = (dx !== 0 && input.moveX === dx) || (dy !== 0 && input.moveY === dy);
+        const cx = bx + dx * 39;
+        const cy = by + dy * 39;
+        ctx.fillStyle = active ? 'rgba(45, 212, 191, 0.85)' : 'rgba(207, 163, 73, 0.38)';
+        ctx.beginPath();
+        if (dy !== 0) {
+          ctx.moveTo(cx, cy + dy * 4.5);
+          ctx.lineTo(cx - 4.5, cy - dy * 3);
+          ctx.lineTo(cx + 4.5, cy - dy * 3);
+        } else {
+          ctx.moveTo(cx + dx * 4.5, cy);
+          ctx.lineTo(cx - dx * 3, cy - 4.5);
+          ctx.lineTo(cx - dx * 3, cy + 4.5);
+        }
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      if (input.touchTrail.length > 1) {
+        for (let i = 1; i < input.touchTrail.length; i++) {
+          const p0 = input.touchTrail[i - 1];
+          const p1 = input.touchTrail[i];
+          ctx.strokeStyle = `rgba(45, 212, 191, ${p1.alpha * 0.78})`;
+          ctx.lineWidth = 4;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(p0.x, p0.y);
+          ctx.lineTo(p1.x, p1.y);
+          ctx.stroke();
+        }
+      }
+
+      // 立体同心防滑摇杆帽
+      const kx = input.stickKnobX;
+      const ky = input.stickKnobY;
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+      ctx.strokeStyle = input.stickActive ? '#2dd4bf' : 'rgba(207, 163, 73, 0.82)';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.arc(kx, ky, 22, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.strokeStyle = input.stickActive
+        ? 'rgba(45, 212, 191, 0.45)'
+        : 'rgba(226, 232, 240, 0.22)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(kx, ky, 13, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // ==================== 2. 右手：手柄 ABXY 菱形底座暗盘 ====================
+    const rcx = input.padRightCenterX;
+    const rcy = input.padRightCenterY;
+    const dSpan = input.padDiamondArm + input.padFaceRadius + 8;
+
+    ctx.save();
+    ctx.translate(rcx, rcy);
+    ctx.rotate(Math.PI / 4);
+    const plateSide = dSpan * 1.18;
+    const halfP = plateSide * 0.5;
+    ctx.fillStyle = 'rgba(7, 10, 18, 0.36)';
+    ctx.strokeStyle = 'rgba(198, 154, 69, 0.22)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.roundRect(-halfP, -halfP, plateSide, plateSide, 18);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+
+    // 菱形中心十字暗标
+    ctx.strokeStyle = 'rgba(198, 154, 69, 0.24)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(rcx - 7, rcy);
+    ctx.lineTo(rcx + 7, rcy);
+    ctx.moveTo(rcx, rcy - 7);
+    ctx.lineTo(rcx, rcy + 7);
+    ctx.stroke();
+
+    // ==================== 3. 渲染 ABXY 菱形四键与 L1/R1 对称胶囊肩键 ====================
+    for (const b of input.buttons) {
+      const pressOffsetY = b.pressed ? 1.5 : 0;
+
+      if (b.shape === 'pill' && b.w && b.h) {
+        // L1 / R1 主机手柄肩键胶囊按钮
+        const x0 = b.cx - b.w * 0.5;
+        const y0 = b.cy - b.h * 0.5 + pressOffsetY;
+        const rad = b.h * 0.5;
+
+        ctx.fillStyle = b.pressed ? 'rgba(30, 41, 59, 0.92)' : 'rgba(10, 14, 24, 0.68)';
+        ctx.strokeStyle = b.pressed ? b.accentColor : 'rgba(198, 154, 69, 0.52)';
+        ctx.lineWidth = b.pressed ? 2.2 : 1.4;
+        ctx.beginPath();
+        ctx.roundRect(x0, y0, b.w, b.h, rad);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.textBaseline = 'middle';
+        ctx.font = '800 10px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillStyle = b.accentColor;
+        ctx.fillText(b.padBadge, x0 + 10, y0 + b.h * 0.52);
+
+        ctx.font = 'bold 12px "STKaiti", "KaiTi", serif';
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillText(b.label, x0 + b.w - 10, y0 + b.h * 0.52);
+        continue;
+      }
+
+      // ABXY 圆形手柄标准动作键（统一尺寸、黑曜磨砂底 + 细色环 + 单字大图标）
+      const cy = b.cy + pressOffsetY;
+      ctx.fillStyle = b.pressed ? 'rgba(24, 33, 52, 0.94)' : 'rgba(10, 14, 24, 0.72)';
+      ctx.strokeStyle = b.pressed ? b.accentColor : 'rgba(203, 213, 225, 0.36)';
+      ctx.lineWidth = b.pressed ? 2.6 : 1.5;
+      ctx.beginPath();
+      ctx.arc(b.cx, cy, b.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // 内圈按键色环点缀
+      ctx.strokeStyle = b.accentColor;
+      ctx.globalAlpha = b.pressed ? 0.95 : 0.55;
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.arc(b.cx, cy, b.r - 3.5, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      // 主键单字书法图标
+      ctx.fillStyle = '#fffbeb';
+      ctx.font = `900 ${Math.round(b.r * 0.68)}px "STKaiti", "KaiTi", serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(b.label, b.cx, b.cy - 2);
+      ctx.fillText(b.label, b.cx, cy - 1);
 
-      ctx.fillStyle = 'rgba(243, 234, 216, 0.72)';
-      ctx.font = '10px sans-serif';
-      ctx.fillText(b.subLabel, b.cx, b.cy + b.r * 0.52);
+      // 底部极简手柄键位微标 (X / A / B / Y)
+      ctx.fillStyle = b.accentColor;
+      ctx.font = '800 8.5px sans-serif';
+      ctx.fillText(b.padBadge, b.cx, cy + b.r * 0.62);
     }
 
     ctx.restore();

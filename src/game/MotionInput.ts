@@ -4,19 +4,24 @@ import { SkillId } from '../types';
 export type DirToken = 'N' | 'U' | 'D' | 'F' | 'B' | 'DF' | 'DB' | 'UF' | 'UB';
 
 interface RawDirSample {
-  gx: -1 | 0 | 1; // 屏幕绝对左右
-  gy: -1 | 0 | 1; // 屏幕绝对上下
+  gx: -1 | 0 | 1;
+  gy: -1 | 0 | 1;
   at: number;
 }
 
 export interface VirtualButtonRect {
-  id: 'attack' | 'jump' | 'dash' | 'sub' | 'potion';
+  id: 'attack' | 'jump' | 'dash' | 'sub' | 'potion' | 'swap';
+  shape: 'circle' | 'pill';
+  /** 主键单字（斩 / 跃 / 闪 / 符）或肩键名（L1 兵 / R1 药） */
   label: string;
-  subLabel: string;
+  /** 手柄键位微标（X / A / B / Y / L1 / R1） */
+  padBadge: string;
   cx: number;
   cy: number;
   r: number;
-  color: string;
+  w?: number;
+  h?: number;
+  accentColor: string;
   pressed: boolean;
 }
 
@@ -45,12 +50,19 @@ export class InputController {
   private lastQuantX: -1 | 0 | 1 = 0;
   private lastQuantY: -1 | 0 | 1 = 0;
 
-  // 触控摇杆状态与水墨轨迹
+  // 左手手柄摇杆 / 十字键对称锚点与实时坐标
   private stickTouchId: number | null = null;
-  public stickBaseX = 118;
-  public stickBaseY = 0;
-  public stickKnobX = 118;
-  public stickKnobY = 0;
+  public padLeftHomeX = 108;
+  public padLeftHomeY = 290;
+  public padRightCenterX = 720;
+  public padRightCenterY = 290;
+  public padDiamondArm = 48;
+  public padFaceRadius = 26;
+
+  public stickBaseX = 108;
+  public stickBaseY = 290;
+  public stickKnobX = 108;
+  public stickKnobY = 290;
   public stickActive = false;
   public touchTrail: { x: number; y: number; alpha: number }[] = [];
 
@@ -63,67 +75,112 @@ export class InputController {
     this.installTouch();
   }
 
+  /**
+   * 标准主机手柄对称式布局（Left Stick/D-Pad + L1肩键 ⟷ Right ABXY菱形四键 + R1肩键）：
+   * 四颗右侧动作键严格等大、90°正菱形排布，左右高度完全对称，彻底告别杂乱大小圆圈！
+   */
   public layoutVirtualControls(viewW: number, viewH: number): void {
-    const baseR = Math.max(27, Math.min(36, Math.round(Math.min(viewW, viewH) * 0.075)));
-    const rightX = viewW - 86;
-    const bottomY = viewH - 78;
+    const minDim = Math.min(viewW, viewH);
+    const faceR = Math.max(23, Math.min(29, Math.round(minDim * 0.066)));
+    const arm = Math.round(faceR * 1.84);
+
+    const sideMargin = Math.max(96, Math.min(126, Math.round(viewW * 0.125)));
+    const bottomMargin = Math.max(84, Math.min(108, Math.round(viewH * 0.235)));
+
+    const leftX = sideMargin;
+    const rightX = viewW - sideMargin;
+    const centerY = viewH - bottomMargin;
+    const shoulderY = Math.max(122, centerY - arm - faceR - 24);
+
+    this.padLeftHomeX = leftX;
+    this.padLeftHomeY = centerY;
+    this.padRightCenterX = rightX;
+    this.padRightCenterY = centerY;
+    this.padDiamondArm = arm;
+    this.padFaceRadius = faceR;
 
     if (!this.stickActive) {
-      this.stickBaseX = 112;
-      this.stickBaseY = viewH - 102;
-      this.stickKnobX = this.stickBaseX;
-      this.stickKnobY = this.stickBaseY;
+      this.stickBaseX = leftX;
+      this.stickBaseY = centerY;
+      this.stickKnobX = leftX;
+      this.stickKnobY = centerY;
     }
 
+    const shoulderW = Math.round(faceR * 2.75);
+    const shoulderH = Math.round(faceR * 1.02);
+
     this.buttons = [
+      // 右手正菱形四键 (ABXY 标准动作手柄排布)
       {
-        id: 'attack',
+        id: 'attack', // West (X / □)：主武挥斩 / 搓招触发
+        shape: 'circle',
         label: '斩',
-        subLabel: '普攻/搓招',
-        cx: rightX - 10,
-        cy: bottomY - 6,
-        r: Math.round(baseR * 1.24),
-        color: '#c8372d',
+        padBadge: 'X',
+        cx: rightX - arm,
+        cy: centerY,
+        r: faceR,
+        accentColor: '#ef4444',
         pressed: false,
       },
       {
-        id: 'jump',
+        id: 'jump', // South (A / ×)：跳跃 / 二段跳 / 滑铲 / 飞踢
+        shape: 'circle',
         label: '跃',
-        subLabel: '轻功/蹬墙',
-        cx: rightX - baseR * 2.45,
-        cy: bottomY + 12,
-        r: baseR,
-        color: '#2b7a78',
+        padBadge: 'A',
+        cx: rightX,
+        cy: centerY + arm,
+        r: faceR,
+        accentColor: '#2dd4bf',
         pressed: false,
       },
       {
-        id: 'dash',
-        label: '身',
-        subLabel: '化雾/疾退',
-        cx: rightX - baseR * 2.05,
-        cy: bottomY - baseR * 2.0,
-        r: Math.round(baseR * 0.92),
-        color: '#7e3af2',
+        id: 'dash', // East (B / ○)：疾退 / 缩地化雾
+        shape: 'circle',
+        label: '闪',
+        padBadge: 'B',
+        cx: rightX + arm,
+        cy: centerY,
+        r: faceR,
+        accentColor: '#c084fc',
         pressed: false,
       },
       {
-        id: 'sub',
+        id: 'sub', // North (Y / △)：奇门副器
+        shape: 'circle',
         label: '符',
-        subLabel: '法器/钩锁',
-        cx: rightX + 8,
-        cy: bottomY - baseR * 2.45,
-        r: Math.round(baseR * 0.9),
-        color: '#d97706',
+        padBadge: 'Y',
+        cx: rightX,
+        cy: centerY - arm,
+        r: faceR,
+        accentColor: '#f59e0b',
+        pressed: false,
+      },
+
+      // 左右对称手柄肩键 (L1 换兵 / R1 灵药)
+      {
+        id: 'swap',
+        shape: 'pill',
+        label: '换兵',
+        padBadge: 'L1',
+        cx: leftX - 8,
+        cy: shoulderY,
+        r: Math.round(shoulderH * 0.5),
+        w: shoulderW,
+        h: shoulderH,
+        accentColor: '#eab308',
         pressed: false,
       },
       {
         id: 'potion',
-        label: '药',
-        subLabel: '止血散',
-        cx: rightX - baseR * 3.85,
-        cy: bottomY + 14,
-        r: Math.round(baseR * 0.74),
-        color: '#15803d',
+        shape: 'pill',
+        label: '灵药',
+        padBadge: 'R1',
+        cx: rightX + 8,
+        cy: shoulderY,
+        r: Math.round(shoulderH * 0.5),
+        w: shoulderW,
+        h: shoulderH,
+        accentColor: '#34d399',
         pressed: false,
       },
     ];
@@ -141,10 +198,49 @@ export class InputController {
     this.subJustPressed = false;
     this.interactJustPressed = false;
     this.potionJustPressed = false;
+    this.weaponSwapJustPressed = false;
     this.stickTouchId = null;
     this.stickActive = false;
+    this.stickBaseX = this.padLeftHomeX;
+    this.stickBaseY = this.padLeftHomeY;
+    this.stickKnobX = this.padLeftHomeX;
+    this.stickKnobY = this.padLeftHomeY;
     this.activeBtnTouches.clear();
     for (const b of this.buttons) b.pressed = false;
+  }
+
+  private hitTestButton(px: number, py: number): VirtualButtonRect | null {
+    let best: VirtualButtonRect | null = null;
+    let bestDist = Infinity;
+    for (const b of this.buttons) {
+      if (b.shape === 'pill' && b.w && b.h) {
+        const hw = b.w * 0.5 + 8;
+        const hh = b.h * 0.5 + 8;
+        if (Math.abs(px - b.cx) <= hw && Math.abs(py - b.cy) <= hh) {
+          const d = Math.hypot(px - b.cx, py - b.cy);
+          if (d < bestDist) {
+            bestDist = d;
+            best = b;
+          }
+        }
+      } else {
+        const d = Math.hypot(px - b.cx, py - b.cy);
+        if (d <= b.r + 11 && d < bestDist) {
+          bestDist = d;
+          best = b;
+        }
+      }
+    }
+    return best;
+  }
+
+  private syncPressedStates(): void {
+    const heldSet = new Set(this.activeBtnTouches.values());
+    for (const b of this.buttons) {
+      b.pressed = heldSet.has(b.id);
+    }
+    this.attackHeld = heldSet.has('attack');
+    this.jumpHeld = heldSet.has('jump');
   }
 
   private installKeyboard(): void {
@@ -223,39 +319,35 @@ export class InputController {
         e.preventDefault();
 
         const viewW = this.canvas.clientWidth || window.innerWidth;
+        const viewH = this.canvas.clientHeight || window.innerHeight;
         for (let i = 0; i < e.changedTouches.length; i++) {
           const t = e.changedTouches[i];
           const p = getPos(t);
 
-          // 检查右侧虚拟技能动作按键
-          let hitBtn: VirtualButtonRect | null = null;
-          for (const b of this.buttons) {
-            const dx = p.x - b.cx;
-            const dy = p.y - b.cy;
-            if (dx * dx + dy * dy <= (b.r + 14) * (b.r + 14)) {
-              hitBtn = b;
-              break;
-            }
-          }
-
+          // 1. 优先命中手柄按键（ABXY 菱形四键 + L1/R1 对称肩键）
+          const hitBtn = this.hitTestButton(p.x, p.y);
           if (hitBtn) {
-            hitBtn.pressed = true;
             this.activeBtnTouches.set(t.identifier, hitBtn.id);
+            this.syncPressedStates();
             this.triggerVirtualButton(hitBtn.id, true);
             continue;
           }
 
-          // 左半屏唤醒八向手搓摇杆/十字键
-          if (p.x < viewW * 0.5 && this.stickTouchId === null) {
+          // 2. 左下半屏手柄方向区：稳固锚定在左手柄底座（近底座直接响应，避免摇杆满屏乱跳！）
+          if (p.x < viewW * 0.45 && p.y > viewH * 0.28 && this.stickTouchId === null) {
             this.stickTouchId = t.identifier;
             this.stickActive = true;
-            if (this.controlStyle === 'joystick') {
-              this.stickBaseX = Math.max(75, Math.min(viewW * 0.36, p.x));
-              this.stickBaseY = Math.max(160, p.y);
+            const distFromHome = Math.hypot(p.x - this.padLeftHomeX, p.y - this.padLeftHomeY);
+            if (this.controlStyle === 'dpad' || distFromHome <= 68) {
+              this.stickBaseX = this.padLeftHomeX;
+              this.stickBaseY = this.padLeftHomeY;
+              this.updateStickVector(p.x, p.y);
+            } else {
+              // 轻微偏离底座按压时在安全手托区内柔和跟手，松手自动归位
+              this.stickBaseX = Math.max(78, Math.min(viewW * 0.26, p.x));
+              this.stickBaseY = Math.max(viewH * 0.52, Math.min(viewH - 72, p.y));
               this.stickKnobX = this.stickBaseX;
               this.stickKnobY = this.stickBaseY;
-            } else {
-              this.updateStickVector(p.x, p.y);
             }
           }
         }
@@ -270,9 +362,20 @@ export class InputController {
         e.preventDefault();
         for (let i = 0; i < e.changedTouches.length; i++) {
           const t = e.changedTouches[i];
+          const p = getPos(t);
           if (t.identifier === this.stickTouchId) {
-            const p = getPos(t);
             this.updateStickVector(p.x, p.y);
+            continue;
+          }
+          // 支持右手拇指在 X(斩) ⟷ A(跃) 之间丝滑搓滚滑按！
+          const prevBtn = this.activeBtnTouches.get(t.identifier);
+          if (prevBtn !== undefined) {
+            const nowBtn = this.hitTestButton(p.x, p.y);
+            if (nowBtn && nowBtn.id !== prevBtn) {
+              this.activeBtnTouches.set(t.identifier, nowBtn.id);
+              this.syncPressedStates();
+              this.triggerVirtualButton(nowBtn.id, true);
+            }
           }
         }
       },
@@ -287,15 +390,16 @@ export class InputController {
           this.stickActive = false;
           this.moveX = 0;
           this.moveY = 0;
-          this.stickKnobX = this.stickBaseX;
-          this.stickKnobY = this.stickBaseY;
+          this.stickBaseX = this.padLeftHomeX;
+          this.stickBaseY = this.padLeftHomeY;
+          this.stickKnobX = this.padLeftHomeX;
+          this.stickKnobY = this.padLeftHomeY;
           this.recordQuantizedDir(0, 0);
         }
         const btnId = this.activeBtnTouches.get(t.identifier);
         if (btnId) {
           this.activeBtnTouches.delete(t.identifier);
-          const b = this.buttons.find((item) => item.id === btnId);
-          if (b) b.pressed = false;
+          this.syncPressedStates();
           this.triggerVirtualButton(btnId, false);
         }
       }
@@ -306,31 +410,30 @@ export class InputController {
   }
 
   private updateStickVector(px: number, py: number): void {
-    const maxR = 54;
+    const maxR = 46;
     const dx = px - this.stickBaseX;
     const dy = py - this.stickBaseY;
     const dist = Math.hypot(dx, dy);
 
-    if (dist > 6) {
+    if (dist > 5) {
       const clamped = Math.min(maxR, dist);
       this.stickKnobX = this.stickBaseX + (dx / dist) * clamped;
       this.stickKnobY = this.stickBaseY + (dy / dist) * clamped;
       this.touchTrail.push({ x: this.stickKnobX, y: this.stickKnobY, alpha: 1 });
-      if (this.touchTrail.length > 18) this.touchTrail.shift();
+      if (this.touchTrail.length > 14) this.touchTrail.shift();
     } else {
       this.stickKnobX = px;
       this.stickKnobY = py;
     }
 
-    if (dist < 13) {
+    if (dist < 11) {
       this.moveX = 0;
       this.moveY = 0;
       this.recordQuantizedDir(0, 0);
       return;
     }
 
-    // 精准八向扇区量化（移动端斜角容错加宽至 ±32°，使 ↓↘→ 滑搓丝滑无比！）
-    const angle = Math.atan2(dy, dx); // -PI..PI, 0 = 右, PI/2 = 下
+    const angle = Math.atan2(dy, dx);
     const deg = (angle * 180) / Math.PI;
 
     let qx: -1 | 0 | 1 = 0;
@@ -359,6 +462,8 @@ export class InputController {
       this.subJustPressed = true;
     } else if (id === 'potion' && down) {
       this.potionJustPressed = true;
+    } else if (id === 'swap' && down) {
+      this.weaponSwapJustPressed = true;
     }
   }
 
@@ -403,9 +508,6 @@ export class InputController {
     }
   }
 
-  /**
-   * 核心格斗手搓招式解析器（根据角色当前朝向 facing: 1 | -1 匹配指令序列）
-   */
   public consumeMotionSkill(facing: 1 | -1): SkillId | null {
     const now = performance.now();
     const recent = this.dirHistory.filter((s) => now - s.at <= 450);
@@ -424,7 +526,6 @@ export class InputController {
       return 'UB';
     };
 
-    // 过滤回中位 N 后提取非重复方向流，容许中间穿插过渡斜角
     const tokens: DirToken[] = [];
     for (const s of recent) {
       const tk = toRel(s);
@@ -446,7 +547,6 @@ export class InputController {
 
     const lastTk = tokens[tokens.length - 1];
 
-    // 1. 终极半圆搓招：← ↙ ↓ ↘ → + 攻 【九幽噬魂引】
     if (
       (lastTk === 'F' || lastTk === 'DF') &&
       (matchSeq(['B', 'DB', 'D', 'DF', 'F']) || matchSeq(['B', 'D', 'F']))
@@ -455,7 +555,6 @@ export class InputController {
       return 'jiuyou_soulsteal';
     }
 
-    // 2. 升龙/拔葱：↓ ↑ + 攻 或 → ↓ ↘ + 攻 【惊鸿升龙破】
     if (
       ((lastTk === 'U' || lastTk === 'UF') && matchSeq(['D', 'U'])) ||
       (lastTk === 'DF' && matchSeq(['F', 'D', 'DF']))
@@ -464,13 +563,11 @@ export class InputController {
       return 'jinghong_rising';
     }
 
-    // 3. 后前突进：← → + 攻 【瞬影一闪】
     if (lastTk === 'F' && matchSeq(['B', 'F']) && !matchSeq(['B', 'D', 'F'])) {
       this.dirHistory = [];
       return 'shunying_flash';
     }
 
-    // 4. 下前波动：↓ ↘ → + 攻 【朔风破空斩】
     if (
       (lastTk === 'F' || lastTk === 'DF') &&
       (matchSeq(['D', 'DF', 'F']) || matchSeq(['D', 'F']))
@@ -479,7 +576,6 @@ export class InputController {
       return 'shuofeng_wave';
     }
 
-    // 5. 下后震气：↓ ↙ ← + 攻 【太极震气诀】
     if (
       (lastTk === 'B' || lastTk === 'DB') &&
       (matchSeq(['D', 'DB', 'B']) || matchSeq(['D', 'B']))
