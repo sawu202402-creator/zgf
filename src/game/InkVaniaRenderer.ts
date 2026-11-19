@@ -1507,7 +1507,9 @@ export class InkVaniaRenderer {
         const x0 = b.cx - b.w * 0.5;
         const y0 = b.cy - b.h * 0.5 + pressOffsetY;
         const rad = b.h * 0.5;
-        const skillReady = b.id === 'skill' && Boolean(engine && engine.player.mp >= 14);
+        const cdLeft = b.id === 'skill' && engine ? engine.player.skillCooldown : 0;
+        const skillReady =
+          b.id === 'skill' && Boolean(engine && engine.player.mp >= 20 && cdLeft <= 0);
 
         ctx.fillStyle = b.pressed
           ? 'rgba(30, 41, 59, 0.94)'
@@ -1518,7 +1520,7 @@ export class InkVaniaRenderer {
           ? b.accentColor
           : skillReady
             ? 'rgba(56, 189, 248, 0.78)'
-            : 'rgba(198, 154, 69, 0.52)';
+            : 'rgba(198, 154, 69, 0.45)';
         ctx.lineWidth = b.pressed ? 2.2 : skillReady ? 1.8 : 1.4;
         ctx.beginPath();
         ctx.roundRect(x0, y0, b.w, b.h, rad);
@@ -1534,7 +1536,9 @@ export class InkVaniaRenderer {
         ctx.font = 'bold 11.5px "STKaiti", "KaiTi", serif';
         ctx.textAlign = 'right';
         ctx.fillStyle = b.id === 'skill' && !skillReady ? '#94a3b8' : '#f8fafc';
-        ctx.fillText(b.label, x0 + b.w - 8, y0 + b.h * 0.52);
+        const btnText =
+          b.id === 'skill' && cdLeft > 0.05 ? `${cdLeft.toFixed(1)}s` : b.label;
+        ctx.fillText(btnText, x0 + b.w - 8, y0 + b.h * 0.52);
         continue;
       }
 

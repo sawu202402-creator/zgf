@@ -233,6 +233,10 @@ export class GameEngine {
     doubleJumpSpinTimer: 0,
     dropThroughTimer: 0,
     attackCooldown: 0,
+    skillCooldown: 0,
+    subWeaponCooldown: 0,
+    dashCooldown: 0,
+    airDashUsed: false,
     comboStep: 0,
     comboResetTimer: 0,
     mistDashTimer: 0,
@@ -750,9 +754,9 @@ export class GameEngine {
       return;
     }
 
-    // 降低纯挂机回蓝，改为“以战养气”（近战挥砍命中敌人额外回复真气，鼓励积极拼刀博弈！）
+    // 大幅压缩纯挂机自然回蓝，强化“以战养气”（必须主动近身挥兵命中妖邪积攒真气，杜绝站桩无限放波！）
     const core = this.slot.equippedYaoCore ? YAO_CORES[this.slot.equippedYaoCore] : undefined;
-    const mpRegen = 1.05 + this.player.int * 0.065 + (core?.mpRegenBonus || 0) * 0.65;
+    const mpRegen = 0.32 + this.player.int * 0.025 + (core?.mpRegenBonus || 0) * 0.45;
     this.player.mp = Math.min(this.player.maxMp, this.player.mp + mpRegen * dt);
 
     this.updatePlayer(dt);
@@ -810,6 +814,9 @@ export class GameEngine {
 
     if (p.invulnTimer > 0) p.invulnTimer -= dt;
     if (p.attackCooldown > 0) p.attackCooldown -= dt;
+    if (p.skillCooldown > 0) p.skillCooldown = Math.max(0, p.skillCooldown - dt);
+    if (p.subWeaponCooldown > 0) p.subWeaponCooldown = Math.max(0, p.subWeaponCooldown - dt);
+    if (p.dashCooldown > 0) p.dashCooldown = Math.max(0, p.dashCooldown - dt);
     if (p.doubleJumpSpinTimer > 0) p.doubleJumpSpinTimer = Math.max(0, p.doubleJumpSpinTimer - dt);
     if (p.landSquash > 0) p.landSquash = Math.max(0, p.landSquash - dt * 5);
     if (p.comboResetTimer > 0) {
@@ -829,24 +836,32 @@ export class GameEngine {
       return;
     }
 
-    // 疾退残影步 / 缩地化雾取消硬直
+    // 疾退残影步 / 缩地化雾（加入调息冷却与空中单次限制，防止无限悬空飞渡或无限无敌帧！）
     if (inp.consumeDash()) {
-      if (this.hasAbility('mist_dash') && p.mistDashTimer <= 0) {
-        p.mistDashTimer = 0.25;
-        p.invulnTimer = Math.max(p.invulnTimer, 0.3);
+      if (
+        this.hasAbility('mist_dash') &&
+        p.mistDashTimer <= 0 &&
+        p.dashCooldown <= 0 &&
+        (p.onGround || !p.airDashUsed)
+      ) {
+        if (!p.onGround) p.airDashUsed = true;
+        p.mistDashTimer = 0.22;
+        p.dashCooldown = 0.75;
+        p.invulnTimer = Math.max(p.invulnTimer, 0.24);
         const dir = inp.moveX !== 0 ? (Math.sign(inp.moveX) as 1 | -1) : p.facing;
         p.facing = dir;
-        p.vx = dir * 560;
+        p.vx = dir * 520;
         p.vy = 0;
         AudioFX.playJump();
         NativeApp.haptic('light');
         this.spawnInkBurst(p.x, p.y - 36, '#a855f7', '#090d16', 14);
-      } else if (p.backdashTimer <= 0) {
-        p.backdashTimer = 0.22;
-        p.invulnTimer = Math.max(p.invulnTimer, 0.16);
+      } else if (p.backdashTimer <= 0 && p.dashCooldown <= 0 && p.onGround) {
+        p.backdashTimer = 0.2;
+        p.dashCooldown = 0.48;
+        p.invulnTimer = Math.max(p.invulnTimer, 0.14);
         p.attackCooldown = 0;
         this.activeSlash = null;
-        p.vx = -p.facing * 450;
+        p.vx = -p.facing * 430;
         AudioFX.playJump();
         this.spawnInkBurst(p.x, p.y - 8, '#94a3b8', '#0f172a', 6);
       }
@@ -856,14 +871,14 @@ export class GameEngine {
       this.castSubWeapon();
     }
 
-    // 移动端 RT 绝技键 / 键盘 O,R 键：一键丝滑施放四大真气武学（无方向=朔风剑气，前/后=瞬影一闪，上=惊鸿升龙，下=太极震气，斜下+学得禁卷=九幽噬魂引）！
+    // 移动端 RT 绝技键 / 键盘 O,R 键：一键施放战术真气武学（空中自动衔接朔风剑气，瞬影/升龙严格限制地面立足施展！）
     if (inp.consumeQuickSkill()) {
       if (inp.moveX !== 0) {
         p.facing = Math.sign(inp.moveX) as 1 | -1;
       }
       let targetSkill: SkillId = 'shuofeng_wave';
       if (inp.moveY < -0.45) {
-        targetSkill = 'jinghong_rising';
+        targetSkill = p.onGround ? 'jinghong_rising' : 'shuofeng_wave';
       } else if (inp.moveY > 0.45) {
         if (
           Math.abs(inp.moveX) > 0.35 &&
@@ -875,19 +890,9 @@ export class GameEngine {
           targetSkill = 'taiji_parry';
         }
       } else if (Math.abs(inp.moveX) > 0.35) {
-        targetSkill = 'shunying_flash';
+        targetSkill = p.onGround ? 'shunying_flash' : 'shuofeng_wave';
       }
-      if (!this.tryCastMartialSkill(targetSkill)) {
-        this.floats.push({
-          x: p.x,
-          y: p.y - 76,
-          vy: -30,
-          text: '真气不足',
-          color: '#94a3b8',
-          size: 11.5,
-          life: 0.65,
-        });
-      }
+      this.tryCastMartialSkill(targetSkill);
     }
 
     // 跳跃、下穿木阁楼与踏云步二段空翻
@@ -900,6 +905,7 @@ export class GameEngine {
     if (p.onGround) {
       p.coyoteTimer = 0.11;
       p.airJumpsLeft = this.hasAbility('double_jump') ? 1 : 0;
+      p.airDashUsed = false;
     } else if (p.coyoteTimer > 0) {
       p.coyoteTimer -= dt;
     }
@@ -1259,10 +1265,109 @@ export class GameEngine {
     AudioFX.playSlash(arch === 'greatsword' || arch === 'whip' ? 'heavy' : 'light');
   }
 
+  /**
+   * 逐步射线检测【瞬影一闪】安全落点：严格受铁闸、紫瘴障、实心断崖、蹬墙壁、悬崖断口与熔岩火潭阻挡，彻底杜绝穿门越界跳关！
+   */
+  private computeSafeFlashEndX(startX: number, dir: 1 | -1, maxDist: number): { x: number; y: number } {
+    const room = this.room;
+    const p = this.player;
+    if (!room || !this.slot) return { x: startX, y: p.y };
+
+    let safeX = startX;
+    let safeY = p.y;
+    const step = 8;
+    for (let d = step; d <= maxDist; d += step) {
+      const nx = startX + dir * d;
+      if (nx < 38 || nx > room.pixelW - 38) break;
+
+      // 1. 绝不可穿过未开启的玄铁重闸或九幽紫瘴封魔障！
+      if (
+        room.ironGate &&
+        !this.slot.brokenSecretWalls.includes(room.ironGate.id) &&
+        safeY > room.ironGate.topY + 8 &&
+        safeY - p.h < room.ironGate.bottomY &&
+        Math.abs(nx - room.ironGate.x) < 20
+      ) {
+        break;
+      }
+
+      // 2. 绝不可穿过实心能力锁断崖 (`sb.blocking`) 或蹬墙石壁 (`climbWalls`)！
+      const hitCliff = room.solidBlocks?.some(
+        (sb) =>
+          Boolean(sb.blocking) &&
+          safeY > sb.y + 8 &&
+          safeY - p.h < sb.y + sb.h - 4 &&
+          nx >= sb.x - 14 &&
+          nx <= sb.x + sb.w + 14
+      );
+      if (hitCliff) break;
+
+      const hitClimbWall = room.climbWalls?.some(
+        (cw) =>
+          safeY > cw.topY + 10 &&
+          safeY - p.h < cw.bottomY &&
+          Math.abs(nx - cw.x) < 28
+      );
+      if (hitClimbWall) break;
+
+      // 3. 立足地面居合步：遇悬崖断口、竖井深坑或熔岩火潭边缘自动在岸边收步，绝不飞渡深渊跳关！
+      const nextSurfY = sampleEntitySurfaceY(room, nx, safeY);
+      if (Math.abs(nextSurfY - safeY) > 20) break;
+
+      const intoLava = room.waterZones.some(
+        (wz) =>
+          wz.liquidKind === 'lava' &&
+          nx >= wz.x1 - 8 &&
+          nx <= wz.x2 + 8 &&
+          nextSurfY >= wz.surfaceY - 8
+      );
+      if (intoLava) break;
+
+      safeX = nx;
+      safeY = nextSurfY;
+    }
+
+    return { x: safeX, y: safeY };
+  }
+
   private tryCastMartialSkill(skillId: SkillId): boolean {
-    if (!this.slot) return false;
+    if (!this.slot || !this.room) return false;
+
+    // 终极禁卷【九幽噬魂引】必须亲赴云梯古武秘阁取得秘卷后方可施展！
+    if (!this.slot.learnedSkills.includes(skillId)) {
+      return false;
+    }
+
     const sk = SKILLS[skillId];
     const p = this.player;
+
+    if (p.skillCooldown > 0) {
+      this.floats.push({
+        x: p.x,
+        y: p.y - 78,
+        vy: -28,
+        text: `调息 ${p.skillCooldown.toFixed(1)}s`,
+        color: '#94a3b8',
+        size: 11.5,
+        life: 0.55,
+      });
+      return false;
+    }
+
+    // 【瞬影一闪】与【惊鸿升龙破】严格要求地面立足起势，杜绝空中无限升龙或空中闪现越过二段跳/熔岩锁！
+    if ((skillId === 'shunying_flash' || skillId === 'jinghong_rising') && !p.onGround) {
+      this.floats.push({
+        x: p.x,
+        y: p.y - 78,
+        vy: -28,
+        text: '需立足施展',
+        color: '#94a3b8',
+        size: 11.5,
+        life: 0.55,
+      });
+      return false;
+    }
+
     if (p.mp < sk.mpCost) {
       this.floats.push({
         x: p.x,
@@ -1276,16 +1381,15 @@ export class GameEngine {
       return false;
     }
 
-    if (!this.slot.learnedSkills.includes(skillId)) {
-      this.slot.learnedSkills.push(skillId);
-    }
-
     p.mp -= sk.mpCost;
-    p.attackCooldown = 0.26;
+    p.attackCooldown = 0.3;
+    p.skillCooldown =
+      skillId === 'jiuyou_soulsteal' ? 4.5 : skillId === 'taiji_parry' ? 2.4 : 1.6;
     AudioFX.playSkillCast();
     NativeApp.haptic('medium');
 
-    const skillDmg = Math.round((p.atk + p.int * 1.6) * sk.dmgMult);
+    // 平衡化技能伤害曲线：约合普攻 1.25~1.5 倍（不再无条件必暴击秒杀 Boss），定位为武器连招收尾与战术博弈！
+    const skillDmg = Math.round((p.atk * 0.85 + p.int * 0.9) * sk.dmgMult);
     const w = WEAPONS[this.slot.equippedWeapon] || WEAPONS.sword_1;
     const isHeavy = w.archetype === 'greatsword';
 
@@ -1293,84 +1397,106 @@ export class GameEngine {
       this.projectiles.push({
         fromPlayer: true,
         kind: 'qi_wave',
-        x: p.x + p.facing * 32,
+        x: p.x + p.facing * 30,
         y: p.y - 38,
-        vx: p.facing * (isHeavy ? 480 : 620),
+        vx: p.facing * (isHeavy ? 450 : 560),
         vy: 0,
-        r: isHeavy ? 46 : 34,
+        r: isHeavy ? 38 : 28,
         dmg: skillDmg,
         color: isHeavy ? '#f97316' : '#2dd4bf',
-        life: 0.95,
-        maxLife: 0.95,
-        pierce: 99,
+        life: 0.62,
+        maxLife: 0.62,
+        pierce: 3,
         hitIds: new Set(),
       });
-      this.spawnInkBurst(p.x + p.facing * 26, p.y - 38, isHeavy ? '#fb923c' : '#2dd4bf', '#090d16', 16);
+      this.spawnInkBurst(
+        p.x + p.facing * 26,
+        p.y - 38,
+        isHeavy ? '#fb923c' : '#2dd4bf',
+        '#090d16',
+        14
+      );
     } else if (skillId === 'shunying_flash') {
       const startX = p.x;
-      const endX = Math.max(40, Math.min((this.room?.pixelW || 2000) - 40, startX + p.facing * 230));
-      p.invulnTimer = Math.max(p.invulnTimer, 0.4);
-      for (let i = 1; i <= 6; i++) {
-        const ix = startX + ((endX - startX) * i) / 6;
-        this.afterImages.push({ x: ix, y: p.y, facing: p.facing, color: '#fde68a', alpha: 0.85 });
+      const dest = this.computeSafeFlashEndX(startX, p.facing, 144);
+      const endX = dest.x;
+      p.invulnTimer = Math.max(p.invulnTimer, 0.22);
+      for (let i = 1; i <= 5; i++) {
+        const ix = startX + ((endX - startX) * i) / 5;
+        this.afterImages.push({ x: ix, y: p.y, facing: p.facing, color: '#fde68a', alpha: 0.8 });
       }
       p.x = endX;
-      p.y = Math.min(p.y, sampleGroundY(this.room!, p.x));
+      p.y = dest.y;
       this.slashImpacts.push({
         x: (startX + endX) * 0.5,
         y: p.y - 42,
         angle: 0,
-        length: Math.abs(endX - startX) * 0.68,
-        thickness: 9,
+        length: Math.max(36, Math.abs(endX - startX) * 0.68),
+        thickness: 8,
         color: '#fde68a',
-        ringRadius: 52,
-        life: 0.26,
-        maxLife: 0.26,
+        ringRadius: 42,
+        life: 0.22,
+        maxLife: 0.22,
       });
-      const minX = Math.min(startX, endX) - 24;
-      const maxX = Math.max(startX, endX) + 24;
-      this.damageEnemiesInBox(minX, p.y - 84, maxX - minX, 92, skillDmg, true, 50);
-      this.screenShake = 6;
+      const minX = Math.min(startX, endX) - 22;
+      const maxX = Math.max(startX, endX) + 22;
+      this.damageEnemiesInBox(minX, p.y - 80, maxX - minX, 88, skillDmg, false, 32);
+      this.screenShake = 4;
     } else if (skillId === 'jinghong_rising') {
-      p.vy = -660;
+      // 升龙高度严格控制在 99px（低于常规单跳 117px），纯粹服务防空挑斩，绝不顶替二段跳跳关！
+      p.vy = -560;
       p.onGround = false;
-      p.invulnTimer = Math.max(p.invulnTimer, 0.42);
+      p.coyoteTimer = 0;
+      p.invulnTimer = Math.max(p.invulnTimer, 0.2);
       this.slashImpacts.push({
         x: p.x + p.facing * 18,
-        y: p.y - 68,
+        y: p.y - 64,
         angle: -Math.PI * 0.46 * p.facing,
-        length: 96,
-        thickness: 11,
+        length: 88,
+        thickness: 9,
         color: '#38bdf8',
-        ringRadius: 48,
-        life: 0.28,
-        maxLife: 0.28,
+        ringRadius: 42,
+        life: 0.24,
+        maxLife: 0.24,
       });
-      this.damageEnemiesInBox(p.x - 66, p.y - 140, 132, 146, skillDmg, true, 50);
-      this.spawnInkBurst(p.x, p.y - 48, '#38bdf8', '#090d16', 22);
-      this.screenShake = 5;
+      this.damageEnemiesInBox(p.x - 56, p.y - 126, 112, 132, skillDmg, false, 35);
+      this.spawnInkBurst(p.x, p.y - 48, '#38bdf8', '#090d16', 18);
+      this.screenShake = 4;
     } else if (skillId === 'taiji_parry') {
-      // ↓↙← + 斩：太极震气弹反一闪！若敌方正处于出招前摇(windup)或扑斩(lunge_slash)，触发【金铁弹反大破招】！
-      this.taijiFlashTimer = 0.42;
-      p.invulnTimer = Math.max(p.invulnTimer, 0.48);
+      // 真正吃时机的弹反绝技：仅当抹除敌方飞弹或抓准敌方出招瞬间(windup/lunge_slash)才触发高伤破招；盲目空放威力减半且不晕 Boss！
+      this.taijiFlashTimer = 0.36;
+      p.invulnTimer = Math.max(p.invulnTimer, 0.18);
+      let deflectedBullet = false;
       for (let i = this.projectiles.length - 1; i >= 0; i--) {
         const pr = this.projectiles[i];
-        if (!pr.fromPlayer && Math.hypot(pr.x - p.x, pr.y - (p.y - 38)) <= 175) {
+        if (!pr.fromPlayer && Math.hypot(pr.x - p.x, pr.y - (p.y - 38)) <= 155) {
           this.spawnInkBurst(pr.x, pr.y, '#fde047', '#090d16', 8);
           this.projectiles.splice(i, 1);
-          AudioFX.playParryClang();
+          deflectedBullet = true;
         }
       }
-      for (const e of this.enemies) {
-        if (Math.hypot(e.x - p.x, e.y - 34 - (p.y - 38)) <= 170) {
+      if (deflectedBullet) AudioFX.playParryClang();
+
+      let parriedAnyStrike = deflectedBullet;
+      for (const e of [...this.enemies]) {
+        if (Math.hypot(e.x - p.x, e.y - 34 - (p.y - 38)) <= 155) {
           const parriedAttack = e.aiState === 'windup' || e.aiState === 'lunge_slash';
-          e.aiState = 'staggered';
-          e.stateTimer = parriedAttack ? 2.2 : 1.3;
-          e.vx = -e.facing * 220;
           if (parriedAttack) {
+            parriedAnyStrike = true;
+            p.invulnTimer = Math.max(p.invulnTimer, 0.42);
+            if (e.profile.isBoss) {
+              // Boss 仅被打断当前扑斩进入短暂收招破绽，绝不会被无限眩晕屈死！
+              e.aiState = 'recover';
+              e.stateTimer = 0.65;
+              e.vx = 0;
+            } else {
+              e.aiState = 'staggered';
+              e.stateTimer = 1.45;
+              e.vx = -e.facing * 180;
+            }
             AudioFX.playParryClang();
-            this.hitstopTimer = 0.085;
-            this.screenShake = 9;
+            this.hitstopTimer = 0.075;
+            this.screenShake = 6;
             NativeApp.haptic('heavy');
             this.floats.push({
               x: e.x,
@@ -1378,36 +1504,45 @@ export class GameEngine {
               vy: -36,
               text: '✦ 弹反破招！✦',
               color: '#fde047',
-              size: 18,
-              life: 1.1,
+              size: 16,
+              life: 0.95,
             });
+            this.applyDamageToEnemy(e, Math.round(skillDmg * 1.45), true, 65);
+          } else {
+            if (!e.profile.isBoss) {
+              this.stepGroundEnemyX(e, (e.x >= p.x ? 1 : -1) * 28);
+            }
+            this.applyDamageToEnemy(e, Math.round(skillDmg * 0.55), false, 18);
           }
-          this.applyDamageToEnemy(e, parriedAttack ? Math.round(skillDmg * 1.45) : skillDmg, true, 80);
         }
       }
+      if (parriedAnyStrike) {
+        p.mp = Math.min(p.maxMp, p.mp + 10);
+      }
     } else if (skillId === 'jiuyou_soulsteal') {
-      this.soulStealFlashTimer = 0.65;
-      p.invulnTimer = Math.max(p.invulnTimer, 0.55);
+      this.soulStealFlashTimer = 0.55;
+      p.invulnTimer = Math.max(p.invulnTimer, 0.35);
       let totalHeal = 0;
       for (const e of [...this.enemies]) {
-        if (Math.hypot(e.x - p.x, e.y - p.y) > 660) continue;
-        this.spawnInkBurst(e.x, e.y - e.profile.h * 0.5, '#ef4444', '#090d16', 18);
-        this.applyDamageToEnemy(e, skillDmg, true, 65);
-        totalHeal += 20;
+        if (Math.hypot(e.x - p.x, e.y - p.y) > 420) continue;
+        this.spawnInkBurst(e.x, e.y - e.profile.h * 0.5, '#ef4444', '#090d16', 14);
+        this.applyDamageToEnemy(e, skillDmg, false, 40);
+        totalHeal += 8;
       }
+      totalHeal = Math.min(32, totalHeal);
       if (totalHeal > 0) {
         p.hp = Math.min(p.maxHp, p.hp + totalHeal);
         this.floats.push({
           x: p.x,
           y: p.y - 78,
           vy: -40,
-          text: `噬魂汲血 +${totalHeal}`,
+          text: `噬魂 +${totalHeal}`,
           color: '#4ade80',
-          size: 15,
-          life: 1.0,
+          size: 14,
+          life: 0.9,
         });
       }
-      this.screenShake = 9;
+      this.screenShake = 6;
       NativeApp.haptic('heavy');
     }
 
@@ -1416,6 +1551,7 @@ export class GameEngine {
 
   private castSubWeapon(): void {
     if (!this.slot) return;
+    if (this.player.subWeaponCooldown > 0) return;
     const sub = SUB_WEAPONS[this.slot.equippedSubWeapon] || SUB_WEAPONS.dagger_throw;
     if (this.slot.talismanHearts < sub.talismanCost) {
       this.floats.push({
@@ -1431,9 +1567,10 @@ export class GameEngine {
     }
 
     this.slot.talismanHearts -= sub.talismanCost;
+    this.player.subWeaponCooldown = 0.48;
     const core = this.slot.equippedYaoCore ? YAO_CORES[this.slot.equippedYaoCore] : undefined;
     const subMult = 1 + (core?.subWeaponMult || 0);
-    const dmg = Math.round((sub.baseDmg + this.player.int * 1.9) * subMult);
+    const dmg = Math.round((sub.baseDmg + this.player.int * 1.0) * subMult);
     const p = this.player;
     AudioFX.playSlash('light');
 
@@ -1798,7 +1935,7 @@ export class GameEngine {
           }
 
           // 以战养气：近战挥砍命中敌人恢复真气！
-          p.mp = Math.min(p.maxMp, p.mp + 3.5);
+          p.mp = Math.min(p.maxMp, p.mp + 4.5);
 
           this.applyDamageToEnemy(
             e,
