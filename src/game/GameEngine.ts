@@ -2276,7 +2276,7 @@ export class GameEngine {
       this.levelUpPillarTimer = 1.45;
       AudioFX.playRelicBell();
       this.spawnInkBurst(this.player.x, this.player.y - 40, '#fde047', '#090d16', 28);
-      this.cb.onShowBanner(`LEVEL UP · 武道第 ${s.level} 境`, '真阳天柱贯顶，气血真气全满！');
+      this.cb.onShowBanner(`境界突破 · 武道第 ${s.level} 境`, '真阳天柱贯顶，气血真气全满！');
     }
 
     this.drops.push({

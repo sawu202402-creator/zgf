@@ -283,7 +283,7 @@ export class UIManager {
           <button class="zx-seal-btn" id="btn-hud-map">堪舆 [M]</button>
           <button class="zx-seal-btn" id="btn-hud-skills">剑诀</button>
         </div>
-        <div class="zx-minimap-box" id="hud-minimap-box" title="点击展开恶魔城全城连通堪舆图 [M]">
+        <div class="zx-minimap-box" id="hud-minimap-box" title="点击展开玄城全境堪舆图 [M]">
           <canvas id="hud-minimap-canvas" width="144" height="58"></canvas>
           <span class="zx-minimap-label" id="hud-minimap-label">断魂苦竹渡</span>
         </div>
@@ -492,11 +492,11 @@ export class UIManager {
 
       mainHtml = `
         <div style="flex:1;overflow-y:auto;padding:16px 0;">
-          <div style="font-size:14px;color:var(--bronze);letter-spacing:3px;margin-bottom:10px;">真气手搓武学 & 阿鲁卡多体术（地面按住 ↓ 下蹲闪避 · 地面 ↓+跃 贴地滑铲踢 · 二段跳后 ↓+跃 凌空飞踢弹跳）</div>
+          <div style="font-size:14px;color:var(--bronze);letter-spacing:3px;margin-bottom:10px;">真气手搓绝学 & 镇妖司轻功身法（按住 ↓ 下蹲闪避 · 地面 ↓+跃 贴地滑铲踢 · 二段跳后 ↓+跃 凌空流星踢）</div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;">
             ${this.buildSkillCardsHtml()}
           </div>
-          <div style="font-size:14px;color:var(--bronze);letter-spacing:3px;margin:20px 0 10px;">恶魔城探索圣遗物 · 轻功与破妄双信物</div>
+          <div style="font-size:14px;color:var(--bronze);letter-spacing:3px;margin:20px 0 10px;">镇司秘传奇宝 · 古武轻功与破妄双信物</div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px;">${abCards}</div>
         </div>
       `;
@@ -529,7 +529,7 @@ export class UIManager {
             <span><b style="color:#ea580c;">■</b> 赤火古窖</span>
             <span><b style="color:#f59e0b;">■</b> 镇魂存档祠</span>
             <span><b style="color:#10b981;">■</b> 八卦传送阵</span>
-            <span><b style="color:#a855f7;">■</b> 秘宝/圣遗物室</span>
+            <span><b style="color:#a855f7;">■</b> 奇门秘宝/古武秘室</span>
             <span><b style="color:#ef4444;">■</b> 妖王决战殿</span>
           </div>
         </div>
@@ -572,7 +572,7 @@ export class UIManager {
           <div class="zx-item-row" style="cursor:default;flex-direction:column;align-items:flex-start;gap:10px;">
             <strong style="color:var(--bronze-light);letter-spacing:2px;">武库与全城堪舆试演（方便直接品鉴五系神兵、八大城域72厅蓝图与倒悬里城）</strong>
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
-              <button class="zx-seal-btn" id="dev-grant-pack">一键配齐五系神兵 + 全奇门副器 + 全城圣遗物</button>
+              <button class="zx-seal-btn" id="dev-grant-pack">一键配齐五系神兵 + 全奇门副器 + 全城镇司秘宝</button>
               <button class="zx-seal-btn" id="dev-reveal-map">一键点亮双城 72 厅全境堪舆蓝图</button>
             </div>
           </div>
@@ -696,7 +696,7 @@ export class UIManager {
                       ? `✦ 已夺本命妖丹：【${core.name}】`
                       : `可夺妖丹：${seen ? core.name : '？？？'}`
                     : pr.rewardAbility
-                      ? `镇守圣遗物：【${ABILITIES_META[pr.rewardAbility].name}】`
+                      ? `镇守奇宝：【${ABILITIES_META[pr.rewardAbility].name}】`
                       : '镇守九幽要冲'
                 }
               </div>
@@ -1555,7 +1555,7 @@ export class UIManager {
             id: 'whip_1',
             kind: 'wpn',
             name: '软鞭 · 乌金九节鞭',
-            desc: '致敬恶魔城本命长鞭 · 八向雷音抽击控场',
+            desc: '奇门九节铁链鞭 · 八向雷音抽击控场',
             price: 135,
             icon: getWeaponArtHtml('whip', 54),
           },
@@ -1579,7 +1579,7 @@ export class UIManager {
             id: 'bagua_cross',
             kind: 'sub',
             name: '奇门 · 乾坤八卦盘',
-            desc: '飞出后折返横贯全屏切割群妖（十字回旋镖）',
+            desc: '破空飞旋后折返横贯全屏斩杀群妖',
             price: 90,
             icon: getSubWeaponSvg('bagua_cross'),
           },

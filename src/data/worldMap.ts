@@ -638,7 +638,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       pavilions: [
         { x: 180, y: 344, w: 220, hasPillars: false, label: '丹鼎藏药架' },
         { x: 420, y: 226, w: 160, hasPillars: false },
-        { x: 422, y: 118, w: 136, hasPillars: false, label: '紫微礼拜堂飞梯' },
+        { x: 422, y: 118, w: 136, hasPillars: false, label: '紫微观星台飞梯' },
         { x: 960, y: 332, w: 240, hasPillars: false },
         { x: 1108, y: 468, w: 164, hasPillars: false, label: '瓮城古祠天井（↓+跃）' },
       ],
@@ -712,11 +712,11 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
     },
 
-    // -------------------- 【二、紫微星象礼拜阁（西翼云端尖塔 gy=0..1）】 --------------------
+    // -------------------- 【二、钦天紫微观星台（西翼云端天阙 gy=0..1）】 --------------------
     {
       id: 'chapel_stair_hall',
-      name: '紫微飞虹礼拜堂',
-      subtitle: '紫微星阁 · 彩窗烛海与登云长阶',
+      name: '紫微观星飞虹阁',
+      subtitle: '钦天星台 · 浑天青铜仪与登云汉白玉长阶',
       region: 'clock_tower',
       bgKey: 'bg_chapel_spire',
       realm: 'normal',
@@ -819,7 +819,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       waterZones: [],
       pavilions: [
         { x: 220, y: 348, w: 250, hasPillars: false, label: '西钟御枪台' },
-        { x: 518, y: 486, w: 164, hasPillars: false, label: '礼拜堂天井（↓+跃）' },
+        { x: 518, y: 486, w: 164, hasPillars: false, label: '紫微观星阁天井（↓+跃）' },
         { x: 960, y: 332, w: 280, hasPillars: false, label: '东钟灵莲台' },
       ],
       archways: [],

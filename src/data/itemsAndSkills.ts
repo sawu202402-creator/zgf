@@ -342,7 +342,7 @@ export const SUB_WEAPONS: Record<SubWeaponId, SubWeaponDef> = {
     talismanCost: 3,
     baseDmg: 22,
     color: '#f97316',
-    desc: '消耗3枚灵符，抛投落地燃起持续灼烧的朱砂火柱（致敬恶魔城圣水）。',
+    desc: '消耗3枚灵符，抛投符瓶落地燃起三道持续灼烧群妖的纯阳朱砂火柱。',
   },
   bagua_cross: {
     id: 'bagua_cross',
@@ -350,7 +350,7 @@ export const SUB_WEAPONS: Record<SubWeaponId, SubWeaponDef> = {
     talismanCost: 4,
     baseDmg: 26,
     color: '#48c9b0',
-    desc: '消耗4枚灵符，向前飞出后折返横贯全屏切割群妖（致敬十字架回旋镖）。',
+    desc: '消耗4枚灵符，祭出奇门八卦金盘破空飞旋，折返横贯全屏斩杀群妖。',
   },
   mountain_seal: {
     id: 'mountain_seal',
@@ -358,7 +358,7 @@ export const SUB_WEAPONS: Record<SubWeaponId, SubWeaponDef> = {
     talismanCost: 3,
     baseDmg: 36,
     color: '#facc15',
-    desc: '消耗3枚灵符，高抛重印专克高台与空中飞怪（致敬战斧对空）。',
+    desc: '消耗3枚灵符，高抛千钧镇岳铜印，专克高阁与凌空飞妖。',
   },
   sword_orbit: {
     id: 'sword_orbit',
@@ -555,7 +555,7 @@ export const CONSUMABLES: Record<string, ConsumableDef> = {
     hpRestore: 150,
     mpRestore: 25,
     price: 135,
-    desc: '常藏于古墙夹层中的滚烫美味（致敬恶魔城墙中烤肉），大幅恢复150气血！',
+    desc: '常藏于宫墙暗格夹层中的滚烫珍馐，香气四溢，服之立复 150 点气血！',
   },
   osmanthus_wine: {
     id: 'osmanthus_wine',
@@ -611,7 +611,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     mpCost: 34,
     dmgMult: 2.65,
     color: '#ef4444',
-    desc: '半圆搓招终极禁术（致敬阿鲁卡多灵魂窃取），全屏暗墨锁魂打击群敌并汲取气血！',
+    desc: '半圆运炁终极禁术，引动玄阴墨煞全屏锁魂重创群妖，并汲取敌血化为己用！',
   },
 };
 
@@ -650,9 +650,9 @@ export const ABILITIES_META: Record<
     color: '#facc15',
   },
   familiar_sword: {
-    name: '本命使魔 · 青冥剑灵',
-    subtitle: '使魔随行：自动御剑斩妖 · 随战升级 · 勘破隐藏砖墙',
-    desc: '前朝古剑孕育的通灵剑魔（致敬月下夜想曲使魔系统），常伴少侠肩畔自主飞刺妖邪，靠近暗墙时更会灵音示警！',
+    name: '本命剑灵 · 青冥剑魄',
+    subtitle: '通灵飞剑：自主御剑诛邪 · 随战晋阶 · 勘破古墙暗格',
+    desc: '前朝名剑孕育而生的通灵剑魄，常伴少侠肩畔自主化虹飞刺妖邪，靠近古墙暗格时更会发剑鸣示警！',
     color: '#38bdf8',
   },
   mirror_truth: {

@@ -679,7 +679,7 @@ export class InkVaniaRenderer {
       ctx.font = '900 18px "STKaiti", "KaiTi", serif';
       ctx.textAlign = 'center';
       ctx.fillStyle = `rgba(254, 249, 195, ${a})`;
-      ctx.fillText('✦ LEVEL UP · 武道破境 ✦', p.x, p.y - 102 - (1.45 - engine.levelUpPillarTimer) * 28);
+      ctx.fillText('✦ 真阳贯顶 · 武道破境 ✦', p.x, p.y - 102 - (1.45 - engine.levelUpPillarTimer) * 28);
       ctx.restore();
     }
   }
