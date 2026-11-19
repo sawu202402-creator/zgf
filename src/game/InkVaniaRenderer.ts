@@ -16,7 +16,6 @@ import {
   bakeOrthographicRoomTerrain,
   drawCastleInteriorPropsAndGears,
   drawHangingSilkLantern,
-  drawMidgroundParallaxArchitecture,
   drawOrthographicLanternPost,
   drawOrthographicPavilion,
   drawOrthographicSaveShrine,
@@ -64,11 +63,10 @@ export class InkVaniaRenderer {
     ctx.save();
     ctx.scale(scale, scale);
 
-    // 1. 远景国风手绘 16:9 画卷视差层 (0.22x) + 中景建筑廊柱/幽竹剪影层 (0.52x)
+    // 1. 远景国风手绘 16:9 画卷视差层 (0.22x)
     this.renderPaintedBackdrop(ctx, vW, vH, camLeft, camTop, room);
-    drawMidgroundParallaxArchitecture(ctx, vW, vH, camLeft, room, this.ambientTime);
 
-    // 2. 世界主空间层 (1.0x)：先铺设地基宫墙与石阶拱桥，再让立柱/陈设/灯火/人物稳稳立于地面之上！
+    // 2. 世界主空间层 (1.0x)：先铺设石板/墨玉地面，再摆放陈设、灯火与人物
     ctx.save();
     ctx.translate(-camLeft + shakeX, -camTop + shakeY);
 
@@ -1148,38 +1146,29 @@ export class InkVaniaRenderer {
     camLeft: number,
     room: BuiltRoom
   ): void {
-    const pillarImg = Assets.get('prop_coiled_pillar');
     const lanternImg = Assets.get('prop_lantern');
 
     for (const fg of room.foregrounds) {
       const sx = (fg.x - camLeft) * fg.parallax;
       if (sx < -160 || sx > vW + 160) continue;
 
-      if (fg.kind === 'dragon_pillar' && pillarImg) {
-        const ph = vH * 1.12;
-        const pw = pillarImg.width * (ph / pillarImg.height);
-        ctx.save();
-        ctx.globalAlpha = 0.42;
-        ctx.filter = 'brightness(0.42) contrast(1.15)';
-        ctx.drawImage(pillarImg, sx - pw * 0.5, -vH * 0.06, pw, ph);
-        ctx.restore();
-      } else if (fg.kind === 'hanging_lantern' && lanternImg) {
+      if (fg.kind === 'hanging_lantern' && lanternImg) {
         const sway = Math.sin(this.ambientTime * 2.1 + fg.x * 0.02) * 0.05;
-        const lh = 94;
+        const lh = 76;
         const lw = lanternImg.width * (lh / lanternImg.height);
         ctx.save();
-        ctx.translate(sx, -6);
+        ctx.translate(sx, -4);
         ctx.rotate(sway);
-        ctx.globalAlpha = 0.78;
+        ctx.globalAlpha = 0.88;
         ctx.drawImage(lanternImg, -lw * 0.5, 0, lw, lh);
 
         ctx.globalCompositeOperation = 'lighter';
-        const g = ctx.createRadialGradient(0, lh * 0.58, 4, 0, lh * 0.58, 118);
-        g.addColorStop(0, 'rgba(251, 146, 60, 0.28)');
+        const g = ctx.createRadialGradient(0, lh * 0.58, 4, 0, lh * 0.58, 96);
+        g.addColorStop(0, 'rgba(251, 146, 60, 0.24)');
         g.addColorStop(1, 'rgba(220, 38, 38, 0)');
         ctx.fillStyle = g;
         ctx.beginPath();
-        ctx.arc(0, lh * 0.58, 118, 0, Math.PI * 2);
+        ctx.arc(0, lh * 0.58, 96, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
       }

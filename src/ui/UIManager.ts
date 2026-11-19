@@ -543,18 +543,18 @@ export class UIManager {
           </div>
           <canvas id="full-castle-map-canvas" width="920" height="406"></canvas>
           <div class="zx-map-legend">
-            <span><b style="color:#3b82f6;">■</b> 正殿/瓮城</span>
-            <span><b style="color:#0d9488;">■</b> 藏书/星阁</span>
-            <span><b style="color:#db2777;">■</b> 百戏梨园</span>
-            <span><b style="color:#ea580c;">■</b> 赤火古窖</span>
+            <span><b style="color:#3b82f6;">■</b> 瓮城/正殿</span>
+            <span><b style="color:#ea580c;">■</b> 炼丹/铸剑</span>
+            <span><b style="color:#1d4ed8;">■</b> 寒潭水脉</span>
+            <span><b style="color:#0d9488;">■</b> 竖塔/书阁</span>
             <span><b style="color:#f59e0b;">■</b> 镇魂祠</span>
             <span><b style="color:#10b981;">■</b> 传送阵</span>
-            <span><b style="color:#a855f7;">■</b> 奇门秘室</span>
+            <span><b style="color:#a855f7;">■</b> 奇宝秘室</span>
             <span><b style="color:#ef4444;">■</b> 妖王殿</span>
           </div>
         </div>
       `;
-      footerLeft = '八大城域 · 阳表 36 厅 + 180° 倒悬里城 36 厅';
+      footerLeft = '月下式立体回环玄城 · 阳表 22 厅 + 180° 倒悬里城 22 厅';
     } else if (this.pauseTab === 'bestiary') {
       mainHtml = this.buildBestiaryTabHtml();
       footerLeft = '镇妖司百鬼图鉴：记录妖邪抗性、斩讨数与妖丹掉落';
@@ -596,7 +596,7 @@ export class UIManager {
             <strong style="color:var(--bronze-light);letter-spacing:2px;">武库与堪舆试演</strong>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
               <button class="zx-seal-btn" id="dev-grant-pack">配齐五系神兵 + 全奇宝</button>
-              <button class="zx-seal-btn" id="dev-reveal-map">点亮双城 72 厅堪舆图</button>
+              <button class="zx-seal-btn" id="dev-reveal-map">点亮双城全境堪舆图</button>
             </div>
           </div>
 
@@ -1892,7 +1892,7 @@ export class UIManager {
         ? `十八岁少年剑破九幽，太古尸仙烛阴伏诛，血月终散！<br/>双城探索度：<strong style="color:#fde047;">${pct}% / 200%</strong> · 历时：<strong>${timeStr}</strong><br/><span style="color:#2dd4bf;">已永久解锁标题画面【少统领传·萧断水】与【百鬼试炼·镇妖塔】！</span>`
         : kind === 'boss_rush'
           ? `七大妖王与宿敌尽败于枪剑之下！通关用时：<strong style="color:#fde047;">${timeStr}</strong>`
-          : `未能识破恩师眉心的九幽蚀心蛊，里城真凶尚未授首……<br/>提示：前往藏书阁极西【禁书天机阁】寻【破妄古镜】，再赴水牢极西【玄鸟秘冢】取【完整玄鸟合璧佩】，重登祭天坛即可开启 <strong>180° 九幽倒悬里城</strong>！`;
+          : `未能识破恩师眉心的九幽蚀心蛊，里城真凶尚未授首……<br/>提示：自寒潭水脉深处【玄鸟秘宝冢】习得【缩地化雾】并取【玄鸟合璧佩】，再登东垣望月竖塔顶层穿紫瘴入【天机秘阁】寻得【破妄古镜】，重登凌霄祭天坛即可开启 <strong>180° 九幽倒悬里城</strong>！`;
 
     overlay.innerHTML = `
       <div style="text-align:center;max-width:560px;display:flex;flex-direction:column;gap:18px;padding:24px;">
@@ -1901,7 +1901,7 @@ export class UIManager {
         <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
           ${
             kind === 'normal' && s
-              ? `<button class="zx-seal-btn" id="btn-resume-altar" style="border-color:#2dd4bf;color:#5eead4;">折返东宫偏殿 · 寻齐双信物改写命数</button>`
+              ? `<button class="zx-seal-btn" id="btn-resume-altar" style="border-color:#2dd4bf;color:#5eead4;">折返观星古祠 · 寻齐双信物改写命数</button>`
               : ''
           }
           <button class="zx-seal-btn" id="btn-ending-title" style="border-color:var(--bronze-light);color:var(--bronze-light);">返回标题画卷</button>
@@ -1917,7 +1917,7 @@ export class UIManager {
       if (!s) return;
       this.closeModal();
       this.engine.recalcStats(true);
-      this.engine.warpToRoom('normal', 'east_sanctum');
+      this.engine.warpToRoom('normal', 'altar_save');
     });
     overlay.querySelector('#btn-ending-title')?.addEventListener('click', () => {
       this.showTitleScreen();

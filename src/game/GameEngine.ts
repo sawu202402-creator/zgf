@@ -15,6 +15,7 @@ import {
   CELL_PIXEL_W,
   getRoomSideDoors,
   sampleCeilingY,
+  sampleEntitySurfaceY,
   sampleGroundY,
   sampleSolidGroundY,
   WorldMap,
@@ -315,7 +316,7 @@ export class GameEngine {
     const startRoom = WorldMap.getRoom(slot.currentRealm, slot.currentRoomId);
     const spawnX =
       startRoom.id === 'gate_1' && startRoom.realm === 'normal' ? 190 : startRoom.focalX;
-    this.loadRoom(startRoom, spawnX, sampleGroundY(startRoom, spawnX));
+    this.loadRoom(startRoom, spawnX, sampleEntitySurfaceY(startRoom, spawnX, startRoom.focalY));
   }
 
   public stopSession(): void {
@@ -516,7 +517,7 @@ export class GameEngine {
 
     for (const pk of nextRoom.pickups) {
       if (s.collectedPickups.includes(pk.id)) continue;
-      const py = pk.y ?? sampleGroundY(nextRoom, pk.x);
+      const py = pk.y ?? sampleEntitySurfaceY(nextRoom, pk.x, 0);
       this.drops.push({
         id: pk.id,
         isStaticPickup: true,
@@ -539,13 +540,13 @@ export class GameEngine {
     }
 
     for (const sp of nextRoom.spawns) {
-      this.spawnEnemy(sp.kind, sp.x, sp.y ?? sampleGroundY(nextRoom, sp.x));
+      this.spawnEnemy(sp.kind, sp.x, sp.y ?? sampleEntitySurfaceY(nextRoom, sp.x, 0));
     }
 
     if (nextRoom.bossKind) {
       const bossKey = `${nextRoom.realm}:${nextRoom.bossKind}`;
       if (!s.defeatedBosses.includes(bossKey)) {
-        this.spawnEnemy(nextRoom.bossKind, nextRoom.pixelW * 0.68, nextRoom.focalY);
+        this.spawnEnemy(nextRoom.bossKind, nextRoom.focalX, nextRoom.focalY);
       }
     }
 
@@ -1592,11 +1593,17 @@ export class GameEngine {
 
       this.shatterLanternsAndWallsInBox(bx, by, bw, bh, sl.archetype === 'greatsword', 1);
 
-      // 检测是否挥刀劈中【玄铁千斤闸门 / 剧毒紫瘴铁栅】
+      // 检测是否挥刀劈中【玄铁千斤闸门 / 剧毒紫瘴铁栅】（兼顾纵向高度匹配）
       const room = this.room;
       if (room.ironGate && !this.slot.brokenSecretWalls.includes(room.ironGate.id)) {
         const gx = room.ironGate.x;
-        if (gx >= bx - 14 && gx <= bx + bw + 14 && !this.slashHitIds.has(-999)) {
+        if (
+          gx >= bx - 14 &&
+          gx <= bx + bw + 14 &&
+          by + bh >= room.ironGate.topY &&
+          by <= room.ironGate.bottomY &&
+          !this.slashHitIds.has(-999)
+        ) {
           this.slashHitIds.add(-999);
           if (room.ironGate.gateKind === 'mist_only') {
             AudioFX.playParryClang();
@@ -1867,6 +1874,55 @@ export class GameEngine {
     }
   }
 
+  /**
+   * 恶魔城月下式智能石台巡逻步进：驻守高台的甲士/刀客不会傻傻走下悬崖、竖井或撞穿实心石壁/铁闸！
+   */
+  private stepGroundEnemyX(e: EnemyEntity, dx: number): void {
+    const room = this.room;
+    if (!room || dx === 0) return;
+
+    const candX = Math.max(48, Math.min(room.pixelW - 48, e.x + dx));
+
+    if (
+      room.ironGate &&
+      this.slot &&
+      !this.slot.brokenSecretWalls.includes(room.ironGate.id) &&
+      e.y > room.ironGate.topY + 8 &&
+      e.y - e.profile.h < room.ironGate.bottomY &&
+      Math.abs(candX - room.ironGate.x) < 22
+    ) {
+      e.vx = 0;
+      return;
+    }
+
+    if (room.solidBlocks) {
+      for (const sb of room.solidBlocks) {
+        if (
+          e.y > sb.y + 8 &&
+          e.y - e.profile.h < sb.y + sb.h - 4 &&
+          candX >= sb.x - 14 &&
+          candX <= sb.x + sb.w + 14
+        ) {
+          e.vx = 0;
+          return;
+        }
+      }
+    }
+
+    const nextSurfY = sampleEntitySurfaceY(room, candX, e.y);
+    // 悬崖边缘、竖井深坑或深水寒潭前自动收步驻守，保持高台立体压迫感！
+    const intoDeepWater = room.waterZones.some(
+      (wz) => candX > wz.x1 + 14 && candX < wz.x2 - 14 && nextSurfY > wz.surfaceY + 10
+    );
+    if (Math.abs(nextSurfY - e.y) > 24 || intoDeepWater) {
+      e.vx = 0;
+      return;
+    }
+
+    e.x = candX;
+    e.y = nextSurfY;
+  }
+
   // ==================== 真实多状态前摇博弈 AI（彻底告别傻瓜式平移吐圆球！） ====================
   private updateEnemies(dt: number): void {
     const p = this.player;
@@ -1888,8 +1944,11 @@ export class GameEngine {
       if (e.aiState === 'staggered') {
         e.stateTimer -= dt;
         e.vx *= Math.pow(0.01, dt);
-        e.x = Math.max(48, Math.min(room.pixelW - 48, e.x + e.vx * dt));
-        if (!e.profile.flying) e.y = sampleGroundY(room, e.x);
+        if (e.profile.flying) {
+          e.x = Math.max(48, Math.min(room.pixelW - 48, e.x + e.vx * dt));
+        } else {
+          this.stepGroundEnemyX(e, e.vx * dt);
+        }
         if (e.stateTimer <= 0) {
           e.aiState = 'stalk';
           e.stateTimer = 0.5;
@@ -1904,11 +1963,12 @@ export class GameEngine {
         if (e.profile.isBoss) {
           // 七大守关妖王/宿敌：各自拥有地面重步或凌空虚浮身法与三式绝学轮转！
           e.animPhase += dt * 4;
+          const bossSurfY = sampleEntitySurfaceY(room, e.x, e.y);
           if (e.profile.flying) {
-            const hoverY = sampleGroundY(room, e.x) - 24 + Math.sin(e.animPhase) * 10;
+            const hoverY = bossSurfY - 24 + Math.sin(e.animPhase) * 10;
             e.y += (hoverY - e.y) * 5 * dt;
           } else {
-            e.y = sampleGroundY(room, e.x);
+            e.y = bossSurfY;
           }
           if (absDx > 165) {
             e.vx = e.facing * e.profile.speed;
@@ -2057,10 +2117,12 @@ export class GameEngine {
         } else {
           // 地面妖邪差异化 AI：毒沼三足蟾弹跳扑击吐毒，重盾傀儡中距掷回旋铜斧，刀客/木偶突步蓄斩！
           if (e.profile.kind === 'plague_toad') {
-            if (e.vy !== 0 || e.y < sampleGroundY(room, e.x) - 2) {
+            const curSurfY = sampleEntitySurfaceY(room, e.x, e.y);
+            if (e.vy !== 0 || e.y < curSurfY - 2) {
               e.vy += 1280 * dt;
-              e.x = Math.max(50, Math.min(room.pixelW - 50, e.x + e.vx * dt));
-              const gy = sampleGroundY(room, e.x);
+              const nextToadX = Math.max(50, Math.min(room.pixelW - 50, e.x + e.vx * dt));
+              e.x = nextToadX;
+              const gy = sampleEntitySurfaceY(room, e.x, e.y);
               if (e.y + e.vy * dt >= gy) {
                 e.y = gy;
                 e.vy = 0;
@@ -2102,8 +2164,7 @@ export class GameEngine {
               e.vx = 0;
             }
 
-            e.x = Math.max(50, Math.min(room.pixelW - 50, e.x + e.vx * dt));
-            e.y = sampleGroundY(room, e.x);
+            this.stepGroundEnemyX(e, e.vx * dt);
 
             // 玄甲重盾卫中距离投掷恶魔城经典高低回旋铜斧（蹲下可躲过高斧！）
             if (
@@ -2150,9 +2211,13 @@ export class GameEngine {
       } else if (e.aiState === 'lunge_slash') {
         // 突步挥刀斩击判定帧！
         e.stateTimer -= dt;
-        e.x = Math.max(50, Math.min(room.pixelW - 50, e.x + e.vx * dt));
-        if (!e.profile.flying && !e.profile.isBoss) {
-          e.y = sampleGroundY(room, e.x);
+        if (e.profile.flying || e.profile.isBoss) {
+          e.x = Math.max(50, Math.min(room.pixelW - 50, e.x + e.vx * dt));
+          if (e.profile.isBoss && !e.profile.flying) {
+            e.y = sampleEntitySurfaceY(room, e.x, e.y);
+          }
+        } else {
+          this.stepGroundEnemyX(e, e.vx * dt);
         }
 
         const reach = e.profile.isBoss ? 115 : 86;
@@ -2517,9 +2582,10 @@ export class GameEngine {
     for (let i = this.drops.length - 1; i >= 0; i--) {
       const d = this.drops[i];
       if (!d.isStaticPickup) {
+        const prevDropY = d.y;
         d.vy = Math.min(540, d.vy + 1100 * dt);
         d.y += d.vy * dt;
-        const gy = sampleGroundY(this.room, d.x);
+        const gy = sampleEntitySurfaceY(this.room, d.x, prevDropY);
         if (d.y >= gy && d.vy >= 0) {
           d.y = gy;
           d.vy = 0;
@@ -2714,11 +2780,13 @@ export class GameEngine {
     p.x += p.vx * dt;
     p.onWall = 0;
 
-    // 0A. 玄铁千斤闸门 / 九幽紫瘴栅阻挡判定（未劈碎前阻隔通行，化雾冲刺可无视穿过！）
+    // 0A. 玄铁千斤闸门 / 九幽紫瘴栅阻挡判定（精准匹配闸门垂直标高，化雾冲刺可无视穿过！）
     if (
       room.ironGate &&
       !this.slot.brokenSecretWalls.includes(room.ironGate.id) &&
-      p.mistDashTimer <= 0
+      p.mistDashTimer <= 0 &&
+      p.y > room.ironGate.topY + 8 &&
+      p.y - p.h < room.ironGate.bottomY
     ) {
       const gx = room.ironGate.x;
       if (prevX >= gx + 18 && p.x < gx + 18) {
@@ -2727,6 +2795,27 @@ export class GameEngine {
       } else if (prevX <= gx - 18 && p.x > gx - 18) {
         p.x = gx - 18;
         p.vx = 0;
+      }
+    }
+
+    // 0A-1. 恶魔城月下式实心建筑石台/阶梯 (SolidBlock) 左右立壁阻挡与贴墙检测
+    if (room.solidBlocks) {
+      for (const sb of room.solidBlocks) {
+        if (p.y > sb.y + 8 && p.y - p.h < sb.y + sb.h - 4) {
+          if (prevX <= sb.x - 13 && p.x > sb.x - 13) {
+            p.x = sb.x - 13;
+            p.vx = 0;
+            p.onWall = 1;
+          } else if (prevX >= sb.x + sb.w + 13 && p.x < sb.x + sb.w + 13) {
+            p.x = sb.x + sb.w + 13;
+            p.vx = 0;
+            p.onWall = -1;
+          } else if (Math.abs(p.x - (sb.x - 13)) <= 3) {
+            p.onWall = 1;
+          } else if (Math.abs(p.x - (sb.x + sb.w + 13)) <= 3) {
+            p.onWall = -1;
+          }
+        }
       }
     }
 
@@ -2785,17 +2874,45 @@ export class GameEngine {
     const prevY = p.y;
     let nextY = p.y + p.vy * dt;
 
-    // 0C. 室内宫殿藻井 / 城门石券洞 / 暗渠石拱顶真实头顶碰撞（竖井口自动敞开！）
+    // 0C. 室内宫殿藻井 / 城门石券洞 / 暗渠石拱顶 / 实心石台下沿真实头顶碰撞（竖井口自动敞开！）
     const ceilY = sampleCeilingY(room, p.x, bossCleared);
     if (ceilY > -100 && p.vy < 0 && nextY - p.h < ceilY) {
       nextY = ceilY + p.h;
       p.vy = 0;
     }
+    if (p.vy < 0 && room.solidBlocks) {
+      for (const sb of room.solidBlocks) {
+        if (
+          p.x >= sb.x - 10 &&
+          p.x <= sb.x + sb.w + 10 &&
+          prevY - p.h >= sb.y + sb.h - 14 &&
+          nextY - p.h < sb.y + sb.h
+        ) {
+          nextY = sb.y + sb.h + p.h;
+          p.vy = 0;
+        }
+      }
+    }
 
     p.onGround = false;
 
+    // 0D. 实心建筑石台/阶梯 (SolidBlock) 上表面硬着陆（实心石砌绝不会因 ↓+跃 穿台坠落！）
+    if (p.vy >= 0 && room.solidBlocks) {
+      for (const sb of room.solidBlocks) {
+        if (p.x >= sb.x - 10 && p.x <= sb.x + sb.w + 10) {
+          if (prevY <= sb.y + 16 && nextY >= sb.y) {
+            p.y = sb.y;
+            if (!wasGrounded && p.vy > 260) p.landSquash = 1;
+            p.vy = 0;
+            p.onGround = true;
+            break;
+          }
+        }
+      }
+    }
+
     // 1. 检测雕栏阁台、旋转青铜机关齿轮踏板、石壁顶端与竖井井口单向栈板着陆
-    if (p.vy >= 0 && p.dropThroughTimer <= 0) {
+    if (!p.onGround && p.vy >= 0 && p.dropThroughTimer <= 0) {
       const orbitPlats = getClockGearOrbitPlatforms(room, p.animTime);
       for (const op of orbitPlats) {
         if (p.x >= op.x + 4 && p.x <= op.x + op.w - 4) {
@@ -2960,6 +3077,7 @@ export class GameEngine {
     if (p.y - p.h < 6 && p.vy < 0) {
       const upTr = WorldMap.resolveVerticalShaft(room, p.x, 'up', bossCleared);
       if (upTr) {
+        p.dropThroughTimer = 0;
         p.vy = -560;
         p.onGround = false;
         const targetFloor = sampleSolidGroundY(upTr.nextRoom, upTr.nextX);
