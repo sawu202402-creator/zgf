@@ -244,6 +244,7 @@ export class GameEngine {
     animTime: 0,
     runCycle: 0,
     landSquash: 0,
+    sprintTimer: 0,
   };
 
   public familiar = {
@@ -908,15 +909,43 @@ export class GameEngine {
     } else if (this.activeSlash && p.onGround && this.activeSlash.progress < 0.42) {
       p.vx *= 0.88;
     } else {
-      const moveSpeed = 276 * p.speedMult;
       if (inp.moveX !== 0) {
-        if (!this.activeSlash) p.facing = Math.sign(inp.moveX) as 1 | -1;
-        p.vx = inp.moveX * moveSpeed;
+        const wantDir = Math.sign(inp.moveX) as 1 | -1;
+        // 急停反折转身：触发真实重心下沉蹬地尘烟！
+        if (p.onGround && Math.abs(p.vx) > 210 && Math.sign(p.vx) !== wantDir) {
+          p.landSquash = Math.max(p.landSquash, 0.42);
+          p.sprintTimer = 0;
+          this.spawnInkBurst(p.x, p.y - 4, '#94a3b8', '#1e293b', 5);
+        }
+        if (!this.activeSlash) p.facing = wantDir;
+        p.sprintTimer = Math.min(1.0, p.sprintTimer + dt);
+
+        // 持续奔跑 0.22s 自动提气进入【轻功疾奔 Sprint】态，配合 Spine 骨骼前倾与飘带飞扬！
+        const sprintBoost = p.sprintTimer > 0.22 ? 1.15 : 1.0;
+        const targetVx = inp.moveX * 274 * p.speedMult * sprintBoost;
+        const accelRate = p.onGround ? 18 : 11;
+        p.vx += (targetVx - p.vx) * Math.min(1, dt * accelRate);
+
         if (p.onGround) {
-          p.runCycle += dt * 13.5 * p.speedMult;
+          const prevStep = Math.floor(p.runCycle * 0.5);
+          p.runCycle += dt * 13.8 * p.speedMult * sprintBoost;
+          if (Math.floor(p.runCycle * 0.5) !== prevStep && p.sprintTimer > 0.25) {
+            this.particles.push({
+              kind: 'ink',
+              x: p.x - p.facing * 10,
+              y: p.y - 2,
+              vx: -p.facing * (45 + Math.random() * 35),
+              vy: -18 - Math.random() * 24,
+              size: 2.6,
+              color: 'rgba(148, 163, 184, 0.55)',
+              life: 0.24,
+              maxLife: 0.24,
+            });
+          }
         }
       } else {
-        p.vx *= Math.pow(0.0008, dt);
+        p.sprintTimer = 0;
+        p.vx *= Math.pow(0.0006, dt);
         if (Math.abs(p.vx) < 8) p.vx = 0;
       }
     }

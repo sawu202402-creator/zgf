@@ -4,6 +4,12 @@ import { WeaponArchetype } from '../types';
 import { AssetKey, Assets } from './AssetLoader';
 import { ActiveSlash, EnemyEntity, GameEngine, WorldDrop } from './GameEngine';
 import { drawCelShadedWeapon } from './GuofengWorldArt';
+import {
+  buildEntitySpineJoints,
+  drawSkinnedSpineSprite,
+  HeroSpine,
+  StageHeroSpine,
+} from './SpineRig';
 
 const ENEMY_METRICS = {
   canvasW: 360,
@@ -203,19 +209,21 @@ export function selectHeroSpriteFrame(opts: {
 function drawBackCarriedWeapon(
   ctx: CanvasRenderingContext2D,
   archetype: WeaponArchetype,
-  weaponId = 'sword_1'
+  weaponId = 'sword_1',
+  chestDx = 0,
+  chestDy = 0,
+  chestAngle = 0
 ): void {
   ctx.save();
-  // 采用与主角完全一致的浓墨描边赛璐珞神兵矢量绘制，0位图贴纸违和感！
-  ctx.translate(-8, -50);
-  ctx.rotate(-2.32);
+  ctx.translate(-8 + chestDx, -50 + chestDy);
+  ctx.rotate(-2.32 + chestAngle);
   ctx.globalAlpha = 0.94;
   drawCelShadedWeapon(ctx, archetype, weaponId, archetype === 'greatsword' ? 86 : 72);
   ctx.restore();
 }
 
 /**
- * 18岁少年李逸承纯手绘逐帧渲染器（同时驱动局内 60fps 实机战斗与【兵匣】动态试剑台！）
+ * 18岁少年李逸承 60fps 2D Spine 骨骼网格蒙皮渲染器（同时驱动局内实机战斗与【兵匣】动态试剑台！）
  */
 export function renderModularLiYichengRig(
   ctx: CanvasRenderingContext2D,
@@ -224,6 +232,7 @@ export function renderModularLiYichengRig(
   const wDef = WEAPONS[opts.equippedWeaponId] || WEAPONS.sword_1;
   const isHeavy = wDef.archetype === 'greatsword';
   const sc = opts.scale ?? 1;
+  const isStagePreview = sc > 1.05;
 
   const frameKey = selectHeroSpriteFrame({
     vx: opts.vx,
@@ -239,9 +248,54 @@ export function renderModularLiYichengRig(
     diveKicking: opts.diveKicking,
   });
 
+  // 解算当前帧 8 节点 Spine 脊柱骨骼链与物理束发飘带
+  const spineCtrl = isStagePreview ? StageHeroSpine : HeroSpine;
+  const { joints } = spineCtrl.solveAndBuildJoints({
+    worldX: opts.x,
+    worldY: opts.y,
+    facing: opts.facing,
+    vx: opts.vx,
+    vy: opts.vy,
+    onGround: opts.onGround,
+    runCycle: opts.runCycle,
+    animTime: opts.animTime,
+    landSquash: opts.landSquash,
+    crouching: opts.crouching,
+    sliding: opts.sliding,
+    diveKicking: opts.diveKicking,
+    slashProgress: opts.slash ? opts.slash.progress : null,
+    slashArchetype: opts.slash?.archetype,
+    isStagePreview,
+  });
+  const chestJoint = joints[3];
+
   ctx.save();
   ctx.translate(opts.x, opts.y);
+
+  // 1. 先在世界方向空间绘制随风猎猎飞舞的 6 节点物理侠客束发长带（位于脑后与背刀底层）
+  if (!isStagePreview && opts.doubleJumpSpin <= 0) {
+    spineCtrl.drawHeadbandRibbon(ctx, {
+      worldX: opts.x,
+      worldY: opts.y,
+      facing: opts.facing,
+      animTime: opts.animTime,
+      isXiaoMode: opts.isXiaoMode,
+      isStagePreview: false,
+    });
+  }
+
   ctx.scale(opts.facing * sc, sc);
+
+  if (isStagePreview) {
+    spineCtrl.drawHeadbandRibbon(ctx, {
+      worldX: opts.x,
+      worldY: opts.y,
+      facing: opts.facing,
+      animTime: opts.animTime,
+      isXiaoMode: opts.isXiaoMode,
+      isStagePreview: true,
+    });
+  }
 
   // 接地浓墨阴影
   if (opts.onGround) {
@@ -251,14 +305,6 @@ export function renderModularLiYichengRig(
     ctx.fill();
   }
 
-  const speedRatio = Math.min(1, Math.abs(opts.vx) / 220);
-  const isIdle = opts.onGround && speedRatio <= 0.12 && !opts.slash;
-  const breathScaleY = isIdle ? 1 + Math.sin(opts.animTime * 3.2) * 0.014 : 1;
-  const squashY = (1 - opts.landSquash * 0.1) * breathScaleY;
-  const squashX = 1 + opts.landSquash * 0.08;
-
-  ctx.scale(squashX, squashY);
-
   // 踏云步二段跳：凌空翻身旋跃特效
   if (opts.doubleJumpSpin > 0) {
     const spinProg = 1 - opts.doubleJumpSpin / 0.34;
@@ -267,62 +313,91 @@ export function renderModularLiYichengRig(
     ctx.translate(0, 48);
   }
 
-  // 背部斜挎副武器（或装备陌刀疾跑/跳跃时将巨刃背负身后，停步或出招瞬间掣刀在手！）
+  // 背部挂载副武器（实时绑定于 Spine 胸椎骨骼节点 `chestJoint`，随呼吸、前倾与挥斩同步起伏！）
+  const speedRatio = Math.min(1, Math.abs(opts.vx) / 220);
   const carryingHeavyWhileMoving =
     isHeavy && !opts.slash && (!opts.onGround || speedRatio > 0.12);
   if (carryingHeavyWhileMoving) {
-    drawBackCarriedWeapon(ctx, 'greatsword', opts.equippedWeaponId);
+    drawBackCarriedWeapon(
+      ctx,
+      'greatsword',
+      opts.equippedWeaponId,
+      chestJoint.dx,
+      chestJoint.dy,
+      chestJoint.angle
+    );
   } else if (opts.secondaryWeaponId && opts.secondaryWeaponId !== opts.equippedWeaponId) {
     const secW = WEAPONS[opts.secondaryWeaponId];
     if (secW) {
-      drawBackCarriedWeapon(ctx, secW.archetype, secW.id);
+      drawBackCarriedWeapon(
+        ctx,
+        secW.archetype,
+        secW.id,
+        chestJoint.dx,
+        chestJoint.dy,
+        chestJoint.angle
+      );
     }
   }
 
-  // 绘制纯手绘 18 岁少年李逸承 / 21 岁少统领萧断水序列帧
+  // 2. 通过 2D Spine 三角网格仿射蒙皮绘制主角（双足锁地、胸腔吐纳、疾奔前倾、蓄力拧腰、挥刃前突！）
   const spriteImg = Assets.get(frameKey) || Assets.get('h18_idle_0');
   if (spriteImg) {
     if (opts.isXiaoMode) {
-      const s = 0.53;
-      const drawW = ENEMY_METRICS.canvasW * s;
-      const drawH = ENEMY_METRICS.canvasH * s;
-      const dx = -ENEMY_METRICS.anchorX * s;
-      const dy = -ENEMY_METRICS.footY * s + 2;
-      ctx.drawImage(spriteImg, dx, dy, drawW, drawH);
+      drawSkinnedSpineSprite(
+        ctx,
+        spriteImg,
+        {
+          canvasW: ENEMY_METRICS.canvasW,
+          canvasH: ENEMY_METRICS.canvasH,
+          anchorX: ENEMY_METRICS.anchorX,
+          footY: ENEMY_METRICS.footY,
+          scale: 0.53,
+        },
+        joints
+      );
     } else {
-      const s = HERO_SPRITE_METRICS.baseScale;
-      const drawW = HERO_SPRITE_METRICS.canvasW * s;
-      const drawH = HERO_SPRITE_METRICS.canvasH * s;
-      const dx = -HERO_SPRITE_METRICS.anchorX * s;
-      const dy = -HERO_SPRITE_METRICS.footY * s + 2;
-      ctx.drawImage(spriteImg, dx, dy, drawW, drawH);
+      drawSkinnedSpineSprite(
+        ctx,
+        spriteImg,
+        {
+          canvasW: HERO_SPRITE_METRICS.canvasW,
+          canvasH: HERO_SPRITE_METRICS.canvasH,
+          anchorX: HERO_SPRITE_METRICS.anchorX,
+          footY: HERO_SPRITE_METRICS.footY,
+          scale: HERO_SPRITE_METRICS.baseScale,
+        },
+        joints
+      );
 
-      // 当李逸承挥使长枪出刺时，叠加手绘寒星龙胆枪身随前刺突进！
-      if (wDef.archetype === 'spear' && opts.slash && opts.slash.progress >= 0.18) {
+      // 长枪骨骼挂载：随胸臂骨骼实时突刺寒星龙胆枪！
+      if (wDef.archetype === 'spear' && opts.slash && opts.slash.progress >= 0.15) {
         const spImg = Assets.get('part_wpn_spear');
         if (spImg) {
           ctx.save();
-          const thrust = Math.sin(Math.min(1, (opts.slash.progress - 0.18) / 0.7) * Math.PI) * 34;
-          const aimAng = opts.slash.aimY < -0.35 ? -0.46 : 0;
-          ctx.translate(16 + thrust, -46);
+          const thrust = Math.sin(Math.min(1, (opts.slash.progress - 0.15) / 0.72) * Math.PI) * 38;
+          const aimAng = (opts.slash.aimY < -0.35 ? -0.46 : 0) + chestJoint.angle;
+          ctx.translate(16 + chestJoint.dx + thrust, -46 + chestJoint.dy);
           ctx.rotate(aimAng);
-          ctx.drawImage(spImg, -42, -9, 134, 20);
+          ctx.drawImage(spImg, -42, -9, 136, 20);
           ctx.restore();
         }
       }
     }
   }
 
-  // 斩马陌刀举刀过顶蓄力阶段：刀身凝聚赤金烈焰罡气微光！
+  // 斩马陌刀举刀过顶蓄力阶段：随上身拧腰后仰同步偏移赤金烈焰罡气！
   if (isHeavy && opts.slash && opts.slash.progress < 0.34) {
     const charge = opts.slash.progress / 0.34;
-    const glow = ctx.createRadialGradient(-8, -96, 3, -8, -96, 44 * charge + 12);
+    const gx = -8 + joints[1].dx;
+    const gy = -96 + joints[1].dy;
+    const glow = ctx.createRadialGradient(gx, gy, 3, gx, gy, 44 * charge + 12);
     glow.addColorStop(0, `rgba(253, 224, 71, ${0.45 * charge})`);
     glow.addColorStop(0.55, `rgba(249, 115, 22, ${0.28 * charge})`);
     glow.addColorStop(1, 'rgba(249, 115, 22, 0)');
     ctx.fillStyle = glow;
     ctx.beginPath();
-    ctx.arc(-8, -96, 56, 0, Math.PI * 2);
+    ctx.arc(gx, gy, 56, 0, Math.PI * 2);
     ctx.fill();
   }
 
@@ -577,7 +652,6 @@ export function drawMonsterOrBoss(
   }
 
   if (img) {
-    // 全部怪物与妖王现已升级为统一国风赛璐珞逐帧动作序列（迈步/蓄力举刀/挥劈各帧独立，彻底告别单帧纸片平移！）
     const sc =
       e.profile.kind === 'boss_zhuyin'
         ? 0.72
@@ -588,19 +662,37 @@ export function drawMonsterOrBoss(
             : e.profile.kind === 'bronze_guard'
               ? 0.54
               : 0.52;
-    const drawW = ENEMY_METRICS.canvasW * sc;
-    const drawH = ENEMY_METRICS.canvasH * sc;
-    const dx = -ENEMY_METRICS.anchorX * sc;
-    const dy = -ENEMY_METRICS.footY * sc + 2;
 
-    const hoverY = e.profile.flying ? Math.sin(e.animPhase) * 4 : 0;
+    const hoverY = e.profile.flying ? Math.sin(e.animPhase) * 4.5 : 0;
+    const joints = buildEntitySpineJoints({
+      key: e.id,
+      t,
+      vx: e.vx,
+      facing: e.facing,
+      flying: e.profile.flying,
+      isBoss: e.profile.isBoss,
+      aiState: e.aiState,
+      hurtFlash: e.hurtFlash,
+      animPhase: e.animPhase,
+    });
 
     ctx.save();
     ctx.translate(0, -hoverY);
-    ctx.scale(e.facing, 1 + Math.sin(t * 3.6 + e.id) * 0.012);
+    ctx.scale(e.facing, 1);
 
     const source = flash ? Assets.getWhiteFlash(spriteKey) || img : img;
-    ctx.drawImage(source, dx, dy, drawW, drawH);
+    drawSkinnedSpineSprite(
+      ctx,
+      source,
+      {
+        canvasW: ENEMY_METRICS.canvasW,
+        canvasH: ENEMY_METRICS.canvasH,
+        anchorX: ENEMY_METRICS.anchorX,
+        footY: ENEMY_METRICS.footY,
+        scale: sc,
+      },
+      joints
+    );
     ctx.restore();
   }
 
@@ -767,15 +859,27 @@ export function drawSceneNpc(
 
   const img = Assets.get(frameKey);
   if (img) {
-    const breath = 1 + Math.sin(t * 2.8 + npc.x * 0.02) * 0.013;
+    const joints = buildEntitySpineJoints({
+      key: `npc:${npc.id}:${npc.x}`,
+      t,
+      vx: 0,
+      facing,
+      isGracefulNpc: true,
+    });
     ctx.save();
-    ctx.scale(facing, breath);
-    const s = HERO_SPRITE_METRICS.baseScale;
-    const dw = HERO_SPRITE_METRICS.canvasW * s;
-    const dh = HERO_SPRITE_METRICS.canvasH * s;
-    const dx = -HERO_SPRITE_METRICS.anchorX * s;
-    const dy = -HERO_SPRITE_METRICS.footY * s + 2;
-    ctx.drawImage(img, dx, dy, dw, dh);
+    ctx.scale(facing, 1);
+    drawSkinnedSpineSprite(
+      ctx,
+      img,
+      {
+        canvasW: HERO_SPRITE_METRICS.canvasW,
+        canvasH: HERO_SPRITE_METRICS.canvasH,
+        anchorX: HERO_SPRITE_METRICS.anchorX,
+        footY: HERO_SPRITE_METRICS.footY,
+        scale: HERO_SPRITE_METRICS.baseScale,
+      },
+      joints
+    );
     ctx.restore();
   }
 
