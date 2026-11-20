@@ -14,6 +14,7 @@ import {
   BuiltRoom,
   CELL_PIXEL_W,
   getRoomSideDoors,
+  isGroundRestingSolidBlock,
   sampleCeilingY,
   sampleEntitySurfaceY,
   sampleGroundY,
@@ -1428,9 +1429,9 @@ export class GameEngine {
       );
       if (hitClimbWall) break;
 
-      // 3. 立足地面居合步：遇悬崖断口、竖井深坑或熔岩火潭边缘自动在岸边收步，绝不飞渡深渊跳关！
+      // 3. 立足地面居合步：遇悬崖断口、竖井深坑或熔岩火潭边缘自动在岸边收步，允许顺滑踏上 <=48px 矮石阶，绝不飞渡深渊跳关！
       const nextSurfY = sampleEntitySurfaceY(room, nx, safeY);
-      if (Math.abs(nextSurfY - safeY) > 20) break;
+      if (Math.abs(nextSurfY - safeY) > 48) break;
 
       const intoLava = room.waterZones.some(
         (wz) =>
@@ -3518,7 +3519,11 @@ export class GameEngine {
     }
     return Boolean(
       this.room.solidBlocks?.some(
-        (sb) => !sb.blocking && p.x >= sb.x - 8 && p.x <= sb.x + sb.w + 8 && Math.abs(p.y - sb.y) < 8
+        (sb) =>
+          !isGroundRestingSolidBlock(this.room!, sb) &&
+          p.x >= sb.x - 8 &&
+          p.x <= sb.x + sb.w + 8 &&
+          Math.abs(p.y - sb.y) < 8
       )
     );
   }
@@ -3659,12 +3664,24 @@ export class GameEngine {
 
     p.onGround = false;
 
-    // 0D. 石砌建筑台面与断崖高台 (SolidBlock) 着陆（端头断崖永不下穿；普通踏石可丝滑上跃也可按 ↓+跃 下跳！）
-    if (p.vy >= 0 && room.solidBlocks) {
+    // 0D. 石砌建筑台面、落地矮石阶自动登阶与断崖高台 (SolidBlock) 着陆：
+    // - 落地矮石阶 (`groundAtMid - sb.y <= 54`)：平地行走或微跳靠近自动顺滑踏上台面，且绝不下穿陷入石砖内！
+    // - 悬空单向踏台 (`!groundResting`)：可从下方起跳穿过，站上后亦可按 ↓+跃 快速下跳！
+    if (room.solidBlocks) {
+      const baseFloorHere = sampleSolidGroundY(room, p.x);
       for (const sb of room.solidBlocks) {
-        if (!sb.blocking && p.dropThroughTimer > 0) continue;
-        if (p.x >= sb.x - 8 && p.x <= sb.x + sb.w + 8) {
-          if (prevY <= sb.y + 16 && nextY >= sb.y) {
+        const groundResting = isGroundRestingSolidBlock(room, sb);
+        const isLowGroundStep = groundResting && baseFloorHere - sb.y <= 54;
+        if (!groundResting && p.dropThroughTimer > 0) continue;
+
+        if (p.x >= sb.x - 10 && p.x <= sb.x + sb.w + 10) {
+          if (isLowGroundStep && p.vy >= -40 && prevY <= sb.y + 54 && nextY >= sb.y - 2) {
+            p.y = sb.y;
+            if (!wasGrounded && p.vy > 260) p.landSquash = 1;
+            if (p.vy > 0) p.vy = 0;
+            p.onGround = true;
+            break;
+          } else if (p.vy >= 0 && prevY <= sb.y + 18 && nextY >= sb.y) {
             p.y = sb.y;
             if (!wasGrounded && p.vy > 260) p.landSquash = 1;
             p.vy = 0;

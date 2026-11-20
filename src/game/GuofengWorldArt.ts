@@ -199,25 +199,27 @@ export function bakeOrthographicRoomTerrain(bctx: CanvasRenderingContext2D, room
     room.groundNodes.some((n) => n.style === 'arch_bridge');
   const wz = isArchBridgeRoom ? room.waterZones[0] : null;
 
-  // 0. 下潜竖井 (`dir === 'down'`) 先铺设深邃石井暗壁，彻底消除漏出远景山路的穿帮黑洞！
+  // 0. 下潜竖井 (`dir === 'down'`) 先铺设深邃幽暗井道与两侧收口青石井壁，彻底消除伪石阶方框感！
   for (const sh of room.shafts) {
     if (sh.dir !== 'down') continue;
     const gyL = sampleSolidGroundY(room, Math.max(0, sh.x1 - 8));
     const sw = sh.x2 - sh.x1;
     const wg = bctx.createLinearGradient(0, gyL, 0, room.pixelH);
-    wg.addColorStop(0, '#0b1220');
-    wg.addColorStop(0.45, '#060a13');
-    wg.addColorStop(1, '#03050a');
+    wg.addColorStop(0, '#04070e');
+    wg.addColorStop(0.5, '#020409');
+    wg.addColorStop(1, '#010205');
     bctx.fillStyle = wg;
     bctx.fillRect(sh.x1 - 4, gyL, sw + 8, Math.max(0, room.pixelH - gyL));
 
     if (slabImg) {
       const mY = Math.floor(slabImg.height * 0.42);
       const mH = Math.max(24, slabImg.height - mY - 2);
-      for (let y = gyL + 4; y < room.pixelH; y += mH - 2) {
+      const jambW = 16;
+      for (let y = gyL; y < room.pixelH; y += mH - 2) {
         bctx.save();
-        bctx.globalAlpha = 0.35;
-        bctx.drawImage(slabImg, 0, mY, Math.min(sw, slabImg.width), mH, sh.x1, y, sw, mH);
+        bctx.globalAlpha = 0.72;
+        bctx.drawImage(slabImg, 8, mY, jambW, mH, sh.x1 - 2, y, jambW, mH);
+        bctx.drawImage(slabImg, 40, mY, jambW, mH, sh.x2 - jambW + 2, y, jambW, mH);
         bctx.restore();
       }
     }
@@ -379,6 +381,20 @@ export function bakeOrthographicRoomTerrain(bctx: CanvasRenderingContext2D, room
           bctx.drawImage(floorImg, 0, srcTopY, wClip, capH, x, topDrawY, wClip + 0.6, capH);
         }
         bctx.restore();
+
+        // 若为落地矮石阶祭坛 (`groundAtMid - sb.y <= 54`)，在左右敞开端头增绘半阶青石踏步，视觉与物理登阶完美合一！
+        const stepRise = groundAtMid - sb.y;
+        if (!isFloatingLedge && !sb.blocking && stepRise >= 20 && stepRise <= 54) {
+          const treadH = Math.min(22, Math.max(14, Math.floor(stepRise * 0.52)));
+          const treadY = groundAtMid - treadH - surfaceTopOffset + 2;
+          const treadW = 18;
+          if (sb.x > 44) {
+            bctx.drawImage(floorImg, 12, srcTopY, treadW, treadH, sb.x - treadW + 2, treadY, treadW, treadH);
+          }
+          if (sb.x + sb.w < room.pixelW - 44) {
+            bctx.drawImage(floorImg, 36, srcTopY, treadW, treadH, sb.x + sb.w - 2, treadY, treadW, treadH);
+          }
+        }
       }
     }
   }

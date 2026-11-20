@@ -289,14 +289,22 @@ export function sampleGroundY(room: BuiltRoom, px: number): number {
   return sampleSolidGroundY(room, px);
 }
 
+export function isGroundRestingSolidBlock(room: BuiltRoom, sb: SolidBlock): boolean {
+  if (sb.blocking) return true;
+  const groundAtMid = sampleSolidGroundY(room, sb.x + sb.w * 0.5);
+  return sb.y + sb.h >= groundAtMid - 10;
+}
+
 /**
- * 采样实体（怪物/掉落物）在 `(px, curY)` 处脚下最近的支撑面（支持实心石台 SolidBlock、单向阁台 Pavilion 与主地面！）
+ * 采样实体（怪物/掉落物）在 `(px, curY)` 处脚下最近的支撑面（支持实心石阶自动踏上、悬空石台 SolidBlock、单向阁台 Pavilion 与主地面！）
  */
 export function sampleEntitySurfaceY(room: BuiltRoom, px: number, curY: number): number {
   let bestY = sampleGroundY(room, px);
   if (room.solidBlocks) {
     for (const sb of room.solidBlocks) {
-      if (px >= sb.x + 8 && px <= sb.x + sb.w - 8 && sb.y >= curY - 22 && sb.y < bestY) {
+      const groundResting = isGroundRestingSolidBlock(room, sb);
+      const stepTol = groundResting && bestY - sb.y <= 54 ? 56 : 22;
+      if (px >= sb.x + 4 && px <= sb.x + sb.w - 4 && sb.y >= curY - stepTol && sb.y < bestY) {
         bestY = sb.y;
       }
     }

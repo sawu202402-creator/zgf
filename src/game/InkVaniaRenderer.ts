@@ -53,15 +53,26 @@ export class InkVaniaRenderer {
 
     const room = engine.room;
 
-    // 锁定 440px 黄金横版动作镜头高度（对标《斩妖行/胧村正》大比例人物写实视角，全屏0黑边！）
-    const vH = 440;
-    const scale = viewH / vH;
+    // 自适应宽屏贴合镜头：基础黄金视高 440px；在 19.5:9 / 20:9 / 21:9 全面屏手机进入单格房间 (800px) 时，
+    // 自动将镜头宽度严丝合缝贴合房间左右山墙 (minVH = 336)，彻底根除单格房间右侧空白穿帮！
+    const baseScale = viewH / 440;
+    const fitWidthScale = Math.min(viewH / 336, viewW / room.pixelW);
+    const scale = Math.max(baseScale, fitWidthScale);
     const vW = viewW / scale;
+    const vH = viewH / scale;
 
     let camLeft = engine.camX - vW * 0.5;
     let camTop = engine.camY - vH * 0.52;
-    camLeft = Math.max(0, Math.min(Math.max(0, room.pixelW - vW), camLeft));
-    camTop = Math.max(0, Math.min(Math.max(0, room.pixelH - vH), camTop));
+    if (room.pixelW >= vW) {
+      camLeft = Math.max(0, Math.min(room.pixelW - vW, camLeft));
+    } else {
+      camLeft = (room.pixelW - vW) * 0.5;
+    }
+    if (room.pixelH >= vH) {
+      camTop = Math.max(0, Math.min(room.pixelH - vH, camTop));
+    } else {
+      camTop = (room.pixelH - vH) * 0.5;
+    }
 
     const shakeAmp = Math.min(4.5, engine.screenShake * 0.75);
     const shakeX = shakeAmp > 0.2 ? (Math.random() - 0.5) * shakeAmp : 0;
@@ -82,6 +93,9 @@ export class InkVaniaRenderer {
     this.ensureBakedStoneContour(room);
     if (this.terrainCanvas) {
       ctx.drawImage(this.terrainCanvas, 0, 0);
+    }
+    if (camLeft < 0 || camLeft + vW > room.pixelW) {
+      this.renderOuterWingMasonry(ctx, room, camLeft, camTop, vW, vH);
     }
 
     drawCastleInteriorPropsAndGears(ctx, room, engine.player.animTime);
@@ -170,6 +184,44 @@ export class InkVaniaRenderer {
     viewH: number
   ): void {
     drawSeamlessTitlePanorama(ctx, viewW, viewH, this.ambientTime);
+  }
+
+  private renderOuterWingMasonry(
+    ctx: CanvasRenderingContext2D,
+    room: BuiltRoom,
+    camLeft: number,
+    camTop: number,
+    vW: number,
+    vH: number
+  ): void {
+    const slabImg = Assets.get('env_ground_slab');
+    const fillWing = (xStart: number, width: number) => {
+      if (width <= 0) return;
+      ctx.fillStyle = '#060912';
+      ctx.fillRect(xStart, camTop - 16, width, vH + 32);
+      if (slabImg) {
+        const mY = Math.floor(slabImg.height * 0.42);
+        const mH = Math.max(24, slabImg.height - mY - 2);
+        ctx.save();
+        ctx.globalAlpha = 0.55;
+        for (let y = Math.floor(camTop - 16); y < camTop + vH + 16; y += mH - 2) {
+          for (let x = xStart; x < xStart + width; x += slabImg.width) {
+            const wClip = Math.min(slabImg.width, xStart + width - x);
+            ctx.drawImage(slabImg, 0, mY, wClip, mH, x, y, wClip, mH);
+          }
+        }
+        ctx.restore();
+      }
+      ctx.fillStyle = 'rgba(3, 5, 11, 0.68)';
+      ctx.fillRect(xStart, camTop - 16, width, vH + 32);
+    };
+
+    if (camLeft < 0) {
+      fillWing(camLeft - 16, -camLeft + 16);
+    }
+    if (camLeft + vW > room.pixelW) {
+      fillWing(room.pixelW, camLeft + vW - room.pixelW + 16);
+    }
   }
 
   private renderPaintedBackdrop(
