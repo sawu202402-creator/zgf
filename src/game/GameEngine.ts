@@ -1854,26 +1854,56 @@ export class GameEngine {
   ): void {
     if (!this.slot || !this.room) return;
 
-    // 1. 恶魔城灵魂交互：挥兵击碎红绸宫灯，爆出朱砂灵符或纹银！
-    for (const ln of this.liveLanterns) {
+    // 1. 恶魔城灵魂交互：挥兵劈碎贴地青瓷封酒瓮、铜烛台、青石宫灯柱与悬吊宫灯，爆出灵符、纹银或金疮药！
+    for (let idx = 0; idx < this.liveLanterns.length; idx++) {
+      const ln = this.liveLanterns[idx];
       if (ln.broken) continue;
-      if (ln.x >= bx - 16 && ln.x <= bx + bw + 16 && ln.y + 18 >= by && ln.y - 18 <= by + bh) {
+      const gy = sampleSolidGroundY(this.room, ln.x);
+      const isGroundedProp = gy - ln.y <= 135 && gy < 2000;
+      const isUrn = isGroundedProp && idx % 2 === 1;
+      const topHitY = isGroundedProp ? gy - (isUrn ? 58 : 110) : ln.y - 20;
+      const botHitY = isGroundedProp ? gy + 6 : ln.y + 20;
+
+      if (ln.x >= bx - 22 && ln.x <= bx + bw + 22 && botHitY >= by && topHitY <= by + bh) {
         ln.broken = true;
         AudioFX.playLanternBreak();
-        this.spawnInkBurst(ln.x, ln.y + 12, '#fb923c', '#991b1b', 10);
-        const dropGold = Math.random() < 0.35;
-        this.drops.push({
-          id: `lantern_${this.nextEntityId++}`,
-          isStaticPickup: false,
-          kind: dropGold ? 'gold' : 'heart',
-          itemId: dropGold ? 'gold' : 'heart',
-          amount: dropGold ? 12 + Math.floor(Math.random() * 14) : Math.random() < 0.25 ? 5 : 2,
-          x: ln.x,
-          y: ln.y + 10,
-          vy: -170,
-          color: dropGold ? '#fde047' : '#fb923c',
-          label: dropGold ? '纹银' : '灵符',
-        });
+        const burstY = isGroundedProp ? gy - (isUrn ? 28 : 58) : ln.y + 12;
+        this.spawnInkBurst(
+          ln.x,
+          burstY,
+          isUrn ? '#7dd3fc' : '#fb923c',
+          isUrn ? '#334155' : '#991b1b',
+          12
+        );
+        const roll = Math.random();
+        if (isUrn && roll < 0.1) {
+          this.drops.push({
+            id: `lantern_${this.nextEntityId++}`,
+            isStaticPickup: false,
+            kind: 'consumable',
+            itemId: 'jinchuang_yao',
+            amount: 1,
+            x: ln.x,
+            y: burstY,
+            vy: -175,
+            color: '#4ade80',
+            label: '金疮药',
+          });
+        } else {
+          const dropGold = roll < 0.42;
+          this.drops.push({
+            id: `lantern_${this.nextEntityId++}`,
+            isStaticPickup: false,
+            kind: dropGold ? 'gold' : 'heart',
+            itemId: dropGold ? 'gold' : 'heart',
+            amount: dropGold ? 12 + Math.floor(Math.random() * 16) : Math.random() < 0.28 ? 5 : 2,
+            x: ln.x,
+            y: burstY,
+            vy: -170,
+            color: dropGold ? '#fde047' : '#fb923c',
+            label: dropGold ? '纹银' : '灵符',
+          });
+        }
       }
     }
 

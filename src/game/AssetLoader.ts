@@ -10,11 +10,20 @@ export type AssetKey =
   | 'bg_cavern_waterfall'
   | 'bg_catacomb_tomb'
   | 'bg_bamboo_cliff'
+  | 'bg_tower_interior'
   | 'env_ground_slab'
   | 'env_palace_floor'
   | 'env_bridge'
   | 'env_pavilion'
   | 'env_indoor_ledge'
+  | 'env_stone_ledge'
+  | 'arch_timber_pillar'
+  | 'arch_stone_pillar'
+  | 'arch_corbel_bracket'
+  | 'arch_iron_chain'
+  | 'arch_side_doorframe'
+  | 'prop_stone_lantern_post'
+  | 'prop_breakable_urn'
   | 'prop_bookshelf'
   | 'prop_chandelier'
   | 'prop_clock_gear'
@@ -110,7 +119,7 @@ export type AssetKey =
   | 'boss_op_0'
   | 'boss_op_1';
 
-const ASSET_VERSION = 'painted_v10';
+const ASSET_VERSION = 'painted_v11';
 
 const ASSET_FILES: Record<AssetKey, string> = {
   bg_title: './assets/bg_title.webp',
@@ -124,11 +133,20 @@ const ASSET_FILES: Record<AssetKey, string> = {
   bg_cavern_waterfall: './assets/bg_cavern_waterfall.webp',
   bg_catacomb_tomb: './assets/bg_catacomb_tomb.webp',
   bg_bamboo_cliff: './assets/bg_bamboo_cliff.webp',
+  bg_tower_interior: './assets/bg_tower_interior.webp',
   env_ground_slab: './assets/env_ground_slab.webp',
   env_palace_floor: './assets/env_palace_floor.webp',
   env_bridge: './assets/env_bridge.webp',
   env_pavilion: './assets/env_pavilion.webp',
   env_indoor_ledge: './assets/env_indoor_ledge.webp',
+  env_stone_ledge: './assets/env_stone_ledge.webp',
+  arch_timber_pillar: './assets/arch_timber_pillar.webp',
+  arch_stone_pillar: './assets/arch_stone_pillar.webp',
+  arch_corbel_bracket: './assets/arch_corbel_bracket.webp',
+  arch_iron_chain: './assets/arch_iron_chain.webp',
+  arch_side_doorframe: './assets/arch_side_doorframe.webp',
+  prop_stone_lantern_post: './assets/prop_stone_lantern_post.webp',
+  prop_breakable_urn: './assets/prop_breakable_urn.webp',
   prop_bookshelf: './assets/prop_bookshelf.webp',
   prop_chandelier: './assets/prop_chandelier.webp',
   prop_clock_gear: './assets/prop_clock_gear.webp',

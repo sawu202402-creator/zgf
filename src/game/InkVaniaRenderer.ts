@@ -90,7 +90,7 @@ export class InkVaniaRenderer {
 
     this.renderMoonlitWater(ctx, room);
 
-    this.ensureBakedStoneContour(room);
+    this.ensureBakedStoneContour(room, engine.slot?.brokenSecretWalls ?? []);
     if (this.terrainCanvas) {
       ctx.drawImage(this.terrainCanvas, 0, 0);
     }
@@ -312,10 +312,11 @@ export class InkVaniaRenderer {
       drawOrthographicStoneArchway(ctx, ar.x, gy, ar.title, this.ambientTime);
     }
 
-    for (const tc of engine.liveLanterns) {
+    for (let idx = 0; idx < engine.liveLanterns.length; idx++) {
+      const tc = engine.liveLanterns[idx];
       if (tc.broken) continue;
       const gy = sampleSolidGroundY(room, tc.x);
-      drawOrthographicLanternPost(ctx, tc.x, tc.y, gy, this.ambientTime);
+      drawOrthographicLanternPost(ctx, tc.x, tc.y, gy, this.ambientTime, idx, room);
     }
 
     const canGrapple = engine.hasAbility('grapple_hook');
@@ -332,7 +333,7 @@ export class InkVaniaRenderer {
       ctx.fill();
       ctx.restore();
 
-      drawHangingSilkLantern(ctx, ln.x, ln.y - 26, this.ambientTime, 1.12);
+      drawHangingSilkLantern(ctx, ln.x, ln.y - 26, this.ambientTime, 1.12, room);
 
       if (canGrapple && Math.hypot(engine.player.x - ln.x, engine.player.y - 40 - ln.y) < 235) {
         ctx.save();
@@ -365,8 +366,8 @@ export class InkVaniaRenderer {
     }
   }
 
-  private ensureBakedStoneContour(room: BuiltRoom): void {
-    const readyKey = `${room.realm}:${room.id}:${Boolean(Assets.get('env_ground_slab'))}:${Boolean(Assets.get('env_palace_floor'))}:${Boolean(Assets.get('env_indoor_ledge'))}:${Boolean(Assets.get('env_pavilion'))}:${Boolean(Assets.get('env_bridge'))}`;
+  private ensureBakedStoneContour(room: BuiltRoom, brokenSecretWalls: string[]): void {
+    const readyKey = `${room.realm}:${room.id}:${brokenSecretWalls.length}:${Boolean(Assets.get('env_ground_slab'))}:${Boolean(Assets.get('env_palace_floor'))}:${Boolean(Assets.get('env_indoor_ledge'))}:${Boolean(Assets.get('env_pavilion'))}:${Boolean(Assets.get('env_stone_ledge'))}:${Boolean(Assets.get('env_bridge'))}:${Boolean(Assets.get('arch_timber_pillar'))}:${Boolean(Assets.get('arch_stone_pillar'))}:${Boolean(Assets.get('arch_corbel_bracket'))}:${Boolean(Assets.get('arch_iron_chain'))}:${Boolean(Assets.get('arch_side_doorframe'))}`;
     if (this.terrainCanvas && this.cachedTerrainKey === readyKey) return;
 
     this.cachedTerrainKey = readyKey;
@@ -377,7 +378,7 @@ export class InkVaniaRenderer {
     this.terrainCanvas.height = room.pixelH;
 
     const bctx = this.terrainCanvas.getContext('2d')!;
-    bakeOrthographicRoomTerrain(bctx, room);
+    bakeOrthographicRoomTerrain(bctx, room, brokenSecretWalls);
   }
 
   /**

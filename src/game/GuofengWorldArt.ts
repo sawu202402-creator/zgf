@@ -2,6 +2,7 @@ import {
   BuiltRoom,
   getRoomSideDoors,
   isInsideDownShaft,
+  sampleCeilingY,
   sampleSolidGroundY,
 } from '../data/worldMap';
 import { WeaponArchetype } from '../types';
@@ -176,22 +177,177 @@ export function drawSeamlessParallaxBackdrop(
   }
 }
 
+function sampleSupportBaseY(room: BuiltRoom, x: number, belowY: number): number {
+  let bestY = sampleSolidGroundY(room, x);
+  if (room.solidBlocks) {
+    for (const sb of room.solidBlocks) {
+      if (x >= sb.x + 8 && x <= sb.x + sb.w - 8 && sb.y > belowY + 24 && sb.y < bestY) {
+        bestY = sb.y;
+      }
+    }
+  }
+  return bestY;
+}
+
+function isOverLiquidOrShaft(room: BuiltRoom, x: number): boolean {
+  if (isInsideDownShaft(room, x)) return true;
+  return room.waterZones.some((wz) => x >= wz.x1 + 10 && x <= wz.x2 - 10);
+}
+
+export function drawSlicedColumn(
+  ctx: CanvasRenderingContext2D,
+  pillarImg: HTMLImageElement,
+  cx: number,
+  topY: number,
+  bottomY: number,
+  colW: number,
+  alpha = 0.88,
+  castBaseShadow = true
+): void {
+  const totalH = bottomY - topY;
+  if (totalH < 34) return;
+
+  const iw = pillarImg.width;
+  const ih = pillarImg.height;
+  const capSrcH = Math.floor(ih * 0.21);
+  const baseSrcY = Math.floor(ih * 0.81);
+  const baseSrcH = ih - baseSrcY;
+  const shaftSrcY = capSrcH;
+  const shaftSrcH = Math.max(24, baseSrcY - capSrcH);
+
+  const scale = colW / iw;
+  const capDrawH = Math.min(totalH * 0.36, capSrcH * scale);
+  const baseDrawH = Math.min(totalH * 0.36, baseSrcH * scale);
+  const shaftTop = topY + capDrawH - 2;
+  const shaftBot = bottomY - baseDrawH + 3;
+
+  ctx.save();
+  if (castBaseShadow) {
+    ctx.fillStyle = `rgba(2, 4, 10, ${0.52 * alpha})`;
+    ctx.beginPath();
+    ctx.ellipse(cx, bottomY + 2, colW * 0.58, 5.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.globalAlpha = alpha;
+  // 中段柱身无缝延展拼接
+  const stepH = Math.max(28, shaftSrcH * scale);
+  for (let y = shaftTop; y < shaftBot; y += stepH - 2) {
+    const hClip = Math.min(stepH, shaftBot - y);
+    if (hClip <= 1) break;
+    const srcClipH = Math.max(4, Math.floor((hClip / stepH) * shaftSrcH));
+    ctx.drawImage(pillarImg, 0, shaftSrcY, iw, srcClipH, cx - colW * 0.5, y, colW, hClip + 1);
+  }
+  // 顶部雕金云领柱头
+  ctx.drawImage(pillarImg, 0, 0, iw, capSrcH, cx - colW * 0.5, topY, colW, capDrawH);
+  // 底部汉白玉莲瓣 / 青石须弥柱础
+  ctx.drawImage(
+    pillarImg,
+    0,
+    baseSrcY,
+    iw,
+    baseSrcH,
+    cx - colW * 0.52,
+    bottomY - baseDrawH + 3,
+    colW * 1.04,
+    baseDrawH
+  );
+  ctx.restore();
+}
+
+export function drawSuspensionChain(
+  ctx: CanvasRenderingContext2D,
+  chainImg: HTMLImageElement,
+  cx: number,
+  topY: number,
+  bottomY: number,
+  chainW = 18,
+  alpha = 0.88
+): void {
+  const totalH = bottomY - topY;
+  if (totalH < 18) return;
+
+  const iw = chainImg.width;
+  const ih = chainImg.height;
+  const headSrcH = Math.floor(ih * 0.28);
+  const linkSrcY = headSrcH;
+  const linkSrcH = ih - linkSrcY - 4;
+  const scale = chainW / iw;
+  const headDrawH = Math.min(totalH * 0.65, headSrcH * scale * 1.15);
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  // 兽首衔环顶扣
+  ctx.drawImage(
+    chainImg,
+    0,
+    0,
+    iw,
+    headSrcH,
+    cx - chainW * 0.58,
+    topY - 3,
+    chainW * 1.16,
+    headDrawH
+  );
+  // 竖向玄铁链环无缝循环至底端
+  const stepH = Math.max(22, linkSrcH * scale);
+  for (let y = topY + headDrawH - 5; y < bottomY; y += stepH - 4) {
+    const hClip = Math.min(stepH, bottomY - y);
+    if (hClip <= 2) break;
+    const srcClipH = Math.max(6, Math.floor((hClip / stepH) * linkSrcH));
+    ctx.drawImage(chainImg, 0, linkSrcY, iw, srcClipH, cx - chainW * 0.5, y, chainW, hClip + 1);
+  }
+  ctx.restore();
+}
+
+function drawWallCorbel(
+  ctx: CanvasRenderingContext2D,
+  corbelImg: HTMLImageElement,
+  side: 'left' | 'right',
+  wallEdgeX: number,
+  underPlatY: number,
+  bw: number,
+  bh: number,
+  alpha = 0.92
+): void {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  if (side === 'left') {
+    ctx.drawImage(corbelImg, wallEdgeX - 4, underPlatY, bw, bh);
+  } else {
+    ctx.translate(wallEdgeX + 4, underPlatY);
+    ctx.scale(-1, 1);
+    ctx.drawImage(corbelImg, 0, 0, bw, bh);
+  }
+  ctx.restore();
+}
+
 /**
- * 烘焙 100% 纯手绘贴图地形层（彻底剔除所有程序化几何方框、半透明墙裙与金条纹贴图污染！）：
- * 1. 宫殿墨玉砖自动裁去顶部画框金条 (`srcTopY = 16%`)，角色与火盆严丝合缝立于玉砖表面；
- * 2. 地基统一采用当前地面贴图自身下半部石砌纹理无缝延伸，零色差断层；
- * 3. 下潜竖井绘制深邃地下石井内壁与收口石沿，告别漏底大黑洞！
+ * 烘焙 100% 纯手绘《恶魔城：月下》式一体化房间建筑结构层与地形层：
+ * 1. `1.0x` 同速建筑背柱、石砌踢脚墙裙与竖塔贯通大柱，彻底消除远景视差与平台的“两张皮”割裂感；
+ * 2. 所有空中平台自动生成物理承重锚定（落地雕花殿柱/青石方柱、贴墙斗拱牛腿斜撑、或藻井玄铁吊链）；
+ * 3. 分区域专属平台材质（地宫水牢采用青苔雕纹石台，宫阙梨园采用朱漆雕栏木阁）+ 真实丹陛踏跺石阶 + 穿堂石券门楼框！
  */
-export function bakeOrthographicRoomTerrain(bctx: CanvasRenderingContext2D, room: BuiltRoom): void {
+export function bakeOrthographicRoomTerrain(
+  bctx: CanvasRenderingContext2D,
+  room: BuiltRoom,
+  brokenSecretWalls: string[] = []
+): void {
   bctx.clearRect(0, 0, room.pixelW, room.pixelH);
 
-  const usePalaceMarble = Boolean(
-    room.indoor && room.region !== 'prison' && room.region !== 'forge'
-  );
+  const isStoneDungeon = room.region === 'prison' || room.region === 'forge';
+  const usePalaceMarble = Boolean(room.indoor && !isStoneDungeon);
   const floorImg =
     (usePalaceMarble ? Assets.get('env_palace_floor') : undefined) || Assets.get('env_ground_slab');
   const slabImg = Assets.get('env_ground_slab');
   const bridgeImg = Assets.get('env_bridge');
+  const stoneLedgeImg = Assets.get('env_stone_ledge');
+  const timberPillarImg = Assets.get('arch_timber_pillar') || Assets.get('prop_coiled_pillar');
+  const stonePillarImg = Assets.get('arch_stone_pillar') || timberPillarImg;
+  const activePillarImg = isStoneDungeon ? stonePillarImg : timberPillarImg;
+  const corbelImg = Assets.get('arch_corbel_bracket');
+  const chainImg = Assets.get('arch_iron_chain');
+  const doorFrameImg = Assets.get('arch_side_doorframe');
 
   const isArchBridgeRoom =
     room.waterZones.length > 0 &&
@@ -199,7 +355,169 @@ export function bakeOrthographicRoomTerrain(bctx: CanvasRenderingContext2D, room
     room.groundNodes.some((n) => n.style === 'arch_bridge');
   const wz = isArchBridgeRoom ? room.waterZones[0] : null;
 
-  // 0. 下潜竖井 (`dir === 'down'`) 先铺设深邃幽暗井道与两侧收口青石井壁，彻底消除伪石阶方框感！
+  // 0A. `1.0x` 室内建筑骨架层：背景壁柱、踢脚石墙裙与竖塔四层贯通承重柱（与地面 1:1 锁定同步滚动，将房间凝成真实建筑整体！）
+  if (room.indoor) {
+    // 室内墙根石砌暗部踢脚墙裙（消除地面与远景插画之间的硬切缝）
+    for (let wx = 32; wx < room.pixelW - 32; wx += 24) {
+      if (isInsideDownShaft(room, wx + 12)) continue;
+      const gy = sampleSolidGroundY(room, wx + 12);
+      const dadoG = bctx.createLinearGradient(0, gy - 46, 0, gy);
+      dadoG.addColorStop(0, 'rgba(5, 8, 15, 0)');
+      dadoG.addColorStop(0.65, 'rgba(6, 10, 18, 0.34)');
+      dadoG.addColorStop(1, 'rgba(4, 7, 13, 0.68)');
+      bctx.fillStyle = dadoG;
+      bctx.fillRect(wx, gy - 46, 24.6, 46);
+    }
+
+    if (activePillarImg) {
+      if (room.gridH > 1) {
+        // 多层竖塔（如 1×4 东垣望月竖塔）：两侧贯通天地的承重巨柱 + 分层横梁暗影，让交替石阶像从塔身骨骼上长出来！
+        const leftColX = 112;
+        const rightColX = room.pixelW - 112;
+        drawSlicedColumn(bctx, activePillarImg, leftColX, 30, sampleSolidGroundY(room, leftColX), 42, 0.5, true);
+        drawSlicedColumn(bctx, activePillarImg, rightColX, 30, sampleSolidGroundY(room, rightColX), 42, 0.5, true);
+      } else {
+        // 单层室内殿堂：每隔约 340px 竖立一根半隐入暗部的 1.0x 殿堂背壁承重柱，避开大门、竖井与祭坛中心
+        const span = room.pixelW - 220;
+        const count = Math.max(2, Math.round(span / 340));
+        for (let i = 0; i <= count; i++) {
+          const px = Math.round(110 + (span * i) / Math.max(1, count));
+          if (isInsideDownShaft(room, px)) continue;
+          const inUpShaft = room.shafts.some((s) => s.dir === 'up' && px >= s.x1 - 24 && px <= s.x2 + 24);
+          if (inUpShaft) continue;
+          if (
+            (room.special === 'save_shrine' || room.special === 'warp_bagua') &&
+            Math.abs(px - room.focalX) < 110
+          ) {
+            continue;
+          }
+          const ceilY = Math.max(28, sampleCeilingY(room, px, false));
+          const gy = sampleSolidGroundY(room, px);
+          drawSlicedColumn(bctx, activePillarImg, px, ceilY - 4, gy, isStoneDungeon ? 38 : 32, 0.34, false);
+        }
+      }
+    }
+  }
+
+  // 0B. 全自动【平台建筑力学承重锚定层】：落地立柱、贴墙斗拱牛腿斜撑、藻井玄铁吊链 + 下方地面环境遮蔽投影
+  const sideDoorsAll = getRoomSideDoors(room);
+  const isNearDoorOpening = (x: number, yTop: number, yBot: number) =>
+    sideDoorsAll.some((d) => {
+      const dx = d.side === 'left' ? x : room.pixelW - x;
+      return dx < 72 && yBot > d.floorY - 124 && yTop < d.floorY + 8;
+    });
+
+  const anchorFloatingPlatform = (px: number, py: number, pw: number, forcePillars: boolean) => {
+    const midX = px + pw * 0.5;
+    const groundMid = sampleSolidGroundY(room, midX);
+    // 竖井井口平齐盖板不绘制立柱或吊链
+    if (!forcePillars && Math.abs(py - groundMid) < 22) return;
+
+    // 投射在下层台面/地面上的柔和建筑遮蔽暗影（让下方地面感知上方平台的存在！）
+    const shadowY = sampleSupportBaseY(room, midX, py + 10);
+    if (!isOverLiquidOrShaft(room, midX) && shadowY - py < 260) {
+      bctx.fillStyle = 'rgba(2, 4, 10, 0.34)';
+      bctx.beginPath();
+      bctx.ellipse(midX, shadowY + 2, pw * 0.44, 6.5, 0, 0, Math.PI * 2);
+      bctx.fill();
+    }
+
+    const touchLeftWall = px <= 46;
+    const touchRightWall = px + pw >= room.pixelW - 46;
+
+    // 1) 靠墙挑台：在贴墙侧嵌入古建斗拱雀替/石牛腿斜撑，外悬端立柱落地或顶链悬拉
+    if (touchLeftWall || touchRightWall) {
+      if (corbelImg) {
+        const bw = Math.min(86, pw * 0.46);
+        const bh = bw * (corbelImg.height / corbelImg.width);
+        if (touchLeftWall && !isNearDoorOpening(32, py, py + bh)) {
+          drawWallCorbel(bctx, corbelImg, 'left', 28, py + 12, bw, bh, 0.9);
+        }
+        if (touchRightWall && !isNearDoorOpening(room.pixelW - 32, py, py + bh)) {
+          drawWallCorbel(bctx, corbelImg, 'right', room.pixelW - 28, py + 12, bw, bh, 0.9);
+        }
+      }
+      const outerX = touchLeftWall ? px + pw - 26 : px + 26;
+      const baseOuter = sampleSupportBaseY(room, outerX, py + 16);
+      const spanH = baseOuter - py;
+      if (
+        activePillarImg &&
+        spanH >= 52 &&
+        spanH <= 220 &&
+        !isOverLiquidOrShaft(room, outerX) &&
+        !isNearDoorOpening(outerX, py, baseOuter)
+      ) {
+        drawSlicedColumn(bctx, activePillarImg, outerX, py + 14, baseOuter, isStoneDungeon ? 32 : 26, 0.84, true);
+      } else if (chainImg && room.indoor) {
+        const ceilY = sampleCeilingY(room, outerX, false);
+        if (ceilY > -20 && py - ceilY >= 28 && py - ceilY <= 360) {
+          drawSuspensionChain(bctx, chainImg, outerX, ceilY - 2, py + 8, 16, 0.82);
+        }
+      }
+      return;
+    }
+
+    // 2) 殿中独立飞阁 / 石台：优先双立柱生根落地；若跨水潭/竖井或超高悬台，则由藻井玄铁双链悬吊！
+    const leftX = px + Math.min(28, pw * 0.2);
+    const rightX = px + pw - Math.min(28, pw * 0.2);
+    const baseL = sampleSupportBaseY(room, leftX, py + 16);
+    const baseR = sampleSupportBaseY(room, rightX, py + 16);
+    const maxSpan = Math.max(baseL - py, baseR - py);
+    const blockedUnder = isOverLiquidOrShaft(room, leftX) || isOverLiquidOrShaft(room, rightX);
+
+    const canStandPillars =
+      activePillarImg &&
+      !blockedUnder &&
+      baseL - py >= 48 &&
+      baseR - py >= 48 &&
+      (forcePillars || maxSpan <= 185 || !room.indoor);
+
+    if (canStandPillars && activePillarImg) {
+      const colW = isStoneDungeon ? 34 : 28;
+      drawSlicedColumn(bctx, activePillarImg, leftX, py + 14, baseL, colW, 0.86, true);
+      if (pw >= 110) {
+        drawSlicedColumn(bctx, activePillarImg, rightX, py + 14, baseR, colW, 0.86, true);
+      }
+      return;
+    }
+
+    // 超高悬空夹层或水渠/火池上方踏台：由顶棚大梁垂下双股玄铁吊链拉拽（竖塔高阶则由两侧斗拱斜挑承托）
+    if (chainImg && room.indoor) {
+      const ceilL = sampleCeilingY(room, leftX, false);
+      const ceilR = sampleCeilingY(room, rightX, false);
+      if (ceilL > -20 && py - ceilL <= 420) {
+        drawSuspensionChain(bctx, chainImg, leftX, ceilL - 2, py + 8, 16, 0.84);
+      }
+      if (pw >= 110 && ceilR > -20 && py - ceilR <= 420) {
+        drawSuspensionChain(bctx, chainImg, rightX, ceilR - 2, py + 8, 16, 0.84);
+      }
+      // 多层竖塔内部中间踏台：向最近一侧塔柱伸出斗拱挑梁相接
+      if (room.gridH > 1 && corbelImg && py > 420) {
+        const bw = 64;
+        const bh = bw * (corbelImg.height / corbelImg.width);
+        if (midX <= room.pixelW * 0.5) {
+          drawWallCorbel(bctx, corbelImg, 'left', Math.max(28, px - 24), py + 12, bw, bh, 0.78);
+        } else {
+          drawWallCorbel(bctx, corbelImg, 'right', Math.min(room.pixelW - 28, px + pw + 24), py + 12, bw, bh, 0.78);
+        }
+      }
+    }
+  };
+
+  if (room.solidBlocks) {
+    for (const sb of room.solidBlocks) {
+      const groundAtMid = sampleSolidGroundY(room, sb.x + sb.w * 0.5);
+      const isFloating = sb.y + sb.h < groundAtMid - 14 && sb.h <= 46 && !sb.blocking;
+      if (isFloating) {
+        anchorFloatingPlatform(sb.x, sb.y, sb.w, false);
+      }
+    }
+  }
+  for (const pv of room.pavilions) {
+    anchorFloatingPlatform(pv.x, pv.y, pv.w, pv.hasPillars);
+  }
+
+  // 0C. 下潜竖井 (`dir === 'down'`) 铺设深邃幽暗井道与两侧收口青石井壁
   for (const sh of room.shafts) {
     if (sh.dir !== 'down') continue;
     const gyL = sampleSolidGroundY(room, Math.max(0, sh.x1 - 8));
@@ -214,10 +532,10 @@ export function bakeOrthographicRoomTerrain(bctx: CanvasRenderingContext2D, room
     if (slabImg) {
       const mY = Math.floor(slabImg.height * 0.42);
       const mH = Math.max(24, slabImg.height - mY - 2);
-      const jambW = 16;
+      const jambW = 18;
       for (let y = gyL; y < room.pixelH; y += mH - 2) {
         bctx.save();
-        bctx.globalAlpha = 0.72;
+        bctx.globalAlpha = 0.78;
         bctx.drawImage(slabImg, 8, mY, jambW, mH, sh.x1 - 2, y, jambW, mH);
         bctx.drawImage(slabImg, 40, mY, jambW, mH, sh.x2 - jambW + 2, y, jambW, mH);
         bctx.restore();
@@ -225,11 +543,10 @@ export function bakeOrthographicRoomTerrain(bctx: CanvasRenderingContext2D, room
     }
   }
 
-  // 1. 纯手绘同源石材地基 + 地面石板/墨玉台面铺装
+  // 1. 纯手绘同源石材地基 + 真实分阶踏跺石阶 + 地面石板/墨玉台面铺装
   if (floorImg) {
     const sw = floorImg.width;
     const sh = floorImg.height;
-    // 裁掉 env_palace_floor 顶部 16% 的外框金线，使脚底碰撞线 gy 直接落在墨玉砖正表面！
     const srcTopY = usePalaceMarble ? Math.floor(sh * 0.16) : 0;
     const srcCapH = sh - srcTopY;
     const surfaceTopOffset = usePalaceMarble ? 3 : 6;
@@ -237,16 +554,45 @@ export function bakeOrthographicRoomTerrain(bctx: CanvasRenderingContext2D, room
     const subSrcY = Math.floor(sh * (usePalaceMarble ? 0.46 : 0.36));
     const subSrcH = Math.max(24, sh - subSrcY - 2);
 
+    const isStairSlopeAt = (wx: number): boolean => {
+      for (let i = 0; i < room.groundNodes.length - 1; i++) {
+        const a = room.groundNodes[i];
+        const b = room.groundNodes[i + 1];
+        if (wx >= a.x && wx < b.x) {
+          return a.style === 'stairs' && Math.abs(b.y - a.y) >= 10;
+        }
+      }
+      return false;
+    };
+
+    const sampleQuantizedVisualGroundY = (wx: number): number => {
+      for (let i = 0; i < room.groundNodes.length - 1; i++) {
+        const a = room.groundNodes[i];
+        const b = room.groundNodes[i + 1];
+        if (wx >= a.x && wx <= b.x) {
+          if (a.style === 'stairs' && Math.abs(b.y - a.y) >= 12) {
+            // 将连续斜坡量化为真实古建丹陛踏步（每阶约 11~13px 高差，宽阔平踏面！）
+            const steps = Math.max(2, Math.round(Math.abs(b.y - a.y) / 12));
+            const t = (wx - a.x) / Math.max(1, b.x - a.x);
+            const k = Math.min(steps, Math.floor(t * steps + 0.15));
+            return a.y + ((b.y - a.y) * k) / steps;
+          }
+          break;
+        }
+      }
+      return sampleSolidGroundY(room, wx);
+    };
+
     // 1A. 下层同源石砌地基
     for (let x = 0; x < room.pixelW; x += sw) {
-      const stepSub = 24;
+      const stepSub = 22;
       for (let sxOff = 0; sxOff < sw && x + sxOff < room.pixelW; sxOff += stepSub) {
         const wx = x + sxOff;
         if (isInsideDownShaft(room, wx + 4) || isInsideDownShaft(room, wx + stepSub - 4)) continue;
         if (wz && wx >= wz.x1 + 18 && wx + stepSub <= wz.x2 - 18) continue;
 
-        const gy = sampleSolidGroundY(room, Math.min(room.pixelW, wx + stepSub * 0.5));
-        const startY = gy + srcCapH - surfaceTopOffset - 8;
+        const gy = sampleQuantizedVisualGroundY(Math.min(room.pixelW, wx + stepSub * 0.5));
+        const startY = gy + srcCapH - surfaceTopOffset - 10;
         const wClip = Math.min(stepSub, sw - sxOff, room.pixelW - wx);
 
         for (let y = startY; y < room.pixelH; y += subSrcH - 3) {
@@ -268,37 +614,80 @@ export function bakeOrthographicRoomTerrain(bctx: CanvasRenderingContext2D, room
         const depthH = Math.max(0, room.pixelH - gy - 26);
         if (depthH > 0) {
           const subG = bctx.createLinearGradient(0, gy + 26, 0, room.pixelH);
-          subG.addColorStop(0, 'rgba(4, 7, 14, 0.1)');
-          subG.addColorStop(1, 'rgba(3, 5, 11, 0.72)');
+          subG.addColorStop(0, 'rgba(4, 7, 14, 0.12)');
+          subG.addColorStop(1, 'rgba(3, 5, 11, 0.76)');
           bctx.fillStyle = subG;
           bctx.fillRect(wx, gy + 26, wClip + 0.6, depthH);
         }
       }
     }
 
-    // 1B. 表层地面（纯手绘贴图连续切片，斜坡长阶自动加密为 16px 手绘石阶叠砌，零几何色块！）
-    const stepW = 16;
+    // 1A-2. 丹陛石阶背景垂带石护栏（紧贴斜坡阶梯后沿，赋予台阶真实的立体建筑体积！）
+    if (stoneLedgeImg) {
+      const railSrcY = 0;
+      const railSrcH = Math.floor(stoneLedgeImg.height * 0.3);
+      for (let i = 0; i < room.groundNodes.length - 1; i++) {
+        const a = room.groundNodes[i];
+        const b = room.groundNodes[i + 1];
+        if (a.style !== 'stairs' || Math.abs(b.y - a.y) < 14) continue;
+        const steps = Math.max(2, Math.round(Math.abs(b.y - a.y) / 12));
+        const stepSpanW = (b.x - a.x) / steps;
+        bctx.save();
+        bctx.globalAlpha = 0.72;
+        for (let k = 0; k < steps; k++) {
+          const tx = a.x + k * stepSpanW;
+          const ty = a.y + ((b.y - a.y) * k) / steps;
+          bctx.drawImage(
+            stoneLedgeImg,
+            40,
+            railSrcY,
+            Math.min(320, stoneLedgeImg.width - 80),
+            railSrcH,
+            tx - 2,
+            ty - 20,
+            stepSpanW + 6,
+            22
+          );
+        }
+        bctx.restore();
+      }
+    }
+
+    // 1B. 表层地面与分阶踏跺石阶
+    const stepW = 18;
+    let prevGy = sampleQuantizedVisualGroundY(0);
     for (let x = 0; x < room.pixelW; x += stepW) {
       if (isInsideDownShaft(room, x + 2) || isInsideDownShaft(room, x + stepW - 2)) continue;
       if (wz && x >= wz.x1 + 14 && x <= wz.x2 - stepW - 14) continue;
 
-      const gy = sampleSolidGroundY(room, x + stepW * 0.5);
+      const onStairs = isStairSlopeAt(x + stepW * 0.5);
+      const gy = sampleQuantizedVisualGroundY(x + stepW * 0.5);
       const sx = ((x % sw) + sw) % sw;
       const grabW = Math.min(stepW, sw - sx);
+
+      // 台阶落差立面投影（凸显每一级石阶的挑出踏面与踢脚暗部！）
+      if (onStairs && Math.abs(gy - prevGy) >= 5) {
+        const hiY = Math.min(gy, prevGy);
+        const loY = Math.max(gy, prevGy);
+        bctx.fillStyle = 'rgba(2, 4, 10, 0.65)';
+        bctx.fillRect(x - 3, hiY + 2, 7, loY - hiY + 8);
+      }
+      prevGy = gy;
+
       bctx.drawImage(
         floorImg,
         sx,
         srcTopY,
         Math.max(4, grabW),
         srcCapH,
-        x,
+        x - (onStairs ? 2 : 0),
         gy - surfaceTopOffset,
-        stepW + 0.7,
+        stepW + (onStairs ? 4 : 0.7),
         srcCapH
       );
     }
 
-    // 1B-2. 梨园戏台 / 书阁茶席专属朱漆雕木台面 (`style === 'palace_wood'`)：叠绘手绘雕花红木台沿纹理，与石阶形成鲜明材质层次
+    // 1B-2. 梨园戏台 / 书阁茶席专属朱漆雕木台面 (`style === 'palace_wood'`)
     const woodStageImg = Assets.get('env_indoor_ledge');
     if (woodStageImg) {
       const wsY = Math.floor(woodStageImg.height * 0.36);
@@ -318,7 +707,8 @@ export function bakeOrthographicRoomTerrain(bctx: CanvasRenderingContext2D, room
       }
     }
 
-    // 1C. 渲染《月下夜想曲 / 斩妖行》式纯手绘高低悬台与须弥石座 (`room.solidBlocks`)——彻底根除生硬几何方框线！
+    // 1C. 分区域专属手绘高低悬台与须弥石座 (`room.solidBlocks`)：
+    // 宫阙/书阁/梨园采用雕栏红木飞阁；地肺铸剑坊/寒潭水牢/白骨冥廊采用青苔雕纹青石台 `env_stone_ledge`！
     if (room.solidBlocks && room.solidBlocks.length > 0) {
       const indoorLedgeImg = Assets.get('env_indoor_ledge');
       const pavilionImg = Assets.get('env_pavilion');
@@ -327,45 +717,60 @@ export function bakeOrthographicRoomTerrain(bctx: CanvasRenderingContext2D, room
         const groundAtMid = sampleSolidGroundY(room, sb.x + sb.w * 0.5);
         const isFloatingLedge = sb.y + sb.h < groundAtMid - 14 && sb.h <= 46 && !sb.blocking;
 
-        // 宫殿/书阁/梨园/钟楼/古亭内的悬空踏台：直接采用纯手绘雕栏红木飞阁 `env_indoor_ledge` / `env_pavilion`！
-        if (isFloatingLedge && (usePalaceMarble || room.region === 'gatehouse')) {
-          const deckImg = (room.indoor ? indoorLedgeImg : pavilionImg) || indoorLedgeImg || pavilionImg;
-          if (deckImg) {
-            const chunks = sb.w > 300 ? Math.ceil(sb.w / 250) : 1;
+        if (isFloatingLedge) {
+          if (isStoneDungeon && stoneLedgeImg) {
+            const chunks = sb.w > 310 ? Math.ceil(sb.w / 250) : 1;
             const cw = sb.w / chunks;
             for (let i = 0; i < chunks; i++) {
               const cx = sb.x + i * cw;
               const drawW = cw + 12;
-              const ratio = deckImg.height / deckImg.width;
-              const drawH = Math.min(98, Math.max(62, drawW * ratio));
-              const topAlignRatio = deckImg === indoorLedgeImg ? 0.38 : 0.42;
-              bctx.drawImage(deckImg, cx - 6, sb.y - drawH * topAlignRatio, drawW, drawH);
+              const ratio = stoneLedgeImg.height / stoneLedgeImg.width;
+              const drawH = Math.min(96, Math.max(60, drawW * ratio));
+              bctx.drawImage(stoneLedgeImg, cx - 6, sb.y - drawH * 0.34, drawW, drawH);
             }
             continue;
           }
+
+          if (usePalaceMarble || room.region === 'gatehouse') {
+            const deckImg = (room.indoor ? indoorLedgeImg : pavilionImg) || indoorLedgeImg || pavilionImg;
+            if (deckImg) {
+              const chunks = sb.w > 300 ? Math.ceil(sb.w / 250) : 1;
+              const cw = sb.w / chunks;
+              const srcH = deckImg === pavilionImg ? Math.floor(deckImg.height * 0.72) : deckImg.height;
+              for (let i = 0; i < chunks; i++) {
+                const cx = sb.x + i * cw;
+                const drawW = cw + 12;
+                const ratio = srcH / deckImg.width;
+                const drawH = Math.min(92, Math.max(58, drawW * ratio));
+                const topAlignRatio = deckImg === indoorLedgeImg ? 0.38 : 0.56;
+                bctx.drawImage(
+                  deckImg,
+                  0,
+                  0,
+                  deckImg.width,
+                  srcH,
+                  cx - 6,
+                  sb.y - drawH * topAlignRatio,
+                  drawW,
+                  drawH
+                );
+              }
+              continue;
+            }
+          }
         }
 
-        // 地宫暗渠悬空石挑台或落地须弥石坛/断崖：采用挑檐压顶青石板 + 层叠凿石基座 + 自然接触暗影（零 strokeRect！）
+        // 落地须弥石坛 / 能力锁高崖：挑檐压顶青石板 + 层叠凿石基座 + 左右半阶踏步
         const topDrawY = sb.y - surfaceTopOffset;
         const totalDrawH = sb.h + surfaceTopOffset;
 
-        // 底部柔和环境遮蔽暗影（接地石坛投射横向接地影，悬空石台投射下垂暗晕）
-        if (isFloatingLedge) {
-          const dropG = bctx.createLinearGradient(0, sb.y + sb.h - 4, 0, sb.y + sb.h + 22);
-          dropG.addColorStop(0, 'rgba(3, 5, 11, 0.58)');
-          dropG.addColorStop(1, 'rgba(3, 5, 11, 0)');
-          bctx.fillStyle = dropG;
-          bctx.fillRect(sb.x + 6, sb.y + sb.h - 4, Math.max(0, sb.w - 12), 24);
-        } else {
-          bctx.fillStyle = 'rgba(2, 4, 10, 0.62)';
-          bctx.beginPath();
-          bctx.ellipse(sb.x + sb.w * 0.5, sb.y + sb.h + 2, sb.w * 0.52, 7, 0, 0, Math.PI * 2);
-          bctx.fill();
-        }
+        bctx.fillStyle = 'rgba(2, 4, 10, 0.62)';
+        bctx.beginPath();
+        bctx.ellipse(sb.x + sb.w * 0.5, sb.y + sb.h + 2, sb.w * 0.52, 7, 0, 0, Math.PI * 2);
+        bctx.fill();
 
-        // 下层内收式凿石承重墩身（比顶板略内收 4px，形成真实中式须弥座挑檐立体感！）
-        const bodyX = sb.x + (isFloatingLedge ? 6 : 3);
-        const bodyW = Math.max(16, sb.w - (isFloatingLedge ? 12 : 6));
+        const bodyX = sb.x + 3;
+        const bodyW = Math.max(16, sb.w - 6);
         const bodyTopY = topDrawY + Math.min(20, Math.floor(totalDrawH * 0.42));
         const bodyH = Math.max(0, topDrawY + totalDrawH - bodyTopY);
         if (bodyH > 2) {
@@ -379,7 +784,6 @@ export function bakeOrthographicRoomTerrain(bctx: CanvasRenderingContext2D, room
               bctx.drawImage(floorImg, 0, subSrcY, wClip, subSrcH, x, y, wClip + 0.6, subSrcH);
             }
           }
-          // 墩身暗部体积光影渐变
           const shadeG = bctx.createLinearGradient(0, bodyTopY, 0, bodyTopY + bodyH);
           shadeG.addColorStop(0, 'rgba(4, 7, 14, 0.36)');
           shadeG.addColorStop(1, 'rgba(3, 5, 11, 0.65)');
@@ -388,10 +792,9 @@ export function bakeOrthographicRoomTerrain(bctx: CanvasRenderingContext2D, room
           bctx.restore();
         }
 
-        // 顶层挑檐完整手绘青石压顶板（左右自然挑出 4px，消除刀切方块感！）
         const capX = sb.x - 4;
         const capW = sb.w + 8;
-        const capH = Math.min(srcCapH, isFloatingLedge ? 30 : srcCapH);
+        const capH = srcCapH;
         bctx.save();
         bctx.beginPath();
         bctx.rect(capX, topDrawY, capW, capH);
@@ -402,7 +805,6 @@ export function bakeOrthographicRoomTerrain(bctx: CanvasRenderingContext2D, room
         }
         bctx.restore();
 
-        // 若为落地矮石阶祭坛 (`groundAtMid - sb.y <= 54`)，在左右敞开端头增绘半阶青石踏步，视觉与物理登阶完美合一！
         const stepRise = groundAtMid - sb.y;
         if (!isFloatingLedge && !sb.blocking && stepRise >= 20 && stepRise <= 54) {
           const treadH = Math.min(22, Math.max(14, Math.floor(stepRise * 0.52)));
@@ -419,7 +821,7 @@ export function bakeOrthographicRoomTerrain(bctx: CanvasRenderingContext2D, room
     }
   }
 
-  // 2. 护城河段：绘制完整三孔雕栏石拱桥 (`env_bridge.webp`)
+  // 2. 护城河 / 飞虹桥 / 冰泉段：绘制完整三孔雕栏石拱桥 (`env_bridge.webp`)
   if (wz && bridgeImg) {
     const bridgeSpanW = wz.x2 - wz.x1 + 36;
     const bridgeH = bridgeSpanW * (bridgeImg.height / bridgeImg.width);
@@ -428,7 +830,7 @@ export function bakeOrthographicRoomTerrain(bctx: CanvasRenderingContext2D, room
     bctx.drawImage(bridgeImg, wz.x1 - 18, drawTopY, bridgeSpanW, bridgeH);
   }
 
-  // 3. 顶棚石拱与宫殿暗顶（仅使用纯净暗色青石砖，彻底摒弃带亮金条纹的 prop_stone_wall_tex！）
+  // 3. 顶棚藻井石拱与宫殿暗梁
   for (const cs of room.ceilingSpans) {
     const cw = cs.x2 - cs.x1;
     bctx.fillStyle = '#070b14';
@@ -452,18 +854,30 @@ export function bakeOrthographicRoomTerrain(bctx: CanvasRenderingContext2D, room
     cg.addColorStop(1, 'rgba(12, 17, 28, 0.85)');
     bctx.fillStyle = cg;
     bctx.fillRect(cs.x1, 0, cw, cs.bottomY);
+
+    // 顶棚与两侧山墙转角处嵌装斗拱雀替挑梁，形成严丝合缝的殿顶梁架结构
+    if (corbelImg && room.indoor && cw >= 240) {
+      const cbW = 68;
+      const cbH = cbW * (corbelImg.height / corbelImg.width);
+      if (cs.x1 <= 8) {
+        drawWallCorbel(bctx, corbelImg, 'left', 34, cs.bottomY - 2, cbW, cbH, 0.72);
+      }
+      if (cs.x2 >= room.pixelW - 8) {
+        drawWallCorbel(bctx, corbelImg, 'right', room.pixelW - 34, cs.bottomY - 2, cbW, cbH, 0.72);
+      }
+    }
   }
 
-  // 4. 左右边界厚石山墙与柔和穿堂灯晕（零程序化红黄方框！）
+  // 4. 厚重城墙剖面边界 + 手绘穿堂石券飞檐门楼框 (`arch_side_doorframe`)
   const bakeSideWallAndDoors = (side: 'left' | 'right') => {
     const doors = getRoomSideDoors(room, side).sort((a, b) => a.floorY - b.floorY);
-    const wallW = 28;
+    const wallW = 40;
     const wx = side === 'left' ? 0 : room.pixelW - wallW;
-    const groundAtSide = sampleSolidGroundY(room, side === 'left' ? 12 : room.pixelW - 12);
+    const groundAtSide = sampleSolidGroundY(room, side === 'left' ? 14 : room.pixelW - 14);
 
     const drawSolidWallSegment = (y1: number, y2: number) => {
       if (y2 - y1 <= 6) return;
-      bctx.fillStyle = '#070b14';
+      bctx.fillStyle = '#060912';
       bctx.fillRect(wx, y1, wallW, y2 - y1);
       if (slabImg) {
         const mY = Math.floor(slabImg.height * 0.42);
@@ -473,45 +887,82 @@ export function bakeOrthographicRoomTerrain(bctx: CanvasRenderingContext2D, room
           bctx.drawImage(slabImg, 12, mY, wallW, hClip, wx, y, wallW, hClip);
         }
       }
-      bctx.fillStyle = 'rgba(4, 7, 14, 0.48)';
-      bctx.fillRect(wx, y1, wallW, y2 - y1);
+      const wg = bctx.createLinearGradient(
+        side === 'left' ? 0 : room.pixelW,
+        0,
+        side === 'left' ? wallW + 18 : room.pixelW - wallW - 18,
+        0
+      );
+      wg.addColorStop(0, 'rgba(3, 5, 11, 0.76)');
+      wg.addColorStop(0.7, 'rgba(5, 8, 16, 0.42)');
+      wg.addColorStop(1, 'rgba(5, 8, 16, 0)');
+      bctx.fillStyle = wg;
+      bctx.fillRect(side === 'left' ? 0 : room.pixelW - wallW - 18, y1, wallW + 18, y2 - y1);
     };
 
     if (doors.length === 0) {
       if (room.indoor || room.gridH > 1) {
-        drawSolidWallSegment(0, groundAtSide);
+        drawSolidWallSegment(0, room.pixelH);
       }
       return;
     }
 
     let cursorY = 0;
     for (const d of doors) {
-      const doorTop = d.floorY - 128;
-      if (room.indoor || room.gridH > 1) {
-        drawSolidWallSegment(cursorY, doorTop);
+      const isSecretLocked = Boolean(
+        d.secretWallId && !brokenSecretWalls.includes(d.secretWallId)
+      );
+      if (isSecretLocked) {
+        // 未破开的隐藏密室暗门保持完整厚重石墙外观，不提前泄露门楼框
+        if (room.indoor || room.gridH > 1) {
+          drawSolidWallSegment(cursorY, d.floorY + 8);
+        }
+        cursorY = d.floorY + 8;
+        continue;
       }
 
+      const doorTop = d.floorY - 132;
+      if (room.indoor || room.gridH > 1) {
+        drawSolidWallSegment(cursorY, doorTop + 12);
+      }
+
+      // 穿堂门洞暖色引路灯晕
       const dg = bctx.createLinearGradient(
         side === 'left' ? 0 : room.pixelW,
         0,
-        side === 'left' ? 68 : room.pixelW - 68,
+        side === 'left' ? 76 : room.pixelW - 76,
         0
       );
-      dg.addColorStop(0, 'rgba(251, 191, 36, 0.22)');
+      dg.addColorStop(0, 'rgba(251, 191, 36, 0.24)');
       dg.addColorStop(1, 'rgba(0, 0, 0, 0)');
       bctx.fillStyle = dg;
-      bctx.fillRect(side === 'left' ? 0 : room.pixelW - 68, doorTop, 68, 128);
+      bctx.fillRect(side === 'left' ? 0 : room.pixelW - 76, doorTop, 76, 132);
+
+      // 嵌装手绘穿堂石券门楼框 (`arch_side_doorframe` 原图贴右壁，左壁水平镜像贴合！)
+      if (doorFrameImg && (room.indoor || room.gridH > 1)) {
+        const dfH = 162;
+        const dfW = doorFrameImg.width * (dfH / doorFrameImg.height);
+        bctx.save();
+        if (side === 'right') {
+          bctx.drawImage(doorFrameImg, room.pixelW - dfW + 4, d.floorY - dfH + 6, dfW, dfH);
+        } else {
+          bctx.translate(dfW - 4, d.floorY - dfH + 6);
+          bctx.scale(-1, 1);
+          bctx.drawImage(doorFrameImg, 0, 0, dfW, dfH);
+        }
+        bctx.restore();
+      }
 
       cursorY = d.floorY + 6;
     }
-    if (room.gridH > 1 && cursorY < groundAtSide) {
-      drawSolidWallSegment(cursorY, groundAtSide);
+    if ((room.indoor || room.gridH > 1) && cursorY < groundAtSide) {
+      drawSolidWallSegment(cursorY, room.pixelH);
     }
   };
   bakeSideWallAndDoors('left');
   bakeSideWallAndDoors('right');
 
-  // 5. 蹬墙古武石壁井道（使用纯净青石砖竖筑！）
+  // 5. 蹬墙古武石壁井道（上下与顶棚、地面无缝衔接收口！）
   if (room.climbWalls && slabImg) {
     const mY = Math.floor(slabImg.height * 0.42);
     const mH = Math.max(24, slabImg.height - mY - 2);
@@ -523,6 +974,9 @@ export function bakeOrthographicRoomTerrain(bctx: CanvasRenderingContext2D, room
       for (let y = cw.topY; y < cw.bottomY; y += mH - 3) {
         const hClip = Math.min(mH, cw.bottomY - y);
         bctx.drawImage(slabImg, 24, mY, wallW, hClip, wx, y, wallW, hClip);
+      }
+      if (stonePillarImg) {
+        drawSlicedColumn(bctx, stonePillarImg, cw.x, cw.topY - 4, cw.bottomY, 42, 0.88, true);
       }
     }
   }
@@ -639,6 +1093,11 @@ export function drawCastleInteriorPropsAndGears(
         const sway = Math.sin(t * 1.1 + dp.x * 0.01) * 0.022;
         const h = 210 * sc;
         const w = bellImg.width * (h / bellImg.height);
+        const chainImg = Assets.get('arch_iron_chain');
+        const ceilY = Math.max(24, sampleCeilingY(room, dp.x, false));
+        if (chainImg && dp.y - h > ceilY) {
+          drawSuspensionChain(ctx, chainImg, dp.x, ceilY - 2, dp.y - h + 18, 22, 0.9);
+        }
         ctx.save();
         ctx.translate(dp.x, dp.y - h);
         ctx.rotate(sway);
@@ -756,13 +1215,15 @@ export function drawCastleInteriorPropsAndGears(
     }
   }
 
-  // 旋转青铜八卦巨齿轮与摆渡飞阁 / 配重升降机踏台
+  // 旋转青铜八卦巨齿轮与摆渡飞阁 / 配重升降机踏台（全部配备藻井玄铁吊链与轴座锚定，零悬空感！）
   if (room.clockGears || room.movingPlatforms) {
+    const isStoneDungeon = room.region === 'prison' || room.region === 'forge';
     const gearImg = Assets.get('prop_clock_gear');
+    const stoneLedgeImg = Assets.get('env_stone_ledge');
     const ledgeImg = Assets.get('env_indoor_ledge') || Assets.get('env_pavilion');
     const pavImg = Assets.get('env_pavilion') || ledgeImg;
+    const chainImg = Assets.get('arch_iron_chain');
 
-    // 先绘配重升降机与滑索摆渡台的暗铜导链轨迹，让玩家一眼预判机关运动路线！
     if (room.movingPlatforms) {
       ctx.save();
       for (const mp of room.movingPlatforms) {
@@ -770,19 +1231,35 @@ export function drawCastleInteriorPropsAndGears(
         const ay = mp.y1 + 6;
         const bx = mp.x2 + mp.w * 0.5;
         const by = mp.y2 + 6;
-        ctx.strokeStyle = 'rgba(180, 142, 76, 0.34)';
-        ctx.lineWidth = 2.2;
-        ctx.setLineDash([5, 5]);
+
+        // 水平摆渡/滑轨两端由顶棚垂下玄铁吊杆锚定，竖向升降机由顶梁滑轮悬索牵引
+        if (chainImg && room.indoor) {
+          const ceilA = Math.max(28, sampleCeilingY(room, ax, false));
+          const ceilB = Math.max(28, sampleCeilingY(room, bx, false));
+          if (Math.abs(ax - bx) > 24) {
+            if (ay - ceilA <= 380) drawSuspensionChain(ctx, chainImg, ax, ceilA - 2, ay, 14, 0.72);
+            if (by - ceilB <= 380) drawSuspensionChain(ctx, chainImg, bx, ceilB - 2, by, 14, 0.72);
+          } else {
+            const topPulleyY = Math.min(ay, by);
+            if (topPulleyY - ceilA <= 420) {
+              drawSuspensionChain(ctx, chainImg, ax, ceilA - 2, topPulleyY, 16, 0.8);
+            }
+          }
+        }
+
+        ctx.strokeStyle = 'rgba(180, 142, 76, 0.42)';
+        ctx.lineWidth = 2.6;
+        ctx.setLineDash([6, 4]);
         ctx.beginPath();
         ctx.moveTo(ax, ay);
         ctx.lineTo(bx, by);
         ctx.stroke();
         ctx.setLineDash([]);
 
-        ctx.fillStyle = 'rgba(217, 169, 78, 0.65)';
+        ctx.fillStyle = 'rgba(217, 169, 78, 0.78)';
         ctx.beginPath();
-        ctx.arc(ax, ay, 4.2, 0, Math.PI * 2);
-        ctx.arc(bx, by, 4.2, 0, Math.PI * 2);
+        ctx.arc(ax, ay, 4.6, 0, Math.PI * 2);
+        ctx.arc(bx, by, 4.6, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.restore();
@@ -790,10 +1267,17 @@ export function drawCastleInteriorPropsAndGears(
 
     if (gearImg && room.clockGears) {
       for (const g of room.clockGears) {
+        // 齿轮中心轴座向上连接顶棚玄铁吊架，避免齿轮凭空漂浮在背景上
+        if (chainImg && room.indoor) {
+          const ceilG = Math.max(28, sampleCeilingY(room, g.x, false));
+          if (g.y - ceilG > 24 && g.y - ceilG <= 440) {
+            drawSuspensionChain(ctx, chainImg, g.x, ceilG - 2, g.y, 18, 0.76);
+          }
+        }
         ctx.save();
         ctx.translate(g.x, g.y);
         ctx.rotate(t * g.speed);
-        ctx.globalAlpha = g.hasOrbitPlatforms ? 0.94 : 0.74;
+        ctx.globalAlpha = g.hasOrbitPlatforms ? 0.94 : 0.76;
         ctx.drawImage(gearImg, -g.radius, -g.radius, g.radius * 2, g.radius * 2);
         ctx.restore();
       }
@@ -802,19 +1286,46 @@ export function drawCastleInteriorPropsAndGears(
     const orbitPlats = getClockGearOrbitPlatforms(room, t);
     for (const op of orbitPlats) {
       if (op.style === 'gear') {
-        if (ledgeImg) {
-          const sy = Math.floor(ledgeImg.height * 0.36);
-          const sh = Math.floor(ledgeImg.height * 0.28);
-          ctx.drawImage(ledgeImg, 12, sy, ledgeImg.width - 24, sh, op.x, op.y - 3, op.w, 20);
+        const src = isStoneDungeon && stoneLedgeImg ? stoneLedgeImg : ledgeImg;
+        if (src) {
+          const sy = Math.floor(src.height * (src === stoneLedgeImg ? 0.26 : 0.36));
+          const sh = Math.floor(src.height * 0.32);
+          ctx.drawImage(src, 12, sy, src.width - 24, sh, op.x, op.y - 4, op.w, 22);
         }
       } else {
-        const deckImg = op.style === 'wood_ferry' ? pavImg : ledgeImg;
-        if (deckImg) {
+        // 竖向青铜升降机实时绘制紧绷的牵引铁链
+        if (op.style === 'bronze_lift' && chainImg && room.indoor) {
+          const cx = op.x + op.w * 0.5;
+          const ceilY = Math.max(28, sampleCeilingY(room, cx, false));
+          if (op.y - ceilY <= 440) {
+            drawSuspensionChain(ctx, chainImg, cx, ceilY - 2, op.y + 4, 15, 0.85);
+          }
+        }
+
+        if (isStoneDungeon && stoneLedgeImg) {
           const drawW = op.w + 12;
-          const ratio = deckImg.height / deckImg.width;
-          const drawH = Math.min(78, Math.max(52, drawW * ratio));
-          const topAlign = deckImg === ledgeImg ? 0.38 : 0.42;
-          ctx.drawImage(deckImg, op.x - 6, op.y - drawH * topAlign, drawW, drawH);
+          const drawH = Math.min(76, Math.max(50, drawW * (stoneLedgeImg.height / stoneLedgeImg.width)));
+          ctx.drawImage(stoneLedgeImg, op.x - 6, op.y - drawH * 0.34, drawW, drawH);
+        } else {
+          const deckImg = op.style === 'wood_ferry' ? pavImg : ledgeImg;
+          if (deckImg) {
+            const drawW = op.w + 12;
+            const srcH = deckImg === pavImg ? Math.floor(deckImg.height * 0.72) : deckImg.height;
+            const ratio = srcH / deckImg.width;
+            const drawH = Math.min(76, Math.max(50, drawW * ratio));
+            const topAlign = deckImg === ledgeImg ? 0.38 : 0.56;
+            ctx.drawImage(
+              deckImg,
+              0,
+              0,
+              deckImg.width,
+              srcH,
+              op.x - 6,
+              op.y - drawH * topAlign,
+              drawW,
+              drawH
+            );
+          }
         }
       }
     }
@@ -822,7 +1333,8 @@ export function drawCastleInteriorPropsAndGears(
 }
 
 /**
- * 绘制平台：100% 纯手绘雕栏红木阁楼 `env_indoor_ledge` / 飞檐朱漆阁台 `env_pavilion`（零程序化红柱穿模！）
+ * 绘制平台：分区域匹配青苔雕石悬台 `env_stone_ledge` 或雕栏红木飞阁 `env_indoor_ledge` / `env_pavilion`
+ * （下方承重立柱与悬链已在 `bakeOrthographicRoomTerrain` 0B 物理承重层完整落地生根，裁除原图半空断柱！）
  */
 export function drawOrthographicPavilion(
   ctx: CanvasRenderingContext2D,
@@ -832,17 +1344,32 @@ export function drawOrthographicPavilion(
   hasPillars: boolean,
   room: BuiltRoom
 ): void {
+  const isStoneDungeon = room.region === 'prison' || room.region === 'forge';
+  const stoneLedgeImg = Assets.get('env_stone_ledge');
   const pvImg = Assets.get('env_pavilion');
   const indoorImg = Assets.get('env_indoor_ledge');
   const groundHere = sampleSolidGroundY(room, x + w * 0.5);
 
-  // 竖井井口平齐木栈踏板（严丝合缝嵌平井沿）
+  // 竖井井口平齐踏板（严丝合缝嵌平井沿）
   if (!hasPillars && Math.abs(y - groundHere) < 18) {
-    const src = indoorImg || pvImg;
+    const src = (isStoneDungeon ? stoneLedgeImg : indoorImg) || indoorImg || pvImg;
     if (src) {
-      const sy = Math.floor(src.height * 0.38);
-      const sh = Math.floor(src.height * 0.14);
-      ctx.drawImage(src, 18, sy, src.width - 36, sh, x, y - 1, w, 12);
+      const sy = Math.floor(src.height * (src === stoneLedgeImg ? 0.28 : 0.38));
+      const sh = Math.floor(src.height * 0.16);
+      ctx.drawImage(src, 18, sy, src.width - 36, sh, x, y - 1, w, 13);
+    }
+    return;
+  }
+
+  // 地宫 / 水牢 / 熔炉：统一使用古墓青苔雕纹石台，彻底杜绝地下洞窟突兀出现鲜红木亭！
+  if (isStoneDungeon && stoneLedgeImg) {
+    const chunks = w > 310 ? Math.ceil(w / 250) : 1;
+    const cw = w / chunks;
+    for (let i = 0; i < chunks; i++) {
+      const cx = x + i * cw;
+      const drawW = cw + 12;
+      const drawH = Math.min(98, Math.max(62, drawW * (stoneLedgeImg.height / stoneLedgeImg.width)));
+      ctx.drawImage(stoneLedgeImg, cx - 6, y - drawH * 0.34, drawW, drawH);
     }
     return;
   }
@@ -867,9 +1394,11 @@ export function drawOrthographicPavilion(
   }
 
   if (!pvImg) return;
+  // 裁去 env_pavilion 底部 28% 的半截悬空断柱，由烘焙层的通天雕花殿柱无缝承托至地面！
+  const srcH = Math.floor(pvImg.height * 0.72);
   const drawW = w + 16;
-  const drawH = Math.min(134, Math.max(92, drawW * (pvImg.height / pvImg.width)));
-  ctx.drawImage(pvImg, x - 8, y - drawH * 0.42, drawW, drawH);
+  const drawH = Math.min(98, Math.max(68, drawW * (srcH / pvImg.width)));
+  ctx.drawImage(pvImg, 0, 0, pvImg.width, srcH, x - 8, y - drawH * 0.56, drawW, drawH);
 }
 
 export function drawOrthographicStoneArchway(
@@ -925,10 +1454,26 @@ export function drawHangingSilkLantern(
   x: number,
   topAnchorY: number,
   t: number,
-  scale = 1
+  scale = 1,
+  room?: BuiltRoom
 ): void {
   const lanternImg = Assets.get('prop_lantern');
   if (!lanternImg) return;
+
+  // 为高空红绸宫灯补齐顶棚吊链或室外高杆灯柱，消灭半空无根漂浮感！
+  if (room) {
+    const chainImg = Assets.get('arch_iron_chain');
+    const ceilY = sampleCeilingY(room, x, false);
+    if (chainImg && ceilY > -20 && topAnchorY - ceilY <= 380) {
+      drawSuspensionChain(ctx, chainImg, x, ceilY - 2, topAnchorY + 6, 12, 0.78);
+    } else if (!room.indoor) {
+      const poleImg = Assets.get('arch_timber_pillar');
+      const baseY = sampleSupportBaseY(room, x, topAnchorY + 24);
+      if (poleImg && !isInsideDownShaft(room, x) && baseY - topAnchorY <= 290) {
+        drawSlicedColumn(ctx, poleImg, x, topAnchorY + 6, baseY, 15, 0.72, true);
+      }
+    }
+  }
 
   const sway = Math.sin(t * 2.4 + x * 0.03) * 0.06;
   ctx.save();
@@ -945,9 +1490,70 @@ export function drawOrthographicLanternPost(
   ctx: CanvasRenderingContext2D,
   x: number,
   lampY: number,
-  _groundY: number,
-  t: number
+  groundY: number,
+  t: number,
+  idx = 0,
+  room?: BuiltRoom
 ): void {
+  const distToGround = groundY - lampY;
+  const stonePostImg = Assets.get('prop_stone_lantern_post');
+  const urnImg = Assets.get('prop_breakable_urn');
+
+  // 走廊/石阶/古祠贴地可破坏陈设物（青石宫灯立柱 与 青瓷封酒瓮+铜烛台 交替坐落于地面！）
+  if (distToGround <= 135 && !isNaN(groundY) && groundY < 2000) {
+    const useUrn = idx % 2 === 1 && Boolean(urnImg);
+    if (useUrn && urnImg) {
+      const h = 56;
+      const w = urnImg.width * (h / urnImg.height);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.54)';
+      ctx.beginPath();
+      ctx.ellipse(x, groundY + 2, w * 0.44, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.drawImage(urnImg, x - w * 0.5, groundY - h + 3, w, h);
+
+      const flick = Math.sin(t * 11 + x) * 3;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const cg = ctx.createRadialGradient(x + w * 0.28, groundY - h * 0.65, 2, x + w * 0.28, groundY - h * 0.65, 68 + flick);
+      cg.addColorStop(0, 'rgba(254, 240, 138, 0.38)');
+      cg.addColorStop(0.55, 'rgba(251, 146, 60, 0.14)');
+      cg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = cg;
+      ctx.beginPath();
+      ctx.arc(x + w * 0.28, groundY - h * 0.65, 70, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      return;
+    }
+
+    if (stonePostImg) {
+      const h = 112;
+      const w = stonePostImg.width * (h / stonePostImg.height);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.56)';
+      ctx.beginPath();
+      ctx.ellipse(x, groundY + 2, w * 0.42, 5.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.drawImage(stonePostImg, x - w * 0.5, groundY - h + 3, w, h);
+
+      const flick = Math.sin(t * 9 + x) * 4;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const lg = ctx.createRadialGradient(x, groundY - h * 0.68, 3, x, groundY - h * 0.68, 105 + flick);
+      lg.addColorStop(0, 'rgba(254, 215, 170, 0.36)');
+      lg.addColorStop(0.55, 'rgba(234, 88, 12, 0.13)');
+      lg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = lg;
+      ctx.beginPath();
+      ctx.arc(x, groundY - h * 0.68, 108, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      return;
+    }
+  }
+
+  // 高处悬吊宫灯：补齐顶棚吊索连接
   const flick = Math.sin(t * 9 + x) * 4;
   const g = ctx.createRadialGradient(x, lampY + 18, 3, x, lampY + 18, 122 + flick);
   g.addColorStop(0, 'rgba(251, 146, 60, 0.36)');
@@ -958,5 +1564,5 @@ export function drawOrthographicLanternPost(
   ctx.arc(x, lampY + 18, 126, 0, Math.PI * 2);
   ctx.fill();
 
-  drawHangingSilkLantern(ctx, x, lampY - 8, t, 0.94);
+  drawHangingSilkLantern(ctx, x, lampY - 8, t, 0.94, room);
 }

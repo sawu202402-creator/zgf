@@ -936,13 +936,17 @@ export class UIManager {
       ctx.strokeStyle = isHere ? '#fef08a' : '#e2e8f0';
       ctx.lineWidth = detailed ? 1.8 : 1.1;
 
-      // 上边墙（支持多天井缺口）
+      const isRoomIdVisited = (tid: string): boolean =>
+        visitedSet.has(`${targetRealm}:${tid}`) ||
+        (targetRealm === 'normal' && visitedSet.has(tid));
+
+      // 上边墙（支持多天井缺口 + 未探索天井翠青高亮引导）
       const upShafts = rm.shafts
         .filter((sh) => sh.dir === 'up')
         .sort((a, b) => a.x1 - b.x1);
       ctx.beginPath();
       let curTopX = rx;
-      const halfG = Math.max(2.5, cellW * 0.16);
+      const halfG = Math.max(2.5, cellW * 0.18);
       for (const ush of upShafts) {
         const gapCx = rx + (((ush.x1 + ush.x2) * 0.5) / rm.pixelW) * rw;
         ctx.moveTo(curTopX, ry);
@@ -953,7 +957,15 @@ export class UIManager {
       ctx.lineTo(rx + rw, ry);
       ctx.stroke();
 
-      // 下边墙（支持多暗井缺口）
+      for (const ush of upShafts) {
+        if (!isRoomIdVisited(ush.targetRoomId)) {
+          const gapCx = rx + (((ush.x1 + ush.x2) * 0.5) / rm.pixelW) * rw;
+          ctx.fillStyle = '#38bdf8';
+          ctx.fillRect(gapCx - halfG * 0.65, ry - 2, halfG * 1.3, 3);
+        }
+      }
+
+      // 下边墙（支持多暗井缺口 + 未探索暗井翠青高亮引导）
       const downShafts = rm.shafts
         .filter((sh) => sh.dir === 'down')
         .sort((a, b) => a.x1 - b.x1);
@@ -969,7 +981,15 @@ export class UIManager {
       ctx.lineTo(rx + rw, ry + rh);
       ctx.stroke();
 
-      // 左右多层侧壁与门廊缺口（未击碎的封门暗壁在堪舆图上保持严丝合缝的实墙，破壁后方显露金门缺口！）
+      for (const dsh of downShafts) {
+        if (!isRoomIdVisited(dsh.targetRoomId)) {
+          const gapCx = rx + (((dsh.x1 + dsh.x2) * 0.5) / rm.pixelW) * rw;
+          ctx.fillStyle = '#38bdf8';
+          ctx.fillRect(gapCx - halfG * 0.65, ry + rh - 1, halfG * 1.3, 3);
+        }
+      }
+
+      // 左右多层侧壁与门廊缺口（未探明出口显露翠青引路开口，已连通门廊显金门标记！）
       const drawSideWallWithDoors = (side: 'left' | 'right') => {
         const wallX = side === 'left' ? rx : rx + rw;
         const doors = getRoomSideDoors(rm, side)
@@ -981,34 +1001,64 @@ export class UIManager {
                 rm.gridH - 1,
                 Math.max(0, Math.floor((d.floorY / Math.max(1, rm.pixelH)) * rm.gridH))
               );
-            return ry + (rOff + 0.54) * cellH;
+            return {
+              dyCenter: ry + (rOff + 0.54) * cellH,
+              unexplored: !isRoomIdVisited(d.targetRoomId),
+            };
           })
-          .sort((a, b) => a - b);
+          .sort((a, b) => a.dyCenter - b.dyCenter);
 
         ctx.strokeStyle = isHere ? '#fef08a' : '#e2e8f0';
         ctx.beginPath();
         let cy = ry;
-        for (const dyCenter of doors) {
+        for (const dItem of doors) {
           ctx.moveTo(wallX, cy);
-          ctx.lineTo(wallX, Math.max(cy, dyCenter - doorGap * 0.5));
-          cy = Math.min(ry + rh, dyCenter + doorGap * 0.5);
+          ctx.lineTo(wallX, Math.max(cy, dItem.dyCenter - doorGap * 0.5));
+          cy = Math.min(ry + rh, dItem.dyCenter + doorGap * 0.5);
         }
         ctx.moveTo(wallX, cy);
         ctx.lineTo(wallX, ry + rh);
         ctx.stroke();
 
-        ctx.fillStyle = '#fde047';
-        for (const dyCenter of doors) {
-          ctx.fillRect(
-            side === 'left' ? wallX - 2 : wallX - 1.5,
-            dyCenter - doorGap * 0.36,
-            3.5,
-            doorGap * 0.72
-          );
+        for (const dItem of doors) {
+          ctx.fillStyle = dItem.unexplored ? '#38bdf8' : '#fde047';
+          const tickW = dItem.unexplored ? (detailed ? 5.5 : 4.2) : 3.2;
+          const tx =
+            side === 'left'
+              ? wallX - (dItem.unexplored ? tickW * 0.72 : 1.8)
+              : wallX - (dItem.unexplored ? tickW * 0.28 : 1.4);
+          ctx.fillRect(tx, dItem.dyCenter - doorGap * 0.36, tickW, doorGap * 0.72);
         }
       };
       drawSideWallWithDoors('left');
       drawSideWallWithDoors('right');
+
+      // 《恶魔城》式堪舆图地标微缩徽记（古祠存档、八卦传送阵、万宝商铺在小地图与大地图一目了然！）
+      const midRx = rx + rw * 0.5;
+      const midRy = ry + rh * 0.5;
+      if (!detailed) {
+        if (rm.special === 'save_shrine') {
+          ctx.fillStyle = '#fef08a';
+          ctx.beginPath();
+          ctx.moveTo(midRx, midRy - 2.6);
+          ctx.lineTo(midRx + 2.6, midRy);
+          ctx.lineTo(midRx, midRy + 2.6);
+          ctx.lineTo(midRx - 2.6, midRy);
+          ctx.closePath();
+          ctx.fill();
+        } else if (rm.special === 'warp_bagua') {
+          ctx.strokeStyle = '#5eead4';
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.arc(midRx, midRy, 2.3, 0, Math.PI * 2);
+          ctx.stroke();
+        } else if (rm.id === 'library_shop' || rm.id === 'forge_smithy') {
+          ctx.fillStyle = '#fdba74';
+          ctx.beginPath();
+          ctx.arc(midRx, midRy, 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
 
       // 《月下 / 空洞骑士》式堪舆图记忆标记：未破能力锁闸门、未解二段跳高崖、未拾取房间秘宝自动高亮提示！
       if (rm.ironGate && !s.brokenSecretWalls.includes(rm.ironGate.id)) {
