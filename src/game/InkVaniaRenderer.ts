@@ -53,10 +53,10 @@ export class InkVaniaRenderer {
 
     const room = engine.room;
 
-    // 自适应宽屏贴合镜头：基础黄金视高 440px；在 19.5:9 / 20:9 / 21:9 全面屏手机进入单格房间 (800px) 时，
-    // 自动将镜头宽度严丝合缝贴合房间左右山墙 (minVH = 336)，彻底根除单格房间右侧空白穿帮！
+    // 锁定 440px 黄金横版动作镜头视高（单格厅堂已对称拓宽至 980px 原生覆盖 19.5:9 / 20:9 全面屏，零右侧空白且跳跃零晃动；
+    // 超宽带鱼屏 >2.23:1 时轻柔贴合至 minVH=408 并居中延伸两侧古堡山墙！）
     const baseScale = viewH / 440;
-    const fitWidthScale = Math.min(viewH / 336, viewW / room.pixelW);
+    const fitWidthScale = Math.min(viewH / 408, viewW / room.pixelW);
     const scale = Math.max(baseScale, fitWidthScale);
     const vW = viewW / scale;
     const vH = viewH / scale;

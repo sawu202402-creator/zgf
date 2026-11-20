@@ -3664,24 +3664,40 @@ export class GameEngine {
 
     p.onGround = false;
 
-    // 0D. 石砌建筑台面、落地矮石阶自动登阶与断崖高台 (SolidBlock) 着陆：
-    // - 落地矮石阶 (`groundAtMid - sb.y <= 54`)：平地行走或微跳靠近自动顺滑踏上台面，且绝不下穿陷入石砖内！
-    // - 悬空单向踏台 (`!groundResting`)：可从下方起跳穿过，站上后亦可按 ↓+跃 快速下跳！
+    // 0D. 石砌建筑台面、两级半阶踏步自动登阶、八卦法阵石阶与断崖高台着陆：
+    // - 落地矮石阶 (`groundAtMid - sb.y <= 54`)：靠近左右 18px 踏步自动先升半阶、踏入主台面升至顶层，丝滑如真实拾级而上，且绝不下穿陷入石砖内！
+    // - 八卦乾坤传送阵 (`room.special === 'warp_bagua'`)：靠近汉白玉前阶自动拾级登上发光阵眼台面 (`focalY - 26`)！
     if (room.solidBlocks) {
       const baseFloorHere = sampleSolidGroundY(room, p.x);
       for (const sb of room.solidBlocks) {
         const groundResting = isGroundRestingSolidBlock(room, sb);
-        const isLowGroundStep = groundResting && baseFloorHere - sb.y <= 54;
+        const stepRise = baseFloorHere - sb.y;
+        const isLowGroundStep = groundResting && stepRise >= 16 && stepRise <= 54;
         if (!groundResting && p.dropThroughTimer > 0) continue;
 
-        if (p.x >= sb.x - 10 && p.x <= sb.x + sb.w + 10) {
-          if (isLowGroundStep && p.vy >= -40 && prevY <= sb.y + 54 && nextY >= sb.y - 2) {
-            p.y = sb.y;
-            if (!wasGrounded && p.vy > 260) p.landSquash = 1;
+        if (isLowGroundStep && p.vy >= -40) {
+          const midStepY = Math.round(baseFloorHere - stepRise * 0.5);
+          if (p.x >= sb.x - 4 && p.x <= sb.x + sb.w + 4) {
+            if (prevY <= sb.y + 54 && nextY >= sb.y - 2) {
+              p.y = sb.y;
+              if (!wasGrounded && p.vy > 260) p.landSquash = 1;
+              if (p.vy > 0) p.vy = 0;
+              p.onGround = true;
+              break;
+            }
+          } else if (
+            ((sb.x > 44 && p.x >= sb.x - 20 && p.x < sb.x - 4) ||
+              (sb.x + sb.w < room.pixelW - 44 && p.x > sb.x + sb.w + 4 && p.x <= sb.x + sb.w + 20)) &&
+            prevY <= midStepY + 34 &&
+            nextY >= midStepY - 2
+          ) {
+            p.y = midStepY;
             if (p.vy > 0) p.vy = 0;
             p.onGround = true;
             break;
-          } else if (p.vy >= 0 && prevY <= sb.y + 18 && nextY >= sb.y) {
+          }
+        } else if (p.x >= sb.x - 8 && p.x <= sb.x + sb.w + 8) {
+          if (p.vy >= 0 && prevY <= sb.y + 18 && nextY >= sb.y) {
             p.y = sb.y;
             if (!wasGrounded && p.vy > 260) p.landSquash = 1;
             p.vy = 0;
@@ -3689,6 +3705,21 @@ export class GameEngine {
             break;
           }
         }
+      }
+    }
+
+    if (!p.onGround && room.special === 'warp_bagua' && p.vy >= -40) {
+      const dxAltar = Math.abs(p.x - room.focalX);
+      const topAltarY = room.focalY - 26;
+      const midAltarY = room.focalY - 13;
+      if (dxAltar <= 56 && prevY <= room.focalY + 8 && nextY >= topAltarY - 2) {
+        p.y = topAltarY;
+        if (p.vy > 0) p.vy = 0;
+        p.onGround = true;
+      } else if (dxAltar > 56 && dxAltar <= 78 && prevY <= room.focalY + 8 && nextY >= midAltarY - 2) {
+        p.y = midAltarY;
+        if (p.vy > 0) p.vy = 0;
+        p.onGround = true;
       }
     }
 

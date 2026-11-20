@@ -2627,7 +2627,75 @@ function createNormalCastleRooms(): BuiltRoom[] {
     },
   ];
 
-  return [...coreRooms.map((r) => ({ ...r, mapX: r.mapX + 1 })), ...expandedRooms];
+  return [...coreRooms.map((r) => ({ ...r, mapX: r.mapX + 1 })), ...expandedRooms].map(
+    widenSingleCellRoomForUltraWide
+  );
+}
+
+/**
+ * 适配现代 19.5:9 / 20:9 全面屏横版视口 (`vH = 440` 时 `vW ≈ 955~978px`)：
+ * 将原本仅 `800px` 宽的单格厅堂与竖塔对称拓宽至 `980px`（左右各延展 `90px` 殿宇空间，两端接门石台向两侧墙体无缝延展，内部跳台相对跨度保持 100% 像素级不变！），
+ * 从根源上消灭窄房间在宽屏手机右侧漏出空白墙外天幕的问题，同时保持 `vH = 440` 黄金视高不放大、跳跃不晃镜头！
+ */
+function widenSingleCellRoomForUltraWide(rm: BuiltRoom): BuiltRoom {
+  const TARGET_MIN_W = 980;
+  if (rm.pixelW >= TARGET_MIN_W) return rm;
+
+  const oldW = rm.pixelW;
+  const pad = Math.round((TARGET_MIN_W - oldW) * 0.5);
+  const newW = oldW + pad * 2;
+
+  return {
+    ...rm,
+    pixelW: newW,
+    focalX: rm.focalX + pad,
+    groundNodes: rm.groundNodes.map((gn) => ({
+      ...gn,
+      x: gn.x <= 2 ? 0 : gn.x >= oldW - 2 ? newW : gn.x + pad,
+    })),
+    ceilingSpans: rm.ceilingSpans.map((cs) => ({
+      ...cs,
+      x1: cs.x1 <= 2 ? 0 : cs.x1 + pad,
+      x2: cs.x2 >= oldW - 2 ? newW : cs.x2 + pad,
+    })),
+    shafts: rm.shafts.map((sh) => ({
+      ...sh,
+      x1: sh.x1 + pad,
+      x2: sh.x2 + pad,
+    })),
+    solidBlocks: rm.solidBlocks?.map((sb) => {
+      if (sb.x <= 4) {
+        return { ...sb, x: 0, w: sb.w + pad };
+      }
+      if (sb.x + sb.w >= oldW - 4) {
+        return { ...sb, x: sb.x + pad, w: sb.w + pad };
+      }
+      return { ...sb, x: sb.x + pad };
+    }),
+    ironGate: rm.ironGate ? { ...rm.ironGate, x: rm.ironGate.x + pad } : undefined,
+    secretWalls: rm.secretWalls?.map((sw) => {
+      if (sw.x <= 8) return { ...sw };
+      if (sw.x + sw.w >= oldW - 8) return { ...sw, x: sw.x + pad * 2 };
+      return { ...sw, x: sw.x + pad };
+    }),
+    climbWalls: rm.climbWalls?.map((cw) => ({ ...cw, x: cw.x + pad })),
+    decorProps: rm.decorProps?.map((dp) => ({ ...dp, x: dp.x + pad })),
+    clockGears: rm.clockGears?.map((cg) => ({ ...cg, x: cg.x + pad })),
+    pavilions: rm.pavilions.map((pv) => ({ ...pv, x: pv.x + pad })),
+    waterZones: rm.waterZones.map((wz) => ({
+      ...wz,
+      x1: wz.x1 <= 2 ? 0 : wz.x1 + pad,
+      x2: wz.x2 >= oldW - 2 ? newW : wz.x2 + pad,
+    })),
+    archways: rm.archways.map((ar) => ({ ...ar, x: ar.x + pad })),
+    torches: rm.torches.map((tc) => ({ ...tc, x: tc.x + pad })),
+    foregrounds: rm.foregrounds.map((fg) => ({ ...fg, x: fg.x + pad })),
+    lanterns: rm.lanterns.map((ln) => ({ ...ln, x: ln.x + pad })),
+    npcs: rm.npcs.map((npc) => ({ ...npc, x: npc.x + pad })),
+    steles: rm.steles?.map((st) => ({ ...st, x: st.x + pad })),
+    spawns: rm.spawns.map((sp) => ({ ...sp, x: sp.x + pad })),
+    pickups: rm.pickups.map((pk) => ({ ...pk, x: pk.x + pad })),
+  };
 }
 
 /**
@@ -2878,7 +2946,10 @@ function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
       lanterns: rm.lanterns.map((ln) => ({ x: W - ln.x, y: ln.y })),
       npcs: [],
       spawns: eliteSpawns,
-      pickups: invertedUpgradePickups[rm.id] || [],
+      pickups: (invertedUpgradePickups[rm.id] || []).map((pk) => ({
+        ...pk,
+        x: rm.gridW === 1 ? pk.x + 90 : pk.x,
+      })),
     };
   });
 }
