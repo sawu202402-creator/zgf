@@ -3517,6 +3517,14 @@ export class GameEngine {
     ) {
       return true;
     }
+    const orbitPlats = getClockGearOrbitPlatforms(this.room, p.animTime);
+    if (
+      orbitPlats.some(
+        (op) => p.x >= op.x + 4 && p.x <= op.x + op.w - 4 && Math.abs(p.y - op.y) < 10
+      )
+    ) {
+      return true;
+    }
     return Boolean(
       this.room.solidBlocks?.some(
         (sb) =>
@@ -3728,7 +3736,8 @@ export class GameEngine {
       const orbitPlats = getClockGearOrbitPlatforms(room, p.animTime);
       for (const op of orbitPlats) {
         if (p.x >= op.x + 4 && p.x <= op.x + op.w - 4) {
-          if (prevY <= op.y + 16 && nextY >= op.y - 4) {
+          const stepDownAllowance = 18 + Math.max(0, op.vy * dt * 2.5);
+          if (prevY <= op.y + stepDownAllowance && nextY >= op.y - 8) {
             p.y = op.y;
             p.x = Math.max(36, Math.min(room.pixelW - 36, p.x + op.vx * dt));
             p.vy = 0;
@@ -3763,10 +3772,10 @@ export class GameEngine {
       }
     }
 
-    // 2. 检测连续起伏青石地面/石拱桥/台阶贴合（向下竖井处地面自动敞开下坠！）
+    // 2. 检测连续起伏青石地面/石拱桥/多级丹陛台阶贴合（向下竖井处地面自动敞开下坠！）
     if (!p.onGround) {
       const groundY = sampleGroundY(room, p.x);
-      if (wasGrounded && p.vy >= 0 && Math.abs(nextY - groundY) <= 22) {
+      if (wasGrounded && p.vy >= 0 && Math.abs(nextY - groundY) <= 36) {
         p.y = groundY;
         p.vy = 0;
         p.onGround = true;

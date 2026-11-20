@@ -298,6 +298,26 @@ export function bakeOrthographicRoomTerrain(bctx: CanvasRenderingContext2D, room
       );
     }
 
+    // 1B-2. 梨园戏台 / 书阁茶席专属朱漆雕木台面 (`style === 'palace_wood'`)：叠绘手绘雕花红木台沿纹理，与石阶形成鲜明材质层次
+    const woodStageImg = Assets.get('env_indoor_ledge');
+    if (woodStageImg) {
+      const wsY = Math.floor(woodStageImg.height * 0.36);
+      const wsH = Math.floor(woodStageImg.height * 0.36);
+      const tileW = Math.min(240, Math.floor(woodStageImg.width * 0.76));
+      const tileSrcX = Math.floor(woodStageImg.width * 0.12);
+      for (let i = 0; i < room.groundNodes.length - 1; i++) {
+        const a = room.groundNodes[i];
+        const b = room.groundNodes[i + 1];
+        if (a.style !== 'palace_wood' || Math.abs(a.y - b.y) > 4) continue;
+        for (let wx = a.x; wx < b.x; wx += tileW) {
+          const wClip = Math.min(tileW, b.x - wx);
+          if (wClip <= 4) continue;
+          const srcW = Math.max(8, Math.floor((wClip / tileW) * (woodStageImg.width * 0.76)));
+          bctx.drawImage(woodStageImg, tileSrcX, wsY, srcW, wsH, wx, a.y - 5, wClip + 0.6, 30);
+        }
+      }
+    }
+
     // 1C. 渲染《月下夜想曲 / 斩妖行》式纯手绘高低悬台与须弥石座 (`room.solidBlocks`)——彻底根除生硬几何方框线！
     if (room.solidBlocks && room.solidBlocks.length > 0) {
       const indoorLedgeImg = Assets.get('env_indoor_ledge');
@@ -509,25 +529,39 @@ export function bakeOrthographicRoomTerrain(bctx: CanvasRenderingContext2D, room
 }
 
 /**
- * 计算钟塔旋转青铜齿轮附带的实时动态升降踏板
+ * 计算钟塔旋转青铜齿轮踏板与各区域悬索摆渡飞阁 / 配重升降机 (`movingPlatforms`) 的实时坐标与速度
  */
 export function getClockGearOrbitPlatforms(
   room: BuiltRoom,
   t: number
-): { x: number; y: number; w: number; vx: number; vy: number }[] {
-  if (!room.clockGears) return [];
-  const list: { x: number; y: number; w: number; vx: number; vy: number }[] = [];
-  for (const g of room.clockGears) {
-    if (!g.hasOrbitPlatforms) continue;
-    const orbitR = g.radius * 0.86;
-    const pw = 88;
-    for (let i = 0; i < 3; i++) {
-      const ang = t * g.speed + (i * Math.PI * 2) / 3;
-      const cx = g.x + Math.cos(ang) * orbitR;
-      const cy = g.y + Math.sin(ang) * orbitR;
-      const vx = -Math.sin(ang) * orbitR * g.speed;
-      const vy = Math.cos(ang) * orbitR * g.speed;
-      list.push({ x: cx - pw * 0.5, y: cy, w: pw, vx, vy });
+): { x: number; y: number; w: number; vx: number; vy: number; style?: string }[] {
+  const list: { x: number; y: number; w: number; vx: number; vy: number; style?: string }[] = [];
+  if (room.clockGears) {
+    for (const g of room.clockGears) {
+      if (!g.hasOrbitPlatforms) continue;
+      const orbitR = g.radius * 0.86;
+      const pw = 88;
+      for (let i = 0; i < 3; i++) {
+        const ang = t * g.speed + (i * Math.PI * 2) / 3;
+        const cx = g.x + Math.cos(ang) * orbitR;
+        const cy = g.y + Math.sin(ang) * orbitR;
+        const vx = -Math.sin(ang) * orbitR * g.speed;
+        const vy = Math.cos(ang) * orbitR * g.speed;
+        list.push({ x: cx - pw * 0.5, y: cy, w: pw, vx, vy, style: 'gear' });
+      }
+    }
+  }
+  if (room.movingPlatforms) {
+    for (const mp of room.movingPlatforms) {
+      const ph = mp.phase || 0;
+      const ang = t * mp.speed + ph;
+      const u = 0.5 - 0.5 * Math.cos(ang);
+      const du = 0.5 * mp.speed * Math.sin(ang);
+      const x = mp.x1 + (mp.x2 - mp.x1) * u;
+      const y = mp.y1 + (mp.y2 - mp.y1) * u;
+      const vx = (mp.x2 - mp.x1) * du;
+      const vy = (mp.y2 - mp.y1) * du;
+      list.push({ x, y, w: mp.w, vx, vy, style: mp.style || 'wood_ferry' });
     }
   }
   return list;
@@ -722,11 +756,39 @@ export function drawCastleInteriorPropsAndGears(
     }
   }
 
-  // 旋转青铜八卦巨齿轮与升降踏台
-  if (room.clockGears) {
+  // 旋转青铜八卦巨齿轮与摆渡飞阁 / 配重升降机踏台
+  if (room.clockGears || room.movingPlatforms) {
     const gearImg = Assets.get('prop_clock_gear');
     const ledgeImg = Assets.get('env_indoor_ledge') || Assets.get('env_pavilion');
-    if (gearImg) {
+    const pavImg = Assets.get('env_pavilion') || ledgeImg;
+
+    // 先绘配重升降机与滑索摆渡台的暗铜导链轨迹，让玩家一眼预判机关运动路线！
+    if (room.movingPlatforms) {
+      ctx.save();
+      for (const mp of room.movingPlatforms) {
+        const ax = mp.x1 + mp.w * 0.5;
+        const ay = mp.y1 + 6;
+        const bx = mp.x2 + mp.w * 0.5;
+        const by = mp.y2 + 6;
+        ctx.strokeStyle = 'rgba(180, 142, 76, 0.34)';
+        ctx.lineWidth = 2.2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(bx, by);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = 'rgba(217, 169, 78, 0.65)';
+        ctx.beginPath();
+        ctx.arc(ax, ay, 4.2, 0, Math.PI * 2);
+        ctx.arc(bx, by, 4.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    if (gearImg && room.clockGears) {
       for (const g of room.clockGears) {
         ctx.save();
         ctx.translate(g.x, g.y);
@@ -736,12 +798,24 @@ export function drawCastleInteriorPropsAndGears(
         ctx.restore();
       }
     }
-    if (ledgeImg) {
-      const orbitPlats = getClockGearOrbitPlatforms(room, t);
-      const sy = Math.floor(ledgeImg.height * 0.36);
-      const sh = Math.floor(ledgeImg.height * 0.28);
-      for (const op of orbitPlats) {
-        ctx.drawImage(ledgeImg, 12, sy, ledgeImg.width - 24, sh, op.x, op.y - 3, op.w, 20);
+
+    const orbitPlats = getClockGearOrbitPlatforms(room, t);
+    for (const op of orbitPlats) {
+      if (op.style === 'gear') {
+        if (ledgeImg) {
+          const sy = Math.floor(ledgeImg.height * 0.36);
+          const sh = Math.floor(ledgeImg.height * 0.28);
+          ctx.drawImage(ledgeImg, 12, sy, ledgeImg.width - 24, sh, op.x, op.y - 3, op.w, 20);
+        }
+      } else {
+        const deckImg = op.style === 'wood_ferry' ? pavImg : ledgeImg;
+        if (deckImg) {
+          const drawW = op.w + 12;
+          const ratio = deckImg.height / deckImg.width;
+          const drawH = Math.min(78, Math.max(52, drawW * ratio));
+          const topAlign = deckImg === ledgeImg ? 0.38 : 0.42;
+          ctx.drawImage(deckImg, op.x - 6, op.y - drawH * topAlign, drawW, drawH);
+        }
       }
     }
   }
