@@ -28,11 +28,13 @@ import {
   drawOrthographicStoneArchway,
   drawSeamlessParallaxBackdrop,
   drawSeamlessTitlePanorama,
+  drawSuspensionChain,
 } from './GuofengWorldArt';
 import { InputController } from './MotionInput';
 
 export class InkVaniaRenderer {
   private terrainCanvas: HTMLCanvasElement | null = null;
+  private lightCanvas: HTMLCanvasElement | null = null;
   private cachedTerrainKey = '';
   private ambientTime = 0;
 
@@ -88,7 +90,7 @@ export class InkVaniaRenderer {
     ctx.save();
     ctx.translate(-camLeft + shakeX, -camTop + shakeY);
 
-    this.renderMoonlitWater(ctx, room);
+    this.renderMoonlitWater(ctx, room, engine);
 
     this.ensureBakedStoneContour(room, engine.slot?.brokenSecretWalls ?? []);
     if (this.terrainCanvas) {
@@ -100,6 +102,7 @@ export class InkVaniaRenderer {
 
     drawCastleInteriorPropsAndGears(ctx, room, engine.player.animTime);
     this.renderPavilionStructures(ctx, room);
+    this.renderRoomHazardsAndCrumbleSlabs(ctx, room, engine);
     this.renderMidgroundArchwaysAndTorches(ctx, room, engine);
     this.renderFloorLightReflections(ctx, room, engine);
 
@@ -154,11 +157,15 @@ export class InkVaniaRenderer {
     this.renderProjectiles(ctx, engine);
     this.renderSlashImpacts(ctx, engine);
     this.renderParticlesAndFloats(ctx, engine);
+    this.renderBiomeWeatherAndDrips(ctx, room, camLeft, camTop, vW, vH);
 
     ctx.restore();
 
     // 3. 前景遮挡视差层 (1.25x)：手绘盘龙暗影巨柱与近景红绸大宫灯掠过镜头
     this.renderForegroundParallax(ctx, vW, vH, camLeft, room);
+
+    // 3B. 幽暗地宫/古墓/熔窟动态火光包裹照明遮罩（以少侠、火盆、烛台、石灯柱与岩浆为真实光源点亮暗室！）
+    this.renderSubterraneanTorchlightEnvelope(ctx, vW, vH, camLeft, camTop, room, engine);
 
     // 4. 全域环境色调统一滤镜层（将远景、地面、家具与角色统一在同一个国风冷暖光场内，彻底消除拼贴割裂感！）
     this.renderUnifiedBiomeColorGrade(ctx, vW, vH, room);
@@ -235,7 +242,11 @@ export class InkVaniaRenderer {
     drawSeamlessParallaxBackdrop(ctx, vW, vH, camLeft, room, this.ambientTime, camTop);
   }
 
-  private renderMoonlitWater(ctx: CanvasRenderingContext2D, room: BuiltRoom): void {
+  private renderMoonlitWater(
+    ctx: CanvasRenderingContext2D,
+    room: BuiltRoom,
+    engine: GameEngine
+  ): void {
     for (const wz of room.waterZones) {
       const w = wz.x2 - wz.x1;
       const h = room.pixelH - wz.surfaceY;
@@ -300,6 +311,392 @@ export class InkVaniaRenderer {
       ctx.lineTo(wz.x2, wz.surfaceY);
       ctx.stroke();
     }
+
+    // 实时绘制少侠趟水奔跑与跃入浅滩激起的水面扩散波纹！
+    if (engine.waterRipples.length > 0) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (const rp of engine.waterRipples) {
+        ctx.strokeStyle = `rgba(186, 230, 253, ${Math.max(0, rp.alpha)})`;
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.ellipse(rp.x, rp.y, rp.r, Math.max(2, rp.r * 0.19), 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+
+  /**
+   * 渲染《恶魔城》式纯手绘区域机关与陷阱：寒铁地刺、龟裂踏陷石板、地肺兽首喷火柱、钟楼青铜月牙斩仙摆斧！
+   */
+  private renderRoomHazardsAndCrumbleSlabs(
+    ctx: CanvasRenderingContext2D,
+    room: BuiltRoom,
+    engine: GameEngine
+  ): void {
+    const t = engine.player.animTime;
+    const crumbleImg = Assets.get('hazard_crumble_slab');
+    const spikesImg = Assets.get('hazard_spikes');
+    const ventImg = Assets.get('hazard_fire_vent');
+    const pendImg = Assets.get('hazard_pendulum');
+    const chainImg = Assets.get('arch_iron_chain');
+
+    // 1. 龟裂踏陷古石板 (`liveCrumbleSlabs`)
+    if (crumbleImg && engine.liveCrumbleSlabs.length > 0) {
+      for (const cs of engine.liveCrumbleSlabs) {
+        if (cs.state === 'broken') {
+          if (cs.timer < 0.45) {
+            ctx.save();
+            ctx.globalAlpha = ((0.45 - cs.timer) / 0.45) * 0.45;
+            const drawH = Math.max(36, (cs.w + 8) * (crumbleImg.height / crumbleImg.width));
+            ctx.drawImage(crumbleImg, cs.x - 4, cs.y - 3, cs.w + 8, drawH);
+            ctx.restore();
+          }
+          continue;
+        }
+        const jitterX = cs.state === 'shaking' ? Math.sin(t * 58) * 2.6 : 0;
+        const jitterY = cs.state === 'shaking' ? Math.cos(t * 46) * 1.2 : 0;
+        const drawW = cs.w + 8;
+        const drawH = Math.min(54, Math.max(36, drawW * (crumbleImg.height / crumbleImg.width)));
+        ctx.drawImage(crumbleImg, cs.x - 4 + jitterX, cs.y - 3 + jitterY, drawW, drawH);
+      }
+    }
+
+    if (!room.hazards || room.hazards.length === 0) return;
+
+    for (const hz of room.hazards) {
+      if (hz.kind === 'spikes' && spikesImg) {
+        const drawW = hz.span;
+        const drawH = Math.min(44, Math.max(28, drawW * (spikesImg.height / spikesImg.width) * 0.78));
+        ctx.drawImage(spikesImg, hz.x, hz.y - drawH + 5, drawW, drawH);
+      } else if (hz.kind === 'fire_vent') {
+        const period = hz.speed ?? 3.4;
+        const cyc = (((t + (hz.phase ?? 0)) % period) + period) % period;
+        const norm = cyc / period;
+        const isTelegraph = norm >= 0.48 && norm < 0.68;
+        const isErupting = norm >= 0.68 && norm <= 0.92;
+
+        // 喷发烈焰柱与蓄势红金熔光
+        if (isTelegraph || isErupting) {
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          if (isTelegraph) {
+            const pProg = (norm - 0.48) / 0.2;
+            const tg = ctx.createRadialGradient(hz.x, hz.y - 6, 4, hz.x, hz.y - 12, 34 + pProg * 22);
+            tg.addColorStop(0, `rgba(254, 240, 138, ${0.42 + pProg * 0.4})`);
+            tg.addColorStop(0.55, 'rgba(249, 115, 22, 0.32)');
+            tg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = tg;
+            ctx.beginPath();
+            ctx.arc(hz.x, hz.y - 8, 56, 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            const eProg = Math.sin(((norm - 0.68) / 0.24) * Math.PI);
+            const curH = hz.span * (0.45 + 0.55 * eProg);
+            const sway = Math.sin(t * 28 + hz.x) * 4;
+            const fg = ctx.createLinearGradient(0, hz.y, 0, hz.y - curH);
+            fg.addColorStop(0, 'rgba(254, 249, 195, 0.95)');
+            fg.addColorStop(0.35, 'rgba(251, 146, 60, 0.85)');
+            fg.addColorStop(0.78, 'rgba(220, 38, 38, 0.46)');
+            fg.addColorStop(1, 'rgba(127, 29, 29, 0)');
+            ctx.fillStyle = fg;
+            ctx.beginPath();
+            ctx.moveTo(hz.x - 20, hz.y);
+            ctx.quadraticCurveTo(hz.x - 16 + sway, hz.y - curH * 0.55, hz.x + sway * 0.6, hz.y - curH);
+            ctx.quadraticCurveTo(hz.x + 16 + sway, hz.y - curH * 0.55, hz.x + 20, hz.y);
+            ctx.closePath();
+            ctx.fill();
+
+            // 内芯炽白火舌
+            ctx.fillStyle = 'rgba(254, 252, 232, 0.85)';
+            ctx.beginPath();
+            ctx.moveTo(hz.x - 9, hz.y);
+            ctx.quadraticCurveTo(hz.x + sway * 0.5, hz.y - curH * 0.6, hz.x + sway * 0.3, hz.y - curH * 0.82);
+            ctx.quadraticCurveTo(hz.x + 9, hz.y - curH * 0.4, hz.x + 9, hz.y);
+            ctx.closePath();
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+
+        if (ventImg) {
+          const vw = 74;
+          const vh = vw * (ventImg.height / ventImg.width);
+          ctx.drawImage(ventImg, hz.x - vw * 0.5, hz.y - vh + 5, vw, vh);
+        }
+      } else if (hz.kind === 'pendulum' && pendImg) {
+        const ang = Math.sin(t * (hz.speed ?? 1.9) + (hz.phase ?? 0)) * 0.68;
+        const velSign = Math.cos(t * (hz.speed ?? 1.9) + (hz.phase ?? 0));
+        if (chainImg) {
+          drawSuspensionChain(ctx, chainImg, hz.x, Math.max(4, hz.y - 18), hz.y + 10, 16, 0.88);
+        }
+
+        // 刀锋掠过空气的寒铁残影弧线
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.strokeStyle = 'rgba(186, 230, 253, 0.22)';
+        ctx.lineWidth = 5;
+        const a0 = Math.PI * 0.5 + ang;
+        const a1 = a0 - velSign * 0.26;
+        ctx.beginPath();
+        ctx.arc(hz.x, hz.y, hz.span, Math.min(a0, a1), Math.max(a0, a1));
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.save();
+        ctx.translate(hz.x, hz.y);
+        ctx.rotate(-ang);
+        const ph = hz.span + 24;
+        const pw = ph * (pendImg.width / pendImg.height);
+        ctx.drawImage(pendImg, -pw * 0.5, -6, pw, ph);
+        ctx.restore();
+      }
+    }
+  }
+
+  /**
+   * 区域专属微生态气候粒子与溶洞滴水涟漪（竹叶萧萧、炉火飞烬、溶洞滴水、冥廊磷火、梨园落红、星汉微尘）
+   */
+  private renderBiomeWeatherAndDrips(
+    ctx: CanvasRenderingContext2D,
+    room: BuiltRoom,
+    camLeft: number,
+    camTop: number,
+    vW: number,
+    vH: number
+  ): void {
+    const t = this.ambientTime;
+    const isCatacomb = room.bgKey === 'bg_catacomb_tomb';
+
+    ctx.save();
+    if (room.region === 'gatehouse') {
+      // 外城苍竹瓮城：夜风吹拂墨绿竹叶斜掠而过
+      for (let i = 0; i < 14; i++) {
+        const lx =
+          camLeft +
+          ((((i * 173 + t * (48 + (i % 4) * 14)) % (vW + 120)) + (vW + 120)) % (vW + 120)) -
+          60;
+        const ly =
+          camTop +
+          ((((i * 97 + t * (22 + (i % 3) * 8) + Math.sin(t * 2 + i) * 14) % (vH + 60)) +
+            (vH + 60)) %
+            (vH + 60)) -
+          30;
+        const rot = t * 2.2 + i * 1.3;
+        ctx.save();
+        ctx.translate(lx, ly);
+        ctx.rotate(rot);
+        ctx.fillStyle = i % 2 === 0 ? 'rgba(52, 211, 153, 0.36)' : 'rgba(20, 83, 45, 0.52)';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 5.5, 1.7, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    } else if (room.region === 'forge') {
+      // 地肺铸剑坊：热浪裹挟赤金炉火余烬袅袅升腾
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 18; i++) {
+        const ex =
+          camLeft +
+          ((((i * 149 + Math.sin(t * 1.6 + i) * 22) % (vW + 80)) + (vW + 80)) % (vW + 80)) -
+          40;
+        const ey =
+          camTop +
+          vH -
+          ((((i * 83 + t * (32 + (i % 4) * 11)) % (vH + 60)) + (vH + 60)) % (vH + 60));
+        ctx.fillStyle = i % 3 === 0 ? 'rgba(254, 240, 138, 0.62)' : 'rgba(249, 115, 22, 0.48)';
+        ctx.beginPath();
+        ctx.arc(ex, ey, 1.3 + (i % 2) * 0.7, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (room.region === 'prison') {
+      // 寒潭水牢 & 九幽冥廊：洞顶钟乳石滴落水珠 + 落地水圈 + 幽冥碧磷鬼火
+      for (let i = 0; i < 7; i++) {
+        const dx = ((i * 277 + 130) % Math.max(200, room.pixelW - 160)) + 80;
+        if (dx < camLeft - 40 || dx > camLeft + vW + 40) continue;
+        const surfY =
+          room.waterZones.find((wz) => dx >= wz.x1 && dx <= wz.x2)?.surfaceY ??
+          sampleSolidGroundY(room, dx);
+        const startY = 38;
+        const fallSpan = Math.max(80, surfY - startY);
+        const period = 2.1 + (i % 3) * 0.45;
+        const cyc = ((t + i * 0.67) % period) / period;
+        if (cyc < 0.78) {
+          const prog = cyc / 0.78;
+          const dy = startY + prog * prog * fallSpan;
+          ctx.fillStyle = 'rgba(186, 230, 253, 0.68)';
+          ctx.beginPath();
+          ctx.ellipse(dx, dy, 1.3, 3.8, 0, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          const rProg = (cyc - 0.78) / 0.22;
+          ctx.strokeStyle = `rgba(125, 211, 252, ${(1 - rProg) * 0.52})`;
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.ellipse(dx, surfY + 1, 4 + rProg * 18, 1.2 + rProg * 3.5, 0, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+
+      if (isCatacomb) {
+        ctx.globalCompositeOperation = 'lighter';
+        for (let w = 0; w < 9; w++) {
+          const wx =
+            camLeft +
+            ((((w * 193 + Math.sin(t * 0.9 + w * 1.7) * 34) % (vW + 80)) + (vW + 80)) %
+              (vW + 80)) -
+            40;
+          const wy = camTop + 90 + ((w * 67) % Math.max(120, vH - 180)) + Math.cos(t * 1.8 + w) * 14;
+          const wg = ctx.createRadialGradient(wx, wy, 1, wx, wy, 14);
+          wg.addColorStop(0, 'rgba(110, 231, 183, 0.56)');
+          wg.addColorStop(1, 'rgba(16, 185, 129, 0)');
+          ctx.fillStyle = wg;
+          ctx.beginPath();
+          ctx.arc(wx, wy, 14, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    } else if (room.region === 'opera' || room.region === 'library') {
+      // 百戏梨园与藏书阁：飘舞的胭脂花瓣与古卷金尘
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 12; i++) {
+        const px =
+          camLeft +
+          ((((i * 163 + t * 18 + Math.sin(t * 1.4 + i) * 20) % (vW + 80)) + (vW + 80)) %
+            (vW + 80)) -
+          40;
+        const py =
+          camTop + ((((i * 91 + t * 15) % (vH + 60)) + (vH + 60)) % (vH + 60)) - 30;
+        ctx.fillStyle =
+          room.region === 'opera'
+            ? 'rgba(251, 113, 133, 0.42)'
+            : 'rgba(253, 224, 71, 0.36)';
+        ctx.beginPath();
+        ctx.ellipse(px, py, 2.8, 1.5, t + i, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else {
+      // 皇城大殿 / 望月钟塔 / 凌霄祭天坛：流萤星尘微光
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 11; i++) {
+        const sx = camLeft + ((i * 181 + Math.sin(t * 0.8 + i) * 26) % Math.max(120, vW));
+        const sy = camTop + ((i * 79 + Math.cos(t * 1.1 + i) * 18) % Math.max(120, vH));
+        const twinkle = 0.2 + 0.25 * Math.sin(t * 3.2 + i * 1.9);
+        ctx.fillStyle = `rgba(224, 242, 254, ${Math.max(0.05, twinkle)})`;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
+  /**
+   * 幽暗地宫 / 古墓 / 熔窟 / 独立秘室动态多光源火光包裹层（1/4 分辨率离屏烘焙，零帧率损耗，极致氛围沉浸感！）
+   */
+  private renderSubterraneanTorchlightEnvelope(
+    ctx: CanvasRenderingContext2D,
+    vW: number,
+    vH: number,
+    camLeft: number,
+    camTop: number,
+    room: BuiltRoom,
+    engine: GameEngine
+  ): void {
+    const isDarkDungeon =
+      room.region === 'prison' ||
+      room.region === 'forge' ||
+      Boolean(room.isSecretRoom) ||
+      room.realm === 'inverted';
+    if (!isDarkDungeon) return;
+
+    const scaleDown = 0.25;
+    const lw = Math.max(64, Math.ceil(vW * scaleDown));
+    const lh = Math.max(48, Math.ceil(vH * scaleDown));
+    if (!this.lightCanvas) {
+      this.lightCanvas = document.createElement('canvas');
+    }
+    if (this.lightCanvas.width !== lw || this.lightCanvas.height !== lh) {
+      this.lightCanvas.width = lw;
+      this.lightCanvas.height = lh;
+    }
+
+    const lctx = this.lightCanvas.getContext('2d')!;
+    lctx.clearRect(0, 0, lw, lh);
+
+    const darknessAlpha =
+      room.bgKey === 'bg_catacomb_tomb'
+        ? 0.52
+        : room.region === 'prison'
+          ? 0.44
+          : room.region === 'forge'
+            ? 0.36
+            : 0.34;
+    lctx.globalCompositeOperation = 'source-over';
+    lctx.fillStyle = `rgba(3, 6, 13, ${darknessAlpha})`;
+    lctx.fillRect(0, 0, lw, lh);
+
+    lctx.globalCompositeOperation = 'destination-out';
+    const punchLight = (wx: number, wy: number, radius: number, strength = 1) => {
+      const sx = (wx - camLeft) * scaleDown;
+      const sy = (wy - camTop) * scaleDown;
+      const sr = radius * scaleDown;
+      if (sx + sr < 0 || sx - sr > lw || sy + sr < 0 || sy - sr > lh) return;
+      const g = lctx.createRadialGradient(sx, sy, sr * 0.08, sx, sy, sr);
+      g.addColorStop(0, `rgba(0, 0, 0, ${Math.min(1, strength)})`);
+      g.addColorStop(0.55, `rgba(0, 0, 0, ${0.58 * strength})`);
+      g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      lctx.fillStyle = g;
+      lctx.beginPath();
+      lctx.arc(sx, sy, sr, 0, Math.PI * 2);
+      lctx.fill();
+    };
+
+    const p = engine.player;
+    const flick = Math.sin(this.ambientTime * 9.5) * 8;
+    // 1. 少侠自身护体剑意明光与御剑剑灵微光（保证核心战斗视野始终通透清晰！）
+    punchLight(p.x, p.y - 38, 210 + flick * 0.5, 0.96);
+    if (engine.hasAbility('familiar_sword')) {
+      punchLight(engine.familiar.x, engine.familiar.y, 95, 0.65);
+    }
+
+    // 2. 房间固定火盆、仙鹤香炉、吊灯光源
+    if (room.decorProps) {
+      for (const dp of room.decorProps) {
+        if (dp.kind === 'dragon_brazier') {
+          punchLight(dp.x, dp.y - 68, 195 + flick, 0.95);
+        } else if (dp.kind === 'incense_burner') {
+          punchLight(dp.x, dp.y - 64, 140 + flick * 0.5, 0.78);
+        } else if (dp.kind === 'chandelier') {
+          punchLight(dp.x, dp.y + 95, 175 + flick * 0.6, 0.85);
+        }
+      }
+    }
+
+    // 3. 未被劈碎的青石宫灯柱、铜烛台与高空红绸灯笼（劈碎烛台后对应区域真实变暗！）
+    for (const tc of engine.liveLanterns) {
+      if (tc.broken) continue;
+      const gy = sampleSolidGroundY(room, tc.x);
+      const ly = gy - tc.y <= 135 ? gy - 44 : tc.y + 16;
+      punchLight(tc.x, ly, 138 + flick * 0.6, 0.82);
+    }
+    for (const ln of room.lanterns) {
+      punchLight(ln.x, ln.y, 130 + flick * 0.5, 0.78);
+    }
+
+    // 4. 熔金岩浆河、古祠与八卦传送阵自发光
+    for (const wz of room.waterZones) {
+      if (wz.liquidKind !== 'lava') continue;
+      for (let lx = wz.x1 + 60; lx < wz.x2; lx += 140) {
+        punchLight(lx, wz.surfaceY - 12, 165 + flick, 0.88);
+      }
+    }
+    if (room.special === 'save_shrine' || room.special === 'warp_bagua') {
+      punchLight(room.focalX, room.focalY - 54, 215, 0.96);
+    }
+
+    ctx.drawImage(this.lightCanvas, 0, 0, lw, lh, 0, 0, vW, vH);
   }
 
   private renderMidgroundArchwaysAndTorches(

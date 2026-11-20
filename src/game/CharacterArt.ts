@@ -1189,6 +1189,44 @@ export function drawMonsterOrBoss(
       joints
     );
     ctx.restore();
+
+    // 怪物差异化战术可读性特效：铜甲卫正面金盾光弧、纸人居合拔刀寒星、百戏傀儡悬丝红线！
+    if (e.profile.shieldedFront && e.aiState === 'stalk') {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = `rgba(251, 191, 36, ${0.38 + Math.sin(t * 5 + e.id) * 0.1})`;
+      ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      const sAng = e.facing === 1 ? -0.68 : Math.PI - 0.68;
+      ctx.arc(0, -h * 0.52, w * 0.56, sAng, sAng + 1.36);
+      ctx.stroke();
+      ctx.restore();
+    } else if (e.profile.kind === 'paper_swordsman' && e.aiState === 'windup') {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const gx = -e.facing * 12;
+      const gy = -h * 0.44;
+      ctx.strokeStyle = '#e0f2fe';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.moveTo(gx - 14, gy);
+      ctx.lineTo(gx + 14, gy);
+      ctx.moveTo(gx, gy - 9);
+      ctx.lineTo(gx, gy + 9);
+      ctx.stroke();
+      ctx.restore();
+    } else if (e.profile.kind === 'opera_puppet') {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(244, 63, 94, 0.28)';
+      ctx.lineWidth = 1;
+      for (const ox of [-10, 0, 10]) {
+        ctx.beginPath();
+        ctx.moveTo(ox, -h * 0.78);
+        ctx.lineTo(ox + Math.sin(t * 2.5 + ox) * 4, -h - 78);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
   }
 
   // 玄冥寒魄霜冻迟缓与赤练/碧蟾持续灼毒视觉反馈！

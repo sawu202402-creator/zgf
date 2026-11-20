@@ -24,6 +24,10 @@ export type AssetKey =
   | 'arch_side_doorframe'
   | 'prop_stone_lantern_post'
   | 'prop_breakable_urn'
+  | 'hazard_spikes'
+  | 'hazard_pendulum'
+  | 'hazard_crumble_slab'
+  | 'hazard_fire_vent'
   | 'prop_bookshelf'
   | 'prop_chandelier'
   | 'prop_clock_gear'
@@ -119,7 +123,7 @@ export type AssetKey =
   | 'boss_op_0'
   | 'boss_op_1';
 
-const ASSET_VERSION = 'painted_v11';
+const ASSET_VERSION = 'painted_v12';
 
 const ASSET_FILES: Record<AssetKey, string> = {
   bg_title: './assets/bg_title.webp',
@@ -147,6 +151,10 @@ const ASSET_FILES: Record<AssetKey, string> = {
   arch_side_doorframe: './assets/arch_side_doorframe.webp',
   prop_stone_lantern_post: './assets/prop_stone_lantern_post.webp',
   prop_breakable_urn: './assets/prop_breakable_urn.webp',
+  hazard_spikes: './assets/hazard_spikes.webp',
+  hazard_pendulum: './assets/hazard_pendulum.webp',
+  hazard_crumble_slab: './assets/hazard_crumble_slab.webp',
+  hazard_fire_vent: './assets/hazard_fire_vent.webp',
   prop_bookshelf: './assets/prop_bookshelf.webp',
   prop_chandelier: './assets/prop_chandelier.webp',
   prop_clock_gear: './assets/prop_clock_gear.webp',

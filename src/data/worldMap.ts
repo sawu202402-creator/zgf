@@ -173,6 +173,23 @@ export interface MovingPlatformDef {
   style?: 'wood_ferry' | 'bronze_lift' | 'scholar_ladder';
 }
 
+export interface RoomHazardDef {
+  kind: 'spikes' | 'pendulum' | 'fire_vent';
+  x: number;
+  y: number;
+  /** 地刺宽度 / 摆斧臂长 / 地肺喷火高度 */
+  span: number;
+  speed?: number;
+  phase?: number;
+}
+
+export interface CrumbleSlabDef {
+  id: string;
+  x: number;
+  y: number;
+  w: number;
+}
+
 export interface BuiltRoom {
   id: string;
   name: string;
@@ -211,6 +228,8 @@ export interface BuiltRoom {
   decorProps?: CastleDecorProp[];
   clockGears?: ClockworkGear[];
   movingPlatforms?: MovingPlatformDef[];
+  hazards?: RoomHazardDef[];
+  crumbleSlabs?: CrumbleSlabDef[];
   pavilions: PavilionPlatform[];
   waterZones: WaterZone[];
   archways: ArchwayProp[];
@@ -3172,9 +3191,122 @@ function createNormalCastleRooms(): BuiltRoom[] {
     },
   ];
 
-  return [...coreRooms.map((r) => ({ ...r, mapX: r.mapX + 1 })), ...expandedRooms].map(
-    widenSingleCellRoomForUltraWide
-  );
+  // 全城差异化《恶魔城》式区域机关与陷阱（寒铁地刺、钟楼斩仙摆斧、地肺间歇火柱、龟裂踏陷石板）
+  const roomHazardLayouts: Record<
+    string,
+    { hazards?: RoomHazardDef[]; crumbleSlabs?: CrumbleSlabDef[] }
+  > = {
+    gate_2: {
+      hazards: [{ kind: 'spikes', x: 675, y: 456, span: 95 }],
+      crumbleSlabs: [{ id: 'cs_gate2_1', x: 585, y: 340, w: 115 }],
+    },
+    alchemy_lab: {
+      hazards: [
+        { kind: 'pendulum', x: 960, y: 32, span: 150, speed: 1.85, phase: 0.4 },
+      ],
+      crumbleSlabs: [{ id: 'cs_alch_1', x: 185, y: 342, w: 115 }],
+    },
+    west_armory: {
+      hazards: [{ kind: 'pendulum', x: 400, y: 36, span: 142, speed: 1.9, phase: 1.2 }],
+      crumbleSlabs: [{ id: 'cs_warm_1', x: 38, y: 316, w: 96 }],
+    },
+    hall_corridor: {
+      hazards: [{ kind: 'pendulum', x: 1380, y: 26, span: 162, speed: 1.8, phase: 0.8 }],
+      crumbleSlabs: [{ id: 'cs_hall_1', x: 685, y: 248, w: 120 }],
+    },
+    forge_smithy: {
+      hazards: [{ kind: 'fire_vent', x: 150, y: 428, span: 128, speed: 3.5, phase: 0.5 }],
+    },
+    forge_molten_hall: {
+      hazards: [
+        { kind: 'fire_vent', x: 320, y: 408, span: 142, speed: 3.4, phase: 0 },
+        { kind: 'fire_vent', x: 480, y: 408, span: 142, speed: 3.4, phase: 1.7 },
+      ],
+    },
+    secret_forge_smeltery: {
+      hazards: [{ kind: 'fire_vent', x: 265, y: 432, span: 135, speed: 3.2, phase: 0.9 }],
+    },
+    prison_waterway: {
+      hazards: [{ kind: 'pendulum', x: 1035, y: 32, span: 158, speed: 1.75, phase: 0.3 }],
+      crumbleSlabs: [
+        { id: 'cs_pris_1', x: 635, y: 356, w: 115 },
+        { id: 'cs_pris_2', x: 1300, y: 288, w: 110 },
+      ],
+    },
+    east_outer_tower: {
+      hazards: [
+        { kind: 'pendulum', x: 400, y: 840, span: 145, speed: 1.9, phase: 0 },
+        { kind: 'pendulum', x: 400, y: 440, span: 140, speed: 2.05, phase: 1.6 },
+      ],
+      crumbleSlabs: [
+        { id: 'cs_tow_1', x: 375, y: 1356, w: 105 },
+        { id: 'cs_tow_2', x: 205, y: 634, w: 110 },
+      ],
+    },
+    upper_library: {
+      crumbleSlabs: [
+        { id: 'cs_lib_1', x: 590, y: 336, w: 105 },
+        { id: 'cs_lib_2', x: 965, y: 336, w: 105 },
+      ],
+    },
+    opera_gallery: {
+      hazards: [{ kind: 'pendulum', x: 830, y: 34, span: 152, speed: 1.85, phase: 1.1 }],
+      crumbleSlabs: [{ id: 'cs_op_1', x: 430, y: 292, w: 105 }],
+    },
+    clock_gear_hall: {
+      hazards: [
+        { kind: 'spikes', x: 235, y: 442, span: 100 },
+        { kind: 'spikes', x: 465, y: 442, span: 100 },
+        { kind: 'pendulum', x: 400, y: 34, span: 148, speed: 2.05, phase: 0.7 },
+      ],
+    },
+    bamboo_outpost: {
+      crumbleSlabs: [{ id: 'cs_bam_1', x: 265, y: 308, w: 108 }],
+    },
+    catacomb_hall: {
+      hazards: [
+        { kind: 'spikes', x: 545, y: 450, span: 96 },
+        { kind: 'spikes', x: 1190, y: 452, span: 105 },
+        { kind: 'pendulum', x: 885, y: 34, span: 156, speed: 1.85, phase: 0.5 },
+      ],
+      crumbleSlabs: [{ id: 'cs_cat_1', x: 935, y: 320, w: 115 }],
+    },
+    secret_catacomb_treasury: {
+      hazards: [
+        { kind: 'spikes', x: 205, y: 428, span: 56 },
+        { kind: 'spikes', x: 530, y: 428, span: 56 },
+      ],
+    },
+    catacomb_shrine: {
+      hazards: [{ kind: 'pendulum', x: 415, y: 36, span: 152, speed: 1.9, phase: 1.4 }],
+    },
+    observatory_bridge: {
+      crumbleSlabs: [
+        { id: 'cs_obs_1', x: 540, y: 318, w: 110 },
+        { id: 'cs_obs_2', x: 950, y: 318, w: 110 },
+      ],
+    },
+    secret_sword_tomb: {
+      hazards: [{ kind: 'spikes', x: 205, y: 428, span: 100 }],
+      crumbleSlabs: [{ id: 'cs_tomb_1', x: 300, y: 308, w: 105 }],
+    },
+    secret_thunder_vault: {
+      hazards: [{ kind: 'pendulum', x: 485, y: 36, span: 148, speed: 2.0, phase: 0.6 }],
+    },
+  };
+
+  return [...coreRooms.map((r) => ({ ...r, mapX: r.mapX + 1 })), ...expandedRooms]
+    .map((rm) => {
+      const extra = roomHazardLayouts[rm.id];
+      return extra
+        ? {
+            ...rm,
+            hazards: extra.hazards ?? rm.hazards,
+            crumbleSlabs: extra.crumbleSlabs ?? rm.crumbleSlabs,
+          }
+        : rm;
+    })
+    .map(widenSingleCellRoomForUltraWide);
 }
 
 /**
@@ -3230,6 +3362,14 @@ function widenSingleCellRoomForUltraWide(rm: BuiltRoom): BuiltRoom {
       ...mp,
       x1: mp.x1 + pad,
       x2: mp.x2 + pad,
+    })),
+    hazards: rm.hazards?.map((hz) => ({
+      ...hz,
+      x: hz.x + pad,
+    })),
+    crumbleSlabs: rm.crumbleSlabs?.map((cs) => ({
+      ...cs,
+      x: cs.x + pad,
     })),
     pavilions: rm.pavilions.map((pv) => ({ ...pv, x: pv.x + pad })),
     waterZones: rm.waterZones.map((wz) => ({
@@ -3492,6 +3632,15 @@ function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
         ...mp,
         x1: W - mp.x1 - mp.w,
         x2: W - mp.x2 - mp.w,
+      })),
+      hazards: rm.hazards?.map((hz) => ({
+        ...hz,
+        x: hz.kind === 'spikes' ? W - hz.x - hz.span : W - hz.x,
+      })),
+      crumbleSlabs: rm.crumbleSlabs?.map((cs) => ({
+        ...cs,
+        id: `inv_${cs.id}`,
+        x: W - cs.x - cs.w,
       })),
       decorProps: rm.decorProps?.map((dp) => ({ ...dp, x: W - dp.x })),
       waterZones: rm.waterZones.map((wz) => ({

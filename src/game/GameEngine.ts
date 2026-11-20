@@ -309,6 +309,15 @@ export class GameEngine {
   public enemies: EnemyEntity[] = [];
   public dyingSouls: DyingEnemySoul[] = [];
   public liveLanterns: BreakableLanternEntity[] = [];
+  public liveCrumbleSlabs: {
+    id: string;
+    x: number;
+    y: number;
+    w: number;
+    state: 'solid' | 'shaking' | 'broken';
+    timer: number;
+  }[] = [];
+  public waterRipples: { x: number; y: number; r: number; maxR: number; alpha: number }[] = [];
   private secretWallHits = new Map<string, number>();
   private orbitTickTimer = 0;
   public bossRushWave = 0;
@@ -588,6 +597,15 @@ export class GameEngine {
       y: tc.y,
       broken: false,
     }));
+    this.liveCrumbleSlabs = (nextRoom.crumbleSlabs || []).map((cs) => ({
+      id: cs.id,
+      x: cs.x,
+      y: cs.y,
+      w: cs.w,
+      state: 'solid',
+      timer: 0,
+    }));
+    this.waterRipples = [];
 
     for (const pk of nextRoom.pickups) {
       if (s.collectedPickups.includes(pk.id)) continue;
@@ -863,6 +881,7 @@ export class GameEngine {
     this.updateOrbitSwords(dt);
     this.updateProjectiles(dt);
     this.updateSkyStrikes(dt);
+    this.updateRoomHazardsAndSlabs(dt);
     this.updateEnemies(dt);
     this.updateDrops(dt);
     this.updateParticles(dt);
@@ -1170,18 +1189,23 @@ export class GameEngine {
         if (p.onGround) {
           const prevStep = Math.floor(p.runCycle * 0.5);
           p.runCycle += dt * 13.8 * p.speedMult * sprintBoost;
-          if (Math.floor(p.runCycle * 0.5) !== prevStep && p.sprintTimer > 0.25) {
-            this.particles.push({
-              kind: 'ink',
-              x: p.x - p.facing * 10,
-              y: p.y - 2,
-              vx: -p.facing * (45 + Math.random() * 35),
-              vy: -18 - Math.random() * 24,
-              size: 2.6,
-              color: 'rgba(148, 163, 184, 0.55)',
-              life: 0.24,
-              maxLife: 0.24,
-            });
+          if (Math.floor(p.runCycle * 0.5) !== prevStep) {
+            const waterY = this.getShallowWaterSurfaceAt(p.x, p.y);
+            if (waterY !== null) {
+              this.spawnWaterSplash(p.x, waterY, 4, 0.75);
+            } else if (p.sprintTimer > 0.22) {
+              this.particles.push({
+                kind: 'ink',
+                x: p.x - p.facing * 10,
+                y: p.y - 2,
+                vx: -p.facing * (45 + Math.random() * 35),
+                vy: -18 - Math.random() * 24,
+                size: 2.8,
+                color: 'rgba(148, 163, 184, 0.55)',
+                life: 0.24,
+                maxLife: 0.24,
+              });
+            }
           }
         }
       } else {
@@ -1302,41 +1326,48 @@ export class GameEngine {
     const w = WEAPONS[this.slot.equippedWeapon] || WEAPONS.sword_1;
     const arch = w.archetype;
 
-    const maxSteps = arch === 'greatsword' || arch === 'whip' ? 2 : 3;
+    const maxSteps = 3;
     p.comboStep = (p.comboStep + 1) % maxSteps;
-    p.comboResetTimer = 0.78;
+    p.comboResetTimer = 0.85;
+    const isFinisher = p.comboStep === 2;
 
     let duration = 0.24;
     let cd = 0.2;
     if (arch === 'greatsword') {
-      duration = 0.44;
-      cd = 0.42;
+      duration = isFinisher ? 0.5 : 0.44;
+      cd = isFinisher ? 0.48 : 0.42;
     } else if (arch === 'daggers') {
-      duration = 0.16;
-      cd = 0.12;
-      if (!p.onGround && p.vy > -45) p.vy = -48; // 双刺空中乱舞短暂滞空！
+      duration = isFinisher ? 0.22 : 0.16;
+      cd = isFinisher ? 0.17 : 0.12;
+      if (!p.onGround && p.vy > -45) p.vy = -52; // 双刺空中乱舞短暂滞空！
     } else if (arch === 'spear') {
-      duration = 0.27;
-      cd = 0.23;
+      duration = isFinisher ? 0.32 : 0.27;
+      cd = isFinisher ? 0.26 : 0.23;
     } else if (arch === 'whip') {
-      duration = 0.32;
-      cd = 0.29;
-    } else if (p.comboStep === 2) {
-      duration = 0.3;
-      cd = 0.22;
+      duration = isFinisher ? 0.36 : 0.32;
+      cd = isFinisher ? 0.32 : 0.29;
+    } else if (isFinisher) {
+      duration = 0.31;
+      cd = 0.23;
     }
     p.attackCooldown = cd;
 
     if (p.onGround) {
       const stepV =
         arch === 'greatsword'
-          ? 145
+          ? isFinisher
+            ? 215
+            : 145
           : arch === 'daggers'
-            ? 85
+            ? isFinisher
+              ? 165
+              : 85
             : arch === 'whip'
-              ? 40
-              : p.comboStep === 2
-                ? 210
+              ? isFinisher
+                ? 95
+                : 40
+              : isFinisher
+                ? 225
                 : 105;
       p.vx = p.facing * stepV;
     }
@@ -1344,7 +1375,7 @@ export class GameEngine {
     const pogoDown = arch === 'sword' && !p.onGround && this.input.moveY > 0.5;
 
     // 终极三阶名剑【七星龙渊剑】第三式普攻自带一道剑芒破空！
-    if (w.id === 'sword_3' && p.comboStep === 2) {
+    if (w.id === 'sword_3' && isFinisher) {
       this.projectiles.push({
         fromPlayer: true,
         kind: 'qi_wave',
@@ -1362,6 +1393,7 @@ export class GameEngine {
       });
     }
 
+    const reachMult = isFinisher ? 1.18 : 1.0;
     this.slashHitIds.clear();
     this.activeSlash = {
       x: p.x,
@@ -1374,14 +1406,14 @@ export class GameEngine {
       pogoDown,
       progress: 0,
       duration,
-      reachX: Math.max(w.reachX + 20, arch === 'greatsword' ? 128 : 74),
-      reachY: Math.max(w.reachY + 14, arch === 'greatsword' ? 105 : 48),
+      reachX: Math.round(Math.max(w.reachX + 20, arch === 'greatsword' ? 128 : 74) * reachMult),
+      reachY: Math.round(Math.max(w.reachY + 14, arch === 'greatsword' ? 105 : 48) * (isFinisher ? 1.12 : 1)),
       color: w.color,
-      glowColor: w.glowColor,
+      glowColor: isFinisher ? '#fde047' : w.glowColor,
       slammedGround: false,
     };
 
-    AudioFX.playSlash(arch === 'greatsword' || arch === 'whip' ? 'heavy' : 'light');
+    AudioFX.playSlash(arch === 'greatsword' || arch === 'whip' || isFinisher ? 'heavy' : 'light');
   }
 
   /**
@@ -2156,7 +2188,8 @@ export class GameEngine {
             e.aiState !== 'staggered' &&
             sl.facing !== e.facing
           ) {
-            if (sl.archetype === 'greatsword') {
+            // 重兵陌刀或任意武器第三式【破军终结斩】皆可强行震开正盾硬直！
+            if (sl.archetype === 'greatsword' || sl.comboStep === 2) {
               e.aiState = 'staggered';
               e.stateTimer = 1.75;
               e.vx = sl.facing * 185;
@@ -2200,6 +2233,11 @@ export class GameEngine {
             }
           }
 
+          if (sl.comboStep === 2) {
+            this.hitstopTimer = Math.max(this.hitstopTimer, 0.042);
+            this.screenShake = Math.max(this.screenShake, 4.2);
+          }
+
           // 以战养气：近战挥砍命中敌人恢复真气（叠加衣甲与天罡聚气扳指加成！）
           const eqArm = ARMORS[this.slot.equippedArmor] || ARMORS.cloth_tunic;
           const eqAcc = ARMORS[this.slot.equippedAccessory] || ARMORS.broken_jade;
@@ -2208,7 +2246,12 @@ export class GameEngine {
           p.mp = Math.min(p.maxMp, p.mp + mpGain);
 
           const baseHitDmg = Math.round(this.player.atk * dmgMult);
-          this.applyDamageToEnemy(e, baseHitDmg, forceCrit, wDef.poiseDmg);
+          this.applyDamageToEnemy(
+            e,
+            baseHitDmg,
+            forceCrit,
+            Math.round(wDef.poiseDmg * (sl.comboStep === 2 ? 1.4 : 1))
+          );
 
           // 神兵专属词条异象触发（霜冻迟缓 / 火毒灼烧 / 千影多段剑气 / 紫电链锁奔雷！）
           if (e.hp > 0) {
@@ -2422,6 +2465,171 @@ export class GameEngine {
         ) {
           this.damagePlayer(pr.dmg, pr.x < p.x ? 1 : -1);
           this.projectiles.splice(i, 1);
+        }
+      }
+    }
+  }
+
+  public getShallowWaterSurfaceAt(x: number, y: number): number | null {
+    if (!this.room) return null;
+    for (const wz of this.room.waterZones) {
+      if (wz.liquidKind === 'lava') continue;
+      if (x >= wz.x1 + 8 && x <= wz.x2 - 8 && y >= wz.surfaceY - 12 && y <= wz.surfaceY + 56) {
+        return wz.surfaceY;
+      }
+    }
+    return null;
+  }
+
+  public spawnWaterSplash(x: number, surfaceY: number, count = 6, scale = 1): void {
+    this.waterRipples.push({
+      x,
+      y: surfaceY + 2,
+      r: 6 * scale,
+      maxR: (34 + Math.random() * 14) * scale,
+      alpha: 0.72,
+    });
+    if (this.waterRipples.length > 28) this.waterRipples.shift();
+
+    for (let i = 0; i < count; i++) {
+      const ang = -Math.PI * (0.22 + Math.random() * 0.56);
+      const spd = (75 + Math.random() * 95) * scale;
+      this.particles.push({
+        kind: 'spark',
+        x: x + (Math.random() - 0.5) * 14,
+        y: surfaceY,
+        vx: Math.cos(ang) * spd,
+        vy: Math.sin(ang) * spd - 35,
+        size: 2.2 * scale,
+        color: i % 2 === 0 ? '#bae6fd' : '#5eead4',
+        life: 0.28 + Math.random() * 0.14,
+        maxLife: 0.42,
+      });
+    }
+  }
+
+  private updateRoomHazardsAndSlabs(dt: number): void {
+    const room = this.room;
+    const p = this.player;
+    if (!room) return;
+
+    // 1. 水面涟漪扩散衰减
+    for (let i = this.waterRipples.length - 1; i >= 0; i--) {
+      const rp = this.waterRipples[i];
+      rp.r += (rp.maxR - rp.r) * Math.min(1, dt * 6.5) + 18 * dt;
+      rp.alpha -= dt * 1.35;
+      if (rp.alpha <= 0.02) {
+        this.waterRipples.splice(i, 1);
+      }
+    }
+
+    // 2. 龟裂踏陷青石板状态机（踩踏震颤落尘 0.55s -> 崩塌悬空 3.0s -> 机关复位）
+    for (const cs of this.liveCrumbleSlabs) {
+      if (cs.state === 'shaking') {
+        cs.timer -= dt;
+        if (Math.random() < dt * 24) {
+          this.particles.push({
+            kind: 'ink',
+            x: cs.x + Math.random() * cs.w,
+            y: cs.y + 8,
+            vx: (Math.random() - 0.5) * 28,
+            vy: 35 + Math.random() * 45,
+            size: 2.6,
+            color: '#94a3b8',
+            life: 0.34,
+            maxLife: 0.34,
+          });
+        }
+        if (cs.timer <= 0) {
+          cs.state = 'broken';
+          cs.timer = 3.0;
+          AudioFX.playLanternBreak();
+          this.spawnInkBurst(cs.x + cs.w * 0.5, cs.y + 8, '#94a3b8', '#1e293b', 12);
+        }
+      } else if (cs.state === 'broken') {
+        cs.timer -= dt;
+        if (cs.timer <= 0) {
+          cs.state = 'solid';
+          cs.timer = 0;
+        }
+      }
+    }
+
+    // 3. 区域机关伤害与武侠拼刀弹开交互（寒铁地刺 / 钟楼斩仙摆斧 / 地肺兽首喷火柱）
+    if (!room.hazards || room.hazards.length === 0) return;
+
+    for (const hz of room.hazards) {
+      if (hz.kind === 'fire_vent') {
+        const period = hz.speed ?? 3.4;
+        const cyc = (((p.animTime + (hz.phase ?? 0)) % period) + period) % period;
+        const norm = cyc / period;
+        // 蓄势火星预警 (0.48..0.68)
+        if (norm >= 0.48 && norm < 0.68 && Math.random() < dt * 26) {
+          this.particles.push({
+            kind: 'spark',
+            x: hz.x + (Math.random() - 0.5) * 26,
+            y: hz.y - 6,
+            vx: (Math.random() - 0.5) * 36,
+            vy: -75 - Math.random() * 65,
+            size: 2.5,
+            color: '#fde047',
+            life: 0.28,
+            maxLife: 0.28,
+          });
+        }
+        // 烈焰火柱喷发帧 (0.68..0.92)
+        if (
+          norm >= 0.68 &&
+          norm <= 0.92 &&
+          p.invulnTimer <= 0 &&
+          p.mistDashTimer <= 0 &&
+          Math.abs(p.x - hz.x) <= 24 &&
+          p.y >= hz.y - hz.span + 10 &&
+          p.y - 54 <= hz.y
+        ) {
+          this.damagePlayer(
+            Math.max(15, Math.round(p.maxHp * 0.12)),
+            p.x >= hz.x ? 1 : -1
+          );
+          p.vy = -390;
+          p.onGround = false;
+        }
+      } else if (hz.kind === 'spikes') {
+        if (
+          p.invulnTimer <= 0 &&
+          p.mistDashTimer <= 0 &&
+          p.x >= hz.x + 8 &&
+          p.x <= hz.x + hz.span - 8 &&
+          p.y >= hz.y - 18 &&
+          p.y <= hz.y + 12
+        ) {
+          this.damagePlayer(
+            Math.max(14, Math.round(p.maxHp * 0.1)),
+            -p.facing as 1 | -1
+          );
+          p.vy = -410;
+          p.onGround = false;
+          this.spawnInkBurst(p.x, hz.y - 10, '#e2e8f0', '#ef4444', 10);
+        }
+      } else if (hz.kind === 'pendulum') {
+        const ang = Math.sin(p.animTime * (hz.speed ?? 1.9) + (hz.phase ?? 0)) * 0.68;
+        const bx = hz.x + Math.sin(ang) * hz.span;
+        const by = hz.y + Math.cos(ang) * hz.span;
+        const heroCenterY = p.y - (p.crouching || p.slideTimer > 0 ? 18 : 34);
+        const dist = Math.hypot(p.x - bx, heroCenterY - by);
+        if (dist <= 31 && p.mistDashTimer <= 0) {
+          // 挥兵瞬间可金铁交鸣借力弹开摆斧，尽显武侠身法！
+          if (this.activeSlash && this.activeSlash.progress < 0.62) {
+            AudioFX.playParryClang();
+            p.vx = (p.x >= bx ? 1 : -1) * 240;
+            p.invulnTimer = Math.max(p.invulnTimer, 0.22);
+            this.spawnInkBurst(bx, by, '#fde047', '#f97316', 10);
+          } else if (p.invulnTimer <= 0) {
+            this.damagePlayer(
+              Math.max(16, Math.round(p.maxHp * 0.12)),
+              p.x >= bx ? 1 : -1
+            );
+          }
         }
       }
     }
@@ -2760,7 +2968,12 @@ export class GameEngine {
               });
             }
           } else {
-            const attackRange = e.profile.shieldedFront ? 96 : 108;
+            const attackRange =
+              e.profile.kind === 'paper_swordsman'
+                ? 175
+                : e.profile.shieldedFront
+                  ? 96
+                  : 108;
             if (absDx < 460 && absDx > attackRange) {
               e.vx = e.facing * e.profile.speed;
               e.animPhase += dt * 10;
@@ -2774,8 +2987,39 @@ export class GameEngine {
 
             this.stepGroundEnemyX(e, e.vx * dt);
 
-            // 玄甲重盾卫中距离投掷恶魔城经典高低回旋铜斧（蹲下可躲过高斧！）
+            // 百戏傀儡：中近距提线后撤旋身齐射三枚梨园金针！
             if (
+              e.profile.kind === 'opera_puppet' &&
+              e.stateTimer <= 0 &&
+              absDx > 115 &&
+              absDx < 320 &&
+              Math.abs(dy) < 95
+            ) {
+              this.stepGroundEnemyX(e, -e.facing * 26);
+              const baseAng = Math.atan2(p.y - 38 - (e.y - 38), p.x - e.x);
+              for (let m = -1; m <= 1; m++) {
+                const ang = baseAng + m * 0.16;
+                this.projectiles.push({
+                  fromPlayer: false,
+                  kind: 'dagger',
+                  x: e.x + e.facing * 16,
+                  y: e.y - 38,
+                  vx: Math.cos(ang) * 320,
+                  vy: Math.sin(ang) * 320,
+                  r: 8,
+                  dmg: e.profile.atk,
+                  color: '#f472b6',
+                  life: 1.5,
+                  maxLife: 1.5,
+                  pierce: 1,
+                  hitIds: new Set(),
+                });
+              }
+              this.spawnInkBurst(e.x, e.y - 38, '#f472b6', '#fde047', 7);
+              AudioFX.playSlash('light');
+              e.stateTimer = 1.85;
+            } else if (
+              // 玄甲重盾卫中距离投掷恶魔城经典高低回旋铜斧（蹲下可躲过高斧！）
               e.profile.shieldedFront &&
               e.stateTimer <= 0 &&
               absDx > 145 &&
@@ -2801,9 +3045,17 @@ export class GameEngine {
               e.stateTimer = 1.85;
             } else if (e.stateTimer <= 0 && absDx <= attackRange + 18 && Math.abs(dy) < 90) {
               e.aiState = 'windup';
-              e.stateTimer = e.profile.shieldedFront ? 0.58 : 0.46;
+              e.stateTimer = e.profile.shieldedFront
+                ? 0.58
+                : e.profile.kind === 'paper_swordsman'
+                  ? 0.42
+                  : 0.46;
               e.vx = 0;
               e.slashHitPlayer = false;
+              if (e.profile.kind === 'paper_swordsman') {
+                // 纸人剑客居合收刀寒芒预警！
+                this.spawnInkBurst(e.x - e.facing * 10, e.y - 32, '#e0f2fe', '#38bdf8', 7);
+              }
             }
           }
         }
@@ -2812,8 +3064,9 @@ export class GameEngine {
         e.stateTimer -= dt;
         if (e.stateTimer <= 0) {
           e.aiState = 'lunge_slash';
-          e.stateTimer = e.profile.isBoss ? 0.28 : 0.22;
-          e.vx = e.facing * (e.profile.isBoss ? 460 : 320);
+          const isIaido = e.profile.kind === 'paper_swordsman';
+          e.stateTimer = e.profile.isBoss ? 0.28 : isIaido ? 0.24 : 0.22;
+          e.vx = e.facing * (e.profile.isBoss ? 460 : isIaido ? 430 : 320);
           AudioFX.playSlash(e.profile.shieldedFront ? 'heavy' : 'light');
         }
       } else if (e.aiState === 'lunge_slash') {
@@ -3555,6 +3808,17 @@ export class GameEngine {
     ) {
       return true;
     }
+    if (
+      this.liveCrumbleSlabs.some(
+        (cs) =>
+          cs.state !== 'broken' &&
+          p.x >= cs.x + 6 &&
+          p.x <= cs.x + cs.w - 6 &&
+          Math.abs(p.y - cs.y) < 10
+      )
+    ) {
+      return true;
+    }
     return Boolean(
       this.room.solidBlocks?.some(
         (sb) =>
@@ -3778,6 +4042,25 @@ export class GameEngine {
       }
 
       if (!p.onGround) {
+        for (const cs of this.liveCrumbleSlabs) {
+          if (cs.state === 'broken') continue;
+          if (p.x >= cs.x + 6 && p.x <= cs.x + cs.w - 6) {
+            if (prevY <= cs.y + 12 && nextY >= cs.y) {
+              p.y = cs.y;
+              if (!wasGrounded && p.vy > 260) p.landSquash = 1;
+              p.vy = 0;
+              p.onGround = true;
+              if (cs.state === 'solid') {
+                cs.state = 'shaking';
+                cs.timer = 0.55;
+              }
+              break;
+            }
+          }
+        }
+      }
+
+      if (!p.onGround) {
         for (const pv of room.pavilions) {
           if (p.x >= pv.x + 8 && p.x <= pv.x + pv.w - 8) {
             if (prevY <= pv.y + 12 && nextY >= pv.y) {
@@ -3836,8 +4119,27 @@ export class GameEngine {
       }
     }
 
-    // 剑侠核心手感：跳斩落地瞬间自动取消空中挥剑后摇 + 【千斤坠 ground_slam】震地火环！
+    // 剑侠核心手感：跳斩落地瞬间自动取消空中挥剑后摇 + 落地水花/石阶烟尘 + 【千斤坠 ground_slam】震地火环！
     if (!wasGrounded && p.onGround) {
+      const landWaterY = this.getShallowWaterSurfaceAt(p.x, p.y);
+      if (landWaterY !== null) {
+        this.spawnWaterSplash(p.x, landWaterY, 8, 1.05);
+      } else {
+        for (const side of [-1, 1]) {
+          this.particles.push({
+            kind: 'ink',
+            x: p.x + side * 8,
+            y: p.y - 2,
+            vx: side * (36 + Math.random() * 28),
+            vy: -14 - Math.random() * 18,
+            size: 3.1,
+            color: 'rgba(148, 163, 184, 0.58)',
+            life: 0.25,
+            maxLife: 0.25,
+          });
+        }
+      }
+
       if (p.diveKicking && this.hasAbility('ground_slam')) {
         this.screenShake = Math.max(this.screenShake, 7);
         AudioFX.playSlash('heavy');
