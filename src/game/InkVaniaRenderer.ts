@@ -1566,7 +1566,7 @@ export class InkVaniaRenderer {
       ctx.translate(pr.x, pr.y);
       if (pr.kind === 'qi_wave') {
         const dir = pr.vx >= 0 ? 1 : -1;
-        // 朔风破空斩：叠加态双层流光风刃 + 3道蜿蜒拖尾气丝（0贴图感！）
+        // 朔风破空斩 / 妖王裂空波：叠加态双层流光风刃 + 3道蜿蜒拖尾气丝（0贴图感！）
         drawInkSlashRibbon(ctx, 0, 0, dir, false, pr.r * 1.18, 22, -1.08, 1.08, pr.color, 0.95);
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
@@ -1585,7 +1585,262 @@ export class InkVaniaRenderer {
           ctx.stroke();
         }
         ctx.restore();
-      } else if (pr.kind === 'holy_fire' && Assets.get('item_sub_fire_gourd')) {
+      } else if (pr.enemyFx === 'venom_glob') {
+        // 毒沼金蟾：鼓动冒泡的碧紫腐蚀毒囊珠 + 飞溅毒液尾珠（彻底告别错画主角酒葫芦！）
+        const ang = Math.atan2(pr.vy, pr.vx);
+        const pulse = 1 + Math.sin(this.ambientTime * 22 + pr.x * 0.08) * 0.14;
+        ctx.save();
+        ctx.rotate(ang);
+        // 浓墨毒雾外衬
+        ctx.fillStyle = 'rgba(20, 10, 36, 0.78)';
+        ctx.beginPath();
+        ctx.ellipse(-2, 0, 13.5 * pulse, 9.8 * pulse, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // 拖尾毒滴
+        for (let d = 1; d <= 3; d++) {
+          const dx = -10 - d * 8.5;
+          const dy = Math.sin(this.ambientTime * 18 + d * 2.1) * 3.2;
+          ctx.fillStyle = d % 2 === 0 ? 'rgba(168, 85, 247, 0.72)' : 'rgba(74, 222, 128, 0.78)';
+          ctx.beginPath();
+          ctx.arc(dx, dy, Math.max(1.8, 4.6 - d * 0.9), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // 荧光紫绿毒液球核
+        ctx.globalCompositeOperation = 'lighter';
+        const vg = ctx.createRadialGradient(2, -1.5, 1.5, 0, 0, 12 * pulse);
+        vg.addColorStop(0, 'rgba(187, 247, 208, 0.95)');
+        vg.addColorStop(0.45, 'rgba(74, 222, 128, 0.85)');
+        vg.addColorStop(0.82, 'rgba(168, 85, 247, 0.65)');
+        vg.addColorStop(1, 'rgba(88, 28, 135, 0)');
+        ctx.fillStyle = vg;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 12 * pulse, 8.8 * pulse, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      } else if (pr.enemyFx === 'venom_pool') {
+        // 毒沼金蟾落地腐蚀毒潭：紫绿毒泥翻泡 + 袅袅升腾瘴雾
+        const fade = Math.min(1, pr.life / 0.35);
+        ctx.save();
+        ctx.globalAlpha = fade;
+        ctx.fillStyle = 'rgba(24, 12, 42, 0.78)';
+        ctx.beginPath();
+        ctx.ellipse(0, -1, 26, 5.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.globalCompositeOperation = 'lighter';
+        const pg = ctx.createRadialGradient(0, -2, 2, 0, -2, 24);
+        pg.addColorStop(0, 'rgba(74, 222, 128, 0.75)');
+        pg.addColorStop(0.58, 'rgba(168, 85, 247, 0.52)');
+        pg.addColorStop(1, 'rgba(88, 28, 135, 0)');
+        ctx.fillStyle = pg;
+        ctx.beginPath();
+        ctx.ellipse(0, -2, 24, 6.2, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        for (let b = 0; b < 4; b++) {
+          const cyc = (this.ambientTime * 2.4 + b * 0.27 + pr.x * 0.01) % 1;
+          const bx = Math.sin(b * 2.3 + pr.x) * 15;
+          const by = -3 - cyc * 24;
+          const br = (1 - cyc * 0.55) * 3.6;
+          ctx.strokeStyle = b % 2 === 0 ? 'rgba(134, 239, 172, 0.82)' : 'rgba(216, 180, 254, 0.76)';
+          ctx.lineWidth = 1.3;
+          ctx.beginPath();
+          ctx.arc(bx, by, br, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.restore();
+      } else if (pr.enemyFx === 'magma_bomb') {
+        // 赤铜镇火巨灵：龟裂炽白熔核火陨石 + 黑烟火星尾迹
+        ctx.save();
+        const rot = this.ambientTime * 7 + pr.x * 0.02;
+        ctx.rotate(rot);
+        ctx.fillStyle = '#1c1917';
+        ctx.strokeStyle = '#fb923c';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let v = 0; v < 7; v++) {
+          const a = (v / 7) * Math.PI * 2;
+          const rr = 12 + (v % 2 === 0 ? 2.8 : -1.8);
+          if (v === 0) ctx.moveTo(Math.cos(a) * rr, Math.sin(a) * rr);
+          else ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.globalCompositeOperation = 'lighter';
+        const mg = ctx.createRadialGradient(0, 0, 1.5, 0, 0, 17);
+        mg.addColorStop(0, 'rgba(254, 249, 195, 0.95)');
+        mg.addColorStop(0.5, 'rgba(249, 115, 22, 0.78)');
+        mg.addColorStop(1, 'rgba(234, 88, 12, 0)');
+        ctx.fillStyle = mg;
+        ctx.beginPath();
+        ctx.arc(0, 0, 17, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      } else if (pr.enemyFx === 'bronze_axe') {
+        // 玄甲重盾傀儡：高速疾旋【双刃重铸青铜战斧】+ 琥珀金旋风刃环（彻底告别错画主角八卦镜！）
+        const dir = pr.vx >= 0 ? 1 : -1;
+        const spin = this.ambientTime * 19 * dir;
+        ctx.save();
+        // 外圈破风金铁残影光环
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.strokeStyle = 'rgba(251, 191, 36, 0.62)';
+        ctx.lineWidth = 3.6;
+        ctx.beginPath();
+        ctx.arc(0, 0, 20, spin, spin + 2.35);
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(254, 243, 199, 0.52)';
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.arc(0, 0, 19.5, spin + Math.PI, spin + Math.PI + 2.15);
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.rotate(spin);
+        // 乌木包铜短斧柄
+        ctx.fillStyle = '#451a03';
+        ctx.strokeStyle = '#090d16';
+        ctx.lineWidth = 1.4;
+        ctx.fillRect(-3, -15, 6, 30);
+        ctx.strokeRect(-3, -15, 6, 30);
+
+        // 左右对称双月重铜斧刃
+        for (const side of [-1, 1] as const) {
+          ctx.save();
+          ctx.scale(side, 1);
+          const ag = ctx.createLinearGradient(3, 0, 19, 0);
+          ag.addColorStop(0, '#78350f');
+          ag.addColorStop(0.62, '#d97706');
+          ag.addColorStop(1, '#fef08a');
+          ctx.fillStyle = ag;
+          ctx.strokeStyle = '#090d16';
+          ctx.lineWidth = 1.4;
+          ctx.beginPath();
+          ctx.moveTo(2.5, -5.5);
+          ctx.quadraticCurveTo(13, -13, 18.5, -11.5);
+          ctx.quadraticCurveTo(21.5, 0, 18.5, 11.5);
+          ctx.quadraticCurveTo(13, 13, 2.5, 5.5);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+          ctx.restore();
+        }
+        // 斧心朱砂兽首铜铆钉
+        ctx.fillStyle = '#dc2626';
+        ctx.beginPath();
+        ctx.arc(0, 0, 3.6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      } else if (pr.enemyFx === 'cursed_talisman') {
+        // 飞天书妖：翻飞燃烧的【朱砂敕令咒符 (`item_talisman_scroll`)】+ 浓墨赤焰尾迹！
+        const ang = Math.atan2(pr.vy, pr.vx);
+        const flutter = Math.sin(this.ambientTime * 24 + pr.x * 0.05) * 0.22;
+        ctx.save();
+        ctx.rotate(ang);
+        // 浓墨咒怨底气
+        ctx.fillStyle = 'rgba(9, 13, 22, 0.68)';
+        ctx.beginPath();
+        ctx.ellipse(-12, 0, 20, 6.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // 赤红灵符火尾与墨点
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const tg = ctx.createLinearGradient(-38, 0, 8, 0);
+        tg.addColorStop(0, 'rgba(239, 68, 68, 0)');
+        tg.addColorStop(0.6, 'rgba(239, 68, 68, 0.58)');
+        tg.addColorStop(1, 'rgba(253, 224, 71, 0.88)');
+        ctx.strokeStyle = tg;
+        ctx.lineWidth = 3.2;
+        ctx.beginPath();
+        ctx.moveTo(-38, Math.sin(this.ambientTime * 20) * 3.5);
+        ctx.quadraticCurveTo(-18, -flutter * 14, 6, 0);
+        ctx.stroke();
+        ctx.restore();
+
+        const talImg = Assets.get('item_talisman_scroll');
+        ctx.rotate(Math.PI * 0.5 + flutter);
+        if (talImg) {
+          ctx.drawImage(talImg, -10, -14, 20, 28);
+        } else {
+          ctx.fillStyle = '#fef08a';
+          ctx.strokeStyle = '#dc2626';
+          ctx.lineWidth = 1.5;
+          ctx.fillRect(-6, -11, 12, 22);
+          ctx.strokeRect(-6, -11, 12, 22);
+        }
+        ctx.restore();
+      } else if (pr.enemyFx === 'thunder_lance') {
+        // 飞天夜叉：缠绕锯齿金雷电弧的【雷音黄金钢叉 (`part_wpn_spear`)】！
+        const ang = Math.atan2(pr.vy, pr.vx);
+        ctx.save();
+        ctx.rotate(ang);
+        const spImg = Assets.get('part_wpn_spear');
+        if (spImg) {
+          ctx.drawImage(spImg, -24, -6, 48, 12);
+        }
+        ctx.globalCompositeOperation = 'lighter';
+        // 锯齿状狂暴金青雷弧缠绕枪身
+        ctx.strokeStyle = '#fde047';
+        ctx.lineWidth = 2.1;
+        ctx.beginPath();
+        ctx.moveTo(-28, 0);
+        for (let s = -22; s <= 18; s += 8) {
+          const jag = Math.sin(this.ambientTime * 42 + s * 0.7 + pr.y * 0.1) * 6.5;
+          ctx.lineTo(s, jag);
+        }
+        ctx.lineTo(24, 0);
+        ctx.stroke();
+
+        // 枪尖炽白雷芒星核
+        const lg = ctx.createRadialGradient(18, 0, 1, 18, 0, 14);
+        lg.addColorStop(0, 'rgba(255, 255, 255, 0.96)');
+        lg.addColorStop(0.45, 'rgba(250, 204, 21, 0.78)');
+        lg.addColorStop(1, 'rgba(56, 189, 248, 0)');
+        ctx.fillStyle = lg;
+        ctx.beginPath();
+        ctx.arc(18, 0, 14, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      } else if (pr.enemyFx === 'opera_needle') {
+        // 梨园提线木偶 / 惊梦百戏傩神：拖曳柔美红绸丝线的【梨园鎏金绣花飞针】！
+        const ang = Math.atan2(pr.vy, pr.vx);
+        ctx.save();
+        ctx.rotate(ang);
+        // 随风飘舞的胭脂红绸尾线
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const rg = ctx.createLinearGradient(-44, 0, -2, 0);
+        rg.addColorStop(0, 'rgba(244, 63, 94, 0)');
+        rg.addColorStop(0.55, 'rgba(244, 114, 182, 0.72)');
+        rg.addColorStop(1, 'rgba(253, 224, 71, 0.92)');
+        ctx.strokeStyle = rg;
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.moveTo(-4, 0);
+        const w1 = Math.sin(this.ambientTime * 28 + pr.x * 0.06) * 5.5;
+        const w2 = Math.cos(this.ambientTime * 24 + pr.y * 0.06) * 6.5;
+        ctx.bezierCurveTo(-16, w1, -30, w2, -44, w1 * 0.6);
+        ctx.stroke();
+
+        // 纤细锐利的赤金长针主体
+        ctx.fillStyle = '#fef08a';
+        ctx.beginPath();
+        ctx.moveTo(-8, -1.8);
+        ctx.lineTo(15, 0);
+        ctx.lineTo(-8, 1.8);
+        ctx.closePath();
+        ctx.fill();
+
+        // 针尾红绒线球
+        ctx.fillStyle = '#f43f5e';
+        ctx.beginPath();
+        ctx.arc(-7, 0, 2.8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        ctx.restore();
+      } else if (pr.fromPlayer && pr.kind === 'holy_fire' && Assets.get('item_sub_fire_gourd')) {
         const fgImg = Assets.get('item_sub_fire_gourd')!;
         ctx.save();
         ctx.rotate(this.ambientTime * 8);
@@ -1631,14 +1886,17 @@ export class InkVaniaRenderer {
         }
         ctx.restore();
       } else {
-        // 柳叶寒铁飞刀（手绘短刃贴图 + 破空银芒尾线）
+        // 少侠柳叶寒铁飞刀（手绘短刃贴图 + 破空银芒尾线）
         const ang = Math.atan2(pr.vy, pr.vx);
         ctx.rotate(ang);
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
         const tailG = ctx.createLinearGradient(-38, 0, 10, 0);
         tailG.addColorStop(0, 'rgba(45, 212, 191, 0)');
-        tailG.addColorStop(1, pr.fromPlayer ? 'rgba(226, 232, 240, 0.85)' : 'rgba(244, 114, 182, 0.85)');
+        tailG.addColorStop(
+          1,
+          pr.fromPlayer ? 'rgba(226, 232, 240, 0.85)' : 'rgba(244, 114, 182, 0.85)'
+        );
         ctx.strokeStyle = tailG;
         ctx.lineWidth = 2.4;
         ctx.beginPath();
@@ -1647,9 +1905,9 @@ export class InkVaniaRenderer {
         ctx.stroke();
         ctx.restore();
 
-        const bladeImg = Assets.get('part_wpn_sword');
+        const bladeImg = Assets.get('part_wpn_daggers') || Assets.get('part_wpn_sword');
         if (bladeImg) {
-          ctx.drawImage(bladeImg, -16, -4.5, 32, 9);
+          ctx.drawImage(bladeImg, -15, -5, 30, 10);
         }
       }
       ctx.restore();

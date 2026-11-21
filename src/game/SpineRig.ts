@@ -605,6 +605,7 @@ export function buildEntitySpineJoints(opts: {
   isBoss?: boolean;
   aiState?: 'stalk' | 'windup' | 'lunge_slash' | 'recover' | 'staggered';
   hurtFlash?: number;
+  castAnimTimer?: number;
   animPhase?: number;
   isGracefulNpc?: boolean;
 }): SpineJointRow[] {
@@ -651,6 +652,13 @@ export function buildEntitySpineJoints(opts: {
     chestLift = 2.5;
     ribExpand = 1.05;
     twist = 0.13;
+  } else if (opts.castAnimTimer && opts.castAnimTimer > 0) {
+    // 远程施法 / 掷斧 / 吐毒 / 甩针瞬间：前半段收胸蓄劲、后半段猛然振臂前探！
+    const cp = 1 - Math.min(1, opts.castAnimTimer / 0.36);
+    targetLean = cp < 0.3 ? -7.5 : 11.5 * Math.sin(((cp - 0.3) / 0.7) * Math.PI);
+    chestLift = cp < 0.3 ? -2.8 : 2.2;
+    ribExpand = 1.055;
+    twist = cp < 0.3 ? -0.07 : 0.09;
   } else if (opts.flying) {
     // 飞天妖邪/大鹏/傩神：双翼与飘带随气流波浪舒展起伏！
     const wave = Math.sin(opts.t * 4.2 + Number(opts.key || 0));
