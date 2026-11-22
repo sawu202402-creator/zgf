@@ -1557,16 +1557,47 @@ export function drawMonsterOrBoss(
     }
   }
 
-  // 小怪极简水墨残血细条（带白色延迟扣血槽！）
-  if (!e.profile.isBoss && e.hp < e.maxHp) {
+  // 纸人剑客横刀架挡姿态视觉提示：身前泛起凛冽银青护身刀芒弧（提醒少侠绕背、跳劈或重斩破架！）
+  if (
+    e.profile.kind === 'paper_swordsman' &&
+    (e.guardStanceTimer || 0) > 0 &&
+    e.aiState !== 'staggered'
+  ) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = 'rgba(125, 211, 252, 0.92)';
+    ctx.lineWidth = 3.2;
+    ctx.beginPath();
+    ctx.arc(
+      e.facing * 12,
+      -h * 0.56,
+      26,
+      e.facing === 1 ? -0.95 : Math.PI - 0.95,
+      e.facing === 1 ? 0.95 : Math.PI + 0.95
+    );
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(254, 240, 138, 0.85)';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(e.facing * 18, -h * 0.82);
+    ctx.lineTo(e.facing * 24, -h * 0.28);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // 小怪极简水墨残血细条 + 下方琥珀金架势韧性细槽！
+  if (!e.profile.isBoss && (e.hp < e.maxHp || e.poise < e.maxPoise)) {
     const bw = 46;
-    const by = -h * 1.52 - 8;
-    ctx.fillStyle = 'rgba(5, 7, 12, 0.85)';
-    ctx.fillRect(-bw * 0.5 - 1, by - 1, bw + 2, 5);
+    const by = -h * 1.52 - 10;
+    ctx.fillStyle = 'rgba(5, 7, 12, 0.88)';
+    ctx.fillRect(-bw * 0.5 - 1, by - 1, bw + 2, 8);
     ctx.fillStyle = '#fde68a';
     ctx.fillRect(-bw * 0.5, by, bw * Math.max(0, e.hpTrail / e.maxHp), 3);
     ctx.fillStyle = '#dc2626';
     ctx.fillRect(-bw * 0.5, by, bw * Math.max(0, e.hp / e.maxHp), 3);
+    const poiseRatio = e.aiState === 'staggered' ? 0 : Math.max(0, Math.min(1, e.poise / Math.max(1, e.maxPoise)));
+    ctx.fillStyle = '#fbbf24';
+    ctx.fillRect(-bw * 0.5, by + 4, bw * poiseRatio, 2);
   }
 
   if (e.aiState === 'staggered') {

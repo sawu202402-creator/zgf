@@ -199,6 +199,7 @@ export interface BuiltRoom {
   bgKey?: AssetKey;
   indoor?: boolean;
   isSecretRoom?: boolean;
+  ambushSeal?: boolean;
   mapX: number;
   mapY: number;
   gridW: number;
@@ -461,7 +462,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       name: '瓮城分道门厅',
       subtitle: '上下分道 · 炼丹司石阶与地火重闸',
       region: 'gatehouse',
-      bgKey: 'bg_gatehouse',
+      bgKey: 'bg_tower_interior',
       realm: 'normal',
       indoor: true,
       mapX: 2,
@@ -941,7 +942,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       movingPlatforms: [
         { x1: 1445, y1: 324, x2: 1630, y2: 264, w: 135, speed: 1.05, style: 'scholar_ladder' },
       ],
-      ceilingSpans: [],
+      ceilingSpans: [{ x1: 0, x2: 2200, bottomY: 36, style: 'palace_timber' }],
       shafts: [{ x1: 320, x2: 460, dir: 'down', targetRoomId: 'central_warp' }],
       decorProps: [
         { kind: 'silk_banner', x: 165, y: 256, scale: 0.9 },
@@ -3295,27 +3296,69 @@ function createNormalCastleRooms(): BuiltRoom[] {
     },
   };
 
+  const dryNonWaterRoomIds = new Set([
+    'alchemy_save',
+    'central_warp',
+    'forge_smithy',
+    'relic_ground_slam',
+    'east_outer_tower',
+    'opera_gallery',
+    'relic_grapple_vault',
+    'observatory_bridge',
+    'secret_thunder_vault',
+  ]);
+  const ambushRoomIds = new Set([
+    'west_armory',
+    'forge_molten_hall',
+    'prison_waterway',
+    'opera_gallery',
+    'catacomb_hall',
+    'clock_gear_hall',
+  ]);
+
   return [...coreRooms.map((r) => ({ ...r, mapX: r.mapX + 1 })), ...expandedRooms]
     .map((rm) => {
       const extra = roomHazardLayouts[rm.id];
-      return extra
-        ? {
-            ...rm,
-            hazards: extra.hazards ?? rm.hazards,
-            crumbleSlabs: extra.crumbleSlabs ?? rm.crumbleSlabs,
-          }
-        : rm;
+      let waterZones = dryNonWaterRoomIds.has(rm.id) ? [] : rm.waterZones;
+      if (rm.id === 'alchemy_lab') {
+        waterZones = waterZones.map((wz) => ({ ...wz, liquidKind: 'lava' as const }));
+      }
+      // 殿堂留白减法：镇魂祠与八卦传送室保持庄严肃穆，剔除杂乱悬空宫灯与多余浮亭，仅保留竖井安全盖板
+      const isSanctuary = rm.special === 'save_shrine' || rm.special === 'warp_bagua';
+      const pavilions = isSanctuary
+        ? rm.pavilions.filter((pv) =>
+            rm.shafts.some(
+              (sh) => sh.dir === 'down' && pv.x <= sh.x1 + 20 && pv.x + pv.w >= sh.x2 - 20
+            )
+          )
+        : rm.pavilions;
+      const lanterns = isSanctuary && rm.shafts.every((s) => s.dir !== 'up') ? [] : rm.lanterns;
+      const ceilingSpans =
+        rm.id === 'secret_thunder_vault' && rm.ceilingSpans.length === 0
+          ? [{ x1: 0, x2: rm.pixelW, bottomY: 36, style: 'gate_tunnel' as const }]
+          : rm.ceilingSpans;
+
+      return {
+        ...rm,
+        waterZones,
+        pavilions,
+        lanterns,
+        ceilingSpans,
+        ambushSeal: ambushRoomIds.has(rm.id),
+        hazards: extra?.hazards ?? rm.hazards,
+        crumbleSlabs: extra?.crumbleSlabs ?? rm.crumbleSlabs,
+      };
     })
     .map(widenSingleCellRoomForUltraWide);
 }
 
 /**
- * 适配现代 19.5:9 / 20:9 全面屏横版视口 (`vH = 440` 时 `vW ≈ 955~978px`)：
- * 将原本仅 `800px` 宽的单格厅堂与竖塔对称拓宽至 `980px`（左右各延展 `90px` 殿宇空间，两端接门石台向两侧墙体无缝延展，内部跳台相对跨度保持 100% 像素级不变！），
- * 从根源上消灭窄房间在宽屏手机右侧漏出空白墙外天幕的问题，同时保持 `vH = 440` 黄金视高不放大、跳跃不晃镜头！
+ * 适配现代 19.5:9 / 20:9 / 21:9 全系超宽全面屏横版视口 (`vH = 440` 时 `vW ≈ 955~1045px`)：
+ * 将原本仅 `800px` 宽的单格厅堂与竖塔对称拓宽至 `1080px`（左右各延展 `140px` 殿宇空间，两端接门石台向两侧墙体无缝延展，内部跳台相对跨度保持 100% 像素级不变！），
+ * 从根源上消灭窄房间在全面屏手机右侧出现断层黑条或漏出墙外远景的穿帮问题！
  */
 function widenSingleCellRoomForUltraWide(rm: BuiltRoom): BuiltRoom {
-  const TARGET_MIN_W = 980;
+  const TARGET_MIN_W = 1080;
   if (rm.pixelW >= TARGET_MIN_W) return rm;
 
   const oldW = rm.pixelW;
@@ -3658,7 +3701,7 @@ function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
       spawns: eliteSpawns,
       pickups: (invertedUpgradePickups[rm.id] || []).map((pk) => ({
         ...pk,
-        x: rm.gridW === 1 ? pk.x + 90 : pk.x,
+        x: rm.gridW === 1 ? pk.x + 140 : pk.x,
       })),
     };
   });

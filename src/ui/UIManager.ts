@@ -55,6 +55,7 @@ export class UIManager {
     bossName?: HTMLElement;
     bossTrail?: HTMLElement;
     bossFill?: HTMLElement;
+    bossPoise?: HTMLElement;
     interactBtn?: HTMLElement;
   } = {};
 
@@ -316,6 +317,9 @@ export class UIManager {
         <div class="zx-boss-trail" id="boss-hud-trail" style="width:100%"></div>
         <div class="zx-boss-fill" id="boss-hud-fill" style="width:100%"></div>
       </div>
+      <div style="width:100%;height:3px;margin-top:3px;background:rgba(15,23,42,0.85);border:1px solid rgba(198,154,69,0.35);overflow:hidden;">
+        <div id="boss-hud-poise" style="width:100%;height:100%;background:linear-gradient(90deg,#f59e0b,#fef08a);transition:width 0.08s linear;"></div>
+      </div>
     `;
 
     const interactBtn = document.createElement('button');
@@ -343,6 +347,7 @@ export class UIManager {
       bossName: bossBar.querySelector('#boss-hud-name') as HTMLElement,
       bossTrail: bossBar.querySelector('#boss-hud-trail') as HTMLElement,
       bossFill: bossBar.querySelector('#boss-hud-fill') as HTMLElement,
+      bossPoise: bossBar.querySelector('#boss-hud-poise') as HTMLElement,
       interactBtn,
     };
 
@@ -375,10 +380,11 @@ export class UIManager {
     }
     if (this.hudRefs.resRow) {
       const potCnt = Object.values(s.consumables).reduce((a, b) => a + b, 0);
+      const potCdTxt = p.potionCooldown > 0.05 ? `(${p.potionCooldown.toFixed(1)}s)` : '';
       const famTag = s.abilities.includes('familiar_sword')
         ? `<span style="color:#7dd3fc;">剑灵${1 + Math.min(8, Math.floor((s.familiarExp || 0) / 100))}</span>`
         : '';
-      this.hudRefs.resRow.innerHTML = `<span style="color:#fde68a;">银 ${s.gold}</span><span style="color:#fb923c;">符 ${s.talismanHearts}</span><span style="color:#5eead4;">药 ${potCnt}</span>${famTag}`;
+      this.hudRefs.resRow.innerHTML = `<span style="color:#fde68a;">银 ${s.gold}</span><span style="color:#fb923c;">符 ${s.talismanHearts}</span><span style="color:${p.potionCooldown > 0.05 ? '#94a3b8' : '#5eead4'};">药 ${potCnt}${potCdTxt}</span>${famTag}`;
     }
 
     const hpPct = Math.max(0, Math.min(100, (p.hp / Math.max(1, p.maxHp)) * 100));
@@ -428,6 +434,13 @@ export class UIManager {
         }
         if (this.hudRefs.bossTrail) {
           this.hudRefs.bossTrail.style.width = `${Math.max(0, (boss.hpTrail / boss.maxHp) * 100)}%`;
+        }
+        if (this.hudRefs.bossPoise) {
+          const pRatio =
+            boss.aiState === 'staggered'
+              ? 0
+              : Math.max(0, Math.min(100, (boss.poise / Math.max(1, boss.maxPoise)) * 100));
+          this.hudRefs.bossPoise.style.width = `${pRatio}%`;
         }
       } else {
         this.hudRefs.bossWrap.style.display = 'none';
@@ -1273,7 +1286,11 @@ export class UIManager {
               })
               .join('');
     } else {
-      footerTxt = '点击丹药即可当场服用恢复气血真气（局内亦可按 [H] 快捷服药）';
+      const potCd = this.engine.player.potionCooldown;
+      footerTxt =
+        potCd > 0.05
+          ? `丹药药力周天调息中（剩余 ${potCd.toFixed(1)}s），调息完毕方可再次服药`
+          : '点击丹药即可当场服用恢复气血真气（局内亦可按 [H] 快捷服药，饮药后需 3.5s 调息）';
       const entries = Object.entries(s.consumables).filter(([, c]) => c > 0);
       rowsHtml =
         entries.length === 0
@@ -1282,7 +1299,7 @@ export class UIManager {
               .map(([id, cnt]) => {
                 const c = CONSUMABLES[id];
                 return `
-              <div class="zx-item-row" data-pick-id="${id}">
+              <div class="zx-item-row" data-pick-id="${id}" style="opacity:${potCd > 0.05 ? 0.58 : 1};">
                 <div style="display:flex;align-items:center;gap:12px;">
                   ${getSlotCategorySvg('potion', id)}
                   <div>
@@ -1290,7 +1307,7 @@ export class UIManager {
                     <div style="font-size:11.5px;color:var(--jade);">${c.desc}</div>
                   </div>
                 </div>
-                <span class="zx-eq-seal" style="background:#115e59;border-color:#2dd4bf;">服用</span>
+                <span class="zx-eq-seal" style="background:${potCd > 0.05 ? '#334155' : '#115e59'};border-color:${potCd > 0.05 ? '#64748b' : '#2dd4bf'};">${potCd > 0.05 ? `${potCd.toFixed(1)}s` : '服用'}</span>
               </div>`;
               })
               .join('');

@@ -77,7 +77,8 @@ export type EnemyProjectileFx =
   | 'thunder_lance'
   | 'opera_needle'
   | 'magma_bomb'
-  | 'magma_pool';
+  | 'magma_pool'
+  | 'lava_wave';
 
 export interface Projectile {
   fromPlayer: boolean;
@@ -118,6 +119,10 @@ export interface EnemyEntity {
   hp: number;
   hpTrail: number;
   maxHp: number;
+  poise: number;
+  maxPoise: number;
+  poiseRegenDelay?: number;
+  guardStanceTimer?: number;
   aiState: EnemyAIState;
   stateTimer: number;
   stateDuration?: number;
@@ -271,6 +276,7 @@ export class GameEngine {
     attackCooldown: 0,
     skillCooldown: 0,
     subWeaponCooldown: 0,
+    potionCooldown: 0,
     dashCooldown: 0,
     airDashUsed: false,
     comboStep: 0,
@@ -345,6 +351,7 @@ export class GameEngine {
 
   public screenShake = 0;
   public roomFadeTimer = 0;
+  public ambushSealed = false;
   private hitstopTimer = 0;
   private nextEntityId = 1;
   private lastVisitedRegion = '';
@@ -425,20 +432,20 @@ export class GameEngine {
     const core = cId ? YAO_CORES[cId] : undefined;
 
     const lv = s.level;
-    const str = 7 + lv * 2 + armor.strBonus + acc.strBonus;
-    const con = 6 + Math.floor(lv * 1.6) + Math.floor(armor.def * 0.5);
-    const intStat = 7 + lv * 2 + armor.intBonus + acc.intBonus;
+    const str = 6 + Math.round(lv * 1.35) + armor.strBonus + acc.strBonus;
+    const con = 6 + Math.floor(lv * 1.5) + Math.floor(armor.def * 0.5);
+    const intStat = 7 + Math.round(lv * 1.45) + armor.intBonus + acc.intBonus;
     const lck = 5 + lv + armor.lckBonus + acc.lckBonus;
 
-    const maxHp = 95 + lv * 16 + s.maxHpBonus + armor.hpBonus + acc.hpBonus;
-    const maxMp = 60 + lv * 9 + s.maxMpBonus + armor.mpBonus + acc.mpBonus;
-    const temperBonus = (s.weaponTemperLv?.[wId] || 0) * 6;
+    const maxHp = 100 + lv * 15 + s.maxHpBonus + armor.hpBonus + acc.hpBonus;
+    const maxMp = 64 + lv * 9 + s.maxMpBonus + armor.mpBonus + acc.mpBonus;
+    const temperBonus = (s.weaponTemperLv?.[wId] || 0) * 4;
     const wineMult = this.activeBuffs.berserk_wine > 0 ? 1.28 : 1;
     let atk = Math.round(
-      (weapon.atk + temperBonus + str * 1.55) * (1 + (core?.atkPct || 0)) * wineMult
+      (weapon.atk + temperBonus + str * 1.15) * (1 + (core?.atkPct || 0)) * wineMult
     );
-    if (s.mode === 'xiaoduanshui') atk = Math.round(atk * 1.2);
-    const rawDef = 3 + Math.floor(lv * 1.2) + armor.def + acc.def;
+    if (s.mode === 'xiaoduanshui') atk = Math.round(atk * 1.18);
+    const rawDef = 4 + Math.floor(lv * 1.25) + armor.def + acc.def;
     const def = Math.round(rawDef * (1 + (core?.defPct || 0)));
 
     return { maxHp, maxMp, atk, def, str, con, int: intStat, lck };
@@ -656,6 +663,24 @@ export class GameEngine {
       }
     }
 
+    const ambushKey = `ambush_clear:${nextRoom.realm}:${nextRoom.id}`;
+    this.ambushSealed = Boolean(
+      nextRoom.ambushSeal &&
+        this.enemies.length > 0 &&
+        !s.brokenSecretWalls.includes(ambushKey)
+    );
+    if (this.ambushSealed) {
+      this.floats.push({
+        x: this.player.x,
+        y: this.player.y - 88,
+        vy: -22,
+        text: '✦ 妖雾封门 · 斩尽群邪破阵 ✦',
+        color: '#fb7185',
+        size: 13.5,
+        life: 1.4,
+      });
+    }
+
     // 仅在踏入全新大区域、首领殿或独立隐藏密室时弹出区域横幅（零赘字副标题，保持恶魔城丝滑留白体验！）
     if (
       prevRegion !== nextRoom.region ||
@@ -711,45 +736,45 @@ export class GameEngine {
    */
   private getRoomDifficultyScale(room: BuiltRoom): { hpMult: number; atkMult: number; spdMult: number } {
     let hpMult = 1.0;
-    let atkMult = 0.92;
-    let spdMult = 0.98;
+    let atkMult = 0.96;
+    let spdMult = 1.0;
 
     if (room.id === 'east_outer_tower' || room.id === 'east_warp') {
-      hpMult = 1.52;
-      atkMult = 1.32;
-      spdMult = 1.08;
+      hpMult = 1.42;
+      atkMult = 1.28;
+      spdMult = 1.06;
     } else if (room.region === 'clock_tower' || room.region === 'altar') {
-      hpMult = 1.88;
-      atkMult = 1.54;
-      spdMult = 1.13;
+      hpMult = 1.72;
+      atkMult = 1.48;
+      spdMult = 1.1;
     } else if (room.id === 'catacomb_hall' || room.id === 'catacomb_shrine' || room.isSecretRoom) {
-      hpMult = 1.62;
-      atkMult = 1.38;
-      spdMult = 1.09;
+      hpMult = 1.52;
+      atkMult = 1.34;
+      spdMult = 1.07;
     } else if (room.region === 'opera' || room.region === 'forge') {
       if (room.id === 'alchemy_lab' || room.id === 'west_armory') {
-        hpMult = 1.22;
-        atkMult = 1.12;
-        spdMult = 1.03;
+        hpMult = 1.18;
+        atkMult = 1.1;
+        spdMult = 1.02;
       } else {
-        hpMult = 1.68;
-        atkMult = 1.42;
-        spdMult = 1.1;
+        hpMult = 1.56;
+        atkMult = 1.38;
+        spdMult = 1.08;
       }
     } else if (room.region === 'prison' || room.region === 'library') {
-      hpMult = 1.44;
-      atkMult = 1.26;
-      spdMult = 1.06;
+      hpMult = 1.36;
+      atkMult = 1.22;
+      spdMult = 1.05;
     } else if (room.region === 'main_hall') {
-      hpMult = 1.22;
-      atkMult = 1.12;
-      spdMult = 1.03;
+      hpMult = 1.18;
+      atkMult = 1.1;
+      spdMult = 1.02;
     }
 
     if (room.realm === 'inverted') {
-      hpMult *= 1.45;
-      atkMult *= 1.26;
-      spdMult *= 1.08;
+      hpMult *= 1.38;
+      atkMult *= 1.24;
+      spdMult *= 1.06;
     }
 
     return { hpMult, atkMult, spdMult };
@@ -761,7 +786,7 @@ export class GameEngine {
       this.room && !baseProf.isBoss
         ? this.getRoomDifficultyScale(this.room)
         : this.room?.realm === 'inverted' && baseProf.kind !== 'boss_zhuyin'
-          ? { hpMult: 1.42, atkMult: 1.24, spdMult: 1.08 }
+          ? { hpMult: 1.38, atkMult: 1.22, spdMult: 1.06 }
           : { hpMult: 1, atkMult: 1, spdMult: 1 };
 
     const scaledHp = Math.round(baseProf.hp * scale.hpMult);
@@ -773,9 +798,23 @@ export class GameEngine {
             hp: scaledHp,
             atk: Math.round(baseProf.atk * scale.atkMult),
             speed: Math.round(baseProf.speed * scale.spdMult),
-            exp: Math.round(baseProf.exp * (0.7 + scale.hpMult * 0.3)),
+            exp: Math.round(baseProf.exp * (0.72 + scale.hpMult * 0.28)),
             gold: Math.round(baseProf.gold * (0.75 + scale.hpMult * 0.25)),
           };
+
+    const maxPoise = prof.isBoss
+      ? kind === 'boss_zhuyin'
+        ? 290
+        : kind === 'boss_pei_wuji' || kind === 'boss_furnace_titan'
+          ? 240
+          : 190
+      : kind === 'bronze_guard'
+        ? 88
+        : kind === 'bell_gargoyle'
+          ? 68
+          : kind === 'plague_toad' || kind === 'opera_puppet'
+            ? 56
+            : 38;
 
     this.enemies.push({
       id: this.nextEntityId++,
@@ -789,6 +828,10 @@ export class GameEngine {
       hp: prof.hp,
       hpTrail: prof.hp,
       maxHp: prof.hp,
+      poise: maxPoise,
+      maxPoise,
+      poiseRegenDelay: 0,
+      guardStanceTimer: 0,
       aiState: 'stalk',
       stateTimer: 0.45 + Math.random() * 0.45,
       animPhase: Math.random() * 6,
@@ -897,6 +940,28 @@ export class GameEngine {
     this.updateSkyStrikes(dt);
     this.updateRoomHazardsAndSlabs(dt);
     this.updateEnemies(dt);
+    if (this.ambushSealed && this.enemies.length === 0 && this.room && this.slot) {
+      this.ambushSealed = false;
+      const ambushKey = `ambush_clear:${this.room.realm}:${this.room.id}`;
+      if (!this.slot.brokenSecretWalls.includes(ambushKey)) {
+        this.slot.brokenSecretWalls.push(ambushKey);
+        AudioFX.playRelicBell();
+        this.cb.onShowBanner('妖氛涤荡 · 封门结界已破', '首破清剿重赏：陈年桂花酿与纹银入囊！');
+        this.drops.push({
+          id: `ambush_prize_${this.nextEntityId++}`,
+          isStaticPickup: false,
+          kind: 'consumable',
+          itemId: 'osmanthus_wine',
+          amount: 1,
+          x: this.player.x,
+          y: this.player.y - 24,
+          vy: -240,
+          color: '#4ade80',
+          label: CONSUMABLES.osmanthus_wine.name,
+        });
+        this.slot.gold += 65;
+      }
+    }
     this.updateDrops(dt);
     this.updateParticles(dt);
     this.checkRoomTransition();
@@ -946,6 +1011,7 @@ export class GameEngine {
     if (p.attackCooldown > 0) p.attackCooldown -= dt;
     if (p.skillCooldown > 0) p.skillCooldown = Math.max(0, p.skillCooldown - dt);
     if (p.subWeaponCooldown > 0) p.subWeaponCooldown = Math.max(0, p.subWeaponCooldown - dt);
+    if (p.potionCooldown > 0) p.potionCooldown = Math.max(0, p.potionCooldown - dt);
     if (p.dashCooldown > 0) p.dashCooldown = Math.max(0, p.dashCooldown - dt);
     if (p.doubleJumpSpinTimer > 0) p.doubleJumpSpinTimer = Math.max(0, p.doubleJumpSpinTimer - dt);
     if (p.landSquash > 0) p.landSquash = Math.max(0, p.landSquash - dt * 5);
@@ -1688,18 +1754,14 @@ export class GameEngine {
           if (parriedAttack) {
             parriedAnyStrike = true;
             p.invulnTimer = Math.max(p.invulnTimer, 0.42);
-            if (e.profile.isBoss) {
-              e.aiState = 'recover';
-              e.stateTimer = 0.65;
-              e.vx = 0;
-            } else {
-              e.aiState = 'staggered';
-              e.stateTimer = 1.45;
+            if (!e.profile.isBoss) {
               e.vx = -e.facing * 180;
+            } else {
+              e.vx = 0;
             }
             AudioFX.playParryClang();
-            this.hitstopTimer = 0.075;
-            this.screenShake = 6;
+            this.hitstopTimer = 0.085;
+            this.screenShake = 7;
             NativeApp.haptic('heavy');
             this.floats.push({
               x: e.x,
@@ -1710,7 +1772,12 @@ export class GameEngine {
               size: 16,
               life: 0.95,
             });
-            this.applyDamageToEnemy(e, Math.round(skillDmg * 1.45), true, 65);
+            this.applyDamageToEnemy(
+              e,
+              Math.round(skillDmg * 1.45),
+              true,
+              e.profile.isBoss ? 125 : 999
+            );
           } else {
             if (!e.profile.isBoss) {
               this.stepGroundEnemyX(e, (e.x >= p.x ? 1 : -1) * 28);
@@ -1809,8 +1876,8 @@ export class GameEngine {
       color: sub.color,
     };
     const core = this.slot.equippedYaoCore ? YAO_CORES[this.slot.equippedYaoCore] : undefined;
-    const subMult = 1 + (core?.subWeaponMult || 0);
-    const dmg = Math.round((sub.baseDmg + this.player.int * 1.0) * subMult);
+    const subMult = (1 + (core?.subWeaponMult || 0)) * (1 + this.slot.level * 0.045);
+    const dmg = Math.round((sub.baseDmg + this.player.int * 1.45) * subMult);
     const p = this.player;
     AudioFX.playSlash('light');
 
@@ -2115,7 +2182,8 @@ export class GameEngine {
           pr.kind === 'qi_wave' ||
           pr.enemyFx === 'venom_pool' ||
           pr.enemyFx === 'magma_pool' ||
-          pr.enemyFx === 'magma_bomb'
+          pr.enemyFx === 'magma_bomb' ||
+          pr.enemyFx === 'lava_wave'
         ) {
           continue;
         }
@@ -2232,15 +2300,15 @@ export class GameEngine {
 
           if (e.aiState === 'staggered') dmgMult *= 1.35;
 
+          let bonusPoiseBreak = 0;
           if (
             e.profile.shieldedFront &&
             e.aiState !== 'staggered' &&
             sl.facing !== e.facing
           ) {
-            // 重兵陌刀或任意武器第三式【破军终结斩】皆可强行震开正盾硬直！
+            // 重兵陌刀或任意武器第三式【破军终结斩】皆可强行震碎正盾架势！
             if (sl.archetype === 'greatsword' || sl.comboStep === 2) {
-              e.aiState = 'staggered';
-              e.stateTimer = 1.75;
+              bonusPoiseBreak = 80;
               e.vx = sl.facing * 185;
               AudioFX.playParryClang();
               this.screenShake = Math.max(this.screenShake, 6);
@@ -2268,16 +2336,51 @@ export class GameEngine {
               });
             } else {
               dmgMult *= 0.25;
+              bonusPoiseBreak = -Math.round(wDef.poiseDmg * 0.72);
               AudioFX.playParryClang();
               this.spawnInkBurst(e.x - sl.facing * 14, e.y - 38, '#fde047', '#0f172a', 8);
               this.floats.push({
                 x: e.x,
                 y: e.y - e.profile.h - 18,
                 vy: -26,
-                text: '格挡',
+                text: '铜盾格挡',
                 color: '#cbd5e1',
                 size: 11.5,
                 life: 0.65,
+              });
+            }
+          } else if (
+            e.profile.kind === 'paper_swordsman' &&
+            (e.guardStanceTimer || 0) > 0 &&
+            e.aiState !== 'staggered' &&
+            sl.facing !== e.facing
+          ) {
+            if (sl.archetype === 'greatsword' || sl.comboStep === 2 || sl.pogoDown) {
+              e.guardStanceTimer = 0;
+              bonusPoiseBreak = 65;
+              AudioFX.playParryClang();
+              this.floats.push({
+                x: e.x,
+                y: e.y - e.profile.h - 20,
+                vy: -32,
+                text: '重斩破架！',
+                color: '#fde047',
+                size: 13,
+                life: 0.78,
+              });
+            } else {
+              dmgMult *= 0.2;
+              bonusPoiseBreak = -Math.round(wDef.poiseDmg * 0.8);
+              AudioFX.playParryClang();
+              this.spawnInkBurst(e.x - sl.facing * 14, e.y - 36, '#7dd3fc', '#0f172a', 9);
+              this.floats.push({
+                x: e.x,
+                y: e.y - e.profile.h - 18,
+                vy: -28,
+                text: '架刀格挡',
+                color: '#7dd3fc',
+                size: 11.5,
+                life: 0.68,
               });
             }
           }
@@ -2295,12 +2398,11 @@ export class GameEngine {
           p.mp = Math.min(p.maxMp, p.mp + mpGain);
 
           const baseHitDmg = Math.round(this.player.atk * dmgMult);
-          this.applyDamageToEnemy(
-            e,
-            baseHitDmg,
-            forceCrit,
-            Math.round(wDef.poiseDmg * (sl.comboStep === 2 ? 1.4 : 1))
+          const finalPoiseDmg = Math.max(
+            4,
+            Math.round(wDef.poiseDmg * (sl.comboStep === 2 ? 1.4 : 1)) + bonusPoiseBreak
           );
+          this.applyDamageToEnemy(e, baseHitDmg, forceCrit, finalPoiseDmg);
 
           // 神兵专属词条异象触发（霜冻迟缓 / 火毒灼烧 / 千影多段剑气 / 紫电链锁奔雷！）
           if (e.hp > 0) {
@@ -2410,7 +2512,13 @@ export class GameEngine {
     const cy = p.y - 40;
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const pr = this.projectiles[i];
-      if (!pr.fromPlayer && Math.hypot(pr.x - cx, pr.y - cy) <= 78) {
+      if (
+        !pr.fromPlayer &&
+        pr.enemyFx !== 'lava_wave' &&
+        pr.enemyFx !== 'venom_pool' &&
+        pr.enemyFx !== 'magma_pool' &&
+        Math.hypot(pr.x - cx, pr.y - cy) <= 78
+      ) {
         this.spawnInkBurst(pr.x, pr.y, '#60a5fa', '#090d16', 6);
         this.projectiles.splice(i, 1);
       }
@@ -2449,6 +2557,28 @@ export class GameEngine {
 
       pr.x += pr.vx * dt;
       pr.y += pr.vy * dt;
+
+      if (pr.enemyFx === 'lava_wave') {
+        if (pr.x < 36 || pr.x > this.room.pixelW - 36) {
+          this.spawnInkBurst(pr.x, pr.y, '#fb923c', '#fde047', 6);
+          this.projectiles.splice(i, 1);
+          continue;
+        }
+        pr.y = sampleSolidGroundY(this.room, pr.x) - 18;
+        if (Math.random() < dt * 24) {
+          this.particles.push({
+            kind: 'spark',
+            x: pr.x + (Math.random() - 0.5) * 18,
+            y: pr.y + 12,
+            vx: -pr.vx * 0.16 + (Math.random() - 0.5) * 35,
+            vy: -45 - Math.random() * 55,
+            size: 2.5,
+            color: Math.random() < 0.5 ? '#fde047' : '#f97316',
+            life: 0.24,
+            maxLife: 0.24,
+          });
+        }
+      }
 
       if (pr.fromPlayer) {
         this.shatterLanternsAndWallsInBox(pr.x - pr.r, pr.y - pr.r, pr.r * 2, pr.r * 2, false, 0);
@@ -2536,7 +2666,20 @@ export class GameEngine {
             pr.y - pr.r <= e.y
           ) {
             pr.hitIds.add(e.id);
-            this.applyDamageToEnemy(e, pr.dmg, false, 18);
+            const antiAirBonus = pr.kind === 'dagger' && e.profile.flying ? 1.35 : 1;
+            const projPoise = pr.kind === 'seal' ? 68 : pr.kind === 'bagua' ? 24 : 16;
+            this.applyDamageToEnemy(
+              e,
+              Math.round(pr.dmg * antiAirBonus),
+              antiAirBonus > 1,
+              projPoise
+            );
+            if (pr.kind === 'fire_pillar' && e.hp > 0) {
+              e.dotTimer = Math.max(e.dotTimer || 0, 2.6);
+              if ((e.dotTickTimer || 0) <= 0) e.dotTickTimer = 0.5;
+              e.dotDmg = Math.max(4, Math.round(pr.dmg * 0.35));
+              e.dotColor = '#fb923c';
+            }
             pr.pierce--;
             if (pr.pierce <= 0) {
               this.projectiles.splice(i, 1);
@@ -2813,6 +2956,14 @@ export class GameEngine {
       if (e.castAnimTimer && e.castAnimTimer > 0) {
         e.castAnimTimer = Math.max(0, e.castAnimTimer - rawEnemyDt);
       }
+      if (e.guardStanceTimer && e.guardStanceTimer > 0) {
+        e.guardStanceTimer = Math.max(0, e.guardStanceTimer - rawEnemyDt);
+      }
+      if ((e.poiseRegenDelay || 0) > 0) {
+        e.poiseRegenDelay = Math.max(0, (e.poiseRegenDelay || 0) - rawEnemyDt);
+      } else if (e.aiState !== 'staggered' && e.poise < e.maxPoise) {
+        e.poise = Math.min(e.maxPoise, e.poise + (e.profile.isBoss ? 22 : 14) * rawEnemyDt);
+      }
       if (e.hpTrail > e.hp) {
         e.hpTrail = Math.max(e.hp, e.hpTrail - 85 * rawEnemyDt);
       } else {
@@ -2863,8 +3014,9 @@ export class GameEngine {
           this.stepGroundEnemyX(e, e.vx * dt);
         }
         if (e.stateTimer <= 0) {
+          e.poise = e.maxPoise;
           e.aiState = 'stalk';
-          e.stateTimer = 0.5;
+          e.stateTimer = 0.55;
         }
         continue;
       }
@@ -2874,126 +3026,511 @@ export class GameEngine {
         e.stateTimer -= dt;
 
         if (e.profile.isBoss) {
-          // 七大守关妖王/宿敌：各自拥有地面重步或凌空虚浮身法与三式绝学轮转！
+          // 七大守关妖王/宿敌：各自拥有完全独立的武学宗派招式轮转，绝不共用瞬移套路！
           e.animPhase += dt * 4;
+          const enraged = e.hp <= e.maxHp * 0.55;
           const bossSurfY = sampleEntitySurfaceY(room, e.x, e.y);
           if (e.profile.flying) {
-            const hoverY = bossSurfY - 24 + Math.sin(e.animPhase) * 10;
+            const hoverOffset = e.profile.kind === 'boss_thunder_yaksha' ? 38 : 24;
+            const hoverY = bossSurfY - hoverOffset + Math.sin(e.animPhase) * 11;
             e.y += (hoverY - e.y) * 5 * dt;
           } else {
             e.y = bossSurfY;
           }
-          if (absDx > 165) {
-            e.vx = e.facing * e.profile.speed;
+          const keepDist =
+            e.profile.kind === 'boss_scroll_king' || e.profile.kind === 'boss_opera_god'
+              ? 220
+              : 155;
+          if (absDx > keepDist) {
+            e.vx = e.facing * e.profile.speed * (enraged ? 1.12 : 1);
           } else {
-            e.vx *= 0.85;
+            e.vx *= 0.84;
           }
           e.x = Math.max(90, Math.min(room.pixelW - 90, e.x + e.vx * dt));
 
           if (e.stateTimer <= 0) {
-            e.bossMoveIdx = (e.bossMoveIdx + 1) % 3;
-            if (e.bossMoveIdx === 1) {
-              if (e.profile.kind === 'boss_furnace_titan') {
-                // 赤铜镇火巨灵：连续抛射三枚高爆熔金岩浆火弹！
-                e.castAnimTimer = 0.38;
-                for (let m = -1; m <= 1; m++) {
-                  this.projectiles.push({
-                    fromPlayer: false,
-                    kind: 'holy_fire',
-                    enemyFx: 'magma_bomb',
-                    x: e.x + e.facing * 26,
-                    y: e.y - 54,
-                    vx: e.facing * (220 + (m + 1) * 95),
-                    vy: -340 - m * 55,
-                    r: 13,
-                    dmg: e.profile.atk,
-                    color: '#fb923c',
-                    life: 1.7,
-                    maxLife: 1.7,
-                    pierce: 1,
-                    hitIds: new Set(),
-                  });
-                }
-              } else if (e.profile.kind === 'boss_opera_god') {
-                // 惊梦百戏傩神：凌空扇面齐射五道赤金傀儡飞针！
+            const moveCycle = e.profile.kind === 'boss_zhuyin' ? 4 : 3;
+            e.bossMoveIdx = (e.bossMoveIdx + 1) % moveCycle;
+            const mv = e.bossMoveIdx;
+
+            if (e.profile.kind === 'boss_xiao_duanshui') {
+              // 【镇门偏将·萧断水】正统边军大枪将领：0 破军突刺枪；1 龙胆裂地枪芒(+防空挑枪)；2 纵跃落雷枪坠！
+              if (mv === 0) {
+                e.aiState = 'windup';
+                e.stateTimer = enraged ? 0.42 : 0.5;
+                e.stateDuration = e.stateTimer;
+                e.vx = 0;
+                e.slashHitPlayer = false;
+                this.spawnInkBurst(e.x + e.facing * 24, e.y - 42, '#fbbf24', '#ef4444', 10);
+              } else if (mv === 1) {
                 e.castAnimTimer = 0.36;
-                for (let n = -2; n <= 2; n++) {
-                  const baseAng = Math.atan2(p.y - 40 - (e.y - 42), p.x - e.x);
-                  const ang = baseAng + n * 0.16;
+                this.projectiles.push({
+                  fromPlayer: false,
+                  kind: 'qi_wave',
+                  x: e.x + e.facing * 36,
+                  y: e.y - 36,
+                  vx: e.facing * (enraged ? 465 : 415),
+                  vy: 0,
+                  r: 26,
+                  dmg: e.profile.atk,
+                  color: '#ef4444',
+                  life: 1.5,
+                  maxLife: 1.5,
+                  pierce: 1,
+                  hitIds: new Set(),
+                });
+                if (p.y < e.y - 32 || enraged) {
+                  const ang = Math.atan2(p.y - 44 - (e.y - 52), p.x - e.x);
                   this.projectiles.push({
                     fromPlayer: false,
                     kind: 'dagger',
-                    enemyFx: 'opera_needle',
-                    x: e.x + e.facing * 22,
-                    y: e.y - 42,
-                    vx: Math.cos(ang) * 365,
-                    vy: Math.sin(ang) * 365,
-                    r: 10,
-                    dmg: e.profile.atk,
-                    color: '#f472b6',
-                    life: 1.7,
-                    maxLife: 1.7,
-                    pierce: 1,
-                    hitIds: new Set(),
-                  });
-                }
-              } else if (
-                e.profile.kind === 'boss_xiao_duanshui' ||
-                e.profile.kind === 'boss_pei_wuji' ||
-                e.profile.kind === 'boss_zhuyin'
-              ) {
-                // 萧断水破军龙胆枪芒 / 裴无极&烛阴血月裂空剑波！
-                e.castAnimTimer = 0.34;
-                const waveCount = e.profile.kind === 'boss_zhuyin' ? 2 : 1;
-                for (let wIdx = 0; wIdx < waveCount; wIdx++) {
-                  this.projectiles.push({
-                    fromPlayer: false,
-                    kind: 'qi_wave',
-                    x: e.x + e.facing * 36,
-                    y: e.y - 42 - wIdx * 28,
-                    vx: e.facing * (440 + wIdx * 70),
-                    vy: 0,
-                    r: 28,
-                    dmg: e.profile.atk,
-                    color: e.profile.accentColor,
+                    enemyFx: 'thunder_lance',
+                    x: e.x + e.facing * 28,
+                    y: e.y - 52,
+                    vx: Math.cos(ang) * 380,
+                    vy: Math.sin(ang) * 380,
+                    r: 11,
+                    dmg: Math.round(e.profile.atk * 0.9),
+                    color: '#fde047',
                     life: 1.5,
                     maxLife: 1.5,
                     pierce: 1,
                     hitIds: new Set(),
                   });
                 }
-              }
-              if (e.profile.kind !== 'boss_xiao_duanshui') {
-                const strikeCnt = e.profile.kind === 'boss_zhuyin' ? 4 : 3;
-                for (let k = -1; k < strikeCnt - 1; k++) {
-                  const sx = Math.max(120, Math.min(room.pixelW - 120, p.x + k * 115));
+                AudioFX.playSkillCast();
+                e.stateTimer = enraged ? 1.15 : 1.4;
+              } else {
+                const leapX = Math.max(
+                  110,
+                  Math.min(room.pixelW - 110, e.x + Math.sign(dx || e.facing) * Math.min(220, absDx * 0.72))
+                );
+                this.spawnInkBurst(e.x, e.y - 30, '#fbbf24', '#090d16', 12);
+                e.x = leapX;
+                e.y = sampleEntitySurfaceY(room, e.x, e.y);
+                e.facing = p.x >= e.x ? 1 : -1;
+                for (const off of [-72, 72]) {
+                  const sx = Math.max(95, Math.min(room.pixelW - 95, e.x + off));
                   this.skyStrikes.push({
                     x: sx,
                     groundY: sampleGroundY(room, sx),
-                    timer: 0.82,
-                    maxTimer: 0.82,
+                    timer: 0.72,
+                    maxTimer: 0.72,
                     dmg: e.profile.atk,
                   });
                 }
+                e.aiState = 'windup';
+                e.stateTimer = 0.48;
+                e.stateDuration = 0.48;
+                e.vx = 0;
+                e.slashHitPlayer = false;
               }
-              AudioFX.playSkillCast();
-              e.stateTimer = 1.55;
-            } else {
-              if (e.bossMoveIdx === 2) {
+            } else if (e.profile.kind === 'boss_scroll_king') {
+              // 【万卷书魔·墨残生】远程阵法师：0 墨遁拉远+三才敕令符扇；1 狂草递进天罚碑林；2 卷轴掠空斩！
+              if (mv === 0) {
+                const farX = e.x < room.pixelW * 0.5 ? room.pixelW - 175 : 175;
+                this.spawnInkBurst(e.x, e.y - 44, '#c084fc', '#090d16', 18);
+                e.x = farX;
+                e.facing = p.x >= e.x ? 1 : -1;
+                this.spawnInkBurst(e.x, e.y - 44, '#c084fc', '#090d16', 18);
+                e.castAnimTimer = 0.4;
+                const baseAng = Math.atan2(p.y - 38 - (e.y - 42), p.x - e.x);
+                const fanHalf = enraged ? 2 : 1;
+                for (let f = -fanHalf; f <= fanHalf; f++) {
+                  const ang = baseAng + f * 0.17;
+                  this.projectiles.push({
+                    fromPlayer: false,
+                    kind: 'dagger',
+                    enemyFx: 'cursed_talisman',
+                    x: e.x + e.facing * 20,
+                    y: e.y - 42,
+                    vx: Math.cos(ang) * 320,
+                    vy: Math.sin(ang) * 320,
+                    r: 10,
+                    dmg: e.profile.atk,
+                    color: '#c084fc',
+                    life: 1.9,
+                    maxLife: 1.9,
+                    pierce: 1,
+                    hitIds: new Set(),
+                  });
+                }
+                AudioFX.playSkillCast();
+                e.stateTimer = enraged ? 1.25 : 1.5;
+              } else if (mv === 1) {
+                e.castAnimTimer = 0.42;
+                const cnt = enraged ? 5 : 4;
+                for (let k = 0; k < cnt; k++) {
+                  const sx = Math.max(
+                    110,
+                    Math.min(room.pixelW - 110, p.x + (k - (cnt - 1) * 0.5) * 110)
+                  );
+                  const tWait = 0.68 + k * 0.15;
+                  this.skyStrikes.push({
+                    x: sx,
+                    groundY: sampleGroundY(room, sx),
+                    timer: tWait,
+                    maxTimer: tWait,
+                    dmg: e.profile.atk,
+                  });
+                }
+                AudioFX.playSkillCast();
+                e.stateTimer = 1.55;
+              } else {
+                e.aiState = 'windup';
+                e.stateTimer = 0.52;
+                e.stateDuration = 0.52;
+                e.vx = 0;
+                e.slashHitPlayer = false;
+              }
+            } else if (e.profile.kind === 'boss_furnace_titan') {
+              // 【赤铜镇火巨灵】纯粹重装巨兽（绝不瞬移！）：0 重锤裂地双侧熔岩地波；1 抛射三连岩浆巨石；2 蛮牛重装冲撞（撞墙自晕破绽！）
+              if (mv === 0) {
+                e.castAnimTimer = 0.46;
+                this.screenShake = Math.max(this.screenShake, 8);
+                AudioFX.playSlash('heavy');
+                NativeApp.haptic('heavy');
+                this.spawnInkBurst(e.x, e.y - 6, '#fb923c', '#fde047', 22);
+                for (const dir of [-1, 1]) {
+                  this.projectiles.push({
+                    fromPlayer: false,
+                    kind: 'qi_wave',
+                    enemyFx: 'lava_wave',
+                    x: e.x + dir * 28,
+                    y: e.y - 18,
+                    vx: dir * (enraged ? 345 : 295),
+                    vy: 0,
+                    r: 18,
+                    dmg: e.profile.atk,
+                    color: '#f97316',
+                    life: 2.2,
+                    maxLife: 2.2,
+                    pierce: 99,
+                    hitIds: new Set(),
+                  });
+                }
+                e.stateTimer = enraged ? 1.25 : 1.55;
+              } else if (mv === 1) {
+                e.castAnimTimer = 0.4;
+                const mCnt = enraged ? 4 : 3;
+                for (let m = 0; m < mCnt; m++) {
+                  this.projectiles.push({
+                    fromPlayer: false,
+                    kind: 'holy_fire',
+                    enemyFx: 'magma_bomb',
+                    x: e.x + e.facing * 26,
+                    y: e.y - 58,
+                    vx: e.facing * (185 + m * 95),
+                    vy: -330 - m * 42,
+                    r: 13,
+                    dmg: e.profile.atk,
+                    color: '#fb923c',
+                    life: 1.8,
+                    maxLife: 1.8,
+                    pierce: 1,
+                    hitIds: new Set(),
+                  });
+                }
+                AudioFX.playSkillCast();
+                e.stateTimer = 1.5;
+              } else {
+                this.floats.push({
+                  x: e.x,
+                  y: e.y - e.profile.h - 18,
+                  vy: -24,
+                  text: '蛮牛狂冲！',
+                  color: '#fb923c',
+                  size: 13,
+                  life: 0.7,
+                });
+                e.aiState = 'windup';
+                e.stateTimer = 0.62;
+                e.stateDuration = 0.62;
+                e.vx = 0;
+                e.slashHitPlayer = false;
+              }
+            } else if (e.profile.kind === 'boss_opera_god') {
+              // 【惊梦百戏傩神】梨园幻术宗师：0 雀翎金针扇；1 悬丝召偶登台助阵；2 落英步绕背双剪！
+              if (mv === 0) {
+                e.castAnimTimer = 0.38;
+                const half = enraged ? 3 : 2;
+                const baseAng = Math.atan2(p.y - 40 - (e.y - 42), p.x - e.x);
+                for (let n = -half; n <= half; n++) {
+                  const ang = baseAng + n * 0.15;
+                  this.projectiles.push({
+                    fromPlayer: false,
+                    kind: 'dagger',
+                    enemyFx: 'opera_needle',
+                    x: e.x + e.facing * 22,
+                    y: e.y - 42,
+                    vx: Math.cos(ang) * 355,
+                    vy: Math.sin(ang) * 355,
+                    r: 10,
+                    dmg: e.profile.atk,
+                    color: '#f472b6',
+                    life: 1.8,
+                    maxLife: 1.8,
+                    pierce: 1,
+                    hitIds: new Set(),
+                  });
+                }
+                AudioFX.playSkillCast();
+                e.stateTimer = enraged ? 1.2 : 1.45;
+              } else if (mv === 1) {
+                e.castAnimTimer = 0.42;
+                const hasPuppet = this.enemies.some((o) => o.profile.kind === 'opera_puppet');
+                if (!hasPuppet) {
+                  const sx = Math.max(140, Math.min(room.pixelW - 140, e.x + e.facing * 95));
+                  const sy = sampleSolidGroundY(room, sx);
+                  this.spawnEnemy('opera_puppet', sx, sy);
+                  this.spawnInkBurst(sx, sy - 36, '#f472b6', '#fde047', 16);
+                  this.floats.push({
+                    x: e.x,
+                    y: e.y - e.profile.h - 20,
+                    vy: -28,
+                    text: '悬丝召偶·登台！',
+                    color: '#f472b6',
+                    size: 13.5,
+                    life: 0.9,
+                  });
+                }
+                for (const off of [-95, 95]) {
+                  const tx = Math.max(110, Math.min(room.pixelW - 110, p.x + off));
+                  this.skyStrikes.push({
+                    x: tx,
+                    groundY: sampleGroundY(room, tx),
+                    timer: 0.8,
+                    maxTimer: 0.8,
+                    dmg: e.profile.atk,
+                  });
+                }
+                AudioFX.playSkillCast();
+                e.stateTimer = 1.55;
+              } else {
                 const behindX = Math.max(
-                  110,
-                  Math.min(room.pixelW - 110, p.x - p.facing * 105)
+                  115,
+                  Math.min(room.pixelW - 115, p.x - p.facing * 125)
                 );
-                this.spawnInkBurst(e.x, e.y - 45, e.profile.accentColor, '#090d16', 14);
+                this.spawnInkBurst(e.x, e.y - 45, '#f472b6', '#fde047', 16);
                 e.x = behindX;
                 e.facing = p.x >= e.x ? 1 : -1;
-                this.spawnInkBurst(e.x, e.y - 45, e.profile.accentColor, '#090d16', 14);
+                this.spawnInkBurst(e.x, e.y - 45, '#f472b6', '#fde047', 16);
+                e.aiState = 'windup';
+                e.stateTimer = 0.56;
+                e.stateDuration = 0.56;
+                e.vx = 0;
+                e.slashHitPlayer = false;
               }
-              e.aiState = 'windup';
-              e.stateTimer = 0.54;
-              e.stateDuration = 0.54;
-              e.vx = 0;
-              e.slashHitPlayer = false;
+            } else if (e.profile.kind === 'boss_thunder_yaksha') {
+              // 【九天雷音金翅夜叉】制空雷神：0 高空黄金雷叉三连齐射；1 追身连环天劫落雷；2 紫电俯冲掠袭！
+              if (mv === 0) {
+                e.castAnimTimer = 0.36;
+                const half = enraged ? 2 : 1;
+                const baseAng = Math.atan2(p.y - 38 - (e.y - 32), p.x - e.x);
+                for (let n = -half; n <= half; n++) {
+                  const ang = baseAng + n * 0.18;
+                  this.projectiles.push({
+                    fromPlayer: false,
+                    kind: 'dagger',
+                    enemyFx: 'thunder_lance',
+                    x: e.x + e.facing * 22,
+                    y: e.y - 32,
+                    vx: Math.cos(ang) * 410,
+                    vy: Math.sin(ang) * 410,
+                    r: 11,
+                    dmg: e.profile.atk,
+                    color: '#facc15',
+                    life: 1.8,
+                    maxLife: 1.8,
+                    pierce: 1,
+                    hitIds: new Set(),
+                  });
+                }
+                AudioFX.playSkillCast();
+                e.stateTimer = enraged ? 1.15 : 1.4;
+              } else if (mv === 1) {
+                e.castAnimTimer = 0.4;
+                const cnt = enraged ? 4 : 3;
+                for (let k = 0; k < cnt; k++) {
+                  const sx = Math.max(105, Math.min(room.pixelW - 105, p.x + (k - 1) * 96));
+                  const tWait = 0.64 + k * 0.18;
+                  this.skyStrikes.push({
+                    x: sx,
+                    groundY: sampleGroundY(room, sx),
+                    timer: tWait,
+                    maxTimer: tWait,
+                    dmg: e.profile.atk,
+                  });
+                }
+                AudioFX.playSkillCast();
+                e.stateTimer = 1.45;
+              } else {
+                e.aiState = 'windup';
+                e.stateTimer = 0.48;
+                e.stateDuration = 0.48;
+                e.vx = 0;
+                e.slashHitPlayer = false;
+                this.spawnInkBurst(e.x, e.y - 36, '#fde047', '#38bdf8', 12);
+              }
+            } else if (e.profile.kind === 'boss_pei_wuji') {
+              // 【堕魔剑尊·裴无极】宿命剑圣对决：0 高低错位血月双剑波；1 天剑绝阵+血敕剑符；2 缩地居合拔刀斩（绝佳弹反窗口！）
+              if (mv === 0) {
+                e.castAnimTimer = 0.38;
+                this.projectiles.push({
+                  fromPlayer: false,
+                  kind: 'qi_wave',
+                  x: e.x + e.facing * 36,
+                  y: e.y - 32,
+                  vx: e.facing * 450,
+                  vy: 0,
+                  r: 26,
+                  dmg: e.profile.atk,
+                  color: '#ef4444',
+                  life: 1.6,
+                  maxLife: 1.6,
+                  pierce: 1,
+                  hitIds: new Set(),
+                });
+                this.projectiles.push({
+                  fromPlayer: false,
+                  kind: 'qi_wave',
+                  x: e.x + e.facing * 18,
+                  y: e.y - 76,
+                  vx: e.facing * 340,
+                  vy: 0,
+                  r: 24,
+                  dmg: e.profile.atk,
+                  color: '#f87171',
+                  life: 1.8,
+                  maxLife: 1.8,
+                  pierce: 1,
+                  hitIds: new Set(),
+                });
+                AudioFX.playSkillCast();
+                e.stateTimer = enraged ? 1.15 : 1.4;
+              } else if (mv === 1) {
+                e.castAnimTimer = 0.4;
+                const cnt = enraged ? 4 : 3;
+                for (let k = 0; k < cnt; k++) {
+                  const sx = Math.max(
+                    110,
+                    Math.min(room.pixelW - 110, p.x + (k - (cnt - 1) * 0.5) * 108)
+                  );
+                  this.skyStrikes.push({
+                    x: sx,
+                    groundY: sampleGroundY(room, sx),
+                    timer: 0.76,
+                    maxTimer: 0.76,
+                    dmg: e.profile.atk,
+                  });
+                }
+                AudioFX.playSkillCast();
+                e.stateTimer = 1.45;
+              } else {
+                const behindX = Math.max(
+                  115,
+                  Math.min(room.pixelW - 115, p.x - p.facing * 122)
+                );
+                this.spawnInkBurst(e.x, e.y - 44, '#ef4444', '#090d16', 16);
+                e.x = behindX;
+                e.y = sampleEntitySurfaceY(room, e.x, e.y);
+                e.facing = p.x >= e.x ? 1 : -1;
+                this.spawnInkBurst(e.x, e.y - 44, '#ef4444', '#fde047', 16);
+                e.aiState = 'windup';
+                e.stateTimer = 0.52;
+                e.stateDuration = 0.52;
+                e.vx = 0;
+                e.slashHitPlayer = false;
+              }
+            } else {
+              // 【九幽玄城真主·烛阴】终焉真神四式轮转：0 幽冥双剑波+裂地熔浪；1 蚀世火毒天雨；2 四极雷狱光柱；3 烛龙撕天掠袭！
+              if (mv === 0) {
+                e.castAnimTimer = 0.42;
+                for (let wIdx = 0; wIdx < 2; wIdx++) {
+                  this.projectiles.push({
+                    fromPlayer: false,
+                    kind: 'qi_wave',
+                    x: e.x + e.facing * 38,
+                    y: e.y - 38 - wIdx * 34,
+                    vx: e.facing * (450 - wIdx * 80),
+                    vy: 0,
+                    r: 28,
+                    dmg: e.profile.atk,
+                    color: '#dc2626',
+                    life: 1.7,
+                    maxLife: 1.7,
+                    pierce: 1,
+                    hitIds: new Set(),
+                  });
+                }
+                this.projectiles.push({
+                  fromPlayer: false,
+                  kind: 'qi_wave',
+                  enemyFx: 'lava_wave',
+                  x: e.x + e.facing * 30,
+                  y: sampleSolidGroundY(room, e.x) - 18,
+                  vx: e.facing * 320,
+                  vy: 0,
+                  r: 19,
+                  dmg: e.profile.atk,
+                  color: '#f97316',
+                  life: 2.2,
+                  maxLife: 2.2,
+                  pierce: 99,
+                  hitIds: new Set(),
+                });
+                AudioFX.playSkillCast();
+                e.stateTimer = enraged ? 1.2 : 1.5;
+              } else if (mv === 1) {
+                e.castAnimTimer = 0.42;
+                for (let m = -1; m <= 1; m++) {
+                  const isVenom = m === 0;
+                  this.projectiles.push({
+                    fromPlayer: false,
+                    kind: 'holy_fire',
+                    enemyFx: isVenom ? 'venom_glob' : 'magma_bomb',
+                    x: e.x + e.facing * 26,
+                    y: e.y - 54,
+                    vx: e.facing * (215 + (m + 1) * 105),
+                    vy: -350 - Math.abs(m) * 45,
+                    r: 13,
+                    dmg: e.profile.atk,
+                    color: isVenom ? '#a855f7' : '#fb923c',
+                    life: 1.8,
+                    maxLife: 1.8,
+                    pierce: 1,
+                    hitIds: new Set(),
+                  });
+                }
+                AudioFX.playSkillCast();
+                e.stateTimer = 1.45;
+              } else if (mv === 2) {
+                e.castAnimTimer = 0.44;
+                const cnt = enraged ? 5 : 4;
+                for (let k = 0; k < cnt; k++) {
+                  const sx = Math.max(
+                    110,
+                    Math.min(room.pixelW - 110, p.x + (k - (cnt - 1) * 0.5) * 106)
+                  );
+                  const tWait = 0.68 + k * 0.14;
+                  this.skyStrikes.push({
+                    x: sx,
+                    groundY: sampleGroundY(room, sx),
+                    timer: tWait,
+                    maxTimer: tWait,
+                    dmg: e.profile.atk,
+                  });
+                }
+                AudioFX.playSkillCast();
+                e.stateTimer = 1.5;
+              } else {
+                e.aiState = 'windup';
+                e.stateTimer = 0.52;
+                e.stateDuration = 0.52;
+                e.vx = 0;
+                e.slashHitPlayer = false;
+                this.spawnInkBurst(e.x, e.y - 48, '#dc2626', '#fde047', 16);
+              }
             }
           }
         } else if (e.profile.flying) {
@@ -3045,7 +3582,7 @@ export class GameEngine {
             }
           }
         } else {
-          // 地面妖邪差异化 AI：毒沼三足蟾弹跳扑击吐毒，重盾傀儡中距掷回旋铜斧，刀客/木偶突步蓄斩！
+          // 地面妖邪差异化 AI：毒沼三足蟾弹跳扑击吐毒，重盾傀儡中距掷回旋铜斧，纸人剑客见招架刀，木偶后撤散射金针！
           if (e.profile.kind === 'plague_toad') {
             const curSurfY = sampleEntitySurfaceY(room, e.x, e.y);
             if (e.vy !== 0 || e.y < curSurfY - 2) {
@@ -3088,13 +3625,29 @@ export class GameEngine {
               });
             }
           } else {
+            // 纸人剑客战术博弈：正面察觉少侠挥轻刀时自动横刀架挡 0.65s（引导少侠翻滚绕背、跳劈或重斩破架！）
+            if (
+              e.profile.kind === 'paper_swordsman' &&
+              this.activeSlash &&
+              absDx < 155 &&
+              Math.abs(dy) < 75 &&
+              dx * e.facing > 0 &&
+              (e.guardStanceTimer || 0) <= 0 &&
+              e.stateTimer > 0.2
+            ) {
+              e.guardStanceTimer = 0.65;
+              e.vx = 0;
+            }
+
             const attackRange =
               e.profile.kind === 'paper_swordsman'
                 ? 175
                 : e.profile.shieldedFront
                   ? 96
                   : 108;
-            if (absDx < 460 && absDx > attackRange) {
+            if ((e.guardStanceTimer || 0) > 0) {
+              e.vx = 0;
+            } else if (absDx < 460 && absDx > attackRange) {
               e.vx = e.facing * e.profile.speed;
               e.animPhase += dt * 10;
             } else if (absDx >= 460) {
@@ -3169,6 +3722,7 @@ export class GameEngine {
               AudioFX.playSlash('heavy');
               e.stateTimer = 1.85;
             } else if (e.stateTimer <= 0 && absDx <= attackRange + 18 && Math.abs(dy) < 90) {
+              e.guardStanceTimer = 0;
               e.aiState = 'windup';
               const wDur = e.profile.shieldedFront
                 ? 0.58
@@ -3192,18 +3746,35 @@ export class GameEngine {
         if (e.stateTimer <= 0) {
           e.aiState = 'lunge_slash';
           const isIaido = e.profile.kind === 'paper_swordsman';
-          const sDur = e.profile.isBoss
-            ? 0.28
-            : e.profile.shieldedFront
-              ? 0.26
-              : isIaido
-                ? 0.24
-                : 0.23;
+          const isTitanCharge = e.profile.kind === 'boss_furnace_titan';
+          const sDur = isTitanCharge
+            ? 0.46
+            : e.profile.isBoss
+              ? 0.3
+              : e.profile.shieldedFront
+                ? 0.26
+                : isIaido
+                  ? 0.24
+                  : 0.23;
           e.stateTimer = sDur;
           e.stateDuration = sDur;
           e.cleaveSlamDone = false;
-          e.vx = e.facing * (e.profile.isBoss ? 460 : isIaido ? 430 : e.profile.shieldedFront ? 270 : 320);
-          AudioFX.playSlash(e.profile.shieldedFront ? 'heavy' : 'light');
+          const lungeSpd =
+            e.profile.kind === 'boss_thunder_yaksha'
+              ? 550
+              : e.profile.kind === 'boss_zhuyin' || e.profile.kind === 'boss_pei_wuji'
+                ? 520
+                : isTitanCharge
+                  ? 485
+                  : e.profile.isBoss
+                    ? 475
+                    : isIaido
+                      ? 430
+                      : e.profile.shieldedFront
+                        ? 270
+                        : 320;
+          e.vx = e.facing * lungeSpd;
+          AudioFX.playSlash(e.profile.shieldedFront || isTitanCharge ? 'heavy' : 'light');
           if (e.profile.kind === 'lantern_ghost') {
             this.spawnInkBurst(e.x + e.facing * 24, e.y - 42, '#5eead4', '#a855f7', 9);
           } else if (isIaido) {
@@ -3222,7 +3793,31 @@ export class GameEngine {
           this.spawnInkBurst(e.x + e.facing * 52, e.y - 2, '#fbbf24', '#451a03', 10);
         }
         if (e.profile.flying || e.profile.isBoss) {
-          e.x = Math.max(50, Math.min(room.pixelW - 50, e.x + e.vx * dt));
+          const nextBossX = e.x + e.vx * dt;
+          if (
+            e.profile.kind === 'boss_furnace_titan' &&
+            (nextBossX <= 92 || nextBossX >= room.pixelW - 92)
+          ) {
+            // 赤铜巨灵蛮牛冲撞轰击殿柱自陷眩晕破绽！
+            e.x = Math.max(92, Math.min(room.pixelW - 92, nextBossX));
+            e.vx = -e.facing * 120;
+            e.aiState = 'staggered';
+            e.stateTimer = 1.1;
+            this.screenShake = Math.max(this.screenShake, 9);
+            AudioFX.playParryClang();
+            this.spawnInkBurst(e.x + e.facing * 32, e.y - 42, '#fb923c', '#fde047', 18);
+            this.floats.push({
+              x: e.x,
+              y: e.y - e.profile.h - 22,
+              vy: -30,
+              text: '撞柱失衡！',
+              color: '#fde047',
+              size: 14,
+              life: 0.9,
+            });
+            continue;
+          }
+          e.x = Math.max(50, Math.min(room.pixelW - 50, nextBossX));
           if (e.profile.isBoss && !e.profile.flying) {
             e.y = sampleEntitySurfaceY(room, e.x, e.y);
           }
@@ -3257,7 +3852,7 @@ export class GameEngine {
         if (e.stateTimer <= 0) {
           const enraged = e.profile.isBoss && e.hp < e.maxHp * 0.55;
           e.aiState = 'stalk';
-          e.stateTimer = e.profile.isBoss ? (enraged ? 0.58 : 0.82) : 0.72;
+          e.stateTimer = e.profile.isBoss ? (enraged ? 0.58 : 0.85) : 0.72;
         }
       }
     }
@@ -3294,9 +3889,11 @@ export class GameEngine {
     if (!this.slot) return;
     const wCur = WEAPONS[this.slot.equippedWeapon] || WEAPONS.sword_1;
     const isCrit = forceCrit || Math.random() < this.player.critChance;
-    const critMult = isCrit ? 1.55 : 1;
-    const effDef = wCur.specialEffect === 'armor_sunder' ? e.profile.def * 0.12 : e.profile.def;
-    const finalDmg = Math.max(1, Math.round(rawDmg * critMult - effDef * 0.4));
+    const critMult = isCrit ? 1.52 : 1;
+    const effDef = wCur.specialEffect === 'armor_sunder' ? e.profile.def * 0.15 : e.profile.def;
+    const rawCrit = rawDmg * critMult;
+    const defMitigation = 0.34 + 0.66 * (rawCrit / (rawCrit + effDef * 2.1 + 1));
+    const finalDmg = Math.max(2, Math.round(rawCrit * defMitigation));
 
     e.hp -= finalDmg;
     e.hurtFlash = 0.14;
@@ -3304,12 +3901,31 @@ export class GameEngine {
       const heal = Math.max(1, Math.round(finalDmg * this.player.lifesteal));
       this.player.hp = Math.min(this.player.maxHp, this.player.hp + heal);
     }
-    if (poiseDmg >= 35 && !e.profile.isBoss && e.aiState !== 'staggered') {
-      e.aiState = 'staggered';
-      e.stateTimer = 0.42;
-      e.vx = this.player.facing * 160;
-    } else if (!e.profile.isBoss && e.aiState === 'stalk') {
-      this.stepGroundEnemyX(e, this.player.facing * 9);
+
+    // 真实韧性架势条博弈：积累削韧击穿架势才触发失衡大硬直，彻底告别无脑无限平A控死小怪与Boss木桩化！
+    if (e.hp > 0 && e.aiState !== 'staggered' && poiseDmg > 0) {
+      e.poiseRegenDelay = e.profile.isBoss ? 2.4 : 1.8;
+      e.poise -= poiseDmg;
+      if (e.poise <= 0) {
+        e.poise = e.maxPoise;
+        e.guardStanceTimer = 0;
+        e.aiState = 'staggered';
+        e.stateTimer = e.profile.isBoss ? 1.35 : 1.15;
+        e.vx = this.player.facing * (e.profile.isBoss ? 95 : 165);
+        AudioFX.playParryClang();
+        this.screenShake = Math.max(this.screenShake, e.profile.isBoss ? 7 : 4.5);
+        this.floats.push({
+          x: e.x,
+          y: e.y - e.profile.h - 24,
+          vy: -34,
+          text: e.profile.isBoss ? '✦ 破势失衡！✦' : '破势！',
+          color: '#fde047',
+          size: e.profile.isBoss ? 15 : 12.5,
+          life: 0.9,
+        });
+      } else if (!e.profile.isBoss && e.aiState === 'stalk') {
+        this.stepGroundEnemyX(e, this.player.facing * 8);
+      }
     }
 
     // 守关妖王 / 宿敌半血狂暴二阶段觉醒演出！
@@ -3437,11 +4053,13 @@ export class GameEngine {
     if (e.profile.isBoss) {
       this.screenShake = 12;
       this.skyStrikes = [];
+      // 妖王伏诛瞬间自动驱散其悬丝召唤的伴生傀儡
+      this.enemies = this.enemies.filter((o) => o.profile.isBoss);
       NativeApp.haptic('heavy');
     }
 
-    // 百鬼试炼·镇妖塔连战模式处理
-    if (s.mode === 'boss_rush' && this.room.id === 'boss_rush_arena') {
+    // 百鬼试炼·镇妖塔连战模式处理（仅当守层妖王本体伏诛时进入下一层！）
+    if (s.mode === 'boss_rush' && this.room.id === 'boss_rush_arena' && e.profile.isBoss) {
       this.player.hp = Math.min(this.player.maxHp, this.player.hp + Math.round(this.player.maxHp * 0.35));
       this.player.mp = Math.min(this.player.maxMp, this.player.mp + Math.round(this.player.maxMp * 0.5));
       this.spawnNextBossRushWave();
@@ -3671,10 +4289,11 @@ export class GameEngine {
   private damagePlayer(rawAtk: number, knockDir: 1 | -1): void {
     const p = this.player;
     const skinMult = this.activeBuffs.iron_skin > 0 ? 0.62 : 1;
-    const dmg = Math.max(3, Math.round((rawAtk - p.def * 0.55) * skinMult));
+    const armorMit = 1 - (p.def / (p.def + 48)) * 0.62;
+    const dmg = Math.max(4, Math.round(rawAtk * armorMit * skinMult));
     p.hp = Math.max(0, p.hp - dmg);
-    p.invulnTimer = 0.85;
-    p.hurtBlinkTimer = 0.85;
+    p.invulnTimer = 0.65;
+    p.hurtBlinkTimer = 0.65;
     this.activeSlash = null;
     this.activeSkillAnim = null;
     p.vx = knockDir * 250;
@@ -3848,6 +4467,18 @@ export class GameEngine {
   public useQuickHealPotion(): void {
     const s = this.slot;
     if (!s) return;
+    if (this.player.potionCooldown > 0) {
+      this.floats.push({
+        x: this.player.x,
+        y: this.player.y - 72,
+        vy: -32,
+        text: `丹药调息 ${this.player.potionCooldown.toFixed(1)}s`,
+        color: '#f59e0b',
+        size: 12,
+        life: 0.72,
+      });
+      return;
+    }
     const needHeal = this.player.hp < this.player.maxHp * 0.85;
     const priority = needHeal
       ? [
@@ -3891,7 +4522,20 @@ export class GameEngine {
     const s = this.slot;
     const def = CONSUMABLES[id];
     if (!s || !def || (s.consumables[id] || 0) <= 0) return false;
+    if (this.player.potionCooldown > 0) {
+      this.floats.push({
+        x: this.player.x,
+        y: this.player.y - 72,
+        vy: -32,
+        text: `丹药调息 ${this.player.potionCooldown.toFixed(1)}s`,
+        color: '#f59e0b',
+        size: 12,
+        life: 0.72,
+      });
+      return false;
+    }
     s.consumables[id]--;
+    this.player.potionCooldown = 3.5;
 
     if (def.fullRestore) {
       this.player.hp = this.player.maxHp;
@@ -4335,7 +4979,7 @@ export class GameEngine {
     if (!this.room || !this.slot) return;
     const room = this.room;
 
-    if (this.enemies.some((e) => e.profile.isBoss)) {
+    if (this.ambushSealed || this.enemies.some((e) => e.profile.isBoss)) {
       this.player.x = Math.max(36, Math.min(room.pixelW - 36, this.player.x));
       return;
     }

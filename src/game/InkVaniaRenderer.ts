@@ -202,32 +202,36 @@ export class InkVaniaRenderer {
     vH: number
   ): void {
     const slabImg = Assets.get('env_ground_slab');
-    const fillWing = (xStart: number, width: number) => {
+    const fillWing = (xStart: number, width: number, borderAtRightEdge: boolean) => {
       if (width <= 0) return;
-      ctx.fillStyle = '#060912';
+      ctx.save();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#050811';
       ctx.fillRect(xStart, camTop - 16, width, vH + 32);
       if (slabImg) {
         const mY = Math.floor(slabImg.height * 0.42);
         const mH = Math.max(24, slabImg.height - mY - 2);
-        ctx.save();
-        ctx.globalAlpha = 0.55;
         for (let y = Math.floor(camTop - 16); y < camTop + vH + 16; y += mH - 2) {
           for (let x = xStart; x < xStart + width; x += slabImg.width) {
             const wClip = Math.min(slabImg.width, xStart + width - x);
             ctx.drawImage(slabImg, 0, mY, wClip, mH, x, y, wClip, mH);
           }
         }
-        ctx.restore();
       }
-      ctx.fillStyle = 'rgba(3, 5, 11, 0.68)';
+      // 100% 实心玄墨剖面压暗与内侧收口边框（绝不透出半丝背景天空！）
+      ctx.fillStyle = 'rgba(4, 6, 13, 0.76)';
       ctx.fillRect(xStart, camTop - 16, width, vH + 32);
+      const seamX = borderAtRightEdge ? xStart + width - 3 : xStart;
+      ctx.fillStyle = 'rgba(30, 41, 59, 0.65)';
+      ctx.fillRect(seamX, camTop - 16, 3, vH + 32);
+      ctx.restore();
     };
 
     if (camLeft < 0) {
-      fillWing(camLeft - 16, -camLeft + 16);
+      fillWing(camLeft - 16, -camLeft + 16, true);
     }
     if (camLeft + vW > room.pixelW) {
-      fillWing(room.pixelW, camLeft + vW - room.pixelW + 16);
+      fillWing(room.pixelW, camLeft + vW - room.pixelW + 16, false);
     }
   }
 
@@ -824,17 +828,50 @@ export class InkVaniaRenderer {
             ctx.drawImage(ironGateImg, 0, 12, ironGateImg.width, 46, sh.x1, floorAtSh - 14, w, 22);
           }
         } else {
-          // 向下竖井升腾的地底幽青寒雾
+          // 向下竖井袅袅升腾的柔和椭圆幽冥雾缕（彻底淘汰生硬长方体青色色块！）
           ctx.save();
           ctx.globalCompositeOperation = 'lighter';
-          const dg = ctx.createLinearGradient(0, room.pixelH, 0, room.pixelH - 130);
-          dg.addColorStop(0, 'rgba(45, 212, 191, 0.22)');
-          dg.addColorStop(1, 'rgba(45, 212, 191, 0)');
-          ctx.fillStyle = dg;
-          ctx.fillRect(sh.x1 + 4, room.pixelH - 130, w - 8, 130);
+          for (let m = 0; m < 3; m++) {
+            const prog = (this.ambientTime * 0.42 + m * 0.33) % 1;
+            const mx = cx + Math.sin(this.ambientTime * 1.8 + m * 2.1) * (w * 0.22);
+            const my = room.pixelH - 12 - prog * 92;
+            const mr = Math.min(54, w * 0.44) * (1 - prog * 0.25);
+            const mg = ctx.createRadialGradient(mx, my, 2, mx, my, mr);
+            mg.addColorStop(0, `rgba(94, 234, 212, ${(1 - prog) * 0.16})`);
+            mg.addColorStop(0.55, `rgba(45, 212, 191, ${(1 - prog) * 0.07})`);
+            mg.addColorStop(1, 'rgba(45, 212, 191, 0)');
+            ctx.fillStyle = mg;
+            ctx.beginPath();
+            ctx.ellipse(mx, my, mr, mr * 0.52, 0, 0, Math.PI * 2);
+            ctx.fill();
+          }
           ctx.restore();
         }
       }
+    }
+
+    // 1B. 困兽血战厅【赤金镇妖封门结界】（清空厅内伏兵前封锁两侧出入口！）
+    if (engine.ambushSealed) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (const bx of [18, room.pixelW - 18]) {
+        const bg = ctx.createLinearGradient(bx - 14, 0, bx + 14, 0);
+        bg.addColorStop(0, 'rgba(239, 68, 68, 0)');
+        bg.addColorStop(0.5, `rgba(248, 113, 113, ${0.42 + Math.sin(this.ambientTime * 7) * 0.1})`);
+        bg.addColorStop(1, 'rgba(239, 68, 68, 0)');
+        ctx.fillStyle = bg;
+        ctx.fillRect(bx - 14, 0, 28, room.pixelH);
+        ctx.strokeStyle = 'rgba(253, 224, 71, 0.72)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([14, 10]);
+        ctx.lineDashOffset = -this.ambientTime * 40;
+        ctx.beginPath();
+        ctx.moveTo(bx, 0);
+        ctx.lineTo(bx, room.pixelH);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      ctx.restore();
     }
 
     // 2. 100% 纯手绘【饕餮青铜千斤闸 (`prop_iron_gate`)】与【九幽紫瘴封魔栅 (`prop_mist_barrier`)】！
@@ -1676,6 +1713,32 @@ export class InkVaniaRenderer {
         ctx.fillStyle = mg;
         ctx.beginPath();
         ctx.arc(0, 0, 17, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      } else if (pr.enemyFx === 'lava_wave') {
+        // 赤铜镇火巨灵 / 烛阴：贴地狂飙的【赤金裂地熔浪】（少侠需起跳或化雾跃过！）
+        const dir = pr.vx >= 0 ? 1 : -1;
+        ctx.save();
+        ctx.scale(dir, 1);
+        ctx.fillStyle = 'rgba(28, 12, 6, 0.85)';
+        ctx.beginPath();
+        ctx.ellipse(-4, 15, 24, 5.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.globalCompositeOperation = 'lighter';
+        const wg = ctx.createLinearGradient(-22, 16, 18, -22);
+        wg.addColorStop(0, 'rgba(185, 28, 28, 0.25)');
+        wg.addColorStop(0.55, 'rgba(249, 115, 22, 0.92)');
+        wg.addColorStop(1, 'rgba(254, 249, 195, 0.98)');
+        ctx.fillStyle = wg;
+        const flicker = Math.sin(this.ambientTime * 34 + pr.x * 0.08) * 4;
+        ctx.beginPath();
+        ctx.moveTo(-24, 16);
+        ctx.quadraticCurveTo(-10, -4, -2, -16 + flicker);
+        ctx.lineTo(4, -6);
+        ctx.quadraticCurveTo(14, -22 - flicker * 0.6, 18, -24 + flicker * 0.5);
+        ctx.quadraticCurveTo(22, 2, 16, 16);
+        ctx.closePath();
         ctx.fill();
         ctx.restore();
       } else if (pr.enemyFx === 'bronze_axe') {
@@ -2602,9 +2665,15 @@ export class InkVaniaRenderer {
         const x0 = b.cx - b.w * 0.5;
         const y0 = b.cy - b.h * 0.5 + pressOffsetY;
         const rad = b.h * 0.5;
-        const cdLeft = b.id === 'skill' && engine ? engine.player.skillCooldown : 0;
+        const cdLeft =
+          b.id === 'skill' && engine
+            ? engine.player.skillCooldown
+            : b.id === 'potion' && engine
+              ? engine.player.potionCooldown
+              : 0;
         const skillReady =
           b.id === 'skill' && Boolean(engine && engine.player.mp >= 20 && cdLeft <= 0);
+        const onCooldown = cdLeft > 0.05;
 
         ctx.fillStyle = b.pressed
           ? 'rgba(30, 41, 59, 0.94)'
@@ -2630,9 +2699,9 @@ export class InkVaniaRenderer {
 
         ctx.font = 'bold 11.5px "STKaiti", "KaiTi", serif';
         ctx.textAlign = 'right';
-        ctx.fillStyle = b.id === 'skill' && !skillReady ? '#94a3b8' : '#f8fafc';
-        const btnText =
-          b.id === 'skill' && cdLeft > 0.05 ? `${cdLeft.toFixed(1)}s` : b.label;
+        ctx.fillStyle =
+          onCooldown || (b.id === 'skill' && !skillReady) ? '#94a3b8' : '#f8fafc';
+        const btnText = onCooldown ? `${cdLeft.toFixed(1)}s` : b.label;
         ctx.fillText(btnText, x0 + b.w - 8, y0 + b.h * 0.52);
         continue;
       }
