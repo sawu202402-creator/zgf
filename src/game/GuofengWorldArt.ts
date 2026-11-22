@@ -1182,7 +1182,6 @@ export function drawCastleInteriorPropsAndGears(
 ): void {
   if (room.decorProps) {
     const shelfImg = Assets.get('prop_bookshelf');
-    const winImg = Assets.get('prop_lattice_window');
     const chanImg = Assets.get('prop_chandelier');
     const brazierImg = Assets.get('prop_dragon_brazier');
     const bannerImg = Assets.get('prop_silk_banner');
@@ -1191,6 +1190,7 @@ export function drawCastleInteriorPropsAndGears(
     const pillarImg = Assets.get('prop_coiled_pillar');
     const burnerImg = Assets.get('prop_incense_burner');
     const bellImg = Assets.get('prop_giant_bell');
+    const chainImg = Assets.get('arch_iron_chain');
 
     for (const dp of room.decorProps) {
       const sc = dp.scale ?? 1;
@@ -1207,30 +1207,17 @@ export function drawCastleInteriorPropsAndGears(
         const sway = Math.sin(t * 1.9 + dp.x * 0.015) * 0.025;
         const h = 215 * sc;
         const w = bannerImg.width * (h / bannerImg.height);
+        const rawTopY = dp.y - h;
+        const ceilY = sampleCeilingY(room, dp.x, false);
+        const topY =
+          room.indoor && ceilY > 0 && rawTopY - ceilY < 75 ? ceilY - 2 : rawTopY;
+        if (room.indoor && chainImg && ceilY > 0 && topY > ceilY + 6 && topY - ceilY < 260) {
+          drawSuspensionChain(ctx, chainImg, dp.x, ceilY - 2, topY + 6, 12, 0.78);
+        }
         ctx.save();
-        ctx.translate(dp.x, dp.y - h);
+        ctx.translate(dp.x, topY);
         ctx.rotate(sway);
         ctx.drawImage(bannerImg, -w * 0.5, 0, w, h);
-        ctx.restore();
-      } else if (dp.kind === 'lattice_window' && winImg) {
-        const h = 235 * sc;
-        const w = winImg.width * (h / winImg.height);
-        ctx.drawImage(winImg, dp.x - w * 0.5, dp.y - h, w, h);
-
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-        const beamG = ctx.createLinearGradient(dp.x, dp.y - h * 0.8, dp.x + 135, dp.y + 120);
-        beamG.addColorStop(0, 'rgba(125, 211, 252, 0.22)');
-        beamG.addColorStop(0.55, 'rgba(186, 230, 253, 0.09)');
-        beamG.addColorStop(1, 'rgba(56, 189, 248, 0)');
-        ctx.fillStyle = beamG;
-        ctx.beginPath();
-        ctx.moveTo(dp.x - w * 0.36, dp.y - h * 0.72);
-        ctx.lineTo(dp.x + w * 0.36, dp.y - h * 0.72);
-        ctx.lineTo(dp.x + w * 0.36 + 150, dp.y + 115);
-        ctx.lineTo(dp.x - w * 0.36 + 95, dp.y + 115);
-        ctx.closePath();
-        ctx.fill();
         ctx.restore();
       } else if (dp.kind === 'bookshelf' && shelfImg) {
         const h = 248 * sc;
@@ -1347,8 +1334,10 @@ export function drawCastleInteriorPropsAndGears(
         const sway = Math.sin(t * 1.6 + dp.x * 0.02) * 0.035;
         const h = 186 * sc;
         const w = chanImg.width * (h / chanImg.height);
+        const ceilY = sampleCeilingY(room, dp.x, false);
+        const hangY = room.indoor && ceilY > 0 ? ceilY - 4 : dp.y;
         ctx.save();
-        ctx.translate(dp.x, dp.y);
+        ctx.translate(dp.x, hangY);
         ctx.rotate(sway);
         ctx.drawImage(chanImg, -w * 0.5, 0, w, h);
 

@@ -32,7 +32,6 @@ export type AssetKey =
   | 'prop_bookshelf'
   | 'prop_chandelier'
   | 'prop_clock_gear'
-  | 'prop_lattice_window'
   | 'prop_dragon_brazier'
   | 'prop_silk_banner'
   | 'prop_weapon_rack'
@@ -134,7 +133,7 @@ export type AssetKey =
   | 'boss_op_0'
   | 'boss_op_1';
 
-const ASSET_VERSION = 'painted_v13';
+const ASSET_VERSION = 'painted_v14';
 
 const ASSET_FILES: Record<AssetKey, string> = {
   bg_title: './assets/bg_title.webp',
@@ -170,7 +169,6 @@ const ASSET_FILES: Record<AssetKey, string> = {
   prop_bookshelf: './assets/prop_bookshelf.webp',
   prop_chandelier: './assets/prop_chandelier.webp',
   prop_clock_gear: './assets/prop_clock_gear.webp',
-  prop_lattice_window: './assets/prop_lattice_window.webp',
   prop_dragon_brazier: './assets/prop_dragon_brazier.webp',
   prop_silk_banner: './assets/prop_silk_banner.webp',
   prop_weapon_rack: './assets/prop_weapon_rack.webp',

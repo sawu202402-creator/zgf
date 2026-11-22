@@ -138,7 +138,6 @@ export interface SceneStele {
 export type CastleDecorKind =
   | 'bookshelf'
   | 'chandelier'
-  | 'lattice_window'
   | 'dragon_brazier'
   | 'silk_banner'
   | 'weapon_rack'
@@ -948,11 +947,9 @@ function createNormalCastleRooms(): BuiltRoom[] {
       decorProps: [
         { kind: 'silk_banner', x: 165, y: 256, scale: 0.9 },
         { kind: 'coiled_pillar', x: 260, y: 432, scale: 0.96 },
-        { kind: 'lattice_window', x: 520, y: 268, scale: 0.92 },
         { kind: 'dragon_brazier', x: 685, y: 398, scale: 0.94 },
         { kind: 'chandelier', x: 985, y: 18, scale: 0.94 },
         { kind: 'coiled_pillar', x: 1120, y: 372, scale: 0.96 },
-        { kind: 'lattice_window', x: 1460, y: 268, scale: 0.92 },
         { kind: 'dragon_brazier', x: 1620, y: 432, scale: 0.94 },
         { kind: 'coiled_pillar', x: 1755, y: 432, scale: 0.96 },
         { kind: 'silk_banner', x: 1960, y: 186, scale: 0.86 },
@@ -1647,9 +1644,9 @@ function createNormalCastleRooms(): BuiltRoom[] {
       },
       decorProps: [
         { kind: 'dragon_brazier', x: 145, y: 1548, scale: 0.92 },
-        { kind: 'lattice_window', x: 400, y: 1220, scale: 0.9 },
+        { kind: 'silk_banner', x: 400, y: 1190, scale: 0.88 },
         { kind: 'silk_banner', x: 400, y: 805, scale: 0.88 },
-        { kind: 'lattice_window', x: 220, y: 410, scale: 0.9 },
+        { kind: 'silk_banner', x: 220, y: 390, scale: 0.86 },
       ],
       waterZones: [{ x1: 215, x2: 570, surfaceY: 1560 }],
       pavilions: [{ x: 270, y: 1544, w: 240, hasPillars: false }],
@@ -1797,7 +1794,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       shafts: [{ x1: 730, x2: 930, dir: 'up', targetRoomId: 'opera_gallery' }],
       decorProps: [
         { kind: 'bookshelf', x: 190, y: 424, scale: 0.96 },
-        { kind: 'lattice_window', x: 615, y: 266, scale: 0.88 },
+        { kind: 'bookshelf', x: 560, y: 424, scale: 0.96 },
         { kind: 'bookshelf', x: 830, y: 450, scale: 0.96 },
         { kind: 'chandelier', x: 1210, y: 22, scale: 0.9 },
         { kind: 'bookshelf', x: 1410, y: 424, scale: 0.96 },
@@ -2221,7 +2218,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       ceilingSpans: [{ x1: 0, x2: 800, bottomY: 34, style: 'palace_timber' }],
       shafts: [],
-      decorProps: [{ kind: 'lattice_window', x: 400, y: 268, scale: 0.9 }],
+      decorProps: [],
       waterZones: [],
       pavilions: [],
       archways: [],
