@@ -177,6 +177,10 @@ export type RoomSpecial =
   | 'relic_pedestal'; // 秘宝祭坛
 
 export type EnemyKind =
+  | 'corpse_soldier' // 破土荒冢阴兵 (破土钻出、执残戟扑砍)
+  | 'demon_wolf' // 玄甲镇狱苍狼 (瓮城凶兽、伏低蓄势极速飞扑撕咬)
+  | 'blood_bat' // 血翼夜蝠妖 (梁下倒悬潜伏、俯冲掠袭)
+  | 'bone_archer' // 白骨神臂弩卒 (前朝阴兵弩手、高低平射骨矢与后撤步)
   | 'paper_swordsman' // 剪纸刀客
   | 'lantern_ghost' // 提灯冥火鬼 (飞行)
   | 'bronze_guard' // 玄甲重盾傀儡 (正面举盾需重武器破盾或绕背)

@@ -11,6 +11,7 @@ export type AssetKey =
   | 'bg_catacomb_tomb'
   | 'bg_bamboo_cliff'
   | 'bg_tower_interior'
+  | 'bg_gatehouse_interior'
   | 'env_ground_slab'
   | 'env_palace_floor'
   | 'env_bridge'
@@ -54,6 +55,12 @@ export type AssetKey =
   | 'item_sub_seal'
   | 'item_sub_bagua'
   | 'item_sub_fire_gourd'
+  | 'item_drop_robe'
+  | 'item_drop_cuirass'
+  | 'item_drop_jade'
+  | 'item_drop_tally'
+  | 'item_drop_ring'
+  | 'item_drop_scroll'
   | 'prop_shrine'
   | 'prop_lantern'
   | 'prop_stone_arch'
@@ -106,6 +113,10 @@ export type AssetKey =
   | 'mob_toad'
   | 'mob_puppet'
   | 'mob_gargoyle'
+  | 'mob_zombie'
+  | 'mob_warg'
+  | 'mob_bat'
+  | 'mob_bone_archer'
   | 'boss_ik_0'
   | 'boss_ik_1'
   | 'boss_ik_2'
@@ -123,7 +134,7 @@ export type AssetKey =
   | 'boss_op_0'
   | 'boss_op_1';
 
-const ASSET_VERSION = 'painted_v12';
+const ASSET_VERSION = 'painted_v13';
 
 const ASSET_FILES: Record<AssetKey, string> = {
   bg_title: './assets/bg_title.webp',
@@ -138,6 +149,7 @@ const ASSET_FILES: Record<AssetKey, string> = {
   bg_catacomb_tomb: './assets/bg_catacomb_tomb.webp',
   bg_bamboo_cliff: './assets/bg_bamboo_cliff.webp',
   bg_tower_interior: './assets/bg_tower_interior.webp',
+  bg_gatehouse_interior: './assets/bg_gatehouse_interior.webp',
   env_ground_slab: './assets/env_ground_slab.webp',
   env_palace_floor: './assets/env_palace_floor.webp',
   env_bridge: './assets/env_bridge.webp',
@@ -181,6 +193,12 @@ const ASSET_FILES: Record<AssetKey, string> = {
   item_sub_seal: './assets/item_sub_seal.webp',
   item_sub_bagua: './assets/item_sub_bagua.webp',
   item_sub_fire_gourd: './assets/item_sub_fire_gourd.webp',
+  item_drop_robe: './assets/item_drop_robe.webp',
+  item_drop_cuirass: './assets/item_drop_cuirass.webp',
+  item_drop_jade: './assets/item_drop_jade.webp',
+  item_drop_tally: './assets/item_drop_tally.webp',
+  item_drop_ring: './assets/item_drop_ring.webp',
+  item_drop_scroll: './assets/item_drop_scroll.webp',
   prop_shrine: './assets/prop_shrine.webp',
   prop_lantern: './assets/prop_lantern.webp',
   prop_stone_arch: './assets/prop_stone_arch.webp',
@@ -233,6 +251,10 @@ const ASSET_FILES: Record<AssetKey, string> = {
   mob_toad: './assets/mob_toad.webp',
   mob_puppet: './assets/mob_puppet.webp',
   mob_gargoyle: './assets/mob_gargoyle.webp',
+  mob_zombie: './assets/mob_zombie.webp',
+  mob_warg: './assets/mob_warg.webp',
+  mob_bat: './assets/mob_bat.webp',
+  mob_bone_archer: './assets/mob_bone_archer.webp',
   boss_ik_0: './assets/boss_ik_0.webp',
   boss_ik_1: './assets/boss_ik_1.webp',
   boss_ik_2: './assets/boss_ik_2.webp',

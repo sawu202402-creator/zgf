@@ -411,13 +411,36 @@ class GuofengAudioEngine {
     src.stop(now + dur + 0.01);
   }
 
-  public playHit(crit = false): void {
+  public playHit(crit = false, heavy = false): void {
     if (this.sfxMuted) return;
     const ctx = this.ensureContext();
     if (!ctx || ctx.state !== 'running') return;
-    this.playDrum(crit ? 0.18 : 0.12, crit ? 98 : 76);
-    if (crit) {
-      this.playHarpsichordGuzheng(midiToHz(81), 0.2, 0.085);
+    const now = ctx.currentTime;
+    // 1. 沉实入肉低频闷击声
+    this.playDrum(crit ? 0.24 : heavy ? 0.2 : 0.16, crit ? 96 : heavy ? 66 : 78);
+
+    // 2. 刀刃切裂甲胄噪波瞬态（恶魔城刀刀入肉核心听感！）
+    if (this.noiseBuf) {
+      const src = ctx.createBufferSource();
+      src.buffer = this.noiseBuf;
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.setValueAtTime(crit ? 2100 : 1450, now);
+      bp.frequency.exponentialRampToValueAtTime(380, now + 0.075);
+      bp.Q.value = 1.6;
+      const ng = ctx.createGain();
+      ng.gain.setValueAtTime(crit ? 0.19 : 0.13, now);
+      ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+      src.connect(bp);
+      bp.connect(ng);
+      this.sendToHall(ng, false);
+      src.start(now);
+      src.stop(now + 0.085);
+    }
+
+    // 3. 冷冽金铁泛音余韵
+    if (crit || heavy) {
+      this.playHarpsichordGuzheng(midiToHz(crit ? 81 : 74), 0.18, crit ? 0.09 : 0.06);
     }
   }
 
@@ -489,7 +512,26 @@ class GuofengAudioEngine {
 
   public playHurt(): void {
     if (this.sfxMuted) return;
-    this.playDrum(0.2, 52);
+    const ctx = this.ensureContext();
+    if (!ctx || ctx.state !== 'running') return;
+    this.playDrum(0.28, 48);
+    if (this.noiseBuf) {
+      const now = ctx.currentTime;
+      const src = ctx.createBufferSource();
+      src.buffer = this.noiseBuf;
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.setValueAtTime(920, now);
+      lp.frequency.exponentialRampToValueAtTime(220, now + 0.14);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
+      src.connect(lp);
+      lp.connect(gain);
+      this.sendToHall(gain, false);
+      src.start(now);
+      src.stop(now + 0.16);
+    }
   }
 }
 

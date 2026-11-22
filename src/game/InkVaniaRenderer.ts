@@ -172,10 +172,11 @@ export class InkVaniaRenderer {
 
     ctx.restore();
 
-    // 5. 屏幕级手搓绝技水墨印章横幅与跨门丝滑水墨渐隐过渡
+    // 5. 屏幕级手搓绝技水墨印章横幅与《恶魔城》经典双段满黑过门帷幕过渡（入廊渐暗 -> 满黑无缝换房 -> 出廊渐明！）
     this.renderScreenSkillOverlays(ctx, viewW, viewH, engine);
-    if (engine.roomFadeTimer > 0) {
-      ctx.fillStyle = `rgba(4, 6, 12, ${Math.min(0.88, (engine.roomFadeTimer / 0.22) * 0.85)})`;
+    const curtainAlpha = engine.getTransitionCurtainAlpha();
+    if (curtainAlpha > 0.004) {
+      ctx.fillStyle = `rgba(3, 5, 10, ${Math.min(1, curtainAlpha)})`;
       ctx.fillRect(0, 0, viewW, viewH);
     }
 
@@ -1866,6 +1867,50 @@ export class InkVaniaRenderer {
         ctx.arc(18, 0, 14, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
+      } else if (pr.enemyFx === 'bone_bolt') {
+        // 白骨神臂弩卒：高速破风【青铜簇白骨弩矢】+ 赤羽尾翎！
+        const ang = Math.atan2(pr.vy, pr.vx);
+        ctx.save();
+        ctx.rotate(ang);
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const bg = ctx.createLinearGradient(-34, 0, 14, 0);
+        bg.addColorStop(0, 'rgba(245, 158, 11, 0)');
+        bg.addColorStop(1, 'rgba(254, 240, 138, 0.85)');
+        ctx.strokeStyle = bg;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-34, 0);
+        ctx.lineTo(10, 0);
+        ctx.stroke();
+        ctx.restore();
+
+        // 惨白骨质箭杆
+        ctx.fillStyle = '#e7e5e4';
+        ctx.strokeStyle = '#090d16';
+        ctx.lineWidth = 1.2;
+        ctx.fillRect(-14, -1.6, 24, 3.2);
+        ctx.strokeRect(-14, -1.6, 24, 3.2);
+        // 赤红雕翎箭羽
+        ctx.fillStyle = '#b91c1c';
+        ctx.beginPath();
+        ctx.moveTo(-15, 0);
+        ctx.lineTo(-20, -4);
+        ctx.lineTo(-11, -1.6);
+        ctx.lineTo(-11, 1.6);
+        ctx.lineTo(-20, 4);
+        ctx.closePath();
+        ctx.fill();
+        // 三棱青铜破甲箭簇
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.moveTo(10, -3.5);
+        ctx.lineTo(19, 0);
+        ctx.lineTo(10, 3.5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
       } else if (pr.enemyFx === 'opera_needle') {
         // 梨园提线木偶 / 惊梦百戏傩神：拖曳柔美红绸丝线的【梨园鎏金绣花飞针】！
         const ang = Math.atan2(pr.vy, pr.vx);
@@ -1992,13 +2037,15 @@ export class InkVaniaRenderer {
       ctx.save();
       ctx.translate(si.x, si.y);
 
-      // 瞬时扩散真气波纹环
-      ctx.globalAlpha = alpha * 0.55;
-      ctx.strokeStyle = si.color;
-      ctx.lineWidth = Math.max(0.8, 2.8 * (1 - prog));
-      ctx.beginPath();
-      ctx.arc(0, 0, si.ringRadius * (0.35 + prog * 0.85), 0, Math.PI * 2);
-      ctx.stroke();
+      // 仅重斩终结技/暴击/弹反（ringRadius >= 36）绽放气浪震环，普通挥砍保留纯粹利刃切口寒芒！
+      if (si.ringRadius >= 36) {
+        ctx.globalAlpha = alpha * 0.45;
+        ctx.strokeStyle = si.color;
+        ctx.lineWidth = Math.max(0.8, 2.4 * (1 - prog));
+        ctx.beginPath();
+        ctx.arc(0, 0, si.ringRadius * (0.35 + prog * 0.85), 0, Math.PI * 2);
+        ctx.stroke();
+      }
 
       // 锐利菱形斩裂寒芒主线
       ctx.rotate(si.angle);

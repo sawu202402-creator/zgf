@@ -178,30 +178,34 @@ export function drawSeamlessParallaxBackdrop(
 
     if (room.realm === 'inverted') {
       const invGrad = ctx.createLinearGradient(0, 0, 0, vH);
-      invGrad.addColorStop(0, 'rgba(84, 14, 36, 0.42)');
-      invGrad.addColorStop(0.55, 'rgba(22, 9, 34, 0.42)');
-      invGrad.addColorStop(1, 'rgba(6, 5, 13, 0.74)');
+      invGrad.addColorStop(0, 'rgba(84, 14, 36, 0.46)');
+      invGrad.addColorStop(0.55, 'rgba(22, 9, 34, 0.48)');
+      invGrad.addColorStop(1, 'rgba(6, 5, 13, 0.78)');
       ctx.fillStyle = invGrad;
       ctx.fillRect(0, 0, vW, vH);
     } else {
-      // 区域空气透视色雾同化层（统一远景与前景建筑的冷暖空气底色）
+      // 全平台通用空气透视色雾层（不依赖移动端兼容性受限的 ctx.filter，让远景自然退后、凸显实体砖石台阶！）
       const depthGrad = ctx.createLinearGradient(0, 0, 0, vH);
       if (room.bgKey === 'bg_catacomb_tomb') {
-        depthGrad.addColorStop(0, 'rgba(6, 16, 20, 0.32)');
-        depthGrad.addColorStop(0.62, 'rgba(7, 18, 22, 0.44)');
-        depthGrad.addColorStop(1, 'rgba(4, 9, 13, 0.72)');
+        depthGrad.addColorStop(0, 'rgba(6, 16, 20, 0.36)');
+        depthGrad.addColorStop(0.62, 'rgba(7, 18, 22, 0.48)');
+        depthGrad.addColorStop(1, 'rgba(4, 9, 13, 0.76)');
+      } else if (room.bgKey === 'bg_gatehouse_interior') {
+        depthGrad.addColorStop(0, 'rgba(7, 11, 20, 0.28)');
+        depthGrad.addColorStop(0.62, 'rgba(8, 13, 24, 0.4)');
+        depthGrad.addColorStop(1, 'rgba(4, 7, 14, 0.72)');
       } else if (room.region === 'prison') {
-        depthGrad.addColorStop(0, 'rgba(6, 18, 26, 0.28)');
-        depthGrad.addColorStop(0.62, 'rgba(7, 20, 30, 0.38)');
-        depthGrad.addColorStop(1, 'rgba(4, 9, 16, 0.68)');
+        depthGrad.addColorStop(0, 'rgba(6, 18, 26, 0.34)');
+        depthGrad.addColorStop(0.62, 'rgba(7, 20, 30, 0.44)');
+        depthGrad.addColorStop(1, 'rgba(4, 9, 16, 0.74)');
       } else if (room.region === 'forge') {
-        depthGrad.addColorStop(0, 'rgba(24, 10, 6, 0.3)');
-        depthGrad.addColorStop(0.62, 'rgba(20, 9, 7, 0.42)');
-        depthGrad.addColorStop(1, 'rgba(9, 5, 6, 0.72)');
+        depthGrad.addColorStop(0, 'rgba(24, 10, 6, 0.34)');
+        depthGrad.addColorStop(0.62, 'rgba(20, 9, 7, 0.46)');
+        depthGrad.addColorStop(1, 'rgba(9, 5, 6, 0.76)');
       } else {
-        depthGrad.addColorStop(0, 'rgba(6, 9, 17, 0.24)');
-        depthGrad.addColorStop(0.62, 'rgba(7, 11, 20, 0.36)');
-        depthGrad.addColorStop(1, 'rgba(4, 7, 13, 0.66)');
+        depthGrad.addColorStop(0, 'rgba(6, 9, 17, 0.3)');
+        depthGrad.addColorStop(0.62, 'rgba(7, 11, 20, 0.42)');
+        depthGrad.addColorStop(1, 'rgba(4, 7, 13, 0.72)');
       }
       ctx.fillStyle = depthGrad;
       ctx.fillRect(0, 0, vW, vH);
@@ -420,6 +424,14 @@ function drawWallCorbel(
  * 2. 所有空中平台自动生成物理承重锚定（落地雕花殿柱/青石方柱、贴墙斗拱牛腿斜撑、或藻井玄铁吊链）；
  * 3. 分区域专属平台材质（地宫水牢采用青苔雕纹石台，宫阙梨园采用朱漆雕栏木阁）+ 真实丹陛踏跺石阶 + 穿堂石券门楼框！
  */
+function isStoneFortressOrDungeon(room: BuiltRoom): boolean {
+  return (
+    room.region === 'prison' ||
+    room.region === 'forge' ||
+    room.bgKey === 'bg_gatehouse_interior'
+  );
+}
+
 export function bakeOrthographicRoomTerrain(
   bctx: CanvasRenderingContext2D,
   room: BuiltRoom,
@@ -427,7 +439,7 @@ export function bakeOrthographicRoomTerrain(
 ): void {
   bctx.clearRect(0, 0, room.pixelW, room.pixelH);
 
-  const isStoneDungeon = room.region === 'prison' || room.region === 'forge';
+  const isStoneDungeon = isStoneFortressOrDungeon(room);
   const usePalaceMarble = Boolean(room.indoor && !isStoneDungeon);
   const floorImg =
     (usePalaceMarble ? Assets.get('env_palace_floor') : undefined) || Assets.get('env_ground_slab');
@@ -1101,6 +1113,10 @@ export function bakeOrthographicRoomTerrain(
     // 幽冥碑林：将偏蓝地砖同化为幽青苍苔古墓青石，与背后石拱壁龛绿火严丝合缝！
     bctx.fillStyle = 'rgba(20, 56, 52, 0.28)';
     bctx.fillRect(0, 0, room.pixelW, room.pixelH);
+  } else if (room.bgKey === 'bg_gatehouse_interior') {
+    // 瓮城石殿：统一为冷峻深黛明代城砖石色，使地面、石柱、石跳台与瓮城箭窗砖墙融为一体！
+    bctx.fillStyle = 'rgba(22, 34, 52, 0.24)';
+    bctx.fillRect(0, 0, room.pixelW, room.pixelH);
   } else if (room.region === 'prison') {
     // 九曲寒潭溶洞：冷冽青碧水汽石色
     bctx.fillStyle = 'rgba(14, 58, 68, 0.22)';
@@ -1352,7 +1368,7 @@ export function drawCastleInteriorPropsAndGears(
 
   // 旋转青铜八卦巨齿轮与摆渡飞阁 / 配重升降机踏台（全部配备藻井玄铁吊链与轴座锚定，零悬空感！）
   if (room.clockGears || room.movingPlatforms) {
-    const isStoneDungeon = room.region === 'prison' || room.region === 'forge';
+    const isStoneDungeon = isStoneFortressOrDungeon(room);
     const gearImg = Assets.get('prop_clock_gear');
     const stoneLedgeImg = Assets.get('env_stone_ledge');
     const ledgeImg = Assets.get('env_indoor_ledge') || Assets.get('env_pavilion');
@@ -1484,7 +1500,7 @@ export function drawOrthographicPavilion(
   hasPillars: boolean,
   room: BuiltRoom
 ): void {
-  const isStoneDungeon = room.region === 'prison' || room.region === 'forge';
+  const isStoneDungeon = isStoneFortressOrDungeon(room);
   const stoneLedgeImg = Assets.get('env_stone_ledge');
   const pvImg = Assets.get('env_pavilion');
   const indoorImg = Assets.get('env_indoor_ledge');

@@ -788,6 +788,42 @@ export const YAO_CORES: Record<string, YaoCoreDef> = {
     lifestealRatio: 0.06,
     atkPct: 0.12,
   },
+  core_zombie: {
+    id: 'core_zombie',
+    name: '荒冢怨卒骨丹',
+    monsterName: '破土荒冢阴兵',
+    color: '#86efac',
+    desc: '枯骨坚韧：护体防御 +12%，近战攻击力 +6%。',
+    defPct: 0.12,
+    atkPct: 0.06,
+  },
+  core_warg: {
+    id: 'core_warg',
+    name: '镇狱苍狼凶丹',
+    monsterName: '玄甲镇狱苍狼',
+    color: '#fb923c',
+    desc: '疾狼掠影：近战攻击力 +14%，身法移动速度 +10%！',
+    atkPct: 0.14,
+    speedPct: 0.1,
+  },
+  core_bat: {
+    id: 'core_bat',
+    name: '血翼夜蝠灵丹',
+    monsterName: '血翼夜蝠妖',
+    color: '#f43f5e',
+    desc: '蝠翼噬血：近战命中吸取 4% 气血，暴击率 +8%。',
+    lifestealRatio: 0.04,
+    critPct: 0.08,
+  },
+  core_bone_archer: {
+    id: 'core_bone_archer',
+    name: '神臂贯甲骨丹',
+    monsterName: '白骨神臂弩卒',
+    color: '#fde047',
+    desc: '神机百中：暴击率 +12%，副手奇门法器伤害 +22%。',
+    critPct: 0.12,
+    subWeaponMult: 0.22,
+  },
 };
 
 export const CONSUMABLES: Record<string, ConsumableDef> = {

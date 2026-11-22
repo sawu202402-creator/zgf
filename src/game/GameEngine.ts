@@ -78,7 +78,8 @@ export type EnemyProjectileFx =
   | 'opera_needle'
   | 'magma_bomb'
   | 'magma_pool'
-  | 'lava_wave';
+  | 'lava_wave'
+  | 'bone_bolt';
 
 export interface Projectile {
   fromPlayer: boolean;
@@ -130,6 +131,10 @@ export interface EnemyEntity {
   cleaveSlamDone?: boolean;
   animPhase: number;
   hurtFlash: number;
+  hurtJoltTimer?: number;
+  burrowEmergeTimer?: number;
+  burrowTriggered?: boolean;
+  roosting?: boolean;
   baseY: number;
   bossMoveIdx: number;
   slashHitPlayer: boolean;
@@ -158,7 +163,10 @@ export interface WorldDrop {
   amount: number;
   x: number;
   y: number;
+  vx?: number;
   vy: number;
+  spinAngle?: number;
+  bounced?: boolean;
   color: string;
   label: string;
 }
@@ -290,6 +298,7 @@ export class GameEngine {
     groundSlamming: false,
     invulnTimer: 0,
     hurtBlinkTimer: 0,
+    hurtStunTimer: 0,
     orbitSwordTimer: 0,
     orbitAngle: 0,
     animTime: 0,
@@ -351,6 +360,17 @@ export class GameEngine {
 
   public screenShake = 0;
   public roomFadeTimer = 0;
+  public pendingTransition: {
+    nextRoom: BuiltRoom;
+    nextX: number;
+    nextY: number;
+    phase: 'out' | 'in';
+    timer: number;
+    duration: number;
+    walkVx: number;
+    walkVy: number;
+    postVy?: number;
+  } | null = null;
   public ambushSealed = false;
   private hitstopTimer = 0;
   private nextEntityId = 1;
@@ -562,6 +582,19 @@ export class GameEngine {
     }
   }
 
+  public getTransitionCurtainAlpha(): number {
+    let a = this.roomFadeTimer > 0 ? Math.min(1, this.roomFadeTimer / 0.24) : 0;
+    if (this.pendingTransition) {
+      const tr = this.pendingTransition;
+      const pAlpha =
+        tr.phase === 'out'
+          ? 1 - Math.max(0, tr.timer / Math.max(0.01, tr.duration))
+          : Math.max(0, tr.timer / Math.max(0.01, tr.duration));
+      a = Math.max(a, pAlpha);
+    }
+    return Math.min(1, a);
+  }
+
   public loadRoom(
     nextRoom: BuiltRoom,
     entryX: number,
@@ -573,7 +606,9 @@ export class GameEngine {
 
     const prevRegion = this.room?.region;
     this.room = nextRoom;
-    this.roomFadeTimer = 0.22;
+    if (!this.pendingTransition) {
+      this.roomFadeTimer = 0.24;
+    }
     s.currentRoomId = nextRoom.id;
     s.currentRealm = nextRoom.realm;
 
@@ -810,18 +845,27 @@ export class GameEngine {
           : 190
       : kind === 'bronze_guard'
         ? 88
-        : kind === 'bell_gargoyle'
+        : kind === 'demon_wolf' || kind === 'bell_gargoyle'
           ? 68
-          : kind === 'plague_toad' || kind === 'opera_puppet'
-            ? 56
-            : 38;
+          : kind === 'plague_toad' || kind === 'opera_puppet' || kind === 'bone_archer'
+            ? 52
+            : kind === 'blood_bat'
+              ? 24
+              : 38;
+
+    const initY =
+      kind === 'blood_bat'
+        ? Math.max(76, y - 118)
+        : prof.flying
+          ? y - 92
+          : y;
 
     this.enemies.push({
       id: this.nextEntityId++,
       profile: prof,
       x,
-      y: prof.flying ? y - 92 : y,
-      baseY: prof.flying ? y - 92 : y,
+      y: initY,
+      baseY: initY,
       vx: 0,
       vy: 0,
       facing: -1,
@@ -836,6 +880,10 @@ export class GameEngine {
       stateTimer: 0.45 + Math.random() * 0.45,
       animPhase: Math.random() * 6,
       hurtFlash: 0,
+      hurtJoltTimer: 0,
+      burrowEmergeTimer: 0,
+      burrowTriggered: false,
+      roosting: kind === 'blood_bat',
       bossMoveIdx: 0,
       slashHitPlayer: false,
     });
@@ -884,6 +932,32 @@ export class GameEngine {
     }
 
     if (this.roomFadeTimer > 0) this.roomFadeTimer = Math.max(0, this.roomFadeTimer - dt);
+    if (this.pendingTransition) {
+      const tr = this.pendingTransition;
+      tr.timer -= dt;
+      if (tr.phase === 'out') {
+        this.player.x += tr.walkVx * dt;
+        this.player.y += tr.walkVy * dt;
+        if (Math.abs(tr.walkVx) > 10) {
+          this.player.runCycle += dt * 11;
+        }
+        if (tr.timer <= 0) {
+          this.loadRoom(tr.nextRoom, tr.nextX, tr.nextY, true);
+          if (tr.postVy !== undefined) {
+            this.player.vy = tr.postVy;
+            this.player.onGround = false;
+          }
+          tr.phase = 'in';
+          tr.timer = 0.24;
+          tr.duration = 0.24;
+        } else {
+          this.updateParticles(dt);
+          return;
+        }
+      } else if (tr.timer <= 0) {
+        this.pendingTransition = null;
+      }
+    }
     if (this.screenShake > 0) this.screenShake = Math.max(0, this.screenShake - dt * 28);
     if (this.taijiFlashTimer > 0) this.taijiFlashTimer = Math.max(0, this.taijiFlashTimer - dt);
     if (this.soulStealFlashTimer > 0) {
@@ -1020,6 +1094,17 @@ export class GameEngine {
       if (p.comboResetTimer <= 0) p.comboStep = 0;
     }
     if (p.dropThroughTimer > 0) p.dropThroughTimer -= dt;
+
+    // 《恶魔城》核心受击后仰硬直（Hurt Stun）：受创瞬间锁定操作并向后抛退滑步，杜绝顶着伤害无反应滑行！
+    if (p.hurtStunTimer > 0) {
+      p.hurtStunTimer = Math.max(0, p.hurtStunTimer - dt);
+      if (p.onGround) {
+        p.vx *= Math.pow(0.015, dt);
+      }
+      p.vy = Math.min(880, p.vy + 1580 * dt);
+      this.moveAndCollideTerrain(dt);
+      return;
+    }
 
     if (inp.consumeWeaponSwap()) {
       this.cycleWeapon();
@@ -1244,10 +1329,11 @@ export class GameEngine {
     } else if (
       this.activeSlash &&
       p.onGround &&
-      this.activeSlash.progress < 0.42 &&
+      this.activeSlash.progress < 0.78 &&
       WEAPONS[this.slot!.equippedWeapon]?.specialEffect !== 'multi_phantom'
     ) {
-      p.vx *= 0.88;
+      // 地面挥兵扎马驻足感（消除边滑冰边挥空气的飘浮感，跳劈则保持空中灵动惯性！）
+      p.vx *= Math.pow(0.0025, dt);
     } else {
       if (inp.moveX !== 0) {
         const wantDir = Math.sign(inp.moveX) as 1 | -1;
@@ -2953,6 +3039,12 @@ export class GameEngine {
 
     for (const e of [...this.enemies]) {
       if (e.hurtFlash > 0) e.hurtFlash -= rawEnemyDt;
+      if (e.hurtJoltTimer && e.hurtJoltTimer > 0) {
+        e.hurtJoltTimer = Math.max(0, e.hurtJoltTimer - rawEnemyDt);
+      }
+      if (e.burrowEmergeTimer && e.burrowEmergeTimer > 0) {
+        e.burrowEmergeTimer = Math.max(0, e.burrowEmergeTimer - rawEnemyDt);
+      }
       if (e.castAnimTimer && e.castAnimTimer > 0) {
         e.castAnimTimer = Math.max(0, e.castAnimTimer - rawEnemyDt);
       }
@@ -3534,11 +3626,32 @@ export class GameEngine {
             }
           }
         } else if (e.profile.flying) {
-          e.animPhase += dt * 4.5;
-          // 飞天书妖走八字盘旋轨迹；金翅夜叉走大波浪美杜莎式掠袭轨迹！
-          const waveAmp = e.profile.kind === 'bell_gargoyle' ? 34 : 18;
+          if (e.roosting) {
+            // 血翼夜蝠妖：倒挂于屋檐拱顶静默潜伏，待少侠踏入 315px 索敌圈瞬间惊起俯冲！
+            e.vx = 0;
+            if (absDx < 315 && Math.abs(dy) < 280) {
+              e.roosting = false;
+              e.stateTimer = 0.38;
+              this.spawnInkBurst(e.x, e.y - 18, '#e11d48', '#090d16', 8);
+              AudioFX.playSlash('light');
+            }
+            continue;
+          }
+          e.animPhase += dt * (e.profile.kind === 'blood_bat' ? 7.2 : 4.5);
+          if (e.profile.kind === 'blood_bat') {
+            // 血翼夜蝠动态锁定少侠胸腹高度盘旋逼近！
+            const targetBaseY = Math.max(82, Math.min(room.pixelH - 72, p.y - 44));
+            e.baseY += (targetBaseY - e.baseY) * Math.min(1, dt * 2.8);
+          }
+          const waveAmp =
+            e.profile.kind === 'bell_gargoyle'
+              ? 34
+              : e.profile.kind === 'blood_bat'
+                ? 14
+                : 18;
           e.y = e.baseY + Math.sin(e.animPhase) * waveAmp;
-          if (absDx < 480 && absDx > 95) {
+          const minFlyDist = e.profile.kind === 'blood_bat' ? 58 : 95;
+          if (absDx < 480 && absDx > minFlyDist) {
             e.vx = e.facing * e.profile.speed;
             e.x = Math.max(54, Math.min(room.pixelW - 54, e.x + e.vx * dt));
           }
@@ -3576,13 +3689,26 @@ export class GameEngine {
               e.stateTimer = 1.65;
             } else if (absDx < 220) {
               e.aiState = 'windup';
-              e.stateTimer = 0.5;
-              e.stateDuration = 0.5;
+              const batWind = e.profile.kind === 'blood_bat' ? 0.36 : 0.5;
+              e.stateTimer = batWind;
+              e.stateDuration = batWind;
               e.slashHitPlayer = false;
             }
           }
         } else {
-          // 地面妖邪差异化 AI：毒沼三足蟾弹跳扑击吐毒，重盾傀儡中距掷回旋铜斧，纸人剑客见招架刀，木偶后撤散射金针！
+          // 破土荒冢阴兵：少侠踏近 385px 时从泥土砖缝中破土钻出！
+          if (e.profile.kind === 'corpse_soldier' && !e.burrowTriggered && absDx < 385) {
+            e.burrowTriggered = true;
+            e.burrowEmergeTimer = 0.55;
+            e.stateTimer = Math.max(e.stateTimer, 0.72);
+            this.spawnInkBurst(e.x, e.y - 4, '#78716c', '#1c1917', 12);
+          }
+          if ((e.burrowEmergeTimer || 0) > 0) {
+            e.vx = 0;
+            continue;
+          }
+
+          // 地面妖邪差异化 AI：毒沼三足蟾弹跳扑击吐毒，重盾傀儡中距掷回旋铜斧，神臂骨弩手平射骨矢，苍狼伏地猛扑！
           if (e.profile.kind === 'plague_toad') {
             const curSurfY = sampleEntitySurfaceY(room, e.x, e.y);
             if (e.vy !== 0 || e.y < curSurfY - 2) {
@@ -3640,13 +3766,20 @@ export class GameEngine {
             }
 
             const attackRange =
-              e.profile.kind === 'paper_swordsman'
-                ? 175
-                : e.profile.shieldedFront
-                  ? 96
-                  : 108;
+              e.profile.kind === 'bone_archer'
+                ? 280
+                : e.profile.kind === 'demon_wolf'
+                  ? 195
+                  : e.profile.kind === 'paper_swordsman'
+                    ? 175
+                    : e.profile.shieldedFront
+                      ? 96
+                      : 108;
             if ((e.guardStanceTimer || 0) > 0) {
               e.vx = 0;
+            } else if (e.profile.kind === 'bone_archer' && absDx < 125) {
+              e.vx = -e.facing * e.profile.speed * 0.85;
+              e.animPhase += dt * 8;
             } else if (absDx < 460 && absDx > attackRange) {
               e.vx = e.facing * e.profile.speed;
               e.animPhase += dt * 10;
@@ -3660,8 +3793,37 @@ export class GameEngine {
 
             this.stepGroundEnemyX(e, e.vx * dt);
 
-            // 百戏傀儡：中近距提线后撤旋身齐射三枚梨园红绸金针！
+            // 白骨神臂弩卒：中远距高低交替平射破甲白骨弩矢（高位箭可按 ↓ 下蹲闪过，低位箭可起跳跃过！）
             if (
+              e.profile.kind === 'bone_archer' &&
+              e.stateTimer <= 0 &&
+              absDx < 410 &&
+              Math.abs(dy) < 110
+            ) {
+              e.castAnimTimer = 0.34;
+              e.bossMoveIdx = (e.bossMoveIdx + 1) % 2;
+              const boltY = e.bossMoveIdx === 0 ? e.y - 54 : e.y - 34;
+              this.projectiles.push({
+                fromPlayer: false,
+                kind: 'dagger',
+                enemyFx: 'bone_bolt',
+                x: e.x + e.facing * 22,
+                y: boltY,
+                vx: e.facing * 395,
+                vy: 0,
+                r: 8,
+                dmg: e.profile.atk,
+                color: '#fde047',
+                life: 1.6,
+                maxLife: 1.6,
+                pierce: 1,
+                hitIds: new Set(),
+              });
+              this.spawnInkBurst(e.x + e.facing * 22, boltY, '#fbbf24', '#1c1917', 6);
+              AudioFX.playSlash('spear');
+              e.stateTimer = 1.65;
+            } else if (
+              // 百戏傀儡：中近距提线后撤旋身齐射三枚梨园红绸金针！
               e.profile.kind === 'opera_puppet' &&
               e.stateTimer <= 0 &&
               absDx > 115 &&
@@ -3746,22 +3908,25 @@ export class GameEngine {
         if (e.stateTimer <= 0) {
           e.aiState = 'lunge_slash';
           const isIaido = e.profile.kind === 'paper_swordsman';
+          const isWarg = e.profile.kind === 'demon_wolf';
           const isTitanCharge = e.profile.kind === 'boss_furnace_titan';
           const sDur = isTitanCharge
             ? 0.46
-            : e.profile.isBoss
+            : isWarg
               ? 0.3
-              : e.profile.shieldedFront
-                ? 0.26
-                : isIaido
-                  ? 0.24
-                  : 0.23;
+              : e.profile.isBoss
+                ? 0.3
+                : e.profile.shieldedFront
+                  ? 0.26
+                  : isIaido
+                    ? 0.24
+                    : 0.23;
           e.stateTimer = sDur;
           e.stateDuration = sDur;
           e.cleaveSlamDone = false;
           const lungeSpd =
-            e.profile.kind === 'boss_thunder_yaksha'
-              ? 550
+            e.profile.kind === 'boss_thunder_yaksha' || isWarg
+              ? 555
               : e.profile.kind === 'boss_zhuyin' || e.profile.kind === 'boss_pei_wuji'
                 ? 520
                 : isTitanCharge
@@ -3770,11 +3935,15 @@ export class GameEngine {
                     ? 475
                     : isIaido
                       ? 430
-                      : e.profile.shieldedFront
-                        ? 270
-                        : 320;
+                      : e.profile.kind === 'blood_bat'
+                        ? 395
+                        : e.profile.kind === 'corpse_soldier'
+                          ? 235
+                          : e.profile.shieldedFront
+                            ? 270
+                            : 320;
           e.vx = e.facing * lungeSpd;
-          AudioFX.playSlash(e.profile.shieldedFront || isTitanCharge ? 'heavy' : 'light');
+          AudioFX.playSlash(e.profile.shieldedFront || isTitanCharge || isWarg ? 'heavy' : 'light');
           if (e.profile.kind === 'lantern_ghost') {
             this.spawnInkBurst(e.x + e.facing * 24, e.y - 42, '#5eead4', '#a855f7', 9);
           } else if (isIaido) {
@@ -3897,6 +4066,7 @@ export class GameEngine {
 
     e.hp -= finalDmg;
     e.hurtFlash = 0.14;
+    e.hurtJoltTimer = 0.12;
     if (this.player.lifesteal > 0) {
       const heal = Math.max(1, Math.round(finalDmg * this.player.lifesteal));
       this.player.hp = Math.min(this.player.maxHp, this.player.hp + heal);
@@ -3957,8 +4127,15 @@ export class GameEngine {
       });
     }
 
-    AudioFX.playHit(isCrit);
-    this.hitstopTimer = isCrit ? 0.042 : 0.022;
+    const isHeavyStrike = wCur.archetype === 'greatsword' || this.player.comboStep === 2;
+    AudioFX.playHit(isCrit, isHeavyStrike);
+    this.hitstopTimer = Math.max(
+      this.hitstopTimer,
+      isCrit ? 0.056 : wCur.archetype === 'greatsword' ? 0.05 : 0.034
+    );
+    if (isCrit || isHeavyStrike) {
+      this.screenShake = Math.max(this.screenShake, isCrit ? 4.5 : 3.2);
+    }
     const hitAngle =
       (this.player.comboStep === 2 ? -0.62 : this.player.comboStep === 1 ? 0.48 : 0.08) *
         this.player.facing +
@@ -3967,12 +4144,12 @@ export class GameEngine {
       x: e.x + (Math.random() - 0.5) * 12,
       y: e.y - e.profile.h * 0.58,
       angle: hitAngle,
-      length: isCrit ? 68 : wCur.archetype === 'greatsword' ? 62 : 48,
-      thickness: isCrit ? 7.5 : wCur.archetype === 'greatsword' ? 6.5 : 4.5,
+      length: isCrit ? 66 : wCur.archetype === 'greatsword' ? 60 : 44,
+      thickness: isCrit ? 7 : wCur.archetype === 'greatsword' ? 6 : 4.2,
       color: isCrit ? '#fde047' : wCur.glowColor,
-      ringRadius: isCrit ? 44 : 28,
-      life: 0.19,
-      maxLife: 0.19,
+      ringRadius: isCrit || isHeavyStrike ? 42 : 0,
+      life: 0.18,
+      maxLife: 0.18,
     });
     this.spawnInkBurst(
       e.x,
@@ -4292,14 +4469,20 @@ export class GameEngine {
     const armorMit = 1 - (p.def / (p.def + 48)) * 0.62;
     const dmg = Math.max(4, Math.round(rawAtk * armorMit * skinMult));
     p.hp = Math.max(0, p.hp - dmg);
-    p.invulnTimer = 0.65;
-    p.hurtBlinkTimer = 0.65;
+    p.hurtStunTimer = 0.34;
+    p.invulnTimer = 0.92;
+    p.hurtBlinkTimer = 0.92;
+    p.slideTimer = 0;
+    p.diveKicking = false;
+    p.crouching = false;
+    p.facing = (-knockDir) as 1 | -1;
     this.activeSlash = null;
     this.activeSkillAnim = null;
-    p.vx = knockDir * 250;
-    p.vy = -220;
+    this.hitstopTimer = Math.max(this.hitstopTimer, 0.046);
+    p.vx = knockDir * 215;
+    p.vy = -245;
     p.onGround = false;
-    this.screenShake = 7;
+    this.screenShake = 7.5;
     AudioFX.playHurt();
     NativeApp.haptic('heavy');
     this.spawnInkBurst(p.x, p.y - 38, '#ef4444', '#090d16', 12);
@@ -4329,10 +4512,23 @@ export class GameEngine {
         const prevDropY = d.y;
         d.vy = Math.min(540, d.vy + 1100 * dt);
         d.y += d.vy * dt;
+        if (d.vx) {
+          d.x = Math.max(38, Math.min(this.room.pixelW - 38, d.x + d.vx * dt));
+        }
+        if (Math.abs(d.vy) > 20) {
+          d.spinAngle = (d.spinAngle || 0) + dt * 11;
+        }
         const gy = sampleEntitySurfaceY(this.room, d.x, prevDropY);
         if (d.y >= gy && d.vy >= 0) {
           d.y = gy;
-          d.vy = 0;
+          if (!d.bounced && d.vy > 130) {
+            d.vy = -d.vy * 0.36;
+            d.vx = (d.vx || (Math.random() - 0.5) * 70) * 0.45;
+            d.bounced = true;
+          } else {
+            d.vy = 0;
+            d.vx = 0;
+          }
         }
       }
 
@@ -4975,8 +5171,30 @@ export class GameEngine {
     return true;
   }
 
+  private beginSmoothRoomTransition(
+    nextRoom: BuiltRoom,
+    nextX: number,
+    nextY: number,
+    walkVx: number,
+    walkVy: number,
+    postVy?: number
+  ): void {
+    if (this.pendingTransition) return;
+    this.pendingTransition = {
+      nextRoom,
+      nextX,
+      nextY,
+      phase: 'out',
+      timer: 0.16,
+      duration: 0.16,
+      walkVx,
+      walkVy,
+      postVy,
+    };
+  }
+
   private checkRoomTransition(): void {
-    if (!this.room || !this.slot) return;
+    if (!this.room || !this.slot || this.pendingTransition) return;
     const room = this.room;
 
     if (this.ambushSealed || this.enemies.some((e) => e.profile.isBoss)) {
@@ -4987,8 +5205,8 @@ export class GameEngine {
     const p = this.player;
     const bossCleared = this.isBossClearedInRoom(room);
 
-    // 1. 左右多层竖塔门廊与破壁密室无缝跨房（自动按当前身位高度匹配已洞开的那扇门，并防撞新房间顶棚！）
-    if (p.x < 12) {
+    // 1. 左右多层竖塔门廊与破壁密室无缝跨房（触发《恶魔城》经典渐暗入廊 -> 满黑切景 -> 渐明出廊双段过渡！）
+    if (p.x < 14) {
       const tr = WorldMap.resolveTransition(room, 'left', p.y, this.slot.brokenSecretWalls);
       if (tr) {
         if (
@@ -4998,11 +5216,17 @@ export class GameEngine {
           this.slot.brokenSecretWalls.push(tr.backDoor.secretWallId);
         }
         const lift = Math.max(-75, Math.min(0, p.y - tr.curFloorY));
-        this.loadRoom(tr.nextRoom, tr.nextX, Math.max(115, tr.nextFloorY + lift), true);
+        this.beginSmoothRoomTransition(
+          tr.nextRoom,
+          tr.nextX,
+          Math.max(115, tr.nextFloorY + lift),
+          -185,
+          0
+        );
         return;
       }
       p.x = 32;
-    } else if (p.x > room.pixelW - 12) {
+    } else if (p.x > room.pixelW - 14) {
       const tr = WorldMap.resolveTransition(room, 'right', p.y, this.slot.brokenSecretWalls);
       if (tr) {
         if (
@@ -5012,17 +5236,23 @@ export class GameEngine {
           this.slot.brokenSecretWalls.push(tr.backDoor.secretWallId);
         }
         const lift = Math.max(-75, Math.min(0, p.y - tr.curFloorY));
-        this.loadRoom(tr.nextRoom, tr.nextX, Math.max(115, tr.nextFloorY + lift), true);
+        this.beginSmoothRoomTransition(
+          tr.nextRoom,
+          tr.nextX,
+          Math.max(115, tr.nextFloorY + lift),
+          185,
+          0
+        );
         return;
       }
       p.x = room.pixelW - 32;
     }
 
     // 2. 向下坠入地宫暗井 / 天井竖井（贯通上下层房间！）
-    if (p.y > room.pixelH - 6 && p.vy > 0) {
+    if (p.y > room.pixelH - 8 && p.vy > 0) {
       const downTr = WorldMap.resolveVerticalShaft(room, p.x, 'down', bossCleared);
       if (downTr) {
-        this.loadRoom(downTr.nextRoom, downTr.nextX, downTr.nextY, true);
+        this.beginSmoothRoomTransition(downTr.nextRoom, downTr.nextX, downTr.nextY, 0, 260);
         return;
       }
       // 兜底防掉出界
@@ -5032,14 +5262,19 @@ export class GameEngine {
     }
 
     // 3. 向上纵跃冲出天井竖井直登二楼飞阁！（动态适配任意挑高厅堂地面标高！）
-    if (p.y - p.h < 6 && p.vy < 0) {
+    if (p.y - p.h < 8 && p.vy < 0) {
       const upTr = WorldMap.resolveVerticalShaft(room, p.x, 'up', bossCleared);
       if (upTr) {
         p.dropThroughTimer = 0;
-        p.vy = -560;
-        p.onGround = false;
         const targetFloor = sampleSolidGroundY(upTr.nextRoom, upTr.nextX);
-        this.loadRoom(upTr.nextRoom, upTr.nextX, targetFloor + 32, true);
+        this.beginSmoothRoomTransition(
+          upTr.nextRoom,
+          upTr.nextX,
+          targetFloor + 32,
+          0,
+          -240,
+          -560
+        );
       }
     }
   }

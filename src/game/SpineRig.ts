@@ -266,6 +266,7 @@ class HeroSpineController {
     crouching?: boolean;
     sliding?: boolean;
     diveKicking?: boolean;
+    hurtRecoil?: number; // 0..1 恶魔城式受击仰身击退硬直度
     slashProgress: number | null; // 0..1 or null
     slashArchetype?: string;
     skillKind?: string;
@@ -367,6 +368,13 @@ class HeroSpineController {
         targetLean = 11 * r * r;
         shoulderTwist = 0.06 * r;
       }
+    } else if ((opts.hurtRecoil || 0) > 0.01) {
+      // 《恶魔城》经典受击仰身硬直弧：胸腹受创向后折仰、下盘微沉
+      const hr = Math.min(1, opts.hurtRecoil || 0);
+      targetLean = -16.5 * hr;
+      chestLift = 4.2 * hr;
+      ribExpand = 0.94;
+      shoulderTwist = -0.18 * hr;
     } else if (opts.sliding) {
       targetLean = 14;
       chestLift = 4;

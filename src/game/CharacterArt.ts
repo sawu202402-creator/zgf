@@ -62,6 +62,10 @@ function selectEnemySpriteFrame(e: EnemyEntity, t: number): AssetKey {
   if (kind === 'plague_toad') return 'mob_toad';
   if (kind === 'opera_puppet') return 'mob_puppet';
   if (kind === 'bell_gargoyle') return 'mob_gargoyle';
+  if (kind === 'corpse_soldier') return 'mob_zombie';
+  if (kind === 'demon_wolf') return 'mob_warg';
+  if (kind === 'blood_bat') return 'mob_bat';
+  if (kind === 'bone_archer') return 'mob_bone_archer';
 
   if (kind === 'bronze_guard') {
     if (e.aiState === 'windup') return 'mob_gd_2';
@@ -120,6 +124,7 @@ export interface HeroRenderState {
   crouching?: boolean;
   sliding?: boolean;
   diveKicking?: boolean;
+  hurtRecoil?: number;
 }
 
 export function selectHeroSpriteFrame(opts: {
@@ -135,6 +140,7 @@ export function selectHeroSpriteFrame(opts: {
   crouching?: boolean;
   sliding?: boolean;
   diveKicking?: boolean;
+  hurtRecoil?: number;
 }): AssetKey {
   const {
     vx,
@@ -753,6 +759,7 @@ export function renderModularLiYichengRig(
     crouching: opts.crouching,
     sliding: opts.sliding,
     diveKicking: opts.diveKicking,
+    hurtRecoil: opts.hurtRecoil,
     slashProgress: opts.slash ? opts.slash.progress : null,
     slashArchetype: opts.slash?.archetype,
     skillKind: opts.skillAnim?.kind,
@@ -952,6 +959,7 @@ export function drawHeroCharacter(
     crouching: p.crouching,
     sliding: p.slideTimer > 0,
     diveKicking: p.diveKicking,
+    hurtRecoil: p.hurtStunTimer > 0 ? Math.min(1, p.hurtStunTimer / 0.28) : 0,
   });
 }
 
@@ -1136,14 +1144,32 @@ export function drawMonsterOrBoss(
   const spriteKey = selectEnemySpriteFrame(e, t);
   const img = Assets.get(spriteKey);
 
+  const joltX =
+    (e.hurtJoltTimer || 0) > 0
+      ? Math.sin(t * 96 + e.id * 3) * 6.5 * Math.min(1, (e.hurtJoltTimer || 0) / 0.12)
+      : 0;
+  const emergeProg =
+    (e.burrowEmergeTimer || 0) > 0 ? Math.min(1, (e.burrowEmergeTimer || 0) / 0.55) : 0;
+
   ctx.save();
-  ctx.translate(e.x, e.y);
+  ctx.translate(e.x + joltX, e.y);
 
   if (!e.profile.flying) {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.54)';
     ctx.beginPath();
     ctx.ellipse(0, 2, w * 0.65, 5.8, 0, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  // 破土阴兵钻出地面时的翻卷泥石土堆遮罩
+  if (emergeProg > 0) {
+    ctx.fillStyle = '#1c1917';
+    ctx.beginPath();
+    ctx.ellipse(0, 2, w * 0.78, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.rect(-120, -220, 240, 223);
+    ctx.clip();
   }
 
   if (img) {
@@ -1154,11 +1180,19 @@ export function drawMonsterOrBoss(
           ? 0.56
           : e.profile.isBoss
             ? 0.62
-            : e.profile.kind === 'bronze_guard'
-              ? 0.54
-              : 0.52;
+            : e.profile.kind === 'demon_wolf'
+              ? 0.55
+              : e.profile.kind === 'bronze_guard'
+                ? 0.54
+                : e.profile.kind === 'blood_bat'
+                  ? 0.46
+                  : 0.52;
 
-    const hoverY = e.profile.flying ? Math.sin(e.animPhase) * 4.5 : 0;
+    const hoverY = e.roosting
+      ? 0
+      : e.profile.flying
+        ? Math.sin(e.animPhase) * 4.5
+        : -emergeProg * 48;
     const joints = buildEntitySpineJoints({
       key: e.id,
       t,
@@ -1174,7 +1208,13 @@ export function drawMonsterOrBoss(
 
     ctx.save();
     ctx.translate(0, -hoverY);
-    ctx.scale(e.facing, 1);
+    if (e.roosting) {
+      // 血翼夜蝠潜伏期：倒挂于古梁屋檐之下蓄势待发！
+      ctx.translate(0, -28);
+      ctx.scale(e.facing * 0.88, -0.88);
+    } else {
+      ctx.scale(e.facing, 1);
+    }
 
     const source = flash ? Assets.getWhiteFlash(spriteKey) || img : img;
     drawSkinnedSpineSprite(
@@ -1408,31 +1448,22 @@ export function drawMonsterOrBoss(
     ctx.restore();
   }
 
-  // 出招前摇【危 · 寒芒十字星】高辨识度预警（《只狼 / 斩妖行》式博弈提示！）
+  // 摒弃容易出戏的UI矢量【危】字弹窗：改为贴合怪物兵刃/凶眸的自然蓄势寒光微闪（配合 Spine 后仰蓄力姿态传达前摇！）
   if (e.aiState === 'windup') {
-    const gx = e.facing * (w * 0.45);
-    const gy = -h * 0.95;
-    const pulse = 12 + Math.sin(t * 28) * 5;
+    const isBeast = e.profile.kind === 'demon_wolf' || e.profile.kind === 'blood_bat';
+    const gx = isBeast ? e.facing * (w * 0.38) : -e.facing * (w * 0.28);
+    const gy = isBeast ? -h * 0.62 : -h * 0.68;
+    const glintCol = isBeast ? 'rgba(251, 146, 60,' : 'rgba(254, 240, 138,';
     ctx.save();
-    ctx.translate(gx, gy);
-    ctx.strokeStyle = '#ef4444';
-    ctx.lineWidth = 2.5;
+    ctx.globalCompositeOperation = 'lighter';
+    const rg = ctx.createRadialGradient(gx, gy, 1, gx, gy, 18);
+    rg.addColorStop(0, `${glintCol} 0.78)`);
+    rg.addColorStop(0.5, `${glintCol} 0.25)`);
+    rg.addColorStop(1, `${glintCol} 0)`);
+    ctx.fillStyle = rg;
     ctx.beginPath();
-    ctx.moveTo(-pulse * 1.5, 0);
-    ctx.lineTo(pulse * 1.5, 0);
-    ctx.moveTo(0, -pulse * 1.5);
-    ctx.lineTo(0, pulse * 1.5);
-    ctx.stroke();
-
-    ctx.fillStyle = '#fde047';
-    ctx.beginPath();
-    ctx.arc(0, 0, 4.5, 0, Math.PI * 2);
+    ctx.arc(gx, gy, 18, 0, Math.PI * 2);
     ctx.fill();
-
-    ctx.font = '900 15px "STKaiti", "KaiTi", serif';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#ef4444';
-    ctx.fillText('危', 0, -16);
     ctx.restore();
   }
 
@@ -1443,7 +1474,31 @@ export function drawMonsterOrBoss(
     const fade = Math.max(0.18, 1 - Math.max(0, p - 0.55) * 1.6);
     const kind = e.profile.kind;
 
-    if (kind === 'paper_swordsman') {
+    if (kind === 'demon_wolf') {
+      // 玄甲镇狱苍狼：飞扑撕裂三道赤金狼爪血痕！
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (let c = -1; c <= 1; c++) {
+        const yOff = -h * 0.52 + c * 9;
+        ctx.strokeStyle = c === 0 ? `rgba(254, 240, 138, ${fade * 0.95})` : `rgba(249, 115, 22, ${fade * 0.85})`;
+        ctx.lineWidth = c === 0 ? 3.4 : 2.4;
+        ctx.beginPath();
+        ctx.moveTo(e.facing * 4, yOff - 10);
+        ctx.quadraticCurveTo(e.facing * 36, yOff - 2, e.facing * (66 * Math.min(1, p * 1.5)), yOff + 12);
+        ctx.stroke();
+      }
+      ctx.restore();
+    } else if (kind === 'corpse_soldier') {
+      // 破土荒冢阴兵：锈蚀残戟沉重暗红劈斩！
+      const sAng = -1.55 + p * 0.35;
+      const eAng = -1.15 + Math.min(1, p * 1.4) * 2.25;
+      drawInkSlashRibbon(ctx, e.facing * 6, -h * 0.54, e.facing, false, 74, 18, sAng, eAng, '#b91c1c', fade);
+    } else if (kind === 'blood_bat') {
+      // 血翼夜蝠妖：俯冲掠袭猩红血牙残弧
+      const sAng = -0.95 + p * 0.28;
+      const eAng = -0.62 + Math.min(1, p * 1.45) * 1.65;
+      drawInkSlashRibbon(ctx, e.facing * 6, -h * 0.5, e.facing, false, 58, 13, sAng, eAng, '#e11d48', fade);
+    } else if (kind === 'paper_swordsman') {
       // 剪纸刀客：极速冰青居合一字拔刀闪 + 飞舞白纸符片
       const sAng = -0.52 + p * 0.18;
       const eAng = -0.36 + Math.min(1, p * 1.45) * 1.12;
@@ -1730,7 +1785,8 @@ export function drawSceneNpc(
 }
 
 /**
- * 接地祭剑石座与手绘灵韵器物渲染（彻底淘汰漂浮宝箱/葫芦抠图贴纸与方框文字签！）
+ * 经典《恶魔城：月下夜想曲》式精致单件战利品掉落渲染：
+ * 彻底淘汰硕大笨重的 88px 剑坛/衣架！每把刀枪剑戟、衣袍重铠、虎符玉佩扳指皆以紧凑精巧真身形态翻滚落地！
  */
 export function drawWorldDrop(
   ctx: CanvasRenderingContext2D,
@@ -1741,94 +1797,219 @@ export function drawWorldDrop(
   ctx.save();
   ctx.translate(d.x, d.y);
 
-  // 地面接触暗影（所有器物稳稳立于地面石台或散落地面，绝不悬空贴图式乱飘！）
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.56)';
+  const inAir = Math.abs(d.vy) > 16;
+  const spin = d.spinAngle || 0;
+
+  // 紧凑贴地阴影
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.52)';
   ctx.beginPath();
-  ctx.ellipse(0, 2, d.isStaticPickup ? 24 : 13, 4.5, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 2, d.kind === 'ability' ? 18 : 12, 3.8, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  const auraCol =
-    d.kind === 'weapon'
-      ? d.itemId.startsWith('greatsword')
-        ? 'rgba(249, 115, 22,'
-        : 'rgba(45, 212, 191,'
-      : d.kind === 'yao_core'
-        ? 'rgba(192, 132, 252,'
-        : d.kind === 'consumable'
-          ? 'rgba(74, 222, 128,'
-          : 'rgba(250, 204, 21,';
+  const wpnDef = d.kind === 'weapon' && !d.itemId.startsWith('sub:') ? WEAPONS[d.itemId] : undefined;
+  const auraHex = wpnDef
+    ? wpnDef.glowColor
+    : d.kind === 'yao_core'
+      ? '#c084fc'
+      : d.kind === 'consumable'
+        ? '#4ade80'
+        : d.kind === 'armor'
+          ? '#38bdf8'
+          : '#facc15';
 
-  // 柔和向天空消散的垂直灵韵微光丝（lighter 叠加，0硬边）
-  ctx.save();
-  ctx.globalCompositeOperation = 'lighter';
-  const beamH = d.isStaticPickup ? 68 : 38;
-  const bg = ctx.createLinearGradient(0, 0, 0, -beamH);
-  bg.addColorStop(0, `${auraCol} 0.36)`);
-  bg.addColorStop(0.55, `${auraCol} 0.12)`);
-  bg.addColorStop(1, `${auraCol} 0)`);
-  ctx.fillStyle = bg;
-  ctx.beginPath();
-  ctx.moveTo(-12, 0);
-  ctx.lineTo(12, 0);
-  ctx.lineTo(5, -beamH);
-  ctx.lineTo(-5, -beamH);
-  ctx.closePath();
-  ctx.fill();
-
-  // 升腾灵尘微粒
-  for (let i = 0; i < 3; i++) {
-    const prog = (t * 0.75 + i * 0.33 + d.x * 0.01) % 1;
-    const mx = Math.sin(t * 3 + i * 2) * 8;
-    const my = -4 - prog * (beamH - 8);
-    ctx.fillStyle = `${auraCol} ${(1 - prog) * 0.8})`;
+  // 纤细内敛的器物灵韵微光（不再喧宾夺主放大成巨柱！）
+  if (d.kind !== 'gold' && d.kind !== 'heart') {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const rg = ctx.createRadialGradient(0, -16, 2, 0, -16, d.kind === 'ability' ? 28 : 20);
+    rg.addColorStop(0, auraHex);
+    rg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.globalAlpha = d.kind === 'ability' ? 0.34 : 0.22;
+    ctx.fillStyle = rg;
     ctx.beginPath();
-    ctx.arc(mx, my, 1.6, 0, Math.PI * 2);
+    ctx.arc(0, -16, d.kind === 'ability' ? 28 : 20, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
   }
-  ctx.restore();
 
   if (d.kind === 'weapon') {
-    const altarImg = Assets.get('item_sword_altar');
-    if (altarImg) {
-      const h = 86;
-      const w = altarImg.width * (h / altarImg.height);
-      ctx.drawImage(altarImg, -w * 0.5, -h + 3, w, h);
+    ctx.save();
+    ctx.translate(0, -18);
+    if (d.itemId.startsWith('sub:')) {
+      const subId = d.itemId.slice(4);
+      ctx.rotate(inAir ? spin : Math.sin(t * 3 + d.x) * 0.06);
+      if (subId === 'holy_fire' && Assets.get('item_sub_fire_gourd')) {
+        ctx.drawImage(Assets.get('item_sub_fire_gourd')!, -14, -16, 28, 32);
+      } else if (subId === 'bagua_cross' && Assets.get('item_sub_bagua')) {
+        ctx.drawImage(Assets.get('item_sub_bagua')!, -16, -16, 32, 32);
+      } else if (subId === 'mountain_seal' && Assets.get('item_sub_seal')) {
+        ctx.drawImage(Assets.get('item_sub_seal')!, -15, -15, 30, 30);
+      } else if (subId === 'sword_orbit' && Assets.get('fam_sword')) {
+        const fs = Assets.get('fam_sword')!;
+        for (let k = 0; k < 3; k++) {
+          ctx.save();
+          ctx.rotate((k * Math.PI * 2) / 3 + t * 2.2);
+          ctx.drawImage(fs, -6, -18, 12, 24);
+          ctx.restore();
+        }
+      } else if (Assets.get('part_wpn_daggers')) {
+        ctx.rotate(-0.55);
+        ctx.drawImage(Assets.get('part_wpn_daggers')!, -17, -6, 34, 12);
+      }
+    } else {
+      const w = wpnDef || WEAPONS.sword_1;
+      // 每把武器按自身真实兵刃外形（轻剑/陌刀/长枪/双刺/九节鞭）与专属品阶光晕独立呈现，空中翻旋、落地斜倚！
+      const restTilt = w.archetype === 'whip' ? 0 : -0.66;
+      ctx.rotate(inAir ? spin : restTilt);
+      if (w.archetype === 'daggers' && Assets.get('part_wpn_daggers')) {
+        const dg = Assets.get('part_wpn_daggers')!;
+        ctx.save();
+        ctx.rotate(-0.32);
+        ctx.drawImage(dg, -17, -5.5, 34, 11);
+        ctx.rotate(0.68);
+        ctx.drawImage(dg, -17, -5.5, 34, 11);
+        ctx.restore();
+      } else {
+        const len =
+          w.archetype === 'spear'
+            ? 52
+            : w.archetype === 'greatsword'
+              ? 48
+              : w.archetype === 'whip'
+                ? 68
+                : 44;
+        if (w.archetype !== 'whip') {
+          ctx.translate(-len * 0.26, 0);
+        }
+        drawCelShadedWeapon(ctx, w.archetype, w.id, len);
+      }
+      // 寒锋流光星点
+      const glint = 0.5 + 0.5 * Math.sin(t * 5.2 + d.x * 0.1);
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = w.glowColor;
+      ctx.globalAlpha = 0.45 * glint;
+      ctx.beginPath();
+      ctx.arc(6, -2, 5, 0, Math.PI * 2);
+      ctx.fill();
     }
+    ctx.restore();
   } else if (d.kind === 'armor') {
-    const armorImg = Assets.get('item_armor_stand');
-    if (armorImg) {
-      const h = 88;
-      const w = armorImg.width * (h / armorImg.height);
-      ctx.drawImage(armorImg, -w * 0.5, -h + 3, w, h);
+    // 每件防具与饰品拥有各自独立的小巧造型：叠放锦袍、明光护心胸甲、蟠龙古玉、错金虎符、血玉扳指、天师符、纳福金葫！
+    let iconKey: AssetKey = 'item_drop_robe';
+    let dim = 34;
+    let rimColor = '';
+    const id = d.itemId;
+    if (id === 'mingguang_armor' || id === 'black_tortoise_mail') {
+      iconKey = 'item_drop_cuirass';
+      dim = 36;
+      rimColor = id === 'mingguang_armor' ? '#fde047' : '#2dd4bf';
+    } else if (id === 'tiger_tally') {
+      iconKey = 'item_drop_tally';
+      dim = 34;
+    } else if (id === 'celestial_qi_ring') {
+      iconKey = 'item_drop_ring';
+      dim = 30;
+    } else if (id === 'broken_jade' || id === 'greedy_wolf_jade' || id === 'wind_step_pendant') {
+      iconKey = 'item_drop_jade';
+      dim = 33;
+      rimColor = id === 'greedy_wolf_jade' ? '#f43f5e' : id === 'wind_step_pendant' ? '#38bdf8' : '';
+    } else if (id === 'mojin_talisman') {
+      iconKey = 'item_talisman_scroll';
+      dim = 32;
+      rimColor = '#fde047';
+    } else if (id === 'fortune_gourd' || id === 'qingxin_bell') {
+      iconKey = 'item_celadon_gourd';
+      dim = 32;
+      rimColor = id === 'fortune_gourd' ? '#c084fc' : '#7dd3fc';
+    } else {
+      iconKey = 'item_drop_robe';
+      dim = 35;
+      rimColor =
+        id === 'xuanniao_robe'
+          ? '#fde047'
+          : id === 'ink_scholar_robe'
+            ? '#e2e8f0'
+            : id === 'cloud_brocade'
+              ? '#38bdf8'
+              : '';
     }
-  } else if (d.kind === 'ability' || d.kind === 'skill_scroll') {
-    const relicImg = Assets.get('item_relic_pedestal');
-    if (relicImg) {
-      const h = 94;
-      const w = relicImg.width * (h / relicImg.height);
-      ctx.drawImage(relicImg, -w * 0.5, -h + 3, w, h);
+    const armImg = Assets.get(iconKey);
+    ctx.save();
+    ctx.translate(0, -dim * 0.5 + 1);
+    if (inAir) ctx.rotate(spin * 0.65);
+    if (armImg) {
+      const w = dim * (armImg.width / armImg.height);
+      ctx.drawImage(armImg, -w * 0.5, -dim * 0.5, w, dim);
+    }
+    if (rimColor) {
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = rimColor;
+      ctx.globalAlpha = 0.35 + Math.sin(t * 4 + d.x) * 0.12;
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.arc(0, 0, dim * 0.44, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  } else if (d.kind === 'skill_scroll') {
+    const scrImg = Assets.get('item_drop_scroll');
+    const floatY = -19 + Math.sin(t * 3.8 + d.x) * 2.5;
+    if (scrImg) {
+      ctx.drawImage(scrImg, -17, floatY - 17, 34, 34);
+    }
+  } else if (d.kind === 'ability') {
+    // 镇司奇宝传承台：低矮精致青石莲座 + 悬浮秘宝真身（告别原先 94px 遮挡画面的巨型石碑！）
+    ctx.fillStyle = '#1e293b';
+    ctx.strokeStyle = '#64748b';
+    ctx.lineWidth = 1.2;
+    ctx.fillRect(-18, -7, 36, 7);
+    ctx.strokeRect(-18, -7, 36, 7);
+
+    const bobY = -26 + Math.sin(t * 3.6) * 3.2;
+    let abKey: AssetKey = 'item_drop_scroll';
+    if (d.itemId === 'familiar_sword') abKey = 'fam_sword';
+    else if (d.itemId === 'jade_pendant_full') abKey = 'item_drop_jade';
+    else if (d.itemId === 'mirror_truth') abKey = 'item_sub_bagua';
+    else if (d.itemId === 'mist_dash') abKey = 'item_talisman_scroll';
+    else if (d.itemId === 'ground_slam') abKey = 'item_sub_seal';
+    const abImg = Assets.get(abKey);
+    if (abImg) {
+      const h = d.itemId === 'familiar_sword' ? 40 : 36;
+      const w = h * (abImg.width / abImg.height);
+      ctx.drawImage(abImg, -w * 0.5, bobY - h * 0.5, w, h);
     }
   } else if (d.kind === 'consumable' || d.kind === 'max_up') {
+    ctx.save();
+    ctx.translate(0, -16);
+    if (inAir) ctx.rotate(spin * 0.5);
     if (d.itemId === 'beggar_chicken') {
       const chkImg = Assets.get('item_lotus_chicken');
       if (chkImg) {
-        const h = 38;
+        const h = 30;
         const w = chkImg.width * (h / chkImg.height);
-        ctx.drawImage(chkImg, -w * 0.5, -h + 2, w, h);
+        ctx.drawImage(chkImg, -w * 0.5, -h * 0.5, w, h);
+      }
+    } else if (d.kind === 'max_up') {
+      const coreImg = Assets.get('item_yao_core') || Assets.get('item_celadon_gourd');
+      if (coreImg) {
+        const h = 32;
+        const w = coreImg.width * (h / coreImg.height);
+        ctx.drawImage(coreImg, -w * 0.5, -h * 0.5, w, h);
       }
     } else {
       const gourdImg = Assets.get('item_celadon_gourd');
       if (gourdImg) {
-        const h = 42;
+        const h = 32;
         const w = gourdImg.width * (h / gourdImg.height);
-        ctx.drawImage(gourdImg, -w * 0.5, -h + 2, w, h);
+        ctx.drawImage(gourdImg, -w * 0.5, -h * 0.5, w, h);
       }
     }
+    ctx.restore();
   } else if (d.kind === 'yao_core') {
-    const floatY = -22 + Math.sin(t * 4.5) * 3.5;
+    const floatY = -18 + Math.sin(t * 4.5) * 3;
     const coreImg = Assets.get('item_yao_core');
     if (coreImg) {
-      const h = 38;
+      const h = 30;
       const w = coreImg.width * (h / coreImg.height);
       ctx.drawImage(coreImg, -w * 0.5, floatY - h * 0.5, w, h);
     }
@@ -1836,7 +2017,7 @@ export function drawWorldDrop(
     // 纯手绘纹银元宝锭 (`item_silver_sycee.webp`)
     const syceeImg = Assets.get('item_silver_sycee');
     if (syceeImg) {
-      const h = 26;
+      const h = 22;
       const w = syceeImg.width * (h / syceeImg.height);
       ctx.drawImage(syceeImg, -w * 0.5, -h + 3, w, h);
     }
@@ -1845,24 +2026,24 @@ export function drawWorldDrop(
     const tilt = Math.sin(t * 5 + d.x) * 0.11;
     const talImg = Assets.get('item_talisman_scroll');
     if (talImg) {
-      const h = 30;
+      const h = 26;
       const w = talImg.width * (h / talImg.height);
       ctx.save();
-      ctx.translate(0, -14);
+      ctx.translate(0, -13);
       ctx.rotate(tilt);
       ctx.drawImage(talImg, -w * 0.5, -h * 0.5, w, h);
       ctx.restore();
     }
   }
 
-  // 仅当少年靠近时浮现无框水墨金字题名（彻底取消丑陋的半透明黑方框标签！）
-  if ((d.isStaticPickup || d.kind === 'yao_core') && Math.abs(playerX - d.x) < 175) {
-    ctx.font = 'bold 12.5px "STKaiti", "KaiTi", serif';
+  // 仅当少年靠近重要器物时浮现清秀题名
+  if ((d.isStaticPickup || d.kind === 'yao_core' || d.kind === 'weapon' || d.kind === 'armor') && Math.abs(playerX - d.x) < 155) {
+    ctx.font = 'bold 12px "STKaiti", "KaiTi", serif';
     ctx.textAlign = 'center';
     ctx.fillStyle = 'rgba(0, 0, 0, 0.92)';
-    ctx.fillText(d.label, 1.2, -56.8);
+    ctx.fillText(d.label, 1.1, -43.8);
     ctx.fillStyle = '#fef08a';
-    ctx.fillText(d.label, 0, -58);
+    ctx.fillText(d.label, 0, -45);
   }
 
   ctx.restore();

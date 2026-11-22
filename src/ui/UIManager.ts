@@ -739,6 +739,10 @@ export class UIManager {
       if (kind === 'plague_toad') return 'mob_toad';
       if (kind === 'opera_puppet') return 'mob_puppet';
       if (kind === 'bell_gargoyle') return 'mob_gargoyle';
+      if (kind === 'corpse_soldier') return 'mob_zombie';
+      if (kind === 'demon_wolf') return 'mob_warg';
+      if (kind === 'blood_bat') return 'mob_bat';
+      if (kind === 'bone_archer') return 'mob_bone_archer';
       if (kind === 'bronze_guard') return 'mob_gd_0';
       if (ENEMY_PROFILES[kind].flying) return 'mob_wr_0';
       return 'mob_sw_0';
