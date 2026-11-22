@@ -14,7 +14,9 @@ import {
   BuiltRoom,
   CELL_PIXEL_W,
   getRoomSideDoors,
+  INVERTED_REGION_NAMES,
   isGroundRestingSolidBlock,
+  REGION_NAMES,
   sampleCeilingY,
   sampleEntitySurfaceY,
   sampleGroundY,
@@ -537,11 +539,11 @@ export class GameEngine {
       AudioFX.setMood('boss');
     } else if (room.realm === 'inverted') {
       AudioFX.setMood('inverted');
-    } else if (room.region === 'library' || room.region === 'opera') {
+    } else if (room.region === 'library' || room.region === 'opera' || room.region === 'alchemy') {
       AudioFX.setMood('library');
-    } else if (room.region === 'clock_tower') {
+    } else if (room.region === 'clock_tower' || room.region === 'altar') {
       AudioFX.setMood('clock');
-    } else if (room.region === 'prison' || room.region === 'forge') {
+    } else if (room.region === 'prison' || room.region === 'forge' || room.region === 'catacomb') {
       AudioFX.setMood('prison');
     } else {
       AudioFX.setMood('castle');
@@ -716,18 +718,26 @@ export class GameEngine {
       });
     }
 
-    // 仅在踏入全新大区域、首领殿或独立隐藏密室时弹出区域横幅（零赘字副标题，保持恶魔城丝滑留白体验！）
+    // 踏入全新大关卡时醒目弹出章节幕次名（如「第三幕 · 钦天炼丹司」），首领殿或独立密室弹出专属厅名！
+    const enteringNewStage = prevRegion !== nextRoom.region;
     if (
-      prevRegion !== nextRoom.region ||
+      enteringNewStage ||
       nextRoom.special === 'boss_room' ||
       nextRoom.isSecretRoom
     ) {
-      if (visitKey !== this.lastVisitedRegion) {
+      if (visitKey !== this.lastVisitedRegion || enteringNewStage) {
         this.lastVisitedRegion = visitKey;
-        this.cb.onShowBanner(
-          nextRoom.name,
-          nextRoom.isSecretRoom ? '独立破壁密室 · 洞天秘藏' : ''
-        );
+        if (nextRoom.isSecretRoom) {
+          this.cb.onShowBanner(nextRoom.name, '独立破壁密室 · 洞天秘藏');
+        } else if (enteringNewStage) {
+          const stageTitle =
+            nextRoom.realm === 'inverted'
+              ? INVERTED_REGION_NAMES[nextRoom.region]
+              : REGION_NAMES[nextRoom.region];
+          this.cb.onShowBanner(stageTitle, nextRoom.name);
+        } else {
+          this.cb.onShowBanner(nextRoom.name, '');
+        }
       }
     }
 
@@ -782,25 +792,19 @@ export class GameEngine {
       hpMult = 1.72;
       atkMult = 1.48;
       spdMult = 1.1;
-    } else if (room.id === 'catacomb_hall' || room.id === 'catacomb_shrine' || room.isSecretRoom) {
+    } else if (room.region === 'catacomb' || room.isSecretRoom) {
       hpMult = 1.52;
       atkMult = 1.34;
       spdMult = 1.07;
     } else if (room.region === 'opera' || room.region === 'forge') {
-      if (room.id === 'alchemy_lab' || room.id === 'west_armory') {
-        hpMult = 1.18;
-        atkMult = 1.1;
-        spdMult = 1.02;
-      } else {
-        hpMult = 1.56;
-        atkMult = 1.38;
-        spdMult = 1.08;
-      }
+      hpMult = 1.56;
+      atkMult = 1.38;
+      spdMult = 1.08;
     } else if (room.region === 'prison' || room.region === 'library') {
       hpMult = 1.36;
       atkMult = 1.22;
       spdMult = 1.05;
-    } else if (room.region === 'main_hall') {
+    } else if (room.region === 'main_hall' || room.region === 'alchemy') {
       hpMult = 1.18;
       atkMult = 1.1;
       spdMult = 1.02;

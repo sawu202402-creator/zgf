@@ -293,7 +293,10 @@ export class InkVaniaRenderer {
       ctx.fillStyle = wg;
       ctx.fillRect(wz.x1, wz.surfaceY, w, h);
 
-      const isCavern = room.region === 'prison';
+      const isCavern =
+        room.region === 'prison' ||
+        room.region === 'catacomb' ||
+        room.bgKey === 'bg_moat_sluice';
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       for (let i = 0; i < 14; i++) {
@@ -472,11 +475,11 @@ export class InkVaniaRenderer {
     vH: number
   ): void {
     const t = this.ambientTime;
-    const isCatacomb = room.bgKey === 'bg_catacomb_tomb';
+    const isCatacomb = room.region === 'catacomb' || room.bgKey === 'bg_catacomb_tomb';
 
     ctx.save();
-    if (room.region === 'gatehouse') {
-      // 外城苍竹瓮城：夜风吹拂墨绿竹叶斜掠而过
+    if (room.region === 'gatehouse' && !room.indoor) {
+      // 外城苍竹悬崖与护城古桥（室外）：夜风吹拂墨绿竹叶斜掠而过
       for (let i = 0; i < 14; i++) {
         const lx =
           camLeft +
@@ -498,6 +501,23 @@ export class InkVaniaRenderer {
         ctx.fill();
         ctx.restore();
       }
+    } else if (room.region === 'alchemy') {
+      // 钦天炼丹司 · 试剑堂：袅袅升腾的紫金仙炉丹烟星尘
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 15; i++) {
+        const ax =
+          camLeft +
+          ((((i * 157 + Math.sin(t * 1.2 + i) * 26) % (vW + 80)) + (vW + 80)) % (vW + 80)) -
+          40;
+        const ay =
+          camTop +
+          vH -
+          ((((i * 89 + t * (18 + (i % 4) * 6)) % (vH + 60)) + (vH + 60)) % (vH + 60));
+        ctx.fillStyle = i % 3 === 0 ? 'rgba(253, 224, 71, 0.42)' : 'rgba(192, 132, 252, 0.38)';
+        ctx.beginPath();
+        ctx.arc(ax, ay, 1.4 + (i % 2) * 0.8, 0, Math.PI * 2);
+        ctx.fill();
+      }
     } else if (room.region === 'forge') {
       // 地肺铸剑坊：热浪裹挟赤金炉火余烬袅袅升腾
       ctx.globalCompositeOperation = 'lighter';
@@ -515,7 +535,11 @@ export class InkVaniaRenderer {
         ctx.arc(ex, ey, 1.3 + (i % 2) * 0.7, 0, Math.PI * 2);
         ctx.fill();
       }
-    } else if (room.region === 'prison') {
+    } else if (
+      room.region === 'prison' ||
+      room.region === 'catacomb' ||
+      room.bgKey === 'bg_moat_sluice'
+    ) {
       // 寒潭水牢 & 九幽冥廊：洞顶钟乳石滴落水珠 + 落地水圈 + 幽冥碧磷鬼火
       for (let i = 0; i < 7; i++) {
         const dx = ((i * 277 + 130) % Math.max(200, room.pixelW - 160)) + 80;
@@ -581,8 +605,25 @@ export class InkVaniaRenderer {
         ctx.ellipse(px, py, 2.8, 1.5, t + i, 0, Math.PI * 2);
         ctx.fill();
       }
+    } else if (room.region === 'altar') {
+      // 凌霄祭天坛：血月天顶飘升的赤金灵烬与二十八宿微芒
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 14; i++) {
+        const sx =
+          camLeft +
+          ((((i * 179 + Math.sin(t * 1.1 + i) * 24) % (vW + 80)) + (vW + 80)) % (vW + 80)) -
+          40;
+        const sy =
+          camTop +
+          vH -
+          ((((i * 93 + t * (20 + (i % 3) * 7)) % (vH + 60)) + (vH + 60)) % (vH + 60));
+        ctx.fillStyle = i % 2 === 0 ? 'rgba(251, 113, 133, 0.48)' : 'rgba(253, 224, 71, 0.44)';
+        ctx.beginPath();
+        ctx.arc(sx, sy, 1.5 + (i % 2) * 0.6, 0, Math.PI * 2);
+        ctx.fill();
+      }
     } else {
-      // 皇城大殿 / 望月钟塔 / 凌霄祭天坛：流萤星尘微光
+      // 瓮城内殿 / 皇城大殿 / 望月钟塔：静谧古建微尘与星芒
       ctx.globalCompositeOperation = 'lighter';
       for (let i = 0; i < 11; i++) {
         const sx = camLeft + ((i * 181 + Math.sin(t * 0.8 + i) * 26) % Math.max(120, vW));
@@ -611,7 +652,9 @@ export class InkVaniaRenderer {
   ): void {
     const isDarkDungeon =
       room.region === 'prison' ||
+      room.region === 'catacomb' ||
       room.region === 'forge' ||
+      room.bgKey === 'bg_moat_sluice' ||
       Boolean(room.isSecretRoom) ||
       room.realm === 'inverted';
     if (!isDarkDungeon) return;
@@ -631,10 +674,10 @@ export class InkVaniaRenderer {
     lctx.clearRect(0, 0, lw, lh);
 
     const darknessAlpha =
-      room.bgKey === 'bg_catacomb_tomb'
+      room.region === 'catacomb' || room.bgKey === 'bg_catacomb_tomb'
         ? 0.52
-        : room.region === 'prison'
-          ? 0.44
+        : room.region === 'prison' || room.bgKey === 'bg_moat_sluice'
+          ? 0.42
           : room.region === 'forge'
             ? 0.36
             : 0.34;
@@ -1168,13 +1211,19 @@ export class InkVaniaRenderer {
     } else if (room.region === 'forge') {
       wash.addColorStop(0, 'rgba(180, 52, 12, 0.1)');
       wash.addColorStop(1, 'rgba(234, 88, 12, 0.14)');
+    } else if (room.region === 'alchemy') {
+      wash.addColorStop(0, 'rgba(109, 40, 217, 0.08)');
+      wash.addColorStop(1, 'rgba(180, 115, 45, 0.09)');
+    } else if (room.region === 'altar') {
+      wash.addColorStop(0, 'rgba(159, 18, 57, 0.11)');
+      wash.addColorStop(1, 'rgba(120, 53, 15, 0.08)');
     } else if (room.region === 'opera') {
       wash.addColorStop(0, 'rgba(157, 23, 77, 0.08)');
       wash.addColorStop(1, 'rgba(217, 119, 6, 0.1)');
     } else if (room.region === 'main_hall' || room.region === 'library') {
       wash.addColorStop(0, 'rgba(180, 130, 50, 0.07)');
       wash.addColorStop(1, 'rgba(120, 80, 30, 0.08)');
-    } else if (room.region === 'prison') {
+    } else if (room.region === 'prison' || room.region === 'catacomb') {
       wash.addColorStop(0, 'rgba(13, 148, 136, 0.08)');
       wash.addColorStop(1, 'rgba(15, 118, 110, 0.1)');
     } else {
@@ -2161,7 +2210,10 @@ export class InkVaniaRenderer {
     }
 
     const warmRegion =
-      room.region === 'opera' || room.region === 'forge' || room.region === 'main_hall';
+      room.region === 'opera' ||
+      room.region === 'forge' ||
+      room.region === 'alchemy' ||
+      room.region === 'main_hall';
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     for (let i = 0; i < 8; i++) {

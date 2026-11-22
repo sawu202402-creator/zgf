@@ -120,12 +120,14 @@ export function drawSeamlessParallaxBackdrop(
   let bgKey: AssetKey = room.bgKey || 'bg_gatehouse';
   if (!room.bgKey) {
     if (room.region === 'opera') bgKey = 'bg_opera_market';
+    else if (room.region === 'alchemy') bgKey = 'bg_alchemy_palace';
     else if (room.region === 'forge') bgKey = 'bg_molten_forge';
     else if (room.region === 'main_hall') bgKey = 'bg_main_hall';
     else if (room.region === 'library') bgKey = 'bg_library_opera';
-    else if (room.region === 'clock_tower') bgKey = 'bg_chapel_spire';
+    else if (room.region === 'clock_tower') bgKey = room.indoor ? 'bg_tower_interior' : 'bg_chapel_spire';
     else if (room.region === 'prison') bgKey = 'bg_cavern_waterfall';
-    else if (room.region === 'altar') bgKey = 'bg_main_hall';
+    else if (room.region === 'catacomb') bgKey = 'bg_catacomb_tomb';
+    else if (room.region === 'altar') bgKey = 'bg_sky_altar';
   }
 
   const bg = Assets.get(bgKey) || Assets.get('bg_gatehouse');
@@ -186,14 +188,26 @@ export function drawSeamlessParallaxBackdrop(
     } else {
       // 全平台通用空气透视色雾层（不依赖移动端兼容性受限的 ctx.filter，让远景自然退后、凸显实体砖石台阶！）
       const depthGrad = ctx.createLinearGradient(0, 0, 0, vH);
-      if (room.bgKey === 'bg_catacomb_tomb') {
+      if (room.region === 'catacomb' || room.bgKey === 'bg_catacomb_tomb') {
         depthGrad.addColorStop(0, 'rgba(6, 16, 20, 0.36)');
         depthGrad.addColorStop(0.62, 'rgba(7, 18, 22, 0.48)');
         depthGrad.addColorStop(1, 'rgba(4, 9, 13, 0.76)');
+      } else if (room.bgKey === 'bg_moat_sluice') {
+        depthGrad.addColorStop(0, 'rgba(7, 16, 22, 0.32)');
+        depthGrad.addColorStop(0.62, 'rgba(8, 19, 25, 0.44)');
+        depthGrad.addColorStop(1, 'rgba(4, 9, 14, 0.74)');
       } else if (room.bgKey === 'bg_gatehouse_interior') {
         depthGrad.addColorStop(0, 'rgba(7, 11, 20, 0.28)');
         depthGrad.addColorStop(0.62, 'rgba(8, 13, 24, 0.4)');
         depthGrad.addColorStop(1, 'rgba(4, 7, 14, 0.72)');
+      } else if (room.region === 'alchemy') {
+        depthGrad.addColorStop(0, 'rgba(14, 10, 26, 0.28)');
+        depthGrad.addColorStop(0.62, 'rgba(16, 11, 28, 0.4)');
+        depthGrad.addColorStop(1, 'rgba(7, 5, 14, 0.72)');
+      } else if (room.region === 'altar') {
+        depthGrad.addColorStop(0, 'rgba(26, 8, 12, 0.16)');
+        depthGrad.addColorStop(0.62, 'rgba(18, 8, 14, 0.32)');
+        depthGrad.addColorStop(1, 'rgba(6, 5, 12, 0.68)');
       } else if (room.region === 'prison') {
         depthGrad.addColorStop(0, 'rgba(6, 18, 26, 0.34)');
         depthGrad.addColorStop(0.62, 'rgba(7, 20, 30, 0.44)');
@@ -427,8 +441,10 @@ function drawWallCorbel(
 function isStoneFortressOrDungeon(room: BuiltRoom): boolean {
   return (
     room.region === 'prison' ||
+    room.region === 'catacomb' ||
     room.region === 'forge' ||
-    room.bgKey === 'bg_gatehouse_interior'
+    room.bgKey === 'bg_gatehouse_interior' ||
+    room.bgKey === 'bg_moat_sluice'
   );
 }
 
@@ -440,7 +456,10 @@ export function bakeOrthographicRoomTerrain(
   bctx.clearRect(0, 0, room.pixelW, room.pixelH);
 
   const isStoneDungeon = isStoneFortressOrDungeon(room);
-  const usePalaceMarble = Boolean(room.indoor && !isStoneDungeon);
+  const usePalaceMarble = Boolean(
+    (room.indoor || room.region === 'altar' || room.id === 'observatory_bridge') &&
+      !isStoneDungeon
+  );
   const floorImg =
     (usePalaceMarble ? Assets.get('env_palace_floor') : undefined) || Assets.get('env_ground_slab');
   const slabImg = Assets.get('env_ground_slab');
@@ -1109,20 +1128,32 @@ export function bakeOrthographicRoomTerrain(
   if (room.realm === 'inverted') {
     bctx.fillStyle = 'rgba(76, 15, 38, 0.22)';
     bctx.fillRect(0, 0, room.pixelW, room.pixelH);
-  } else if (room.bgKey === 'bg_catacomb_tomb') {
-    // 幽冥碑林：将偏蓝地砖同化为幽青苍苔古墓青石，与背后石拱壁龛绿火严丝合缝！
+  } else if (room.region === 'catacomb' || room.bgKey === 'bg_catacomb_tomb') {
+    // 九幽守陵帝陵：将偏蓝地砖同化为幽青苍苔古墓青石，与背后石室鹤灯绿火严丝合缝！
     bctx.fillStyle = 'rgba(20, 56, 52, 0.28)';
     bctx.fillRect(0, 0, room.pixelW, room.pixelH);
+  } else if (room.bgKey === 'bg_moat_sluice') {
+    // 瓮城城底水关：潮湿苍苔深青条石色温
+    bctx.fillStyle = 'rgba(18, 46, 52, 0.26)';
+    bctx.fillRect(0, 0, room.pixelW, room.pixelH);
   } else if (room.bgKey === 'bg_gatehouse_interior') {
-    // 瓮城石殿：统一为冷峻深黛明代城砖石色，使地面、石柱、石跳台与瓮城箭窗砖墙融为一体！
+    // 瓮城石殿：统一为冷峻深黛明代城砖石色，使地面、石柱、石跳台与瓮城直棂方窗砖墙融为一体！
     bctx.fillStyle = 'rgba(22, 34, 52, 0.24)';
+    bctx.fillRect(0, 0, room.pixelW, room.pixelH);
+  } else if (room.region === 'alchemy') {
+    // 钦天炼丹司：紫微道殿沉檀暗紫金辉色温
+    bctx.fillStyle = 'rgba(58, 34, 72, 0.18)';
+    bctx.fillRect(0, 0, room.pixelW, room.pixelH);
+  } else if (room.region === 'altar') {
+    // 凌霄祭天坛：血月映照下的汉白玉微绯冷玉色温
+    bctx.fillStyle = 'rgba(82, 24, 34, 0.16)';
     bctx.fillRect(0, 0, room.pixelW, room.pixelH);
   } else if (room.region === 'prison') {
     // 九曲寒潭溶洞：冷冽青碧水汽石色
     bctx.fillStyle = 'rgba(14, 58, 68, 0.22)';
     bctx.fillRect(0, 0, room.pixelW, room.pixelH);
   } else if (room.region === 'forge') {
-    // 地肺炼丹铸剑司：暖赭暗铜火光石色
+    // 赤火铸剑坊：暖赭暗铜地火石色
     bctx.fillStyle = 'rgba(92, 34, 12, 0.24)';
     bctx.fillRect(0, 0, room.pixelW, room.pixelH);
   } else if (room.region === 'opera' || room.region === 'library' || room.region === 'main_hall') {

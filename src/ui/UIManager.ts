@@ -12,8 +12,10 @@ import {
 import { CHARACTER_BIOS, LORE_STELES } from '../data/storyAndNpcs';
 import {
   getRoomSideDoors,
+  INVERTED_REGION_NAMES,
   MAP_GRID_TOTAL_H,
   MAP_GRID_TOTAL_W,
+  REGION_NAMES,
   WorldMap,
 } from '../data/worldMap';
 import { AssetKey, Assets } from '../game/AssetLoader';
@@ -537,6 +539,12 @@ export class UIManager {
         '集齐【破妄古镜】与【完整玄鸟合璧佩】登临凌霄祭天坛，可开启 180° 九幽倒悬里城！';
     } else if (this.pauseTab === 'map') {
       const pct = WorldMap.calcExplorationPct(s.visitedRooms);
+      const curRoomNow = this.engine.room;
+      const curStageLabel = curRoomNow
+        ? curRoomNow.realm === 'inverted'
+          ? INVERTED_REGION_NAMES[curRoomNow.region]
+          : REGION_NAMES[curRoomNow.region]
+        : '';
       const realmSwitchHtml = s.invertedUnlocked
         ? `<div style="display:flex;gap:6px;">
              <button class="zx-seal-btn" id="btn-map-normal" style="${this.mapViewRealm === 'normal' ? 'border-color:#fde047;color:#fde047;' : ''}">阳表玄城</button>
@@ -547,7 +555,7 @@ export class UIManager {
         <div class="zx-map-pane">
           <div class="zx-map-header">
             <span class="zx-map-title">
-              ${this.mapViewRealm === 'inverted' ? '九幽倒悬里城 · 逆乱堪舆图' : '九幽玄城 · 阳表立体堪舆图'}
+              ${this.mapViewRealm === 'inverted' ? '九幽倒悬里城 · 逆乱堪舆图' : '九幽玄城 · 十大关卡立体堪舆图'}${curStageLabel ? ` <span style="font-size:12.5px;color:#fde047;margin-left:8px;">【${curStageLabel}】</span>` : ''}
             </span>
             <span style="font-size:13px;color:var(--jade);font-weight:800;">
               探索度 ${pct}% / 200%+
@@ -556,20 +564,24 @@ export class UIManager {
           </div>
           <canvas id="full-castle-map-canvas" width="920" height="406"></canvas>
           <div class="zx-map-legend">
-            <span><b style="color:#3b82f6;">■</b> 瓮城/正殿</span>
-            <span><b style="color:#ea580c;">■</b> 炼丹/熔窟</span>
-            <span><b style="color:#db2777;">■</b> 百戏鬼市</span>
-            <span><b style="color:#0d9488;">■</b> 竖塔/钟楼</span>
-            <span><b style="color:#f59e0b;">■</b> 镇魂祠</span>
-            <span><b style="color:#10b981;">■</b> 传送阵</span>
-            <span><b style="color:#9333ea;">■</b> 破壁密室</span>
-            <span><b style="color:#fb923c;">▮</b> 未破重闸/紫障</span>
-            <span><b style="color:#fde047;">◆</b> 未取秘宝</span>
+            <span><b style="color:#3b82f6;">■</b> 苦竹瓮城</span>
+            <span><b style="color:#d97706;">■</b> 奉天正殿</span>
+            <span><b style="color:#8b5cf6;">■</b> 钦天炼丹</span>
+            <span><b style="color:#ea580c;">■</b> 地肺铸剑</span>
+            <span><b style="color:#1d4ed8;">■</b> 九曲寒潭</span>
+            <span><b style="color:#0f766e;">■</b> 九幽荒冢</span>
+            <span><b style="color:#0e7490;">■</b> 万卷书阁</span>
+            <span><b style="color:#db2777;">■</b> 百戏梨园</span>
+            <span><b style="color:#64748b;">■</b> 东垣望月塔</span>
+            <span><b style="color:#e11d48;">■</b> 凌霄祭天坛</span>
+            <span><b style="color:#f59e0b;">◆</b> 镇魂祠</span>
+            <span><b style="color:#10b981;">◯</b> 传送阵</span>
+            <span><b style="color:#a855f7;">■</b> 破壁密室</span>
           </div>
         </div>
       `;
       footerLeft =
-        '月下式立体回环玄城 · 阳表 42 厅 + 180° 倒悬里城 42 厅（含 14 座独立破壁隐藏密室，全破可达 226%）';
+        '十大剧情关卡垂直立体玄城 · 阳表 47 厅 + 180° 倒悬里城 47 厅（含 14 座独立破壁隐藏密室）';
     } else if (this.pauseTab === 'bestiary') {
       mainHtml = this.buildBestiaryTabHtml();
       footerLeft = '镇妖司百鬼图鉴：记录妖邪属性、常掉补给、稀世神兵掉宝与本命妖丹';
@@ -912,23 +924,32 @@ export class UIManager {
       }
       if (!anyCellVisited) continue;
 
-      let fillCol = 'rgba(29, 78, 216, 0.85)';
+      let fillCol = 'rgba(37, 99, 235, 0.85)';
       if (targetRealm === 'inverted') {
         fillCol = 'rgba(136, 19, 55, 0.84)';
-      } else if (rm.region === 'opera') {
-        fillCol = 'rgba(190, 24, 93, 0.84)';
+      } else if (rm.region === 'main_hall') {
+        fillCol = 'rgba(180, 83, 9, 0.86)';
+      } else if (rm.region === 'alchemy') {
+        fillCol = 'rgba(124, 58, 237, 0.85)';
       } else if (rm.region === 'forge') {
-        fillCol = 'rgba(194, 65, 12, 0.84)';
-      } else if (rm.region === 'library' || rm.region === 'clock_tower') {
-        fillCol = 'rgba(13, 148, 136, 0.84)';
+        fillCol = 'rgba(194, 65, 12, 0.86)';
       } else if (rm.region === 'prison') {
-        fillCol = 'rgba(30, 64, 175, 0.86)';
+        fillCol = 'rgba(29, 78, 216, 0.86)';
+      } else if (rm.region === 'catacomb') {
+        fillCol = 'rgba(15, 118, 110, 0.88)';
+      } else if (rm.region === 'library') {
+        fillCol = 'rgba(14, 116, 144, 0.86)';
+      } else if (rm.region === 'opera') {
+        fillCol = 'rgba(190, 24, 93, 0.86)';
+      } else if (rm.region === 'clock_tower') {
+        fillCol = 'rgba(71, 85, 105, 0.88)';
+      } else if (rm.region === 'altar') {
+        fillCol = 'rgba(225, 29, 72, 0.88)';
       }
-      if (rm.isSecretRoom) fillCol = 'rgba(126, 34, 206, 0.94)';
+      if (rm.isSecretRoom) fillCol = 'rgba(147, 51, 234, 0.94)';
       else if (rm.special === 'save_shrine') fillCol = 'rgba(217, 119, 6, 0.92)';
       else if (rm.special === 'warp_bagua') fillCol = 'rgba(5, 150, 105, 0.92)';
       else if (rm.special === 'boss_room') fillCol = 'rgba(185, 28, 28, 0.94)';
-      else if (rm.special === 'relic_pedestal') fillCol = 'rgba(109, 40, 217, 0.9)';
 
       for (let dy = 0; dy < rm.gridH; dy++) {
         for (let dx = 0; dx < rm.gridW; dx++) {
