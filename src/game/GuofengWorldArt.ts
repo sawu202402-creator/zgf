@@ -196,10 +196,10 @@ export function drawSeamlessParallaxBackdrop(
         depthGrad.addColorStop(0, 'rgba(7, 16, 22, 0.32)');
         depthGrad.addColorStop(0.62, 'rgba(8, 19, 25, 0.44)');
         depthGrad.addColorStop(1, 'rgba(4, 9, 14, 0.74)');
-      } else if (room.bgKey === 'bg_gatehouse_interior') {
-        depthGrad.addColorStop(0, 'rgba(7, 11, 20, 0.28)');
-        depthGrad.addColorStop(0.62, 'rgba(8, 13, 24, 0.4)');
-        depthGrad.addColorStop(1, 'rgba(4, 7, 14, 0.72)');
+      } else if (room.bgKey === 'bg_gatehouse_interior' || room.bgKey === 'bg_city_avenue') {
+        depthGrad.addColorStop(0, 'rgba(14, 9, 14, 0.22)');
+        depthGrad.addColorStop(0.62, 'rgba(15, 11, 18, 0.34)');
+        depthGrad.addColorStop(1, 'rgba(6, 6, 12, 0.68)');
       } else if (room.region === 'alchemy') {
         depthGrad.addColorStop(0, 'rgba(14, 10, 26, 0.28)');
         depthGrad.addColorStop(0.62, 'rgba(16, 11, 28, 0.4)');
@@ -443,7 +443,6 @@ function isStoneFortressOrDungeon(room: BuiltRoom): boolean {
     room.region === 'prison' ||
     room.region === 'catacomb' ||
     room.region === 'forge' ||
-    room.bgKey === 'bg_gatehouse_interior' ||
     room.bgKey === 'bg_moat_sluice'
   );
 }
@@ -457,7 +456,10 @@ export function bakeOrthographicRoomTerrain(
 
   const isStoneDungeon = isStoneFortressOrDungeon(room);
   const usePalaceMarble = Boolean(
-    (room.indoor || room.region === 'altar' || room.id === 'observatory_bridge') &&
+    (room.indoor ||
+      room.region === 'altar' ||
+      room.bgKey === 'bg_city_avenue' ||
+      room.id === 'observatory_bridge') &&
       !isStoneDungeon
   );
   const floorImg =
@@ -493,16 +495,18 @@ export function bakeOrthographicRoomTerrain(
     }
 
     if (activePillarImg) {
-      if (room.gridH > 1) {
-        // 多层竖塔（如 1×4 东垣望月竖塔）：两侧贯通天地的实心暗部承重巨柱（100% 不透远景！）
+      if (room.gridH > 1 && room.gridW === 1) {
+        // 窄体多层竖塔（如 1×4 东垣望月竖塔）：两侧贯通天地的实心暗部承重巨柱（100% 不透远景！）
         const leftColX = 112;
         const rightColX = room.pixelW - 112;
         drawSlicedColumn(bctx, activePillarImg, leftColX, 30, sampleSolidGroundY(room, leftColX), 42, 0.42, true);
         drawSlicedColumn(bctx, activePillarImg, rightColX, 30, sampleSolidGroundY(room, rightColX), 42, 0.42, true);
       } else {
-        // 单层室内殿堂：每隔约 380px 竖立一根实体后墙暗部承重柱（100% 遮挡远景防穿模，以暗影退居后景）
+        // 单层及宽幅双层室内巨殿（如 3×2 皇城端门大殿）：每隔约 380~440px 竖立一根贯通殿顶与地面的实体承重朱柱
+        const stepSpan = room.gridH > 1 ? 430 : 380;
+        const colWidth = room.gridH > 1 ? 38 : isStoneDungeon ? 36 : 30;
         const span = room.pixelW - 240;
-        const count = Math.max(2, Math.round(span / 380));
+        const count = Math.max(2, Math.round(span / stepSpan));
         for (let i = 0; i <= count; i++) {
           const px = Math.round(120 + (span * i) / Math.max(1, count));
           if (isInsideDownShaft(room, px)) continue;
@@ -516,7 +520,7 @@ export function bakeOrthographicRoomTerrain(
           }
           const ceilY = Math.max(28, sampleCeilingY(room, px, false));
           const gy = sampleSolidGroundY(room, px);
-          drawSlicedColumn(bctx, activePillarImg, px, ceilY - 4, gy, isStoneDungeon ? 36 : 30, 0.48, false);
+          drawSlicedColumn(bctx, activePillarImg, px, ceilY - 4, gy, colWidth, 0.46, false);
         }
       }
     }
@@ -1018,13 +1022,15 @@ export function bakeOrthographicRoomTerrain(
     };
 
     if (doors.length === 0) {
-      if (room.indoor || room.gridH > 1) {
+      if (room.indoor) {
         drawSolidWallSegment(0, room.pixelH);
+      } else if (room.gridH > 1) {
+        drawSolidWallSegment(220, room.pixelH);
       }
       return;
     }
 
-    let cursorY = 0;
+    let cursorY = room.indoor ? 0 : Math.max(0, doors[0].floorY - 172);
     for (const d of doors) {
       const isSecretLocked = Boolean(
         d.secretWallId && !brokenSecretWalls.includes(d.secretWallId)
@@ -1136,9 +1142,9 @@ export function bakeOrthographicRoomTerrain(
     // 瓮城城底水关：潮湿苍苔深青条石色温
     bctx.fillStyle = 'rgba(18, 46, 52, 0.26)';
     bctx.fillRect(0, 0, room.pixelW, room.pixelH);
-  } else if (room.bgKey === 'bg_gatehouse_interior') {
-    // 瓮城石殿：统一为冷峻深黛明代城砖石色，使地面、石柱、石跳台与瓮城直棂方窗砖墙融为一体！
-    bctx.fillStyle = 'rgba(22, 34, 52, 0.24)';
+  } else if (room.bgKey === 'bg_gatehouse_interior' || room.bgKey === 'bg_city_avenue') {
+    // 皇城端门大殿 & 正阳朱雀天街：暖朱檀金皇家门阙色温，彻底告别阴冷地牢石色！
+    bctx.fillStyle = 'rgba(78, 44, 24, 0.16)';
     bctx.fillRect(0, 0, room.pixelW, room.pixelH);
   } else if (room.region === 'alchemy') {
     // 钦天炼丹司：紫微道殿沉檀暗紫金辉色温

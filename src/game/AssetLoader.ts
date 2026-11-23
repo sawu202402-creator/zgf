@@ -12,6 +12,7 @@ export type AssetKey =
   | 'bg_bamboo_cliff'
   | 'bg_tower_interior'
   | 'bg_gatehouse_interior'
+  | 'bg_city_avenue'
   | 'bg_alchemy_palace'
   | 'bg_sky_altar'
   | 'bg_moat_sluice'
@@ -136,7 +137,7 @@ export type AssetKey =
   | 'boss_op_0'
   | 'boss_op_1';
 
-const ASSET_VERSION = 'painted_v15';
+const ASSET_VERSION = 'painted_v16';
 
 const ASSET_FILES: Record<AssetKey, string> = {
   bg_title: './assets/bg_title.webp',
@@ -152,6 +153,7 @@ const ASSET_FILES: Record<AssetKey, string> = {
   bg_bamboo_cliff: './assets/bg_bamboo_cliff.webp',
   bg_tower_interior: './assets/bg_tower_interior.webp',
   bg_gatehouse_interior: './assets/bg_gatehouse_interior.webp',
+  bg_city_avenue: './assets/bg_city_avenue.webp',
   bg_alchemy_palace: './assets/bg_alchemy_palace.webp',
   bg_sky_altar: './assets/bg_sky_altar.webp',
   bg_moat_sluice: './assets/bg_moat_sluice.webp',

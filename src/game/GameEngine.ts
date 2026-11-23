@@ -5432,14 +5432,9 @@ export class GameEngine {
       AudioFX.playRelicBell();
       NativeApp.haptic('medium');
       this.spawnInkBurst(this.player.x, this.player.y - 36, '#fde047', '#090d16', 22);
-      // 若已探知多座祠堂/灵泉，留档后可直接唤出传送阵列表！
-      const warpCount = this.getUnlockedWarpStops().length;
-      if (warpCount > 1) {
-        this.cb.onOpenInteractModal('warp');
-      } else {
-        this.cb.onShowBanner('镇魂留档', '');
-      }
+      this.cb.onShowBanner('镇魂留档', '气血真气已回满 · 命魂契印已铭刻');
     } else if (kind === 'warp') {
+      SaveManager.saveSlot(this.slot);
       AudioFX.playRelicBell();
       NativeApp.haptic('medium');
       this.cb.onOpenInteractModal('warp');
@@ -5478,16 +5473,51 @@ export class GameEngine {
     }
   }
 
-  public getUnlockedWarpStops(): { realm: CastleRealm; roomId: string; name: string }[] {
+  public getUnlockedWarpStops(): {
+    realm: CastleRealm;
+    roomId: string;
+    name: string;
+    stageTitle: string;
+    mapX: number;
+    mapY: number;
+    gridW: number;
+    gridH: number;
+  }[] {
     if (!this.slot) return [];
-    const stops: { realm: CastleRealm; roomId: string; name: string }[] = [];
+    const stops: {
+      realm: CastleRealm;
+      roomId: string;
+      name: string;
+      stageTitle: string;
+      mapX: number;
+      mapY: number;
+      gridW: number;
+      gridH: number;
+    }[] = [];
     for (const realm of ['normal', 'inverted'] as CastleRealm[]) {
       if (realm === 'inverted' && !this.slot.invertedUnlocked) continue;
-      for (const rm of WorldMap.getAllRooms(realm)) {
-        if (!rm.warpName) continue;
-        if (this.slot.visitedRooms.includes(`${realm}:${rm.id}`)) {
-          stops.push({ realm, roomId: rm.id, name: rm.warpName });
-        }
+      const realmStops = WorldMap.getAllRooms(realm)
+        .filter(
+          (rm) =>
+            rm.special === 'warp_bagua' &&
+            Boolean(rm.warpName) &&
+            this.slot!.visitedRooms.includes(`${realm}:${rm.id}`)
+        )
+        .sort((a, b) => a.mapX - b.mapX || a.mapY - b.mapY);
+      for (const rm of realmStops) {
+        stops.push({
+          realm,
+          roomId: rm.id,
+          name: rm.warpName!,
+          stageTitle:
+            realm === 'inverted'
+              ? INVERTED_REGION_NAMES[rm.region]
+              : REGION_NAMES[rm.region],
+          mapX: rm.mapX,
+          mapY: rm.mapY,
+          gridW: rm.gridW,
+          gridH: rm.gridH,
+        });
       }
     }
     return stops;

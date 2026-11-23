@@ -478,8 +478,8 @@ export class InkVaniaRenderer {
     const isCatacomb = room.region === 'catacomb' || room.bgKey === 'bg_catacomb_tomb';
 
     ctx.save();
-    if (room.region === 'gatehouse' && !room.indoor) {
-      // 外城苍竹悬崖与护城古桥（室外）：夜风吹拂墨绿竹叶斜掠而过
+    if (room.region === 'gatehouse' && !room.indoor && room.bgKey !== 'bg_city_avenue') {
+      // 城郊苍竹悬崖与护城古桥（室外）：夜风吹拂墨绿竹叶斜掠而过
       for (let i = 0; i < 14; i++) {
         const lx =
           camLeft +
