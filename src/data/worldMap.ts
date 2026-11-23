@@ -309,19 +309,81 @@ export function isInsideDownShaft(room: BuiltRoom, px: number): boolean {
   return false;
 }
 
+const ENV_BRIDGE_ASPECT = 279 / 780;
+export const BRIDGE_ABUTMENT_DECK_RATIO = 0.568;
+export const BRIDGE_CROWN_RISE_RATIO = 0.298;
+
+export interface ArchBridgeGeometry {
+  drawX: number;
+  drawTopY: number;
+  drawW: number;
+  drawH: number;
+  endRoadY: number;
+}
+
+/**
+ * 统一三孔石拱桥 (`env_bridge.webp`) 物理碰撞与手绘渲染几何单一事实源：
+ * 两端桥头平踏面严格对齐 `0.568 * drawH`（与河岸路面 0px 无缝衔接），桥拱中段按 `0.298 * sin(s * PI)` 贴合石桥面真实弧度！
+ */
+export function getArchBridgeGeometry(room: BuiltRoom): ArchBridgeGeometry | null {
+  if (
+    !room.waterZones ||
+    room.waterZones.length === 0 ||
+    room.waterZones[0].liquidKind === 'lava' ||
+    !room.groundNodes ||
+    !room.groundNodes.some((n) => n.style === 'arch_bridge')
+  ) {
+    return null;
+  }
+  const wz = room.waterZones[0];
+  const drawX = wz.x1 - 32;
+  const drawW = wz.x2 - wz.x1 + 64;
+  const drawH = drawW * ENV_BRIDGE_ASPECT;
+  const bridgeStartNode =
+    room.groundNodes.find((n) => n.style === 'arch_bridge') ?? room.groundNodes[0];
+  const endRoadY = bridgeStartNode ? bridgeStartNode.y : 404;
+  const drawTopY = endRoadY - drawH * BRIDGE_ABUTMENT_DECK_RATIO;
+  return { drawX, drawTopY, drawW, drawH, endRoadY };
+}
+
+export function sampleStairSegmentY(a: GroundNode, b: GroundNode, px: number): number {
+  const span = Math.max(1, b.x - a.x);
+  const dy = b.y - a.y;
+  if (Math.abs(dy) < 12) {
+    return a.y + (dy * (px - a.x)) / span;
+  }
+  const steps = Math.max(2, Math.round(Math.abs(dy) / 11));
+  const t = Math.max(0, Math.min(0.9999, (px - a.x) / span));
+  const k = Math.floor(t * steps);
+  return a.y + (dy * (k + 0.5)) / steps;
+}
+
 export function sampleSolidGroundY(room: BuiltRoom, px: number): number {
   const nodes = room.groundNodes;
   if (nodes.length === 0) return 400;
+
+  const bridgeGeo = getArchBridgeGeometry(room);
+  if (bridgeGeo && px >= bridgeGeo.drawX && px <= bridgeGeo.drawX + bridgeGeo.drawW) {
+    const u = (px - bridgeGeo.drawX) / Math.max(1, bridgeGeo.drawW);
+    if (u <= 0.065 || u >= 0.935) {
+      return bridgeGeo.endRoadY;
+    }
+    const s = (u - 0.065) / (0.935 - 0.065);
+    return (
+      bridgeGeo.drawTopY +
+      bridgeGeo.drawH * (BRIDGE_ABUTMENT_DECK_RATIO - BRIDGE_CROWN_RISE_RATIO * Math.sin(s * Math.PI))
+    );
+  }
+
   if (px <= nodes[0].x) return nodes[0].y;
   for (let i = 0; i < nodes.length - 1; i++) {
     const a = nodes[i];
     const b = nodes[i + 1];
     if (px >= a.x && px <= b.x) {
-      const t = (px - a.x) / Math.max(1, b.x - a.x);
-      if (a.style === 'arch_bridge') {
-        const linear = a.y + (b.y - a.y) * t;
-        return linear - Math.sin(t * Math.PI) * 14;
+      if (a.style === 'stairs') {
+        return sampleStairSegmentY(a, b, px);
       }
+      const t = (px - a.x) / Math.max(1, b.x - a.x);
       return a.y + (b.y - a.y) * t;
     }
   }
@@ -356,7 +418,7 @@ export function sampleEntitySurfaceY(room: BuiltRoom, px: number, curY: number):
     }
   }
   for (const pv of room.pavilions) {
-    if (px >= pv.x + 8 && px <= pv.x + pv.w - 8 && pv.y >= curY - 22 && pv.y < bestY) {
+    if (px >= pv.x - 4 && px <= pv.x + pv.w + 4 && pv.y >= curY - 22 && pv.y < bestY) {
       bestY = pv.y;
     }
   }
@@ -426,15 +488,13 @@ function createNormalCastleRooms(): BuiltRoom[] {
       rightDoorFloorY: 404,
       groundNodes: [
         { x: 0, y: 404, style: 'flagstone' },
-        { x: 355, y: 404, style: 'arch_bridge' },
-        { x: 650, y: 326, style: 'arch_bridge' },
-        { x: 830, y: 326, style: 'arch_bridge' },
-        { x: 1125, y: 404, style: 'flagstone' },
+        { x: 350, y: 404, style: 'arch_bridge' },
+        { x: 1130, y: 404, style: 'flagstone' },
         { x: 1600, y: 404, style: 'flagstone' },
       ],
       ceilingSpans: [],
       shafts: [],
-      waterZones: [{ x1: 350, x2: 1130, surfaceY: 368 }],
+      waterZones: [{ x1: 350, x2: 1130, surfaceY: 426 }],
       decorProps: [
         { kind: 'dragon_brazier', x: 105, y: 404, scale: 0.9 },
         { kind: 'dragon_brazier', x: 1265, y: 404, scale: 0.9 },
@@ -2159,8 +2219,9 @@ function createNormalCastleRooms(): BuiltRoom[] {
       rightDoorFloorY: 424,
       groundNodes: [
         { x: 0, y: 424, style: 'marble' },
-        { x: 260, y: 424, style: 'arch_bridge' },
-        { x: 470, y: 380, style: 'arch_bridge' },
+        { x: 260, y: 424, style: 'stairs' },
+        { x: 360, y: 388, style: 'marble' },
+        { x: 580, y: 388, style: 'stairs' },
         { x: 680, y: 424, style: 'marble' },
         { x: 1350, y: 424, style: 'stairs' },
         { x: 1420, y: 394, style: 'palace_wood' },
@@ -3175,15 +3236,14 @@ function createNormalCastleRooms(): BuiltRoom[] {
       leftDoorFloorY: 408,
       groundNodes: [
         { x: 0, y: 408, style: 'crypt_stone' },
-        { x: 165, y: 408, style: 'arch_bridge' },
-        { x: 355, y: 368, style: 'arch_bridge' },
-        { x: 545, y: 408, style: 'crypt_stone' },
+        { x: 180, y: 408, style: 'arch_bridge' },
+        { x: 530, y: 408, style: 'crypt_stone' },
         { x: 800, y: 408, style: 'crypt_stone' },
       ],
       solidBlocks: [{ x: 555, y: 368, w: 165, h: 40 }],
       ceilingSpans: [{ x1: 0, x2: 800, bottomY: 36, style: 'crypt_vault' }],
       shafts: [],
-      waterZones: [{ x1: 180, x2: 530, surfaceY: 416 }],
+      waterZones: [{ x1: 180, x2: 530, surfaceY: 428 }],
       decorProps: [{ kind: 'guardian_statue', x: 745, y: 408, scale: 0.92 }],
       pavilions: [{ x: 245, y: 280, w: 220, hasPillars: false }],
       archways: [],
@@ -3283,9 +3343,10 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 205, y: 388, style: 'marble' },
         { x: 385, y: 388, style: 'stairs' },
         { x: 455, y: 412, style: 'marble' },
-        { x: 495, y: 412, style: 'arch_bridge' },
-        { x: 800, y: 364, style: 'arch_bridge' },
-        { x: 1105, y: 412, style: 'marble' },
+        { x: 515, y: 412, style: 'stairs' },
+        { x: 615, y: 372, style: 'marble' },
+        { x: 985, y: 372, style: 'stairs' },
+        { x: 1085, y: 412, style: 'marble' },
         { x: 1145, y: 412, style: 'stairs' },
         { x: 1215, y: 388, style: 'marble' },
         { x: 1395, y: 388, style: 'stairs' },
@@ -3727,9 +3788,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 0, y: 804, style: 'marble' },
         { x: 620, y: 804, style: 'stairs' },
         { x: 720, y: 774, style: 'marble' },
-        { x: 1180, y: 774, style: 'arch_bridge' },
-        { x: 1580, y: 726, style: 'arch_bridge' },
-        { x: 1980, y: 774, style: 'marble' },
+        { x: 1190, y: 774, style: 'arch_bridge' },
+        { x: 1970, y: 774, style: 'marble' },
         { x: 2440, y: 774, style: 'stairs' },
         { x: 2540, y: 804, style: 'marble' },
         { x: 3200, y: 804, style: 'marble' },
@@ -3764,7 +3824,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'guardian_statue', x: 2635, y: 804, scale: 0.96 },
         { kind: 'incense_burner', x: 1610, y: 404, scale: 0.9 },
       ],
-      waterZones: [{ x1: 1190, x2: 1970, surfaceY: 790 }],
+      waterZones: [{ x1: 1190, x2: 1970, surfaceY: 818 }],
       pavilions: [
         { x: 2004, y: 774, w: 178, hasPillars: false },
         { x: 190, y: 690, w: 230, hasPillars: true },
@@ -3793,7 +3853,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       spawns: [
         { kind: 'paper_swordsman', x: 520, y: 804 },
         { kind: 'demon_wolf', x: 1020, y: 774 },
-        { kind: 'paper_swordsman', x: 1620, y: 726 },
+        { kind: 'paper_swordsman', x: 1620 },
         { kind: 'demon_wolf', x: 2340, y: 774 },
         { kind: 'bronze_guard', x: 2760, y: 804 },
         { kind: 'bone_archer', x: 610, y: 604 },

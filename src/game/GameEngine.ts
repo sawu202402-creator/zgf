@@ -13,6 +13,7 @@ import { LORE_STELES, STORY_SCENES } from '../data/storyAndNpcs';
 import {
   BuiltRoom,
   CELL_PIXEL_W,
+  getArchBridgeGeometry,
   getRoomSideDoors,
   INVERTED_REGION_NAMES,
   isGroundRestingSolidBlock,
@@ -1612,10 +1613,10 @@ export class GameEngine {
         break;
       }
 
-      // 2. 绝不可穿过实心能力锁断崖 (`sb.blocking`) 或蹬墙石壁 (`climbWalls`)！
+      // 2. 绝不可穿过实心能力锁断崖 (`sb.blocking`)、落地厚重石墩 (`h >= 52`) 或蹬墙石壁 (`climbWalls`)！
       const hitCliff = room.solidBlocks?.some(
         (sb) =>
-          Boolean(sb.blocking) &&
+          (Boolean(sb.blocking) || (isGroundRestingSolidBlock(room, sb) && sb.h >= 52)) &&
           safeY > sb.y + 8 &&
           safeY - p.h < sb.y + sb.h - 4 &&
           nx >= sb.x - 14 &&
@@ -2799,9 +2800,13 @@ export class GameEngine {
 
   public getShallowWaterSurfaceAt(x: number, y: number): number | null {
     if (!this.room) return null;
+    const bridgeGeo = getArchBridgeGeometry(this.room);
+    if (bridgeGeo && x >= bridgeGeo.drawX && x <= bridgeGeo.drawX + bridgeGeo.drawW) {
+      return null;
+    }
     for (const wz of this.room.waterZones) {
       if (wz.liquidKind === 'lava') continue;
-      if (x >= wz.x1 + 8 && x <= wz.x2 - 8 && y >= wz.surfaceY - 12 && y <= wz.surfaceY + 56) {
+      if (x >= wz.x1 + 8 && x <= wz.x2 - 8 && y >= wz.surfaceY - 8 && y <= wz.surfaceY + 56) {
         return wz.surfaceY;
       }
     }
@@ -3008,7 +3013,9 @@ export class GameEngine {
 
     if (room.solidBlocks) {
       for (const sb of room.solidBlocks) {
-        if (!sb.blocking) continue;
+        const actsAsWall =
+          Boolean(sb.blocking) || (isGroundRestingSolidBlock(room, sb) && sb.h >= 52);
+        if (!actsAsWall) continue;
         if (
           e.y > sb.y + 8 &&
           e.y - e.profile.h < sb.y + sb.h - 4 &&
@@ -3022,10 +3029,13 @@ export class GameEngine {
     }
 
     const nextSurfY = sampleEntitySurfaceY(room, candX, e.y);
-    // 悬崖边缘、竖井深坑或深水寒潭前自动收步驻守，保持高台立体压迫感！
-    const intoDeepWater = room.waterZones.some(
-      (wz) => candX > wz.x1 + 14 && candX < wz.x2 - 14 && nextSurfY > wz.surfaceY + 10
-    );
+    // 悬崖边缘、竖井深坑或无桥深水寒潭前自动收步驻守（石拱桥面正常巡逻！）
+    const hasBridge = Boolean(getArchBridgeGeometry(room));
+    const intoDeepWater =
+      !hasBridge &&
+      room.waterZones.some(
+        (wz) => candX > wz.x1 + 14 && candX < wz.x2 - 14 && nextSurfY > wz.surfaceY + 10
+      );
     if (Math.abs(nextSurfY - e.y) > 24 || intoDeepWater) {
       e.vx = 0;
       return;
@@ -4852,10 +4862,12 @@ export class GameEngine {
       }
     }
 
-    // 0A-1. 仅针对端头能力锁高崖 (`sb.blocking === true`) 执行左右立壁阻挡；普通石砌踏台与夹层绝不挡平地通行！
+    // 0A-1. 针对端头能力锁高崖 (`sb.blocking`) 及厚重落地须弥石墩 (`groundResting && sb.h >= 52`) 执行真实立壁碰撞，彻底杜绝平地穿入实心石砖内部！
     if (room.solidBlocks) {
       for (const sb of room.solidBlocks) {
-        if (!sb.blocking) continue;
+        const actsAsSolidWall =
+          Boolean(sb.blocking) || (isGroundRestingSolidBlock(room, sb) && sb.h >= 52);
+        if (!actsAsSolidWall) continue;
         if (p.y > sb.y + 8 && p.y - p.h < sb.y + sb.h - 4) {
           if (prevX <= sb.x - 13 && p.x > sb.x - 13) {
             p.x = sb.x - 13;
@@ -4991,8 +5003,9 @@ export class GameEngine {
             p.onGround = true;
             break;
           }
-        } else if (p.x >= sb.x - 8 && p.x <= sb.x + sb.w + 8) {
-          if (p.vy >= 0 && prevY <= sb.y + 18 && nextY >= sb.y) {
+        } else if (p.x >= sb.x - 6 && p.x <= sb.x + sb.w + 6) {
+          const landSnapTol = wasGrounded ? 12 : 5;
+          if (p.vy >= 0 && prevY <= sb.y + landSnapTol && nextY >= sb.y) {
             p.y = sb.y;
             if (!wasGrounded && p.vy > 260) p.landSquash = 1;
             p.vy = 0;
@@ -5055,8 +5068,9 @@ export class GameEngine {
 
       if (!p.onGround) {
         for (const pv of room.pavilions) {
-          if (p.x >= pv.x + 8 && p.x <= pv.x + pv.w - 8) {
-            if (prevY <= pv.y + 12 && nextY >= pv.y) {
+          if (p.x >= pv.x - 4 && p.x <= pv.x + pv.w + 4) {
+            const pvSnapTol = wasGrounded ? 10 : 5;
+            if (prevY <= pv.y + pvSnapTol && nextY >= pv.y) {
               p.y = pv.y;
               if (!wasGrounded && p.vy > 260) p.landSquash = 1;
               p.vy = 0;

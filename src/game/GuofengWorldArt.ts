@@ -1,5 +1,6 @@
 import {
   BuiltRoom,
+  getArchBridgeGeometry,
   getRoomSideDoors,
   isInsideDownShaft,
   sampleCeilingY,
@@ -796,7 +797,8 @@ export function bakeOrthographicRoomTerrain(
     const sh = floorImg.height;
     const srcTopY = usePalaceMarble ? Math.floor(sh * 0.16) : 0;
     const srcCapH = sh - srcTopY;
-    const surfaceTopOffset = usePalaceMarble ? 3 : 6;
+    // 像素级表面标定：让角色双靴精准踩在青石板 (`y=12px`) 与墨玉地砖 (`y=28px`) 水平顶面中央，绝不悬空或陷砖！
+    const surfaceTopOffset = usePalaceMarble ? 8 : 12;
 
     const subSrcY = Math.floor(sh * (usePalaceMarble ? 0.46 : 0.36));
     const subSrcH = Math.max(24, sh - subSrcY - 2);
@@ -806,31 +808,13 @@ export function bakeOrthographicRoomTerrain(
         const a = room.groundNodes[i];
         const b = room.groundNodes[i + 1];
         if (wx >= a.x && wx < b.x) {
-          return a.style === 'stairs' && Math.abs(b.y - a.y) >= 10;
+          return a.style === 'stairs' && Math.abs(b.y - a.y) >= 12;
         }
       }
       return false;
     };
 
-    const sampleQuantizedVisualGroundY = (wx: number): number => {
-      for (let i = 0; i < room.groundNodes.length - 1; i++) {
-        const a = room.groundNodes[i];
-        const b = room.groundNodes[i + 1];
-        if (wx >= a.x && wx <= b.x) {
-          if (a.style === 'stairs' && Math.abs(b.y - a.y) >= 12) {
-            // 将连续斜坡量化为真实古建丹陛踏步（每阶约 11~13px 高差，宽阔平踏面！）
-            const steps = Math.max(2, Math.round(Math.abs(b.y - a.y) / 12));
-            const t = (wx - a.x) / Math.max(1, b.x - a.x);
-            const k = Math.min(steps, Math.floor(t * steps + 0.15));
-            return a.y + ((b.y - a.y) * k) / steps;
-          }
-          break;
-        }
-      }
-      return sampleSolidGroundY(room, wx);
-    };
-
-    // 1A. 下层同源石砌地基（两侧桥台深入桥拱内侧 48px，彻底杜绝拱桥两端地基穿帮缺口！）
+    // 1A. 下层同源石砌地基（直接调用物理引擎同一 `sampleSolidGroundY` 高度，两侧桥台深入桥拱内侧 48px！）
     const stepSub = 24;
     for (let x = 0; x < room.pixelW; x += sw) {
       for (let sxOff = 0; sxOff < sw && x + sxOff < room.pixelW; sxOff += stepSub) {
@@ -838,8 +822,8 @@ export function bakeOrthographicRoomTerrain(
         if (isInsideDownShaft(room, wx + 4) || isInsideDownShaft(room, wx + stepSub - 4)) continue;
         if (wz && wx >= wz.x1 + 48 && wx + stepSub <= wz.x2 - 48) continue;
 
-        const gy = sampleQuantizedVisualGroundY(Math.min(room.pixelW, wx + stepSub * 0.5));
-        const startY = gy + srcCapH - surfaceTopOffset - 10;
+        const gy = sampleSolidGroundY(room, Math.min(room.pixelW, wx + stepSub * 0.5));
+        const startY = gy + Math.min(34, srcCapH - surfaceTopOffset - 10);
         const wClip = Math.min(stepSub, sw - sxOff, room.pixelW - wx);
 
         for (let y = startY; y < room.pixelH; y += subSrcH - 3) {
@@ -870,26 +854,16 @@ export function bakeOrthographicRoomTerrain(
       }
     }
 
-    // 1B. 表层地面与分阶踏跺石阶（统一 24px 步幅对齐底层地基，消除锯齿接缝与拉伸残影！）
+    // 1B. 表层地面与精确物理级分阶踏跺石阶：
+    // 平直路段按 24px 切片无缝铺设；石阶路段严格按 `sampleStairSegmentY` 每一级真实踏步边界绘制，与角色物理落脚点 0.0px 完全重合！
     const stepW = 24;
-    let prevGy = sampleQuantizedVisualGroundY(0);
     for (let x = 0; x < room.pixelW; x += stepW) {
       if (isInsideDownShaft(room, x + 2) || isInsideDownShaft(room, x + stepW - 2)) continue;
       if (wz && x >= wz.x1 + 44 && x <= wz.x2 - stepW - 44) continue;
 
-      const onStairs = isStairSlopeAt(x + stepW * 0.5);
-      const gy = sampleQuantizedVisualGroundY(x + stepW * 0.5);
+      const gy = sampleSolidGroundY(room, x + stepW * 0.5);
       const sx = ((x % sw) + sw) % sw;
       const grabW = Math.min(stepW, sw - sx);
-
-      // 台阶落差立面浓墨踢脚暗部（凸显每一级石阶挑出踏面体积，零悬浮灰条）
-      if (onStairs && Math.abs(gy - prevGy) >= 4) {
-        const hiY = Math.min(gy, prevGy);
-        const loY = Math.max(gy, prevGy);
-        bctx.fillStyle = 'rgba(2, 4, 10, 0.72)';
-        bctx.fillRect(x - 3, hiY + 2, 8, loY - hiY + 12);
-      }
-      prevGy = gy;
 
       bctx.drawImage(
         floorImg,
@@ -897,11 +871,50 @@ export function bakeOrthographicRoomTerrain(
         srcTopY,
         Math.max(4, grabW),
         srcCapH,
-        x - (onStairs ? 2 : 0),
+        x,
         gy - surfaceTopOffset,
-        stepW + (onStairs ? 4.5 : 0.9),
+        stepW + 0.9,
         srcCapH
       );
+    }
+
+    for (let i = 0; i < room.groundNodes.length - 1; i++) {
+      const a = room.groundNodes[i];
+      const b = room.groundNodes[i + 1];
+      const dy = b.y - a.y;
+      if (a.style !== 'stairs' || Math.abs(dy) < 12) continue;
+      const span = Math.max(1, b.x - a.x);
+      const steps = Math.max(2, Math.round(Math.abs(dy) / 11));
+      const goingDown = dy > 0;
+      const order = goingDown
+        ? Array.from({ length: steps }, (_, k) => steps - 1 - k)
+        : Array.from({ length: steps }, (_, k) => k);
+
+      for (const k of order) {
+        const tx0 = a.x + (span * k) / steps;
+        const tx1 = a.x + (span * (k + 1)) / steps;
+        const tw = tx1 - tx0;
+        const ty = a.y + (dy * (k + 0.5)) / steps;
+        const sx = ((Math.floor(tx0) % sw) + sw) % sw;
+        const grabW = Math.min(Math.max(8, Math.ceil(tw)), sw - sx);
+
+        // 踢脚立面浓墨暗影（紧贴高阶侧边）
+        const shadowX = goingDown ? tx0 - 3 : tx1 - 4;
+        bctx.fillStyle = 'rgba(2, 4, 10, 0.72)';
+        bctx.fillRect(shadowX, ty - 2, 7, Math.abs(dy) / steps + 18);
+
+        bctx.drawImage(
+          floorImg,
+          sx,
+          srcTopY,
+          Math.max(6, grabW),
+          srcCapH,
+          tx0 - 2,
+          ty - surfaceTopOffset,
+          tw + 4,
+          srcCapH
+        );
+      }
     }
 
     // 1B-1. 城郊竹林与护城古道自然墨韵苍苔野草收边（打破石砖顶沿直线机械切边！）
@@ -982,7 +995,7 @@ export function bakeOrthographicRoomTerrain(
             const deckImg = (room.indoor ? indoorLedgeImg : pavilionImg) || indoorLedgeImg || pavilionImg;
             if (deckImg) {
               const srcH = deckImg === pavilionImg ? Math.floor(deckImg.height * 0.72) : deckImg.height;
-              const topAlignRatio = deckImg === indoorLedgeImg ? 0.38 : 0.56;
+              const topAlignRatio = deckImg === indoorLedgeImg ? 0.415 : 0.53;
               drawThreeSlicePlatform(
                 bctx,
                 deckImg,
@@ -1057,14 +1070,17 @@ export function bakeOrthographicRoomTerrain(
     }
   }
 
-  // 2. 护城河 / 御河天街 / 飞虹桥段：绘制三孔雕栏石拱桥 (`env_bridge.webp`) 并让两端深深咬合石砌河岸！
-  if (wz && bridgeImg) {
-    const bridgeSpanW = wz.x2 - wz.x1 + 64;
-    const bridgeH = bridgeSpanW * (bridgeImg.height / bridgeImg.width);
-    const endRoadY = sampleSolidGroundY(room, wz.x1);
-    const drawTopY = endRoadY - bridgeH * 0.61;
+  // 2. 护城河 / 御河天街 / 飞虹桥段：严格共用 `getArchBridgeGeometry(room)` 物理几何单一事实源，桥面与角色脚底 0.0px 严丝合缝！
+  const bridgeGeo = getArchBridgeGeometry(room);
+  if (bridgeGeo && bridgeImg) {
     const harmonizedBridge = getHarmonizedSprite('env_bridge', bridgeImg, room, 0.42);
-    bctx.drawImage(harmonizedBridge, wz.x1 - 32, drawTopY, bridgeSpanW, bridgeH);
+    bctx.drawImage(
+      harmonizedBridge,
+      bridgeGeo.drawX,
+      bridgeGeo.drawTopY,
+      bridgeGeo.drawW,
+      bridgeGeo.drawH
+    );
   }
 
   // 3. 顶棚藻井石拱与宫殿暗梁
@@ -1611,7 +1627,7 @@ export function drawCastleInteriorPropsAndGears(
               0.26
             );
             const srcH = deckImg === pavImg ? Math.floor(deckImg.height * 0.72) : deckImg.height;
-            const topAlign = deckImg === ledgeImg ? 0.38 : 0.56;
+            const topAlign = deckImg === ledgeImg ? 0.415 : 0.53;
             drawThreeSlicePlatform(
               ctx,
               hm,
@@ -1675,14 +1691,14 @@ export function drawOrthographicPavilion(
   // 所有非地宫室内大殿（无论是否带立柱）：统一使用朱檀雕栏阁台 `env_indoor_ledge`，绝不混入室外青石绿亭！
   if (room.indoor && indoorImg) {
     const hm = getHarmonizedSprite('env_indoor_ledge', indoorImg, room, 0.28);
-    drawThreeSlicePlatform(ctx, hm, 0, indoorImg.height, x - 5, y, w + 10, 72, 0.38);
+    drawThreeSlicePlatform(ctx, hm, 0, indoorImg.height, x - 5, y, w + 10, 72, 0.415);
     return;
   }
 
   if (!pvImg) return;
   const hm = getHarmonizedSprite('env_pavilion', pvImg, room, 0.28);
   const srcH = Math.floor(pvImg.height * 0.72);
-  drawThreeSlicePlatform(ctx, hm, 0, srcH, x - 8, y, w + 16, 78, 0.56);
+  drawThreeSlicePlatform(ctx, hm, 0, srcH, x - 8, y, w + 16, 78, 0.53);
 }
 
 export function drawOrthographicStoneArchway(
