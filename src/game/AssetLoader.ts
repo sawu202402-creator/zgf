@@ -28,6 +28,7 @@ export type AssetKey =
   | 'arch_iron_chain'
   | 'arch_side_doorframe'
   | 'prop_stone_lantern_post'
+  | 'prop_wooden_lamp_pole'
   | 'prop_breakable_urn'
   | 'hazard_spikes'
   | 'hazard_pendulum'
@@ -137,7 +138,7 @@ export type AssetKey =
   | 'boss_op_0'
   | 'boss_op_1';
 
-const ASSET_VERSION = 'painted_v16';
+const ASSET_VERSION = 'painted_v17';
 
 const ASSET_FILES: Record<AssetKey, string> = {
   bg_title: './assets/bg_title.webp',
@@ -169,6 +170,7 @@ const ASSET_FILES: Record<AssetKey, string> = {
   arch_iron_chain: './assets/arch_iron_chain.webp',
   arch_side_doorframe: './assets/arch_side_doorframe.webp',
   prop_stone_lantern_post: './assets/prop_stone_lantern_post.webp',
+  prop_wooden_lamp_pole: './assets/prop_wooden_lamp_pole.webp',
   prop_breakable_urn: './assets/prop_breakable_urn.webp',
   hazard_spikes: './assets/hazard_spikes.webp',
   hazard_pendulum: './assets/hazard_pendulum.webp',

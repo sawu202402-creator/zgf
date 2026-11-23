@@ -28,7 +28,9 @@ import {
   drawOrthographicStoneArchway,
   drawSeamlessParallaxBackdrop,
   drawSeamlessTitlePanorama,
+  drawSoftGroundShadow,
   drawSuspensionChain,
+  getHarmonizedSprite,
 } from './GuofengWorldArt';
 import { InputController } from './MotionInput';
 
@@ -286,38 +288,56 @@ export class InkVaniaRenderer {
         continue;
       }
 
-      const wg = ctx.createLinearGradient(0, wz.surfaceY, 0, room.pixelH);
-      wg.addColorStop(0, '#0e293c');
-      wg.addColorStop(0.4, '#112a40');
-      wg.addColorStop(1, '#050914');
+      const wg = ctx.createLinearGradient(0, wz.surfaceY - 4, 0, room.pixelH);
+      wg.addColorStop(0, 'rgba(10, 24, 36, 0.72)');
+      wg.addColorStop(0.18, '#0b1e2e');
+      wg.addColorStop(0.55, '#071320');
+      wg.addColorStop(1, '#02050b');
       ctx.fillStyle = wg;
-      ctx.fillRect(wz.x1, wz.surfaceY, w, h);
+      ctx.fillRect(wz.x1, wz.surfaceY - 2, w, h + 4);
 
       const isCavern =
         room.region === 'prison' ||
         room.region === 'catacomb' ||
         room.bgKey === 'bg_moat_sluice';
+      // 水面柔雾漫反射波光（摒弃机械直线描边，改用飞白断续水纹与薄雾微光）
       ctx.save();
+      const surfMist = ctx.createLinearGradient(0, wz.surfaceY - 12, 0, wz.surfaceY + 14);
+      surfMist.addColorStop(0, 'rgba(148, 163, 184, 0)');
+      surfMist.addColorStop(
+        0.5,
+        isCavern ? 'rgba(45, 212, 191, 0.14)' : 'rgba(148, 163, 184, 0.13)'
+      );
+      surfMist.addColorStop(1, 'rgba(15, 23, 42, 0)');
+      ctx.fillStyle = surfMist;
+      ctx.fillRect(wz.x1, wz.surfaceY - 12, w, 26);
+
       ctx.globalCompositeOperation = 'lighter';
-      for (let i = 0; i < 14; i++) {
-        const ry = wz.surfaceY + 6 + i * 5;
-        const rx = wz.x1 + w * 0.5 + Math.sin(this.ambientTime * 2.4 + i * 0.85) * (20 + i * 2.2);
-        const rw = Math.max(10, 44 - i * 2.1);
-        ctx.fillStyle = isCavern
-          ? `rgba(45, 212, 191, ${0.22 - i * 0.012})`
-          : `rgba(186, 230, 253, ${0.2 - i * 0.011})`;
+      for (let i = 0; i < 12; i++) {
+        const ry = wz.surfaceY + 4 + i * 5.2;
+        const rx =
+          wz.x1 +
+          w * (0.22 + ((i * 0.37) % 0.56)) +
+          Math.sin(this.ambientTime * 1.9 + i * 1.1) * (18 + i * 1.8);
+        const rw = Math.max(12, 42 - i * 2.1);
+        ctx.save();
+        ctx.translate(rx, ry);
+        ctx.scale(rw, 1.4);
+        const rg = ctx.createRadialGradient(0, 0, 0.05, 0, 0, 1);
+        rg.addColorStop(
+          0,
+          isCavern
+            ? `rgba(45, 212, 191, ${Math.max(0.03, 0.18 - i * 0.011)})`
+            : `rgba(186, 230, 253, ${Math.max(0.03, 0.16 - i * 0.01)})`
+        );
+        rg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = rg;
         ctx.beginPath();
-        ctx.ellipse(rx, ry, rw, 1.3, 0, 0, Math.PI * 2);
+        ctx.arc(0, 0, 1, 0, Math.PI * 2);
         ctx.fill();
+        ctx.restore();
       }
       ctx.restore();
-
-      ctx.strokeStyle = isCavern ? 'rgba(94, 234, 212, 0.42)' : 'rgba(148, 163, 184, 0.36)';
-      ctx.lineWidth = 1.4;
-      ctx.beginPath();
-      ctx.moveTo(wz.x1, wz.surfaceY);
-      ctx.lineTo(wz.x2, wz.surfaceY);
-      ctx.stroke();
     }
 
     // 实时绘制少侠趟水奔跑与跃入浅滩激起的水面扩散波纹！
@@ -754,7 +774,7 @@ export class InkVaniaRenderer {
   ): void {
     for (const ar of room.archways) {
       const gy = sampleSolidGroundY(room, ar.x);
-      drawOrthographicStoneArchway(ctx, ar.x, gy, ar.title, this.ambientTime);
+      drawOrthographicStoneArchway(ctx, ar.x, gy, ar.title, this.ambientTime, room);
     }
 
     for (let idx = 0; idx < engine.liveLanterns.length; idx++) {
@@ -770,7 +790,7 @@ export class InkVaniaRenderer {
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       const lg = ctx.createRadialGradient(ln.x, ln.y, 4, ln.x, ln.y, 92);
-      lg.addColorStop(0, 'rgba(251, 146, 60, 0.38)');
+      lg.addColorStop(0, 'rgba(251, 146, 60, 0.34)');
       lg.addColorStop(1, 'rgba(239, 68, 68, 0)');
       ctx.fillStyle = lg;
       ctx.beginPath();
@@ -812,7 +832,7 @@ export class InkVaniaRenderer {
   }
 
   private ensureBakedStoneContour(room: BuiltRoom, brokenSecretWalls: string[]): void {
-    const readyKey = `${room.realm}:${room.id}:${brokenSecretWalls.length}:${Boolean(Assets.get('env_ground_slab'))}:${Boolean(Assets.get('env_palace_floor'))}:${Boolean(Assets.get('env_indoor_ledge'))}:${Boolean(Assets.get('env_pavilion'))}:${Boolean(Assets.get('env_stone_ledge'))}:${Boolean(Assets.get('env_bridge'))}:${Boolean(Assets.get('arch_timber_pillar'))}:${Boolean(Assets.get('arch_stone_pillar'))}:${Boolean(Assets.get('arch_corbel_bracket'))}:${Boolean(Assets.get('arch_iron_chain'))}:${Boolean(Assets.get('arch_side_doorframe'))}`;
+    const readyKey = `${room.realm}:${room.id}:${brokenSecretWalls.length}:${Boolean(Assets.get('env_ground_slab'))}:${Boolean(Assets.get('env_palace_floor'))}:${Boolean(Assets.get('env_indoor_ledge'))}:${Boolean(Assets.get('env_pavilion'))}:${Boolean(Assets.get('env_stone_ledge'))}:${Boolean(Assets.get('env_bridge'))}:${Boolean(Assets.get('arch_timber_pillar'))}:${Boolean(Assets.get('arch_stone_pillar'))}:${Boolean(Assets.get('arch_corbel_bracket'))}:${Boolean(Assets.get('arch_iron_chain'))}:${Boolean(Assets.get('arch_side_doorframe'))}:${Boolean(Assets.get('prop_wooden_lamp_pole'))}`;
     if (this.terrainCanvas && this.cachedTerrainKey === readyKey) return;
 
     this.cachedTerrainKey = readyKey;
@@ -872,7 +892,7 @@ export class InkVaniaRenderer {
             ctx.drawImage(ironGateImg, 0, 12, ironGateImg.width, 46, sh.x1, floorAtSh - 14, w, 22);
           }
         } else {
-          // 向下竖井袅袅升腾的柔和椭圆幽冥雾缕（彻底淘汰生硬长方体青色色块！）
+          // 向下竖井袅袅升腾的无边界羽化椭圆幽冥雾缕（使用单位圆缩放渐变，零硬边！）
           ctx.save();
           ctx.globalCompositeOperation = 'lighter';
           for (let m = 0; m < 3; m++) {
@@ -880,14 +900,18 @@ export class InkVaniaRenderer {
             const mx = cx + Math.sin(this.ambientTime * 1.8 + m * 2.1) * (w * 0.22);
             const my = room.pixelH - 12 - prog * 92;
             const mr = Math.min(54, w * 0.44) * (1 - prog * 0.25);
-            const mg = ctx.createRadialGradient(mx, my, 2, mx, my, mr);
-            mg.addColorStop(0, `rgba(94, 234, 212, ${(1 - prog) * 0.16})`);
-            mg.addColorStop(0.55, `rgba(45, 212, 191, ${(1 - prog) * 0.07})`);
+            ctx.save();
+            ctx.translate(mx, my);
+            ctx.scale(mr, mr * 0.52);
+            const mg = ctx.createRadialGradient(0, 0, 0.05, 0, 0, 1);
+            mg.addColorStop(0, `rgba(94, 234, 212, ${(1 - prog) * 0.14})`);
+            mg.addColorStop(0.55, `rgba(45, 212, 191, ${(1 - prog) * 0.06})`);
             mg.addColorStop(1, 'rgba(45, 212, 191, 0)');
             ctx.fillStyle = mg;
             ctx.beginPath();
-            ctx.ellipse(mx, my, mr, mr * 0.52, 0, 0, Math.PI * 2);
+            ctx.arc(0, 0, 1, 0, Math.PI * 2);
             ctx.fill();
+            ctx.restore();
           }
           ctx.restore();
         }
@@ -945,13 +969,11 @@ export class InkVaniaRenderer {
           ctx.drawImage(mistImg, g.x - mw * 0.5, drawTop, mw, drawH + 4);
         }
       } else if (ironGateImg) {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.62)';
-        ctx.beginPath();
-        ctx.ellipse(g.x, g.bottomY + 2, 34, 6.5, 0, 0, Math.PI * 2);
-        ctx.fill();
+        drawSoftGroundShadow(ctx, g.x, g.bottomY + 2, 42, 7.5, 0.62);
 
         const gw = 72;
-        ctx.drawImage(ironGateImg, g.x - gw * 0.5, drawTop, gw, drawH + 4);
+        const hmGate = getHarmonizedSprite('prop_iron_gate', ironGateImg, room, 0.44);
+        ctx.drawImage(hmGate, g.x - gw * 0.5, drawTop, gw, drawH + 4);
       }
       ctx.restore();
     }
@@ -1012,7 +1034,8 @@ export class InkVaniaRenderer {
           const ah = 148;
           const aw = secArchImg.width * (ah / secArchImg.height);
           const ax = sd.side === 'left' ? -14 : room.pixelW - aw + 14;
-          ctx.drawImage(secArchImg, ax, sd.floorY - ah + 6, aw, ah);
+          const hmSec = getHarmonizedSprite('prop_secret_arch', secArchImg, room, 0.44);
+          ctx.drawImage(hmSec, ax, sd.floorY - ah + 6, aw, ah);
         }
         ctx.restore();
       }
@@ -1031,20 +1054,25 @@ export class InkVaniaRenderer {
       if (secArchImg) {
         const ah = 168;
         const aw = secArchImg.width * (ah / secArchImg.height);
-        ctx.drawImage(secArchImg, cx - aw * 0.5, gy - ah + 5, aw, ah);
+        const hmSec = getHarmonizedSprite('prop_secret_arch', secArchImg, room, 0.44);
+        ctx.drawImage(hmSec, cx - aw * 0.5, gy - ah + 5, aw, ah);
       }
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       const cy = gy - 72;
-      const pg = ctx.createRadialGradient(cx, cy, 6, cx, cy, 84 + Math.sin(this.ambientTime * 4.5) * 6);
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.scale(44, 68);
+      const pg = ctx.createRadialGradient(0, 0, 0.08, 0, 0, 1);
       pg.addColorStop(0, 'rgba(254, 240, 138, 0.78)');
       pg.addColorStop(0.45, 'rgba(244, 63, 94, 0.46)');
-      pg.addColorStop(0.8, 'rgba(168, 85, 247, 0.24)');
+      pg.addColorStop(0.8, 'rgba(168, 85, 247, 0.22)');
       pg.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = pg;
       ctx.beginPath();
-      ctx.ellipse(cx, cy, 42, 66, 0, 0, Math.PI * 2);
+      ctx.arc(0, 0, 1, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
       if (coreImg) {
         ctx.translate(cx, cy);
         ctx.rotate(-this.ambientTime * 1.4);
@@ -1080,22 +1108,20 @@ export class InkVaniaRenderer {
       const cx = room.focalX;
       const gy = room.focalY;
       const altarImg = Assets.get('prop_bagua_altar');
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.58)';
-      ctx.beginPath();
-      ctx.ellipse(cx, gy + 3, 94, 8, 0, 0, Math.PI * 2);
-      ctx.fill();
+      drawSoftGroundShadow(ctx, cx, gy + 3, 102, 9.5, 0.6);
 
       if (altarImg) {
         const aw = 196;
         const ah = aw * (altarImg.height / altarImg.width);
-        ctx.drawImage(altarImg, cx - aw * 0.5, gy - ah + 8, aw, ah);
+        const hmAltar = getHarmonizedSprite('prop_bagua_altar', altarImg, room, 0.42);
+        ctx.drawImage(hmAltar, cx - aw * 0.5, gy - ah + 8, aw, ah);
       }
 
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       const wg = ctx.createRadialGradient(cx, gy - 34, 6, cx, gy - 34, 108);
-      wg.addColorStop(0, 'rgba(45, 212, 191, 0.36)');
-      wg.addColorStop(0.6, 'rgba(56, 189, 248, 0.12)');
+      wg.addColorStop(0, 'rgba(45, 212, 191, 0.34)');
+      wg.addColorStop(0.6, 'rgba(56, 189, 248, 0.11)');
       wg.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = wg;
       ctx.beginPath();
@@ -1110,23 +1136,22 @@ export class InkVaniaRenderer {
       for (const st of room.steles) {
         const gy = sampleSolidGroundY(room, st.x);
         const isRead = Boolean(engine.slot.readSteles?.includes(st.id));
+        drawSoftGroundShadow(ctx, st.x, gy + 2, 32, 6.5, 0.58);
+
         ctx.save();
         ctx.translate(st.x, gy);
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.56)';
-        ctx.beginPath();
-        ctx.ellipse(0, 2, 26, 5.5, 0, 0, Math.PI * 2);
-        ctx.fill();
 
         if (steleImg) {
           const sh = 108;
           const sw = steleImg.width * (sh / steleImg.height);
-          ctx.drawImage(steleImg, -sw * 0.5, -sh + 4, sw, sh);
+          const hmStele = getHarmonizedSprite('item_relic_pedestal', steleImg, room, 0.48);
+          ctx.drawImage(hmStele, -sw * 0.5, -sh + 4, sw, sh);
         }
 
         if (!isRead) {
           ctx.globalCompositeOperation = 'lighter';
           const sg = ctx.createRadialGradient(0, -52, 3, 0, -52, 46);
-          sg.addColorStop(0, 'rgba(125, 211, 252, 0.36)');
+          sg.addColorStop(0, 'rgba(125, 211, 252, 0.3)');
           sg.addColorStop(1, 'rgba(0, 0, 0, 0)');
           ctx.fillStyle = sg;
           ctx.beginPath();
@@ -1159,36 +1184,62 @@ export class InkVaniaRenderer {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
 
+    // 地面漫反射暖光池：使用椭圆缩放单位圆渐变使边缘 100% 羽化归零，并自动检测台阶断崖收束半径，绝不悬空探出平台外！
     const castFloorGlow = (lx: number, gy: number, rx: number, alpha: number, rgb: string) => {
-      const g = ctx.createRadialGradient(lx, gy + 2, 4, lx, gy + 2, rx);
+      let leftSpan = rx;
+      let rightSpan = rx;
+      for (let d = 16; d <= rx; d += 16) {
+        const yL = sampleGroundY(room, Math.max(0, lx - d));
+        if (Math.abs(yL - gy) > 16) {
+          leftSpan = Math.min(leftSpan, d);
+          break;
+        }
+      }
+      for (let d = 16; d <= rx; d += 16) {
+        const yR = sampleGroundY(room, Math.min(room.pixelW, lx + d));
+        if (Math.abs(yR - gy) > 16) {
+          rightSpan = Math.min(rightSpan, d);
+          break;
+        }
+      }
+      const effRx = (leftSpan + rightSpan) * 0.5;
+      if (effRx < 14) return;
+      const cx = lx + (rightSpan - leftSpan) * 0.5;
+
+      ctx.save();
+      ctx.translate(cx, gy + 2);
+      ctx.scale(effRx, 12);
+      const g = ctx.createRadialGradient(0, 0, 0.06, 0, 0, 1);
       g.addColorStop(0, `rgba(${rgb}, ${alpha})`);
+      g.addColorStop(0.5, `rgba(${rgb}, ${(alpha * 0.42).toFixed(3)})`);
       g.addColorStop(1, `rgba(${rgb}, 0)`);
       ctx.fillStyle = g;
       ctx.beginPath();
-      ctx.ellipse(lx, gy + 2, rx, 11, 0, 0, Math.PI * 2);
+      ctx.arc(0, 0, 1, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
     };
 
     for (const tc of engine.liveLanterns) {
       if (tc.broken) continue;
       const gy = sampleSolidGroundY(room, tc.x);
       if (Math.abs(gy - tc.y) < 150) {
-        castFloorGlow(tc.x, gy, 72, 0.2, '251, 146, 60');
+        castFloorGlow(tc.x, gy, 68, 0.17, '251, 146, 60');
       }
     }
 
     if (room.decorProps) {
       for (const dp of room.decorProps) {
         if (dp.kind === 'dragon_brazier') {
-          castFloorGlow(dp.x, dp.y, 105, 0.26, '249, 115, 22');
+          castFloorGlow(dp.x, dp.y, 96, 0.22, '249, 115, 22');
         } else if (dp.kind === 'incense_burner') {
-          castFloorGlow(dp.x, dp.y, 76, 0.18, '251, 191, 36');
+          castFloorGlow(dp.x, dp.y, 72, 0.16, '251, 191, 36');
         }
       }
     }
 
     if (room.special === 'save_shrine') {
-      castFloorGlow(room.focalX, room.focalY, 118, 0.26, '251, 191, 36');
+      castFloorGlow(room.focalX, room.focalY, 108, 0.22, '251, 191, 36');
     }
 
     ctx.restore();
@@ -1220,15 +1271,24 @@ export class InkVaniaRenderer {
     } else if (room.region === 'opera') {
       wash.addColorStop(0, 'rgba(157, 23, 77, 0.08)');
       wash.addColorStop(1, 'rgba(217, 119, 6, 0.1)');
-    } else if (room.region === 'main_hall' || room.region === 'library') {
-      wash.addColorStop(0, 'rgba(180, 130, 50, 0.07)');
-      wash.addColorStop(1, 'rgba(120, 80, 30, 0.08)');
-    } else if (room.region === 'prison' || room.region === 'catacomb') {
+    } else if (
+      room.region === 'main_hall' ||
+      room.region === 'library' ||
+      room.bgKey === 'bg_city_avenue' ||
+      room.bgKey === 'bg_gatehouse_interior'
+    ) {
+      wash.addColorStop(0, 'rgba(165, 105, 45, 0.065)');
+      wash.addColorStop(1, 'rgba(120, 72, 28, 0.075)');
+    } else if (
+      room.region === 'prison' ||
+      room.region === 'catacomb' ||
+      room.bgKey === 'bg_moat_sluice'
+    ) {
       wash.addColorStop(0, 'rgba(13, 148, 136, 0.08)');
       wash.addColorStop(1, 'rgba(15, 118, 110, 0.1)');
     } else {
-      wash.addColorStop(0, 'rgba(30, 64, 115, 0.09)');
-      wash.addColorStop(1, 'rgba(15, 35, 65, 0.08)');
+      wash.addColorStop(0, 'rgba(26, 56, 98, 0.08)');
+      wash.addColorStop(1, 'rgba(14, 32, 58, 0.075)');
     }
     ctx.fillStyle = wash;
     ctx.fillRect(0, 0, vW, vH);
@@ -1238,13 +1298,13 @@ export class InkVaniaRenderer {
     const vig = ctx.createRadialGradient(
       vW * 0.5,
       vH * 0.48,
-      vH * 0.44,
+      vH * 0.42,
       vW * 0.5,
       vH * 0.5,
-      vW * 0.8
+      vW * 0.82
     );
     vig.addColorStop(0, 'rgba(0, 0, 0, 0)');
-    vig.addColorStop(1, 'rgba(4, 6, 12, 0.36)');
+    vig.addColorStop(1, 'rgba(3, 5, 11, 0.42)');
     ctx.fillStyle = vig;
     ctx.fillRect(0, 0, vW, vH);
 
@@ -1253,7 +1313,7 @@ export class InkVaniaRenderer {
 
   private renderSaveShrine(ctx: CanvasRenderingContext2D, room: BuiltRoom): void {
     if (room.special !== 'save_shrine') return;
-    drawOrthographicSaveShrine(ctx, room.focalX, room.focalY, this.ambientTime);
+    drawOrthographicSaveShrine(ctx, room.focalX, room.focalY, this.ambientTime, room);
   }
 
   private renderGroundMist(
@@ -1262,19 +1322,32 @@ export class InkVaniaRenderer {
     camLeft: number,
     vW: number
   ): void {
+    // 贴地夜霭流雾：采用椭圆空间单位圆径向渐变，边缘 100% 丝滑消融，彻底根除半透明灰椭圆贴片！
+    const peakAlpha = room.indoor ? 0.055 : 0.085;
     ctx.save();
-    for (let i = 0; i < 9; i++) {
+    for (let i = 0; i < 8; i++) {
       const mx =
-        ((i * 310 + this.ambientTime * (18 + (i % 3) * 7)) % (room.pixelW + 300)) - 150;
+        ((i * 340 + this.ambientTime * (15 + (i % 3) * 6)) % (room.pixelW + 320)) - 160;
       if (mx < camLeft - 220 || mx > camLeft + vW + 220) continue;
-      const my = sampleGroundY(room, Math.max(0, Math.min(room.pixelW, mx))) - 8;
-      const mg = ctx.createRadialGradient(mx, my, 8, mx, my, 125);
-      mg.addColorStop(0, 'rgba(148, 163, 184, 0.13)');
+      const clampedX = Math.max(0, Math.min(room.pixelW, mx));
+      const gy = sampleGroundY(room, clampedX);
+      if (gy > room.pixelH + 20) continue;
+      const my = gy - 6;
+      const rx = 148 + (i % 3) * 24;
+      const ry = 22 + (i % 2) * 5;
+
+      ctx.save();
+      ctx.translate(mx, my);
+      ctx.scale(rx, ry);
+      const mg = ctx.createRadialGradient(0, 0, 0.06, 0, 0, 1);
+      mg.addColorStop(0, `rgba(148, 163, 184, ${peakAlpha})`);
+      mg.addColorStop(0.55, `rgba(148, 163, 184, ${(peakAlpha * 0.42).toFixed(3)})`);
       mg.addColorStop(1, 'rgba(148, 163, 184, 0)');
       ctx.fillStyle = mg;
       ctx.beginPath();
-      ctx.ellipse(mx, my, 130, 26, 0, 0, Math.PI * 2);
+      ctx.arc(0, 0, 1, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
     }
     ctx.restore();
   }
@@ -2189,21 +2262,21 @@ export class InkVaniaRenderer {
 
       if (fg.kind === 'hanging_lantern' && lanternImg) {
         const sway = Math.sin(this.ambientTime * 2.1 + fg.x * 0.02) * 0.05;
-        const lh = 76;
+        const lh = 72;
         const lw = lanternImg.width * (lh / lanternImg.height);
         ctx.save();
         ctx.translate(sx, -4);
         ctx.rotate(sway);
-        ctx.globalAlpha = 0.88;
+        ctx.globalAlpha = 0.86;
         ctx.drawImage(lanternImg, -lw * 0.5, 0, lw, lh);
 
         ctx.globalCompositeOperation = 'lighter';
-        const g = ctx.createRadialGradient(0, lh * 0.58, 4, 0, lh * 0.58, 96);
-        g.addColorStop(0, 'rgba(251, 146, 60, 0.24)');
+        const g = ctx.createRadialGradient(0, lh * 0.58, 4, 0, lh * 0.58, 92);
+        g.addColorStop(0, 'rgba(251, 146, 60, 0.2)');
         g.addColorStop(1, 'rgba(220, 38, 38, 0)');
         ctx.fillStyle = g;
         ctx.beginPath();
-        ctx.arc(0, lh * 0.58, 96, 0, Math.PI * 2);
+        ctx.arc(0, lh * 0.58, 92, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
       }

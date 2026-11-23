@@ -243,14 +243,136 @@ function sampleSupportBaseY(room: BuiltRoom, x: number, belowY: number): number 
   return bestY;
 }
 
+function isArchBridgeSpanAt(room: BuiltRoom, x: number): boolean {
+  for (let i = 0; i < room.groundNodes.length - 1; i++) {
+    const a = room.groundNodes[i];
+    const b = room.groundNodes[i + 1];
+    if (x >= a.x - 16 && x <= b.x + 16 && a.style === 'arch_bridge') {
+      return true;
+    }
+  }
+  return false;
+}
+
 function isOverLiquidOrShaft(room: BuiltRoom, x: number): boolean {
   if (isInsideDownShaft(room, x)) return true;
+  if (isArchBridgeSpanAt(room, x)) return false;
   return room.waterZones.some((wz) => x >= wz.x1 + 10 && x <= wz.x2 - 10);
+}
+
+/**
+ * 羽化浓墨接地软阴影：使用单位圆径向渐变配合椭圆缩放，使边缘 Alpha 100% 自然归零，彻底消灭硬边黑椭圆贴纸！
+ */
+export function drawSoftGroundShadow(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  rx: number,
+  ry: number,
+  alpha = 0.56
+): void {
+  if (rx <= 0.5 || ry <= 0.5 || alpha <= 0.01) return;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(rx, ry);
+  const g = ctx.createRadialGradient(0, 0, 0.08, 0, 0, 1);
+  g.addColorStop(0, `rgba(2, 4, 10, ${alpha})`);
+  g.addColorStop(0.52, `rgba(3, 6, 13, ${alpha * 0.46})`);
+  g.addColorStop(1, 'rgba(3, 6, 13, 0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(0, 0, 1, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+type PropHarmonizeTone =
+  | 'inverted'
+  | 'bamboo_night'
+  | 'imperial_warm'
+  | 'catacomb_moss'
+  | 'cavern_cool'
+  | 'forge_ember'
+  | 'alchemy_violet'
+  | 'altar_crimson';
+
+function resolveRoomHarmonizeTone(room?: BuiltRoom): PropHarmonizeTone {
+  if (!room) return 'imperial_warm';
+  if (room.realm === 'inverted') return 'inverted';
+  if (room.region === 'catacomb' || room.bgKey === 'bg_catacomb_tomb' || room.bgKey === 'bg_moat_sluice') {
+    return 'catacomb_moss';
+  }
+  if (room.region === 'prison') return 'cavern_cool';
+  if (room.region === 'forge') return 'forge_ember';
+  if (room.region === 'alchemy') return 'alchemy_violet';
+  if (room.region === 'altar') return 'altar_crimson';
+  if (room.bgKey === 'bg_bamboo_cliff' || (room.bgKey === 'bg_gatehouse' && !room.indoor)) {
+    return 'bamboo_night';
+  }
+  return 'imperial_warm';
+}
+
+const HARMONIZE_TINT_RGBA: Record<PropHarmonizeTone, string> = {
+  inverted: 'rgba(72, 14, 36, 0.24)',
+  bamboo_night: 'rgba(14, 28, 42, 0.22)',
+  imperial_warm: 'rgba(68, 38, 20, 0.17)',
+  catacomb_moss: 'rgba(18, 48, 46, 0.26)',
+  cavern_cool: 'rgba(14, 52, 64, 0.22)',
+  forge_ember: 'rgba(84, 30, 12, 0.22)',
+  alchemy_violet: 'rgba(52, 30, 68, 0.18)',
+  altar_crimson: 'rgba(74, 20, 30, 0.16)',
+};
+
+const harmonizedPropCache = new Map<string, HTMLCanvasElement>();
+
+/**
+ * 为手绘摆件/亭台预烘焙【同源环境光色温 + 底部 24% 接地环境遮蔽暗部 (`source-atop`)】：
+ * 严格遵循原画 Alpha 轮廓，绝不污染透明区域，让石狮、牌坊、香炉、灯柱像直接画在当前夜景石板上一样浑然天成！
+ */
+export function getHarmonizedSprite(
+  assetKey: string,
+  img: HTMLImageElement,
+  room?: BuiltRoom,
+  groundContactStrength = 0.46
+): HTMLImageElement | HTMLCanvasElement {
+  if (typeof document === 'undefined' || img.width < 4 || img.height < 4) return img;
+  const tone = resolveRoomHarmonizeTone(room);
+  const aoBucket = Math.round(groundContactStrength * 20);
+  const cacheKey = `${assetKey}:${tone}:${aoBucket}:${img.width}x${img.height}`;
+  const hit = harmonizedPropCache.get(cacheKey);
+  if (hit) return hit;
+
+  const c = document.createElement('canvas');
+  c.width = img.width;
+  c.height = img.height;
+  const cctx = c.getContext('2d');
+  if (!cctx) return img;
+
+  cctx.drawImage(img, 0, 0);
+  cctx.globalCompositeOperation = 'source-atop';
+
+  // 1) 同源环境光色温包裹（压住切图生硬高光，融入关卡主色调）
+  cctx.fillStyle = HARMONIZE_TINT_RGBA[tone];
+  cctx.fillRect(0, 0, c.width, c.height);
+
+  // 2) 底部接地环境光遮蔽（AO）：越靠近地面石缝越沉入浓墨暗部，消除“浮在地板表面”的剪纸感
+  if (groundContactStrength > 0.02) {
+    const aoTop = Math.floor(c.height * 0.72);
+    const aoG = cctx.createLinearGradient(0, aoTop, 0, c.height);
+    aoG.addColorStop(0, 'rgba(3, 5, 11, 0)');
+    aoG.addColorStop(0.65, `rgba(3, 5, 11, ${(groundContactStrength * 0.48).toFixed(3)})`);
+    aoG.addColorStop(1, `rgba(2, 4, 9, ${groundContactStrength.toFixed(3)})`);
+    cctx.fillStyle = aoG;
+    cctx.fillRect(0, aoTop, c.width, c.height - aoTop);
+  }
+
+  harmonizedPropCache.set(cacheKey, c);
+  return c;
 }
 
 export function drawSlicedColumn(
   ctx: CanvasRenderingContext2D,
-  pillarImg: HTMLImageElement,
+  pillarImg: HTMLImageElement | HTMLCanvasElement,
   cx: number,
   topY: number,
   bottomY: number,
@@ -277,10 +399,7 @@ export function drawSlicedColumn(
 
   ctx.save();
   if (castBaseShadow) {
-    ctx.fillStyle = 'rgba(2, 4, 10, 0.58)';
-    ctx.beginPath();
-    ctx.ellipse(cx, bottomY + 2, colW * 0.58, 5.5, 0, 0, Math.PI * 2);
-    ctx.fill();
+    drawSoftGroundShadow(ctx, cx, bottomY + 2, colW * 0.85, 6.5, 0.58);
   }
 
   // 100% 实体不透明绘制（彻底根除半透明柱身透出远景石桥/山峰的穿模感！）
@@ -319,7 +438,7 @@ export function drawSlicedColumn(
  */
 export function drawThreeSlicePlatform(
   ctx: CanvasRenderingContext2D,
-  img: HTMLImageElement,
+  img: HTMLImageElement | HTMLCanvasElement,
   srcY: number,
   srcH: number,
   x: number,
@@ -542,11 +661,8 @@ export function bakeOrthographicRoomTerrain(
 
     // 投射在下层台面/地面上的柔和建筑遮蔽暗影（让下方地面感知上方平台的存在！）
     const shadowY = sampleSupportBaseY(room, midX, py + 10);
-    if (!isOverLiquidOrShaft(room, midX) && shadowY - py < 260) {
-      bctx.fillStyle = 'rgba(2, 4, 10, 0.34)';
-      bctx.beginPath();
-      bctx.ellipse(midX, shadowY + 2, pw * 0.44, 6.5, 0, 0, Math.PI * 2);
-      bctx.fill();
+    if (!isOverLiquidOrShaft(room, midX) && shadowY - py < 340) {
+      drawSoftGroundShadow(bctx, midX, shadowY + 2, pw * 0.48, 8.5, 0.44);
     }
 
     const touchLeftWall = px <= 46;
@@ -569,12 +685,12 @@ export function bakeOrthographicRoomTerrain(
       const spanH = baseOuter - py;
       if (
         activePillarImg &&
-        spanH >= 52 &&
-        spanH <= 220 &&
+        spanH >= 48 &&
+        spanH <= 465 &&
         !isOverLiquidOrShaft(room, outerX) &&
         !isNearDoorOpening(outerX, py, baseOuter)
       ) {
-        drawSlicedColumn(bctx, activePillarImg, outerX, py + 14, baseOuter, isStoneDungeon ? 32 : 26, 0.14, true);
+        drawSlicedColumn(bctx, activePillarImg, outerX, py + 8, baseOuter, isStoneDungeon ? 32 : 28, 0.16, true);
       } else if (chainImg && room.indoor) {
         const ceilY = sampleCeilingY(room, outerX, false);
         if (ceilY > -20 && py - ceilY >= 28 && py - ceilY <= 360) {
@@ -584,26 +700,30 @@ export function bakeOrthographicRoomTerrain(
       return;
     }
 
-    // 2) 殿中独立飞阁 / 石台：优先双立柱生根落地；若跨水潭/竖井或超高悬台，则由藻井玄铁双链悬吊！
-    const leftX = px + Math.min(28, pw * 0.2);
-    const rightX = px + pw - Math.min(28, pw * 0.2);
+    // 2) 殿中独立飞阁 / 天街廊桥 / 石台：优先双立柱生根落地（含跨拱桥桥墩立柱）；若跨无桥深水/竖井或超高悬台，则由藻井玄铁双链悬吊！
+    const useStoneColForWildLedge =
+      !forcePillars && !room.indoor && room.bgKey === 'bg_bamboo_cliff' && Boolean(stonePillarImg);
+    const colSprite = useStoneColForWildLedge ? stonePillarImg : activePillarImg;
+
+    const leftX = px + Math.min(30, pw * 0.2);
+    const rightX = px + pw - Math.min(30, pw * 0.2);
     const baseL = sampleSupportBaseY(room, leftX, py + 16);
     const baseR = sampleSupportBaseY(room, rightX, py + 16);
     const maxSpan = Math.max(baseL - py, baseR - py);
     const blockedUnder = isOverLiquidOrShaft(room, leftX) || isOverLiquidOrShaft(room, rightX);
 
     const canStandPillars =
-      activePillarImg &&
+      colSprite &&
       !blockedUnder &&
-      baseL - py >= 48 &&
-      baseR - py >= 48 &&
-      (forcePillars || maxSpan <= 185 || !room.indoor);
+      baseL - py >= 46 &&
+      baseR - py >= 46 &&
+      (forcePillars || maxSpan <= 240 || (!room.indoor && maxSpan <= 440));
 
-    if (canStandPillars && activePillarImg) {
-      const colW = isStoneDungeon ? 34 : 28;
-      drawSlicedColumn(bctx, activePillarImg, leftX, py + 14, baseL, colW, 0.12, true);
+    if (canStandPillars && colSprite) {
+      const colW = isStoneDungeon || useStoneColForWildLedge ? 32 : 28;
+      drawSlicedColumn(bctx, colSprite, leftX, py + 8, baseL, colW, 0.14, true);
       if (pw >= 110) {
-        drawSlicedColumn(bctx, activePillarImg, rightX, py + 14, baseR, colW, 0.12, true);
+        drawSlicedColumn(bctx, colSprite, rightX, py + 8, baseR, colW, 0.14, true);
       }
       return;
     }
@@ -710,13 +830,13 @@ export function bakeOrthographicRoomTerrain(
       return sampleSolidGroundY(room, wx);
     };
 
-    // 1A. 下层同源石砌地基
+    // 1A. 下层同源石砌地基（两侧桥台深入桥拱内侧 48px，彻底杜绝拱桥两端地基穿帮缺口！）
+    const stepSub = 24;
     for (let x = 0; x < room.pixelW; x += sw) {
-      const stepSub = 22;
       for (let sxOff = 0; sxOff < sw && x + sxOff < room.pixelW; sxOff += stepSub) {
         const wx = x + sxOff;
         if (isInsideDownShaft(room, wx + 4) || isInsideDownShaft(room, wx + stepSub - 4)) continue;
-        if (wz && wx >= wz.x1 + 18 && wx + stepSub <= wz.x2 - 18) continue;
+        if (wz && wx >= wz.x1 + 48 && wx + stepSub <= wz.x2 - 48) continue;
 
         const gy = sampleQuantizedVisualGroundY(Math.min(room.pixelW, wx + stepSub * 0.5));
         const startY = gy + srcCapH - surfaceTopOffset - 10;
@@ -733,71 +853,41 @@ export function bakeOrthographicRoomTerrain(
             hClip,
             wx,
             y,
-            wClip + 0.6,
-            hClip + 0.6
+            wClip + 0.8,
+            hClip + 0.8
           );
         }
 
-        const depthH = Math.max(0, room.pixelH - gy - 26);
+        const depthH = Math.max(0, room.pixelH - gy - 18);
         if (depthH > 0) {
-          const subG = bctx.createLinearGradient(0, gy + 26, 0, room.pixelH);
-          subG.addColorStop(0, 'rgba(4, 7, 14, 0.12)');
-          subG.addColorStop(1, 'rgba(3, 5, 11, 0.76)');
+          const subG = bctx.createLinearGradient(0, gy + 18, 0, room.pixelH);
+          subG.addColorStop(0, 'rgba(4, 7, 14, 0.14)');
+          subG.addColorStop(0.58, 'rgba(3, 6, 12, 0.56)');
+          subG.addColorStop(1, 'rgba(2, 4, 9, 0.92)');
           bctx.fillStyle = subG;
-          bctx.fillRect(wx, gy + 26, wClip + 0.6, depthH);
+          bctx.fillRect(wx, gy + 18, wClip + 0.8, depthH);
         }
       }
     }
 
-    // 1A-2. 丹陛石阶背景垂带石护栏（紧贴斜坡阶梯后沿，赋予台阶真实的立体建筑体积！）
-    if (stoneLedgeImg) {
-      const railSrcY = 0;
-      const railSrcH = Math.floor(stoneLedgeImg.height * 0.3);
-      for (let i = 0; i < room.groundNodes.length - 1; i++) {
-        const a = room.groundNodes[i];
-        const b = room.groundNodes[i + 1];
-        if (a.style !== 'stairs' || Math.abs(b.y - a.y) < 14) continue;
-        const steps = Math.max(2, Math.round(Math.abs(b.y - a.y) / 12));
-        const stepSpanW = (b.x - a.x) / steps;
-        bctx.save();
-        bctx.globalAlpha = 0.72;
-        for (let k = 0; k < steps; k++) {
-          const tx = a.x + k * stepSpanW;
-          const ty = a.y + ((b.y - a.y) * k) / steps;
-          bctx.drawImage(
-            stoneLedgeImg,
-            40,
-            railSrcY,
-            Math.min(320, stoneLedgeImg.width - 80),
-            railSrcH,
-            tx - 2,
-            ty - 20,
-            stepSpanW + 6,
-            22
-          );
-        }
-        bctx.restore();
-      }
-    }
-
-    // 1B. 表层地面与分阶踏跺石阶
-    const stepW = 18;
+    // 1B. 表层地面与分阶踏跺石阶（统一 24px 步幅对齐底层地基，消除锯齿接缝与拉伸残影！）
+    const stepW = 24;
     let prevGy = sampleQuantizedVisualGroundY(0);
     for (let x = 0; x < room.pixelW; x += stepW) {
       if (isInsideDownShaft(room, x + 2) || isInsideDownShaft(room, x + stepW - 2)) continue;
-      if (wz && x >= wz.x1 + 14 && x <= wz.x2 - stepW - 14) continue;
+      if (wz && x >= wz.x1 + 44 && x <= wz.x2 - stepW - 44) continue;
 
       const onStairs = isStairSlopeAt(x + stepW * 0.5);
       const gy = sampleQuantizedVisualGroundY(x + stepW * 0.5);
       const sx = ((x % sw) + sw) % sw;
       const grabW = Math.min(stepW, sw - sx);
 
-      // 台阶落差立面投影（凸显每一级石阶的挑出踏面与踢脚暗部！）
-      if (onStairs && Math.abs(gy - prevGy) >= 5) {
+      // 台阶落差立面浓墨踢脚暗部（凸显每一级石阶挑出踏面体积，零悬浮灰条）
+      if (onStairs && Math.abs(gy - prevGy) >= 4) {
         const hiY = Math.min(gy, prevGy);
         const loY = Math.max(gy, prevGy);
-        bctx.fillStyle = 'rgba(2, 4, 10, 0.65)';
-        bctx.fillRect(x - 3, hiY + 2, 7, loY - hiY + 8);
+        bctx.fillStyle = 'rgba(2, 4, 10, 0.72)';
+        bctx.fillRect(x - 3, hiY + 2, 8, loY - hiY + 12);
       }
       prevGy = gy;
 
@@ -809,9 +899,36 @@ export function bakeOrthographicRoomTerrain(
         srcCapH,
         x - (onStairs ? 2 : 0),
         gy - surfaceTopOffset,
-        stepW + (onStairs ? 4 : 0.7),
+        stepW + (onStairs ? 4.5 : 0.9),
         srcCapH
       );
+    }
+
+    // 1B-1. 城郊竹林与护城古道自然墨韵苍苔野草收边（打破石砖顶沿直线机械切边！）
+    if (!room.indoor && (room.bgKey === 'bg_bamboo_cliff' || room.bgKey === 'bg_gatehouse')) {
+      bctx.save();
+      for (let mx = 28; mx < room.pixelW - 28; mx += 34) {
+        if (isInsideDownShaft(room, mx)) continue;
+        if (wz && mx >= wz.x1 - 12 && mx <= wz.x2 + 12) continue;
+        if (isStairSlopeAt(mx)) continue;
+        const hSeed = Math.abs(Math.sin(mx * 0.137 + room.mapX * 1.7));
+        if (hSeed < 0.34) continue;
+        const gy = sampleSolidGroundY(room, mx);
+        bctx.fillStyle = 'rgba(8, 22, 20, 0.72)';
+        const blades = 2 + Math.floor(hSeed * 3);
+        for (let b = 0; b < blades; b++) {
+          const bx = mx + (b - 1) * 4.5;
+          const bh = 6 + ((b + Math.floor(hSeed * 10)) % 3) * 3.2;
+          const lean = (b - 1) * 3.2 + (hSeed - 0.5) * 4;
+          bctx.beginPath();
+          bctx.moveTo(bx - 1.8, gy + 2);
+          bctx.quadraticCurveTo(bx + lean * 0.5, gy - bh * 0.6, bx + lean, gy - bh);
+          bctx.quadraticCurveTo(bx + lean * 0.35 + 1.4, gy - bh * 0.45, bx + 1.8, gy + 2);
+          bctx.closePath();
+          bctx.fill();
+        }
+      }
+      bctx.restore();
     }
 
     // 1B-2. 梨园戏台 / 书阁茶席专属朱漆雕木台面 (`style === 'palace_wood'`)
@@ -835,17 +952,18 @@ export function bakeOrthographicRoomTerrain(
     }
 
     // 1C. 分区域专属手绘高低悬台与须弥石座 (`room.solidBlocks`)：
-    // 宫阙/书阁/梨园采用雕栏红木飞阁；地肺铸剑坊/寒潭水牢/白骨冥廊采用青苔雕纹青石台 `env_stone_ledge`！
+    // 城郊苍竹野径/地宫水牢采用青苔雕纹青石台 `env_stone_ledge`；皇城大殿采用雕栏红木阁 `env_indoor_ledge`；朱雀天街采用飞檐游廊 `env_pavilion`！
     if (room.solidBlocks && room.solidBlocks.length > 0) {
       const indoorLedgeImg = Assets.get('env_indoor_ledge');
       const pavilionImg = Assets.get('env_pavilion');
+      const isWildBambooCliff = !room.indoor && room.bgKey === 'bg_bamboo_cliff';
 
       for (const sb of room.solidBlocks) {
         const groundAtMid = sampleSolidGroundY(room, sb.x + sb.w * 0.5);
         const isFloatingLedge = sb.y + sb.h < groundAtMid - 14 && sb.h <= 46 && !sb.blocking;
 
         if (isFloatingLedge) {
-          if (isStoneDungeon && stoneLedgeImg) {
+          if ((isStoneDungeon || isWildBambooCliff) && stoneLedgeImg) {
             drawThreeSlicePlatform(
               bctx,
               stoneLedgeImg,
@@ -885,10 +1003,7 @@ export function bakeOrthographicRoomTerrain(
         const topDrawY = sb.y - surfaceTopOffset;
         const totalDrawH = sb.h + surfaceTopOffset;
 
-        bctx.fillStyle = 'rgba(2, 4, 10, 0.62)';
-        bctx.beginPath();
-        bctx.ellipse(sb.x + sb.w * 0.5, sb.y + sb.h + 2, sb.w * 0.52, 7, 0, 0, Math.PI * 2);
-        bctx.fill();
+        drawSoftGroundShadow(bctx, sb.x + sb.w * 0.5, sb.y + sb.h + 2, sb.w * 0.56, 8, 0.6);
 
         const bodyX = sb.x + 3;
         const bodyW = Math.max(16, sb.w - 6);
@@ -942,13 +1057,14 @@ export function bakeOrthographicRoomTerrain(
     }
   }
 
-  // 2. 护城河 / 飞虹桥 / 冰泉段：绘制完整三孔雕栏石拱桥 (`env_bridge.webp`)
+  // 2. 护城河 / 御河天街 / 飞虹桥段：绘制三孔雕栏石拱桥 (`env_bridge.webp`) 并让两端深深咬合石砌河岸！
   if (wz && bridgeImg) {
-    const bridgeSpanW = wz.x2 - wz.x1 + 36;
+    const bridgeSpanW = wz.x2 - wz.x1 + 64;
     const bridgeH = bridgeSpanW * (bridgeImg.height / bridgeImg.width);
     const endRoadY = sampleSolidGroundY(room, wz.x1);
     const drawTopY = endRoadY - bridgeH * 0.61;
-    bctx.drawImage(bridgeImg, wz.x1 - 18, drawTopY, bridgeSpanW, bridgeH);
+    const harmonizedBridge = getHarmonizedSprite('env_bridge', bridgeImg, room, 0.42);
+    bctx.drawImage(harmonizedBridge, wz.x1 - 32, drawTopY, bridgeSpanW, bridgeH);
   }
 
   // 3. 顶棚藻井石拱与宫殿暗梁
@@ -1104,25 +1220,26 @@ export function bakeOrthographicRoomTerrain(
     }
   }
 
-  // 5B. 寒潭水渠 / 熔金火池自然凿石驳岸收边（消除生硬几何水池切口！）
+  // 5B. 寒潭水渠 / 熔金火池自然凿石驳岸收边（同源染色融入暗部，消除生硬几何水池切口！）
   if (stoneLedgeImg && room.waterZones.length > 0 && !isArchBridgeRoom) {
+    const hmCurb = getHarmonizedSprite('env_stone_ledge', stoneLedgeImg, room, 0.48);
     const capW = Math.floor(stoneLedgeImg.width * 0.22);
     const capH = stoneLedgeImg.height;
     for (const z of room.waterZones) {
       if (z.x1 > 20) {
-        bctx.drawImage(stoneLedgeImg, 0, 0, capW, capH, z.x1 - 24, z.surfaceY - 18, 38, 62);
+        bctx.drawImage(hmCurb, 0, 0, capW, capH, z.x1 - 20, z.surfaceY - 8, 32, 48);
       }
       if (z.x2 < room.pixelW - 20) {
         bctx.drawImage(
-          stoneLedgeImg,
+          hmCurb,
           stoneLedgeImg.width - capW,
           0,
           capW,
           capH,
-          z.x2 - 14,
-          z.surfaceY - 18,
-          38,
-          62
+          z.x2 - 12,
+          z.surfaceY - 8,
+          32,
+          48
         );
       }
     }
@@ -1135,38 +1252,43 @@ export function bakeOrthographicRoomTerrain(
     bctx.fillStyle = 'rgba(76, 15, 38, 0.22)';
     bctx.fillRect(0, 0, room.pixelW, room.pixelH);
   } else if (room.region === 'catacomb' || room.bgKey === 'bg_catacomb_tomb') {
-    // 九幽守陵帝陵：将偏蓝地砖同化为幽青苍苔古墓青石，与背后石室鹤灯绿火严丝合缝！
     bctx.fillStyle = 'rgba(20, 56, 52, 0.28)';
     bctx.fillRect(0, 0, room.pixelW, room.pixelH);
   } else if (room.bgKey === 'bg_moat_sluice') {
-    // 瓮城城底水关：潮湿苍苔深青条石色温
     bctx.fillStyle = 'rgba(18, 46, 52, 0.26)';
     bctx.fillRect(0, 0, room.pixelW, room.pixelH);
   } else if (room.bgKey === 'bg_gatehouse_interior' || room.bgKey === 'bg_city_avenue') {
     // 皇城端门大殿 & 正阳朱雀天街：暖朱檀金皇家门阙色温，彻底告别阴冷地牢石色！
-    bctx.fillStyle = 'rgba(78, 44, 24, 0.16)';
+    bctx.fillStyle = 'rgba(78, 44, 24, 0.17)';
+    bctx.fillRect(0, 0, room.pixelW, room.pixelH);
+  } else if (room.bgKey === 'bg_bamboo_cliff' || (room.bgKey === 'bg_gatehouse' && !room.indoor)) {
+    // 城郊苍竹寒崖 & 护城古桥：夜雨寒青墨韵色温
+    bctx.fillStyle = 'rgba(14, 30, 42, 0.18)';
     bctx.fillRect(0, 0, room.pixelW, room.pixelH);
   } else if (room.region === 'alchemy') {
-    // 钦天炼丹司：紫微道殿沉檀暗紫金辉色温
     bctx.fillStyle = 'rgba(58, 34, 72, 0.18)';
     bctx.fillRect(0, 0, room.pixelW, room.pixelH);
   } else if (room.region === 'altar') {
-    // 凌霄祭天坛：血月映照下的汉白玉微绯冷玉色温
     bctx.fillStyle = 'rgba(82, 24, 34, 0.16)';
     bctx.fillRect(0, 0, room.pixelW, room.pixelH);
   } else if (room.region === 'prison') {
-    // 九曲寒潭溶洞：冷冽青碧水汽石色
     bctx.fillStyle = 'rgba(14, 58, 68, 0.22)';
     bctx.fillRect(0, 0, room.pixelW, room.pixelH);
   } else if (room.region === 'forge') {
-    // 赤火铸剑坊：暖赭暗铜地火石色
     bctx.fillStyle = 'rgba(92, 34, 12, 0.24)';
     bctx.fillRect(0, 0, room.pixelW, room.pixelH);
   } else if (room.region === 'opera' || room.region === 'library' || room.region === 'main_hall') {
-    // 皇城大殿 / 藏书阁 / 梨园：檀金暖墨古建色温
     bctx.fillStyle = 'rgba(78, 48, 22, 0.16)';
     bctx.fillRect(0, 0, room.pixelW, room.pixelH);
   }
+
+  // 底部地脉浓墨收口晕染：让画面最下沿石砖自然沉入水墨深渊，告别贴边瓷砖切割感
+  const botInkTop = Math.max(0, room.pixelH - 58);
+  const botInkG = bctx.createLinearGradient(0, botInkTop, 0, room.pixelH);
+  botInkG.addColorStop(0, 'rgba(2, 4, 9, 0)');
+  botInkG.addColorStop(1, 'rgba(2, 4, 9, 0.86)');
+  bctx.fillStyle = botInkG;
+  bctx.fillRect(0, botInkTop, room.pixelW, room.pixelH - botInkTop);
   bctx.restore();
 }
 
@@ -1210,7 +1332,7 @@ export function getClockGearOrbitPlatforms(
 }
 
 /**
- * 绘制全十类手绘中景陈设（盘龙烈焰火盆、朱雀锦绣垂帷、擎天盘龙柱、仙鹤香炉、洪武巨钟、镇殿石猊、兵戈武架、藏书巨架、透月高窗、百烛吊灯）与旋转机关齿轮！
+ * 绘制全十类手绘中景陈设（全部经由 `getHarmonizedSprite` 注入同源环境光色温与底部接地 AO，搭配羽化软阴影，彻底消灭剪纸贴图感！）
  */
 export function drawCastleInteriorPropsAndGears(
   ctx: CanvasRenderingContext2D,
@@ -1235,11 +1357,9 @@ export function drawCastleInteriorPropsAndGears(
       if (dp.kind === 'coiled_pillar' && pillarImg) {
         const h = 340 * sc;
         const w = pillarImg.width * (h / pillarImg.height);
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.58)';
-        ctx.beginPath();
-        ctx.ellipse(dp.x, dp.y + 3, w * 0.44, 7, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.drawImage(pillarImg, dp.x - w * 0.5, dp.y - h + 6, w, h);
+        drawSoftGroundShadow(ctx, dp.x, dp.y + 3, w * 0.52, 8.5, 0.58);
+        const hm = getHarmonizedSprite('prop_coiled_pillar', pillarImg, room, 0.48);
+        ctx.drawImage(hm, dp.x - w * 0.5, dp.y - h + 6, w, h);
       } else if (dp.kind === 'silk_banner' && bannerImg) {
         const sway = Math.sin(t * 1.9 + dp.x * 0.015) * 0.025;
         const h = 215 * sc;
@@ -1251,64 +1371,57 @@ export function drawCastleInteriorPropsAndGears(
         if (room.indoor && chainImg && ceilY > 0 && topY > ceilY + 6 && topY - ceilY < 260) {
           drawSuspensionChain(ctx, chainImg, dp.x, ceilY - 2, topY + 6, 12, 0.78);
         }
+        const hm = getHarmonizedSprite('prop_silk_banner', bannerImg, room, 0.22);
         ctx.save();
         ctx.translate(dp.x, topY);
         ctx.rotate(sway);
-        ctx.drawImage(bannerImg, -w * 0.5, 0, w, h);
+        ctx.drawImage(hm, -w * 0.5, 0, w, h);
         ctx.restore();
       } else if (dp.kind === 'bookshelf' && shelfImg) {
         const h = 248 * sc;
         const w = shelfImg.width * (h / shelfImg.height);
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.56)';
-        ctx.beginPath();
-        ctx.ellipse(dp.x, dp.y + 2, w * 0.5, 6.5, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.drawImage(shelfImg, dp.x - w * 0.5, dp.y - h + 4, w, h);
+        drawSoftGroundShadow(ctx, dp.x, dp.y + 2, w * 0.56, 8, 0.58);
+        const hm = getHarmonizedSprite('prop_bookshelf', shelfImg, room, 0.46);
+        ctx.drawImage(hm, dp.x - w * 0.5, dp.y - h + 4, w, h);
       } else if (dp.kind === 'giant_bell' && bellImg) {
         const sway = Math.sin(t * 1.1 + dp.x * 0.01) * 0.022;
         const h = 210 * sc;
         const w = bellImg.width * (h / bellImg.height);
-        const chainImg = Assets.get('arch_iron_chain');
         const ceilY = Math.max(24, sampleCeilingY(room, dp.x, false));
         if (chainImg && dp.y - h > ceilY) {
           drawSuspensionChain(ctx, chainImg, dp.x, ceilY - 2, dp.y - h + 18, 22, 0.9);
         }
+        const hm = getHarmonizedSprite('prop_giant_bell', bellImg, room, 0.25);
         ctx.save();
         ctx.translate(dp.x, dp.y - h);
         ctx.rotate(sway);
-        ctx.drawImage(bellImg, -w * 0.5, 0, w, h);
+        ctx.drawImage(hm, -w * 0.5, 0, w, h);
         ctx.restore();
       } else if (dp.kind === 'guardian_statue' && statueImg) {
         const h = 152 * sc;
         const w = statueImg.width * (h / statueImg.height);
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-        ctx.beginPath();
-        ctx.ellipse(dp.x, dp.y + 2, w * 0.44, 6, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.drawImage(statueImg, dp.x - w * 0.5, dp.y - h + 4, w, h);
+        drawSoftGroundShadow(ctx, dp.x, dp.y + 2, w * 0.54, 7.5, 0.58);
+        const hm = getHarmonizedSprite('prop_guardian_statue', statueImg, room, 0.52);
+        ctx.drawImage(hm, dp.x - w * 0.5, dp.y - h + 4, w, h);
       } else if (dp.kind === 'weapon_rack' && rackImg) {
         const h = 144 * sc;
         const w = rackImg.width * (h / rackImg.height);
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.48)';
-        ctx.beginPath();
-        ctx.ellipse(dp.x, dp.y + 2, w * 0.46, 5.5, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.drawImage(rackImg, dp.x - w * 0.5, dp.y - h + 4, w, h);
+        drawSoftGroundShadow(ctx, dp.x, dp.y + 2, w * 0.54, 7, 0.54);
+        const hm = getHarmonizedSprite('prop_weapon_rack', rackImg, room, 0.48);
+        ctx.drawImage(hm, dp.x - w * 0.5, dp.y - h + 4, w, h);
       } else if (dp.kind === 'incense_burner' && burnerImg) {
         const h = 148 * sc;
         const w = burnerImg.width * (h / burnerImg.height);
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.54)';
-        ctx.beginPath();
-        ctx.ellipse(dp.x, dp.y + 2, w * 0.44, 6, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.drawImage(burnerImg, dp.x - w * 0.5, dp.y - h + 4, w, h);
+        drawSoftGroundShadow(ctx, dp.x, dp.y + 2, w * 0.54, 7.5, 0.58);
+        const hm = getHarmonizedSprite('prop_incense_burner', burnerImg, room, 0.48);
+        ctx.drawImage(hm, dp.x - w * 0.5, dp.y - h + 4, w, h);
 
         // 仙鹤炉膛暖金火光 + 袅袅升腾的瑞脑金烟
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
         const ig = ctx.createRadialGradient(dp.x, dp.y - h * 0.52, 4, dp.x, dp.y - h * 0.52, 105);
-        ig.addColorStop(0, 'rgba(251, 191, 36, 0.28)');
-        ig.addColorStop(0.55, 'rgba(245, 158, 11, 0.09)');
+        ig.addColorStop(0, 'rgba(251, 191, 36, 0.24)');
+        ig.addColorStop(0.55, 'rgba(245, 158, 11, 0.08)');
         ig.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = ig;
         ctx.beginPath();
@@ -1319,7 +1432,7 @@ export function drawCastleInteriorPropsAndGears(
           const rise = ((t * 22 + k * 28) % 84);
           const sx = dp.x + Math.sin(t * 2.2 + k * 1.7 + rise * 0.05) * (6 + rise * 0.12);
           const sy = dp.y - h * 0.72 - rise;
-          const a = (1 - rise / 84) * 0.22;
+          const a = (1 - rise / 84) * 0.18;
           ctx.fillStyle = `rgba(253, 230, 138, ${a})`;
           ctx.beginPath();
           ctx.arc(sx, sy, 4 + rise * 0.08, 0, Math.PI * 2);
@@ -1327,43 +1440,41 @@ export function drawCastleInteriorPropsAndGears(
         }
         ctx.restore();
       } else if (dp.kind === 'dragon_brazier' && brazierImg) {
-        const h = 128 * sc;
+        const h = 124 * sc;
         const w = brazierImg.width * (h / brazierImg.height);
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
-        ctx.beginPath();
-        ctx.ellipse(dp.x, dp.y + 2, w * 0.45, 6, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.drawImage(brazierImg, dp.x - w * 0.5, dp.y - h + 4, w, h);
+        drawSoftGroundShadow(ctx, dp.x, dp.y + 2, w * 0.56, 7.5, 0.6);
+        const hm = getHarmonizedSprite('prop_dragon_brazier', brazierImg, room, 0.44);
+        ctx.drawImage(hm, dp.x - w * 0.5, dp.y - h + 4, w, h);
 
-        // 熊熊跃动的赤金火盆暖光池（彻底驱散冰冷感！）
-        const flick = Math.sin(t * 11 + dp.x * 0.1) * 8;
+        // 熊熊跃动的赤金炭火暖光池
+        const flick = Math.sin(t * 11 + dp.x * 0.1) * 7;
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
         const fg = ctx.createRadialGradient(
           dp.x,
-          dp.y - h * 0.68,
+          dp.y - h * 0.64,
           6,
           dp.x,
-          dp.y - h * 0.55,
-          158 + flick
+          dp.y - h * 0.54,
+          152 + flick
         );
-        fg.addColorStop(0, 'rgba(254, 240, 138, 0.38)');
-        fg.addColorStop(0.42, 'rgba(249, 115, 22, 0.19)');
-        fg.addColorStop(0.75, 'rgba(220, 38, 38, 0.07)');
+        fg.addColorStop(0, 'rgba(254, 215, 130, 0.32)');
+        fg.addColorStop(0.42, 'rgba(249, 115, 22, 0.16)');
+        fg.addColorStop(0.75, 'rgba(220, 38, 38, 0.06)');
         fg.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = fg;
         ctx.beginPath();
-        ctx.arc(dp.x, dp.y - h * 0.55, 164, 0, Math.PI * 2);
+        ctx.arc(dp.x, dp.y - h * 0.54, 160, 0, Math.PI * 2);
         ctx.fill();
 
         // 升腾的赤金火星微粒
         for (let sp = 0; sp < 3; sp++) {
           const prog = ((t * 36 + sp * 24 + dp.x) % 72) / 72;
           const sx = dp.x + Math.sin(t * 4 + sp * 2.1) * 14 * prog;
-          const sy = dp.y - h * 0.78 - prog * 68;
-          ctx.fillStyle = `rgba(253, 224, 71, ${(1 - prog) * 0.75})`;
+          const sy = dp.y - h * 0.76 - prog * 64;
+          ctx.fillStyle = `rgba(253, 224, 71, ${(1 - prog) * 0.7})`;
           ctx.beginPath();
-          ctx.arc(sx, sy, 1.8 * (1 - prog * 0.4), 0, Math.PI * 2);
+          ctx.arc(sx, sy, 1.7 * (1 - prog * 0.4), 0, Math.PI * 2);
           ctx.fill();
         }
         ctx.restore();
@@ -1373,15 +1484,16 @@ export function drawCastleInteriorPropsAndGears(
         const w = chanImg.width * (h / chanImg.height);
         const ceilY = sampleCeilingY(room, dp.x, false);
         const hangY = room.indoor && ceilY > 0 ? ceilY - 4 : dp.y;
+        const hm = getHarmonizedSprite('prop_chandelier', chanImg, room, 0.18);
         ctx.save();
         ctx.translate(dp.x, hangY);
         ctx.rotate(sway);
-        ctx.drawImage(chanImg, -w * 0.5, 0, w, h);
+        ctx.drawImage(hm, -w * 0.5, 0, w, h);
 
         ctx.globalCompositeOperation = 'lighter';
         const cg = ctx.createRadialGradient(0, h * 0.72, 4, 0, h * 0.72, 135);
-        cg.addColorStop(0, 'rgba(251, 191, 36, 0.32)');
-        cg.addColorStop(0.55, 'rgba(245, 158, 11, 0.11)');
+        cg.addColorStop(0, 'rgba(251, 191, 36, 0.28)');
+        cg.addColorStop(0.55, 'rgba(245, 158, 11, 0.1)');
         cg.addColorStop(1, 'rgba(251, 191, 36, 0)');
         ctx.fillStyle = cg;
         ctx.beginPath();
@@ -1409,7 +1521,6 @@ export function drawCastleInteriorPropsAndGears(
         const bx = mp.x2 + mp.w * 0.5;
         const by = mp.y2 + 6;
 
-        // 水平摆渡/滑轨两端由顶棚垂下玄铁吊杆锚定，竖向升降机由顶梁滑轮悬索牵引
         if (chainImg && room.indoor) {
           const ceilA = Math.max(28, sampleCeilingY(room, ax, false));
           const ceilB = Math.max(28, sampleCeilingY(room, bx, false));
@@ -1444,7 +1555,6 @@ export function drawCastleInteriorPropsAndGears(
 
     if (gearImg && room.clockGears) {
       for (const g of room.clockGears) {
-        // 齿轮中心轴座向上连接顶棚玄铁吊架，避免齿轮凭空漂浮在背景上
         if (chainImg && room.indoor) {
           const ceilG = Math.max(28, sampleCeilingY(room, g.x, false));
           if (g.y - ceilG > 24 && g.y - ceilG <= 440) {
@@ -1470,7 +1580,6 @@ export function drawCastleInteriorPropsAndGears(
           ctx.drawImage(src, 12, sy, src.width - 24, sh, op.x, op.y - 4, op.w, 22);
         }
       } else {
-        // 竖向青铜升降机实时绘制紧绷的牵引铁链
         if (op.style === 'bronze_lift' && chainImg && room.indoor) {
           const cx = op.x + op.w * 0.5;
           const ceilY = Math.max(28, sampleCeilingY(room, cx, false));
@@ -1480,9 +1589,10 @@ export function drawCastleInteriorPropsAndGears(
         }
 
         if (isStoneDungeon && stoneLedgeImg) {
+          const hm = getHarmonizedSprite('env_stone_ledge', stoneLedgeImg, room, 0.28);
           drawThreeSlicePlatform(
             ctx,
-            stoneLedgeImg,
+            hm,
             0,
             stoneLedgeImg.height,
             op.x - 6,
@@ -1494,11 +1604,17 @@ export function drawCastleInteriorPropsAndGears(
         } else {
           const deckImg = op.style === 'wood_ferry' ? pavImg : ledgeImg;
           if (deckImg) {
+            const hm = getHarmonizedSprite(
+              deckImg === pavImg ? 'env_pavilion' : 'env_indoor_ledge',
+              deckImg,
+              room,
+              0.26
+            );
             const srcH = deckImg === pavImg ? Math.floor(deckImg.height * 0.72) : deckImg.height;
             const topAlign = deckImg === ledgeImg ? 0.38 : 0.56;
             drawThreeSlicePlatform(
               ctx,
-              deckImg,
+              hm,
               0,
               srcH,
               op.x - 6,
@@ -1515,8 +1631,8 @@ export function drawCastleInteriorPropsAndGears(
 }
 
 /**
- * 绘制平台：分区域匹配青苔雕石悬台 `env_stone_ledge` 或雕栏红木飞阁 `env_indoor_ledge` / `env_pavilion`
- * （采用九宫格三段式等比例拼接，彻底杜绝窄台挤扁与宽台硬切！）
+ * 绘制平台：分区域匹配青苔雕石悬台 `env_stone_ledge`、室内雕栏红木飞阁 `env_indoor_ledge` 或室外飞檐游廊 `env_pavilion`
+ * （统一注入同源环境光染色，室内大殿 100% 采用檀木飞阁，彻底消除异质贴图感！）
  */
 export function drawOrthographicPavilion(
   ctx: CanvasRenderingContext2D,
@@ -1534,29 +1650,39 @@ export function drawOrthographicPavilion(
 
   // 竖井井口平齐踏板（严丝合缝嵌平井沿）
   if (!hasPillars && Math.abs(y - groundHere) < 18) {
-    const src = (isStoneDungeon ? stoneLedgeImg : indoorImg) || indoorImg || pvImg;
-    if (src) {
-      const sy = Math.floor(src.height * (src === stoneLedgeImg ? 0.28 : 0.38));
-      const sh = Math.floor(src.height * 0.16);
-      drawThreeSlicePlatform(ctx, src, sy, sh, x, y, w, 14, 0.12);
+    const rawSrc = (isStoneDungeon ? stoneLedgeImg : indoorImg) || indoorImg || pvImg;
+    if (rawSrc) {
+      const hm = getHarmonizedSprite(
+        rawSrc === stoneLedgeImg ? 'env_stone_ledge' : 'env_indoor_ledge',
+        rawSrc,
+        room,
+        0.22
+      );
+      const sy = Math.floor(rawSrc.height * (rawSrc === stoneLedgeImg ? 0.28 : 0.38));
+      const sh = Math.floor(rawSrc.height * 0.16);
+      drawThreeSlicePlatform(ctx, hm, sy, sh, x, y, w, 14, 0.12);
     }
     return;
   }
 
   // 地宫 / 水牢 / 熔炉：统一使用三段式等比例青苔雕纹石台！
   if (isStoneDungeon && stoneLedgeImg) {
-    drawThreeSlicePlatform(ctx, stoneLedgeImg, 0, stoneLedgeImg.height, x - 6, y, w + 12, 70, 0.34);
+    const hm = getHarmonizedSprite('env_stone_ledge', stoneLedgeImg, room, 0.28);
+    drawThreeSlicePlatform(ctx, hm, 0, stoneLedgeImg.height, x - 6, y, w + 12, 70, 0.34);
     return;
   }
 
-  if (room.indoor && !hasPillars && indoorImg) {
-    drawThreeSlicePlatform(ctx, indoorImg, 0, indoorImg.height, x - 5, y, w + 10, 72, 0.38);
+  // 所有非地宫室内大殿（无论是否带立柱）：统一使用朱檀雕栏阁台 `env_indoor_ledge`，绝不混入室外青石绿亭！
+  if (room.indoor && indoorImg) {
+    const hm = getHarmonizedSprite('env_indoor_ledge', indoorImg, room, 0.28);
+    drawThreeSlicePlatform(ctx, hm, 0, indoorImg.height, x - 5, y, w + 10, 72, 0.38);
     return;
   }
 
   if (!pvImg) return;
+  const hm = getHarmonizedSprite('env_pavilion', pvImg, room, 0.28);
   const srcH = Math.floor(pvImg.height * 0.72);
-  drawThreeSlicePlatform(ctx, pvImg, 0, srcH, x - 8, y, w + 16, 78, 0.56);
+  drawThreeSlicePlatform(ctx, hm, 0, srcH, x - 8, y, w + 16, 78, 0.56);
 }
 
 export function drawOrthographicStoneArchway(
@@ -1564,30 +1690,29 @@ export function drawOrthographicStoneArchway(
   cx: number,
   groundY: number,
   _title: string | undefined,
-  _t: number
+  _t: number,
+  room?: BuiltRoom
 ): void {
   const archImg = Assets.get('prop_stone_arch');
   if (!archImg) return;
   const h = 248;
   const w = archImg.width * (h / archImg.height);
 
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.56)';
-  ctx.beginPath();
-  ctx.ellipse(cx, groundY + 2, w * 0.46, 7, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.drawImage(archImg, cx - w * 0.5, groundY - h + 6, w, h);
+  drawSoftGroundShadow(ctx, cx, groundY + 3, w * 0.52, 8.5, 0.6);
+  const hm = getHarmonizedSprite('prop_stone_arch', archImg, room, 0.52);
+  ctx.drawImage(hm, cx - w * 0.5, groundY - h + 6, w, h);
 }
 
 export function drawOrthographicSaveShrine(
   ctx: CanvasRenderingContext2D,
   cx: number,
   groundY: number,
-  _t: number
+  _t: number,
+  room?: BuiltRoom
 ): void {
   const halo = ctx.createRadialGradient(cx, groundY - 68, 10, cx, groundY - 68, 175);
-  halo.addColorStop(0, 'rgba(251, 191, 36, 0.4)');
-  halo.addColorStop(0.55, 'rgba(217, 119, 6, 0.14)');
+  halo.addColorStop(0, 'rgba(251, 191, 36, 0.34)');
+  halo.addColorStop(0.55, 'rgba(217, 119, 6, 0.12)');
   halo.addColorStop(1, 'rgba(0, 0, 0, 0)');
   ctx.fillStyle = halo;
   ctx.beginPath();
@@ -1599,12 +1724,9 @@ export function drawOrthographicSaveShrine(
   const sh = 168;
   const sw = shrineImg.width * (sh / shrineImg.height);
 
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.62)';
-  ctx.beginPath();
-  ctx.ellipse(cx, groundY + 3, sw * 0.5, 8, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.drawImage(shrineImg, cx - sw * 0.5, groundY - sh + 5, sw, sh);
+  drawSoftGroundShadow(ctx, cx, groundY + 3, sw * 0.56, 9, 0.64);
+  const hm = getHarmonizedSprite('prop_shrine', shrineImg, room, 0.48);
+  ctx.drawImage(hm, cx - sw * 0.5, groundY - sh + 5, sw, sh);
 }
 
 export function drawHangingSilkLantern(
@@ -1618,17 +1740,74 @@ export function drawHangingSilkLantern(
   const lanternImg = Assets.get('prop_lantern');
   if (!lanternImg) return;
 
-  // 为高空红绸宫灯补齐顶棚吊链或室外高杆灯柱，消灭半空无根漂浮感！
+  // 1) 室内藻井吊链 或 室外古法挑臂木灯杆 / 飞檐夜雾悬索（彻底杜绝将宫殿红柱压扁成 15px 牙签串灯笼！）
   if (room) {
     const chainImg = Assets.get('arch_iron_chain');
     const ceilY = sampleCeilingY(room, x, false);
     if (chainImg && ceilY > -20 && topAnchorY - ceilY <= 380) {
       drawSuspensionChain(ctx, chainImg, x, ceilY - 2, topAnchorY + 6, 12, 0.78);
     } else if (!room.indoor) {
-      const poleImg = Assets.get('arch_timber_pillar');
-      const baseY = sampleSupportBaseY(room, x, topAnchorY + 24);
-      if (poleImg && !isInsideDownShaft(room, x) && baseY - topAnchorY <= 290) {
-        drawSlicedColumn(ctx, poleImg, x, topAnchorY + 6, baseY, 15, 0.2, true);
+      const woodPoleImg = Assets.get('prop_wooden_lamp_pole');
+      const lampCenterY = topAnchorY + 26 * scale;
+      const baseY = sampleSupportBaseY(room, x, lampCenterY + 12);
+      const mainGroundY = sampleSolidGroundY(room, x);
+      const onMainGround = Math.abs(baseY - mainGroundY) < 6;
+      const distToBase = baseY - lampCenterY;
+      const onBridgeOrWater =
+        isArchBridgeSpanAt(room, x) ||
+        room.waterZones.some((wz) => x >= wz.x1 - 24 && x <= wz.x2 + 24);
+      const onElevatedBlockOrPavilion =
+        room.pavilions.some((pv) => x >= pv.x - 28 && x <= pv.x + pv.w + 28) ||
+        Boolean(room.solidBlocks?.some((sb) => x >= sb.x - 28 && x <= sb.x + sb.w + 28));
+      const groundFlat =
+        Math.abs(sampleSolidGroundY(room, x - 38) - sampleSolidGroundY(room, x + 38)) < 8;
+
+      if (
+        woodPoleImg &&
+        onMainGround &&
+        !isInsideDownShaft(room, x) &&
+        !onBridgeOrWater &&
+        !onElevatedBlockOrPavilion &&
+        groundFlat &&
+        distToBase >= 105 &&
+        distToBase <= 245
+      ) {
+        // 使用纯手绘挑臂木灯杆（夹杆石底座生根落地，龙头横挑红绸灯笼正对钩锁锚点！）
+        const postH = distToBase / 0.755;
+        const postW = postH * (woodPoleImg.width / woodPoleImg.height);
+        const faceLeft = x > room.pixelW * 0.55;
+        const poleShaftOffset = postW * (0.765 - 0.305);
+        const shaftGroundX = faceLeft ? x + poleShaftOffset : x - poleShaftOffset;
+
+        drawSoftGroundShadow(ctx, shaftGroundX, baseY + 2, postW * 0.38, 6.5, 0.58);
+        const hmPole = getHarmonizedSprite('prop_wooden_lamp_pole', woodPoleImg, room, 0.46);
+        ctx.save();
+        if (faceLeft) {
+          ctx.translate(x + postW * 0.765, baseY - postH + 4);
+          ctx.scale(-1, 1);
+          ctx.drawImage(hmPole, 0, 0, postW, postH);
+        } else {
+          ctx.drawImage(hmPole, x - postW * 0.765, baseY - postH + 4, postW, postH);
+        }
+        ctx.restore();
+        return;
+      }
+
+      // 超高飞燕钩锁宫灯或拱桥/深涧上空悬灯：以水墨细索向上隐入夜幕竹梢/飞檐，绝不在桥栏上插石柱！
+      const cordTop = Math.max(0, topAnchorY - 125);
+      if (topAnchorY - cordTop > 14) {
+        ctx.save();
+        const cg = ctx.createLinearGradient(x, cordTop, x, topAnchorY + 4);
+        cg.addColorStop(0, 'rgba(10, 15, 24, 0)');
+        cg.addColorStop(0.45, 'rgba(15, 21, 32, 0.55)');
+        cg.addColorStop(1, 'rgba(24, 30, 42, 0.88)');
+        ctx.strokeStyle = cg;
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.moveTo(x, cordTop);
+        ctx.lineTo(x, topAnchorY + 4);
+        ctx.stroke();
+        ctx.restore();
       }
     }
   }
@@ -1663,23 +1842,21 @@ export function drawOrthographicLanternPost(
     if (useUrn && urnImg) {
       const h = 56;
       const w = urnImg.width * (h / urnImg.height);
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.54)';
-      ctx.beginPath();
-      ctx.ellipse(x, groundY + 2, w * 0.44, 5, 0, 0, Math.PI * 2);
-      ctx.fill();
+      drawSoftGroundShadow(ctx, x, groundY + 2, w * 0.52, 5.8, 0.56);
 
-      ctx.drawImage(urnImg, x - w * 0.5, groundY - h + 3, w, h);
+      const hmUrn = getHarmonizedSprite('prop_breakable_urn', urnImg, room, 0.46);
+      ctx.drawImage(hmUrn, x - w * 0.5, groundY - h + 3, w, h);
 
       const flick = Math.sin(t * 11 + x) * 3;
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      const cg = ctx.createRadialGradient(x + w * 0.28, groundY - h * 0.65, 2, x + w * 0.28, groundY - h * 0.65, 68 + flick);
-      cg.addColorStop(0, 'rgba(254, 240, 138, 0.38)');
-      cg.addColorStop(0.55, 'rgba(251, 146, 60, 0.14)');
+      const cg = ctx.createRadialGradient(x + w * 0.28, groundY - h * 0.65, 2, x + w * 0.28, groundY - h * 0.65, 66 + flick);
+      cg.addColorStop(0, 'rgba(254, 240, 138, 0.32)');
+      cg.addColorStop(0.55, 'rgba(251, 146, 60, 0.12)');
       cg.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = cg;
       ctx.beginPath();
-      ctx.arc(x + w * 0.28, groundY - h * 0.65, 70, 0, Math.PI * 2);
+      ctx.arc(x + w * 0.28, groundY - h * 0.65, 68, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
       return;
@@ -1688,23 +1865,21 @@ export function drawOrthographicLanternPost(
     if (stonePostImg) {
       const h = 112;
       const w = stonePostImg.width * (h / stonePostImg.height);
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.56)';
-      ctx.beginPath();
-      ctx.ellipse(x, groundY + 2, w * 0.42, 5.5, 0, 0, Math.PI * 2);
-      ctx.fill();
+      drawSoftGroundShadow(ctx, x, groundY + 2, w * 0.5, 6.2, 0.58);
 
-      ctx.drawImage(stonePostImg, x - w * 0.5, groundY - h + 3, w, h);
+      const hmPost = getHarmonizedSprite('prop_stone_lantern_post', stonePostImg, room, 0.48);
+      ctx.drawImage(hmPost, x - w * 0.5, groundY - h + 3, w, h);
 
       const flick = Math.sin(t * 9 + x) * 4;
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      const lg = ctx.createRadialGradient(x, groundY - h * 0.68, 3, x, groundY - h * 0.68, 105 + flick);
-      lg.addColorStop(0, 'rgba(254, 215, 170, 0.36)');
-      lg.addColorStop(0.55, 'rgba(234, 88, 12, 0.13)');
+      const lg = ctx.createRadialGradient(x, groundY - h * 0.68, 3, x, groundY - h * 0.68, 102 + flick);
+      lg.addColorStop(0, 'rgba(254, 215, 170, 0.3)');
+      lg.addColorStop(0.55, 'rgba(234, 88, 12, 0.11)');
       lg.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = lg;
       ctx.beginPath();
-      ctx.arc(x, groundY - h * 0.68, 108, 0, Math.PI * 2);
+      ctx.arc(x, groundY - h * 0.68, 106, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
       return;
@@ -1713,13 +1888,13 @@ export function drawOrthographicLanternPost(
 
   // 高处悬吊宫灯：补齐顶棚吊索连接
   const flick = Math.sin(t * 9 + x) * 4;
-  const g = ctx.createRadialGradient(x, lampY + 18, 3, x, lampY + 18, 122 + flick);
-  g.addColorStop(0, 'rgba(251, 146, 60, 0.36)');
-  g.addColorStop(0.55, 'rgba(220, 38, 38, 0.12)');
+  const g = ctx.createRadialGradient(x, lampY + 18, 3, x, lampY + 18, 118 + flick);
+  g.addColorStop(0, 'rgba(251, 146, 60, 0.3)');
+  g.addColorStop(0.55, 'rgba(220, 38, 38, 0.1)');
   g.addColorStop(1, 'rgba(0, 0, 0, 0)');
   ctx.fillStyle = g;
   ctx.beginPath();
-  ctx.arc(x, lampY + 18, 126, 0, Math.PI * 2);
+  ctx.arc(x, lampY + 18, 122, 0, Math.PI * 2);
   ctx.fill();
 
   drawHangingSilkLantern(ctx, x, lampY - 8, t, 0.94, room);

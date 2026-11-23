@@ -3,7 +3,7 @@ import { SceneNpc } from '../data/worldMap';
 import { WeaponArchetype, WeaponDef } from '../types';
 import { AssetKey, Assets } from './AssetLoader';
 import { ActiveSkillAnim, ActiveSlash, EnemyEntity, GameEngine, WorldDrop } from './GameEngine';
-import { drawCelShadedWeapon } from './GuofengWorldArt';
+import { drawCelShadedWeapon, drawSoftGroundShadow } from './GuofengWorldArt';
 import {
   buildEntitySpineJoints,
   drawSkinnedSpineSprite,
@@ -796,12 +796,9 @@ export function renderModularLiYichengRig(
     });
   }
 
-  // 接地浓墨阴影
+  // 羽化浓墨接地软阴影
   if (opts.onGround) {
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.52)';
-    ctx.beginPath();
-    ctx.ellipse(0, 2, 24, 5.5, 0, 0, Math.PI * 2);
-    ctx.fill();
+    drawSoftGroundShadow(ctx, 0, 2, 28, 6.5, 0.54);
   }
 
   // 踏云步二段跳：凌空翻身旋跃特效
@@ -1155,18 +1152,12 @@ export function drawMonsterOrBoss(
   ctx.translate(e.x + joltX, e.y);
 
   if (!e.profile.flying) {
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.54)';
-    ctx.beginPath();
-    ctx.ellipse(0, 2, w * 0.65, 5.8, 0, 0, Math.PI * 2);
-    ctx.fill();
+    drawSoftGroundShadow(ctx, 0, 2, w * 0.76, 6.8, 0.56);
   }
 
   // 破土阴兵钻出地面时的翻卷泥石土堆遮罩
   if (emergeProg > 0) {
-    ctx.fillStyle = '#1c1917';
-    ctx.beginPath();
-    ctx.ellipse(0, 2, w * 0.78, 7, 0, 0, Math.PI * 2);
-    ctx.fill();
+    drawSoftGroundShadow(ctx, 0, 2, w * 0.92, 8.5, 0.78);
     ctx.beginPath();
     ctx.rect(-120, -220, 240, 223);
     ctx.clip();
@@ -1712,11 +1703,8 @@ export function drawSceneNpc(
     ctx.restore();
   }
 
-  // 人物脚下接触浓墨接地影
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.54)';
-  ctx.beginPath();
-  ctx.ellipse(0, 2, 22, 5.2, 0, 0, Math.PI * 2);
-  ctx.fill();
+  // 人物脚下羽化浓墨接地软影
+  drawSoftGroundShadow(ctx, 0, 2, 26, 6.2, 0.56);
 
   // 2. 选择手绘全身序列帧并呼吸微动
   let frameKey: AssetKey = 'npc_su_0';
@@ -1800,11 +1788,8 @@ export function drawWorldDrop(
   const inAir = Math.abs(d.vy) > 16;
   const spin = d.spinAngle || 0;
 
-  // 紧凑贴地阴影
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.52)';
-  ctx.beginPath();
-  ctx.ellipse(0, 2, d.kind === 'ability' ? 18 : 12, 3.8, 0, 0, Math.PI * 2);
-  ctx.fill();
+  // 紧凑羽化贴地软阴影
+  drawSoftGroundShadow(ctx, 0, 2, d.kind === 'ability' ? 22 : 14, 4.5, 0.52);
 
   const wpnDef = d.kind === 'weapon' && !d.itemId.startsWith('sub:') ? WEAPONS[d.itemId] : undefined;
   const auraHex = wpnDef
