@@ -7,7 +7,7 @@ import {
   sampleSolidGroundY,
 } from '../data/worldMap';
 import { WeaponArchetype } from '../types';
-import { AssetKey, Assets } from './AssetLoader';
+import { AssetKey, Assets, resolveWeaponAssetKey } from './AssetLoader';
 
 /**
  * 100% AI 手绘国风重彩立体场景渲染引擎（八大主题画卷 + 厚重须弥城砖地基 + 暖色盘龙火盆光影 + 多层门廊竖塔！）
@@ -19,63 +19,27 @@ export function drawCelShadedWeapon(
   weaponId = 'sword_0',
   lengthPx = 88
 ): void {
-  const isTier4 = weaponId.endsWith('_3') || weaponId === 'sword_phantom' || weaponId === 'spear_thunder' || weaponId === 'daggers_phantom';
-  const isTier3 =
-    weaponId.endsWith('_2') ||
-    weaponId === 'sword_frost' ||
-    weaponId === 'sword_blood' ||
-    weaponId === 'greatsword_sunder' ||
-    weaponId === 'daggers_poison' ||
-    weaponId === 'whip_fire';
-
-  if (archetype === 'daggers') {
-    const len = lengthPx * 0.48;
-    ctx.save();
-    ctx.fillStyle = '#3f2e21';
-    ctx.strokeStyle = '#090d16';
-    ctx.lineWidth = 1.3;
-    ctx.fillRect(-10, -2.5, 10, 5);
-    ctx.strokeRect(-10, -2.5, 10, 5);
-    ctx.fillStyle = isTier4 ? '#f43f5e' : isTier3 ? '#8b5cf6' : '#94a3b8';
-    ctx.beginPath();
-    ctx.moveTo(0, -3.5);
-    ctx.quadraticCurveTo(len * 0.55, -6.5, len, -4.5);
-    ctx.quadraticCurveTo(len * 0.65, 4.2, 0, 3.2);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-    ctx.restore();
-    return;
-  }
-
-  let key: AssetKey = 'part_wpn_sword';
-  if (archetype === 'greatsword') key = 'part_wpn_modao';
-  else if (archetype === 'spear') key = 'part_wpn_spear';
-  else if (archetype === 'whip') key = 'part_wpn_whip';
-
+  const key = resolveWeaponAssetKey(archetype, weaponId);
   const img = Assets.get(key);
   if (!img) return;
+
   if (archetype === 'whip') {
-    const dim = lengthPx * 0.5;
+    const dim = lengthPx * 0.56;
     const w = dim * (img.width / img.height);
     ctx.drawImage(img, -w * 0.5, -dim * 0.5, w, dim);
     return;
   }
+
+  if (archetype === 'daggers') {
+    const dim = lengthPx * 0.62;
+    const w = dim * (img.width / img.height);
+    ctx.drawImage(img, -w * 0.5, -dim * 0.5, w, dim);
+    return;
+  }
+
   const w = archetype === 'spear' ? lengthPx * 1.18 : lengthPx;
   const h = w * (img.height / img.width);
   ctx.drawImage(img, -w * 0.24, -h * 0.5, w, h);
-
-  if (isTier3 || isTier4) {
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.strokeStyle = isTier4 ? 'rgba(253, 224, 71, 0.72)' : 'rgba(56, 189, 248, 0.65)';
-    ctx.lineWidth = archetype === 'greatsword' ? 3 : 1.8;
-    ctx.beginPath();
-    ctx.moveTo(w * 0.08, 0);
-    ctx.lineTo(w * 0.68, 0);
-    ctx.stroke();
-    ctx.restore();
-  }
 }
 
 /**
@@ -1198,8 +1162,14 @@ export function bakeOrthographicRoomTerrain(
       bctx.fillStyle = dg;
       bctx.fillRect(side === 'left' ? 0 : room.pixelW - 76, doorTop, 76, 132);
 
-      // 嵌装手绘穿堂石券门楼框 (`arch_side_doorframe` 原图贴右壁，左壁水平镜像贴合！)
-      if (doorFrameImg && (room.indoor || room.gridH > 1)) {
+      // 嵌装手绘穿堂石券门楼框：
+      // 1) 破壁密室暗门 (`d.secretWallId`) 交由 `prop_secret_arch` 独立绘制，绝不叠画两层门贴图；
+      // 2) 露天双层广场 (`!room.indoor && room.gridH > 1`) 底层街道豁口敞开通透，仅在室内或二层城垣门洞嵌装门框！
+      const shouldDrawDoorFrame =
+        Boolean(doorFrameImg) &&
+        !d.secretWallId &&
+        (room.indoor || (room.gridH > 1 && d.floorY < groundAtSide - 80));
+      if (shouldDrawDoorFrame && doorFrameImg) {
         const dfH = 162;
         const dfW = doorFrameImg.width * (dfH / doorFrameImg.height);
         bctx.save();

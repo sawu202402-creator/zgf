@@ -73,6 +73,28 @@ export type AssetKey =
   | 'part_wpn_spear'
   | 'part_wpn_daggers'
   | 'part_wpn_whip'
+  | 'wpn_sword_0'
+  | 'wpn_sword_1'
+  | 'wpn_sword_2'
+  | 'wpn_sword_3'
+  | 'wpn_sword_frost'
+  | 'wpn_sword_blood'
+  | 'wpn_sword_phantom'
+  | 'wpn_greatsword_1'
+  | 'wpn_greatsword_2'
+  | 'wpn_greatsword_sunder'
+  | 'wpn_greatsword_3'
+  | 'wpn_spear_1'
+  | 'wpn_spear_2'
+  | 'wpn_spear_thunder'
+  | 'wpn_spear_3'
+  | 'wpn_daggers_1'
+  | 'wpn_daggers_poison'
+  | 'wpn_daggers_2'
+  | 'wpn_daggers_3'
+  | 'wpn_whip_1'
+  | 'wpn_whip_2'
+  | 'wpn_whip_3'
   | 'item_relic_pedestal'
   | 'bust_liyicheng'
   | 'bust_su_qingyan'
@@ -119,7 +141,7 @@ export type AssetKey =
   | 'mob_gargoyle'
   | 'mob_zombie'
   | 'mob_warg'
-  | 'mob_bat'
+  | 'mob_crow'
   | 'mob_bone_archer'
   | 'boss_ik_0'
   | 'boss_ik_1'
@@ -138,7 +160,7 @@ export type AssetKey =
   | 'boss_op_0'
   | 'boss_op_1';
 
-const ASSET_VERSION = 'painted_v17';
+const ASSET_VERSION = 'painted_v18';
 
 const ASSET_FILES: Record<AssetKey, string> = {
   bg_title: './assets/bg_title.webp',
@@ -215,6 +237,28 @@ const ASSET_FILES: Record<AssetKey, string> = {
   part_wpn_spear: './assets/part_wpn_spear.webp',
   part_wpn_daggers: './assets/part_wpn_daggers.webp',
   part_wpn_whip: './assets/part_wpn_whip.webp',
+  wpn_sword_0: './assets/wpn_sword_0.webp',
+  wpn_sword_1: './assets/wpn_sword_1.webp',
+  wpn_sword_2: './assets/wpn_sword_2.webp',
+  wpn_sword_3: './assets/wpn_sword_3.webp',
+  wpn_sword_frost: './assets/wpn_sword_frost.webp',
+  wpn_sword_blood: './assets/wpn_sword_blood.webp',
+  wpn_sword_phantom: './assets/wpn_sword_phantom.webp',
+  wpn_greatsword_1: './assets/wpn_greatsword_1.webp',
+  wpn_greatsword_2: './assets/wpn_greatsword_2.webp',
+  wpn_greatsword_sunder: './assets/wpn_greatsword_sunder.webp',
+  wpn_greatsword_3: './assets/wpn_greatsword_3.webp',
+  wpn_spear_1: './assets/wpn_spear_1.webp',
+  wpn_spear_2: './assets/wpn_spear_2.webp',
+  wpn_spear_thunder: './assets/wpn_spear_thunder.webp',
+  wpn_spear_3: './assets/wpn_spear_3.webp',
+  wpn_daggers_1: './assets/wpn_daggers_1.webp',
+  wpn_daggers_poison: './assets/wpn_daggers_poison.webp',
+  wpn_daggers_2: './assets/wpn_daggers_2.webp',
+  wpn_daggers_3: './assets/wpn_daggers_3.webp',
+  wpn_whip_1: './assets/wpn_whip_1.webp',
+  wpn_whip_2: './assets/wpn_whip_2.webp',
+  wpn_whip_3: './assets/wpn_whip_3.webp',
   item_relic_pedestal: './assets/item_relic_pedestal.webp',
   bust_liyicheng: './assets/bust_liyicheng.webp',
   bust_su_qingyan: './assets/bust_su_qingyan.webp',
@@ -261,7 +305,7 @@ const ASSET_FILES: Record<AssetKey, string> = {
   mob_gargoyle: './assets/mob_gargoyle.webp',
   mob_zombie: './assets/mob_zombie.webp',
   mob_warg: './assets/mob_warg.webp',
-  mob_bat: './assets/mob_bat.webp',
+  mob_crow: './assets/mob_crow.webp',
   mob_bone_archer: './assets/mob_bone_archer.webp',
   boss_ik_0: './assets/boss_ik_0.webp',
   boss_ik_1: './assets/boss_ik_1.webp',
@@ -370,3 +414,42 @@ class GameAssetRegistry {
 }
 
 export const Assets = new GameAssetRegistry();
+
+const UNIQUE_WEAPON_ASSET_MAP: Record<string, AssetKey> = {
+  sword_0: 'wpn_sword_0',
+  sword_1: 'wpn_sword_1',
+  sword_2: 'wpn_sword_2',
+  sword_3: 'wpn_sword_3',
+  sword_frost: 'wpn_sword_frost',
+  sword_blood: 'wpn_sword_blood',
+  sword_phantom: 'wpn_sword_phantom',
+  greatsword_1: 'wpn_greatsword_1',
+  greatsword_2: 'wpn_greatsword_2',
+  greatsword_sunder: 'wpn_greatsword_sunder',
+  greatsword_3: 'wpn_greatsword_3',
+  spear_1: 'wpn_spear_1',
+  spear_2: 'wpn_spear_2',
+  spear_thunder: 'wpn_spear_thunder',
+  spear_3: 'wpn_spear_3',
+  daggers_1: 'wpn_daggers_1',
+  daggers_poison: 'wpn_daggers_poison',
+  daggers_2: 'wpn_daggers_2',
+  daggers_3: 'wpn_daggers_3',
+  whip_1: 'wpn_whip_1',
+  whip_2: 'wpn_whip_2',
+  whip_3: 'wpn_whip_3',
+};
+
+export function resolveWeaponAssetKey(
+  archetype: 'sword' | 'greatsword' | 'spear' | 'daggers' | 'whip',
+  weaponId?: string
+): AssetKey {
+  if (weaponId && UNIQUE_WEAPON_ASSET_MAP[weaponId]) {
+    return UNIQUE_WEAPON_ASSET_MAP[weaponId];
+  }
+  if (archetype === 'greatsword') return 'wpn_greatsword_1';
+  if (archetype === 'spear') return 'wpn_spear_1';
+  if (archetype === 'daggers') return 'wpn_daggers_1';
+  if (archetype === 'whip') return 'wpn_whip_1';
+  return 'wpn_sword_0';
+}

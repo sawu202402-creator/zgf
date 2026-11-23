@@ -499,18 +499,13 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'dragon_brazier', x: 105, y: 404, scale: 0.9 },
         { kind: 'dragon_brazier', x: 1265, y: 404, scale: 0.9 },
       ],
-      pavilions: [{ x: 1180, y: 318, w: 220, hasPillars: true }],
-      archways: [{ x: 1475, title: '正阳皇城门' }],
+      pavilions: [],
+      archways: [],
       torches: [
-        { x: 1155, y: 332 },
-        { x: 1375, y: 332 },
+        { x: 1185, y: 332 },
       ],
-      foregrounds: [{ x: 240, kind: 'hanging_lantern', parallax: 1.2 }],
-      lanterns: [
-        { x: 225, y: 242 },
-        { x: 560, y: 212 },
-        { x: 920, y: 212 },
-      ],
+      foregrounds: [],
+      lanterns: [],
       npcs: [
         {
           id: 'su_qingyan',
@@ -522,7 +517,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       spawns: [
         { kind: 'paper_swordsman', x: 680 },
-        { kind: 'blood_bat', x: 880, y: 205 },
+        { kind: 'spirit_crow', x: 880, y: 205 },
         { kind: 'bone_archer', x: 1185, y: 404 },
         { kind: 'paper_swordsman', x: 1380 },
       ],
@@ -659,10 +654,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 635, y: 384, style: 'marble' },
         { x: 800, y: 384, style: 'marble' },
       ],
-      solidBlocks: [
-        { x: 65, y: 278, w: 140, h: 28 },
-        { x: 595, y: 278, w: 140, h: 28 },
-      ],
+      solidBlocks: [],
       ceilingSpans: [{ x1: 0, x2: 800, bottomY: 36, style: 'palace_timber' }],
       shafts: [],
       decorProps: [
@@ -673,14 +665,11 @@ function createNormalCastleRooms(): BuiltRoom[] {
       pavilions: [],
       archways: [],
       torches: [
-        { x: 250, y: 286 },
-        { x: 550, y: 286 },
+        { x: 205, y: 312 },
+        { x: 595, y: 312 },
       ],
       foregrounds: [],
-      lanterns: [
-        { x: 135, y: 210 },
-        { x: 665, y: 210 },
-      ],
+      lanterns: [],
       npcs: [],
       spawns: [],
       pickups: [],
@@ -814,14 +803,11 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'dragon_brazier', x: 615, y: 354, scale: 0.9 },
       ],
       waterZones: [],
-      pavilions: [{ x: 440, y: 266, w: 210, hasPillars: true }],
+      pavilions: [],
       archways: [],
       torches: [{ x: 530, y: 288 }],
       foregrounds: [],
-      lanterns: [
-        { x: 250, y: 205 },
-        { x: 545, y: 196 },
-      ],
+      lanterns: [],
       npcs: [],
       spawns: [{ kind: 'bronze_guard', x: 510, y: 354 }],
       pickups: [
@@ -871,20 +857,14 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'silk_banner', x: 1340, y: 248, scale: 0.88 },
       ],
       waterZones: [],
-      pavilions: [
-        { x: 560, y: 318, w: 175, hasPillars: false },
-        { x: 1055, y: 318, w: 175, hasPillars: false },
-      ],
+      pavilions: [],
       archways: [],
       torches: [
         { x: 160, y: 326 },
         { x: 1350, y: 326 },
       ],
       foregrounds: [],
-      lanterns: [
-        { x: 740, y: 205 },
-        { x: 1060, y: 205 },
-      ],
+      lanterns: [],
       npcs: [],
       spawns: [],
       pickups: [],
@@ -966,8 +946,6 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       solidBlocks: [
         { x: 270, y: 320, w: 220, h: 36 },
-        { x: 75, y: 214, w: 175, h: 28 },
-        { x: 540, y: 214, w: 175, h: 28 },
       ],
       ceilingSpans: [{ x1: 0, x2: 800, bottomY: 36, style: 'palace_timber' }],
       shafts: [],
@@ -983,10 +961,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 560, y: 316 },
       ],
       foregrounds: [],
-      lanterns: [
-        { x: 160, y: 155 },
-        { x: 625, y: 155 },
-      ],
+      lanterns: [],
       npcs: [],
       spawns: [],
       pickups: [{ id: 'pk_relic_djump', kind: 'ability', itemId: 'double_jump', x: 380, y: 320 }],
@@ -1117,9 +1092,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 275, y: 144, w: 145, h: 28 },
         { x: 315, y: 76, w: 150, h: 26 },
       ],
-      clockGears: [
-        { x: 615, y: 245, radius: 64, speed: 0.55, hasOrbitPlatforms: true },
-      ],
+      clockGears: [],
       ceilingSpans: [
         { x1: 0, x2: 300, bottomY: 32, style: 'palace_timber' },
         { x1: 480, x2: 800, bottomY: 32, style: 'palace_timber' },
@@ -1137,7 +1110,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 735, y: 328 },
       ],
       foregrounds: [],
-      lanterns: [{ x: 615, y: 138 }],
+      lanterns: [],
       npcs: [],
       spawns: [],
       pickups: [],
@@ -1175,10 +1148,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 608, y: 408, style: 'marble' },
         { x: 800, y: 408, style: 'marble' },
       ],
-      solidBlocks: [
-        { x: 110, y: 288, w: 185, h: 32 },
-        { x: 520, y: 288, w: 185, h: 32 },
-      ],
+      solidBlocks: [],
       ceilingSpans: [{ x1: 0, x2: 800, bottomY: 34, style: 'crypt_vault' }],
       shafts: [],
       decorProps: [
@@ -1193,7 +1163,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 685, y: 340 },
       ],
       foregrounds: [],
-      lanterns: [{ x: 400, y: 205 }],
+      lanterns: [],
       npcs: [
         {
           id: 'ouye_can',
@@ -1443,7 +1413,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 260, y: 158, w: 150, h: 30 },
         { x: 320, y: 80, w: 155, h: 26 },
       ],
-      clockGears: [{ x: 635, y: 215, radius: 58, speed: -0.5, hasOrbitPlatforms: false }],
+      clockGears: [],
       ceilingSpans: [
         { x1: 0, x2: 310, bottomY: 32, style: 'crypt_vault' },
         { x1: 490, x2: 800, bottomY: 32, style: 'crypt_vault' },
@@ -1458,12 +1428,12 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 745, y: 340 },
       ],
       foregrounds: [],
-      lanterns: [{ x: 610, y: 248 }],
+      lanterns: [],
       npcs: [],
       spawns: [],
       pickups: [
         { id: 'pk_relic_slam', kind: 'ability', itemId: 'ground_slam', x: 555, y: 372 },
-        { id: 'pk_gs_2', kind: 'weapon', itemId: 'greatsword_2', x: 665, y: 372 },
+        { id: 'pk_slam_hp', kind: 'max_up', itemId: 'hp_vessel', x: 665, y: 372 },
       ],
     },
 
@@ -1734,7 +1704,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 445, y: 396, style: 'crypt_stone' },
         { x: 800, y: 396, style: 'crypt_stone' },
       ],
-      solidBlocks: [{ x: 520, y: 292, w: 185, h: 28 }],
+      solidBlocks: [],
       ceilingSpans: [{ x1: 0, x2: 800, bottomY: 36, style: 'crypt_vault' }],
       shafts: [{ x1: 500, x2: 700, dir: 'down', targetRoomId: 'relic_mist_vault' }],
       decorProps: [{ kind: 'incense_burner', x: 145, y: 366, scale: 0.9 }],
@@ -1743,7 +1713,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       archways: [],
       torches: [{ x: 430, y: 318 }],
       foregrounds: [],
-      lanterns: [{ x: 610, y: 215 }],
+      lanterns: [],
       npcs: [],
       spawns: [],
       pickups: [],
@@ -1909,17 +1879,14 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'dragon_brazier', x: 545, y: 356, scale: 0.9 },
       ],
       waterZones: [],
-      pavilions: [
-        { x: 65, y: 252, w: 175, hasPillars: true },
-        { x: 560, y: 252, w: 175, hasPillars: true },
-      ],
+      pavilions: [],
       archways: [],
       torches: [
         { x: 145, y: 318 },
         { x: 675, y: 318 },
       ],
       foregrounds: [],
-      lanterns: [{ x: 410, y: 180 }],
+      lanterns: [],
       npcs: [],
       spawns: [],
       pickups: [],
@@ -2069,14 +2036,11 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'chandelier', x: 395, y: 22, scale: 0.88 },
       ],
       waterZones: [],
-      pavilions: [{ x: 255, y: 238, w: 290, hasPillars: true }],
+      pavilions: [],
       archways: [],
       torches: [{ x: 650, y: 308 }],
-      foregrounds: [{ x: 260, kind: 'hanging_lantern', parallax: 1.18 }],
-      lanterns: [
-        { x: 175, y: 205 },
-        { x: 635, y: 205 },
-      ],
+      foregrounds: [],
+      lanterns: [],
       npcs: [
         {
           id: 'bai_zhanggui',
@@ -2119,9 +2083,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       solidBlocks: [
         { x: 330, y: 322, w: 250, h: 36 },
-        { x: 105, y: 252, w: 175, h: 28 },
       ],
-      clockGears: [{ x: 455, y: 176, radius: 64, speed: 0.44, hasOrbitPlatforms: true }],
+      clockGears: [],
       ceilingSpans: [{ x1: 0, x2: 800, bottomY: 36, style: 'palace_timber' }],
       shafts: [],
       decorProps: [
@@ -2136,15 +2099,12 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 640, y: 316 },
       ],
       foregrounds: [],
-      lanterns: [
-        { x: 245, y: 185 },
-        { x: 645, y: 185 },
-      ],
+      lanterns: [],
       npcs: [],
       spawns: [],
       pickups: [
         { id: 'pk_mirror_truth', kind: 'ability', itemId: 'mirror_truth', x: 405, y: 322 },
-        { id: 'pk_sword_2', kind: 'weapon', itemId: 'sword_2', x: 515, y: 322 },
+        { id: 'pk_arch_mp', kind: 'max_up', itemId: 'mp_vessel', x: 515, y: 322 },
       ],
     },
 
@@ -2387,7 +2347,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 1250, y: 408, style: 'marble' },
         { x: 1500, y: 408, style: 'marble' },
       ],
-      solidBlocks: [{ x: 645, y: 258, w: 210, h: 28 }],
+      solidBlocks: [],
       ceilingSpans: [{ x1: 0, x2: 1500, bottomY: 36, style: 'palace_timber' }],
       shafts: [],
       decorProps: [
@@ -2397,21 +2357,14 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'silk_banner', x: 1360, y: 248, scale: 0.9 },
       ],
       waterZones: [],
-      pavilions: [
-        { x: 85, y: 284, w: 195, hasPillars: true },
-        { x: 1220, y: 284, w: 195, hasPillars: true },
-      ],
+      pavilions: [],
       archways: [],
       torches: [
         { x: 215, y: 340 },
         { x: 1385, y: 340 },
       ],
       foregrounds: [],
-      lanterns: [
-        { x: 420, y: 175 },
-        { x: 635, y: 155 },
-        { x: 850, y: 175 },
-      ],
+      lanterns: [],
       npcs: [],
       spawns: [],
       pickups: [],
@@ -2775,7 +2728,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       waterZones: [],
       pavilions: [],
-      archways: [{ x: 705, title: '凌霄封天坛' }],
+      archways: [],
       torches: [
         { x: 155, y: 318 },
         { x: 645, y: 318 },
@@ -2827,23 +2780,14 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'dragon_brazier', x: 1780, y: 326, scale: 0.95 },
       ],
       waterZones: [],
-      pavilions: [
-        { x: 800, y: 244, w: 190, hasPillars: false },
-        { x: 1380, y: 214, w: 220, hasPillars: false },
-      ],
-      archways: [{ x: 210, title: '凌霄登天阙' }],
+      pavilions: [],
+      archways: [],
       torches: [
-        { x: 140, y: 348 },
-        { x: 620, y: 312 },
-        { x: 1100, y: 250 },
+        { x: 210, y: 348 },
+        { x: 890, y: 278 },
       ],
       foregrounds: [],
-      lanterns: [
-        { x: 560, y: 195 },
-        { x: 1060, y: 185 },
-        { x: 1490, y: 145 },
-        { x: 1880, y: 195 },
-      ],
+      lanterns: [],
       npcs: [],
       spawns: [],
       pickups: [],
@@ -2881,18 +2825,17 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       ceilingSpans: [],
       shafts: [],
-      solidBlocks: [{ x: 345, y: 344, w: 165, h: 30 }],
+      solidBlocks: [],
       decorProps: [],
       steles: [{ id: 'stele_outpost_oath', x: 610 }],
       waterZones: [],
       pavilions: [{ x: 24, y: 268, w: 165, hasPillars: true }],
-      archways: [{ x: 750, title: '苍竹古亭' }],
+      archways: [],
       torches: [
         { x: 678, y: 332 },
-        { x: 214, y: 306 },
       ],
-      foregrounds: [{ x: 260, kind: 'hanging_lantern', parallax: 1.18 }],
-      lanterns: [{ x: 428, y: 215 }],
+      foregrounds: [],
+      lanterns: [],
       npcs: [],
       spawns: [
         { kind: 'paper_swordsman', x: 615, y: 404 },
@@ -3018,7 +2961,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       npcs: [],
       spawns: [],
       pickups: [
-        { id: 'pk_sec_whip_fire', kind: 'weapon', itemId: 'whip_fire', x: 465, y: 344 },
+        { id: 'pk_sec_tiger_wine', kind: 'consumable', itemId: 'tiger_bone_wine', x: 465, y: 344 },
         { id: 'pk_sec_jingang', kind: 'consumable', itemId: 'jingang_dan', x: 555, y: 344 },
       ],
     },
@@ -3104,7 +3047,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'plague_toad', x: 590, y: 450 },
         { kind: 'bone_archer', x: 1080, y: 288 },
         { kind: 'bronze_guard', x: 1605, y: 296 },
-        { kind: 'blood_bat', x: 1820, y: 215 },
+        { kind: 'spirit_crow', x: 1820, y: 215 },
       ],
       pickups: [
         { id: 'pk_cat_poison_dag', kind: 'weapon', itemId: 'daggers_poison', x: 1605, y: 296 },
@@ -3151,20 +3094,14 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'incense_burner', x: 685, y: 396, scale: 0.92 },
       ],
       waterZones: [],
-      pavilions: [
-        { x: 65, y: 274, w: 165, hasPillars: false },
-        { x: 570, y: 274, w: 165, hasPillars: false },
-      ],
+      pavilions: [],
       archways: [],
       torches: [
         { x: 255, y: 318 },
         { x: 535, y: 318 },
       ],
       foregrounds: [],
-      lanterns: [
-        { x: 255, y: 195 },
-        { x: 535, y: 195 },
-      ],
+      lanterns: [],
       npcs: [],
       spawns: [],
       pickups: [
@@ -3204,7 +3141,6 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 1600, y: 408, style: 'crypt_stone' },
       ],
       solidBlocks: [
-        { x: 430, y: 336, w: 190, h: 32 },
         { x: 960, y: 336, w: 240, h: 36 },
       ],
       ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 36, style: 'crypt_vault' }],
@@ -3216,17 +3152,14 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'guardian_statue', x: 1490, y: 408, scale: 0.94 },
       ],
       waterZones: [],
-      pavilions: [{ x: 160, y: 282, w: 210, hasPillars: true }],
+      pavilions: [],
       archways: [],
       torches: [
         { x: 385, y: 342 },
         { x: 1080, y: 302 },
       ],
       foregrounds: [],
-      lanterns: [
-        { x: 525, y: 195 },
-        { x: 1080, y: 185 },
-      ],
+      lanterns: [],
       npcs: [],
       spawns: [
         { kind: 'bronze_guard', x: 520, y: 432 },
@@ -3410,12 +3343,12 @@ function createNormalCastleRooms(): BuiltRoom[] {
       steles: [{ id: 'stele_observatory_mirror', x: 420 }],
       waterZones: [],
       pavilions: [{ x: 965, y: 224, w: 270, hasPillars: false }],
-      archways: [{ x: 2060, title: '望月观星阙' }],
+      archways: [],
       torches: [
         { x: 495, y: 312 },
         { x: 1720, y: 312 },
       ],
-      foregrounds: [{ x: 1100, kind: 'hanging_lantern', parallax: 1.18 }],
+      foregrounds: [],
       lanterns: [
         { x: 480, y: 195 },
         { x: 860, y: 165 },
@@ -3476,7 +3409,6 @@ function createNormalCastleRooms(): BuiltRoom[] {
       steles: [{ id: 'stele_sword_tomb', x: 115 }],
       waterZones: [],
       pavilions: [
-        { x: 115, y: 274, w: 170, hasPillars: false },
         { x: 605, y: 274, w: 155, hasPillars: false },
       ],
       archways: [],
@@ -3485,10 +3417,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 625, y: 318 },
       ],
       foregrounds: [],
-      lanterns: [
-        { x: 335, y: 195 },
-        { x: 565, y: 185 },
-      ],
+      lanterns: [],
       npcs: [],
       spawns: [],
       pickups: [
@@ -3564,18 +3493,6 @@ function createNormalCastleRooms(): BuiltRoom[] {
       hazards: [
         { kind: 'pendulum', x: 960, y: 32, span: 150, speed: 1.85, phase: 0.4 },
       ],
-      crumbleSlabs: [{ id: 'cs_alch_1', x: 185, y: 342, w: 115 }],
-    },
-    west_armory: {
-      hazards: [{ kind: 'pendulum', x: 400, y: 36, span: 142, speed: 1.9, phase: 1.2 }],
-      crumbleSlabs: [{ id: 'cs_warm_1', x: 38, y: 316, w: 96 }],
-    },
-    hall_corridor: {
-      hazards: [{ kind: 'pendulum', x: 1380, y: 26, span: 162, speed: 1.8, phase: 0.8 }],
-      crumbleSlabs: [{ id: 'cs_hall_1', x: 685, y: 248, w: 120 }],
-    },
-    forge_smithy: {
-      hazards: [{ kind: 'fire_vent', x: 150, y: 428, span: 128, speed: 3.5, phase: 0.5 }],
     },
     forge_molten_hall: {
       hazards: [
@@ -3603,15 +3520,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { id: 'cs_tow_2', x: 205, y: 634, w: 110 },
       ],
     },
-    upper_library: {
-      crumbleSlabs: [
-        { id: 'cs_lib_1', x: 590, y: 336, w: 105 },
-        { id: 'cs_lib_2', x: 965, y: 336, w: 105 },
-      ],
-    },
     opera_gallery: {
       hazards: [{ kind: 'pendulum', x: 830, y: 34, span: 152, speed: 1.85, phase: 1.1 }],
-      crumbleSlabs: [{ id: 'cs_op_1', x: 430, y: 292, w: 105 }],
     },
     clock_gear_hall: {
       hazards: [
@@ -3626,7 +3536,6 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'spikes', x: 1190, y: 452, span: 105 },
         { kind: 'pendulum', x: 885, y: 34, span: 156, speed: 1.85, phase: 0.5 },
       ],
-      crumbleSlabs: [{ id: 'cs_cat_1', x: 935, y: 320, w: 115 }],
     },
     secret_catacomb_treasury: {
       hazards: [
@@ -3634,21 +3543,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'spikes', x: 530, y: 428, span: 56 },
       ],
     },
-    catacomb_shrine: {
-      hazards: [{ kind: 'pendulum', x: 415, y: 36, span: 152, speed: 1.9, phase: 1.4 }],
-    },
-    observatory_bridge: {
-      crumbleSlabs: [
-        { id: 'cs_obs_1', x: 540, y: 318, w: 110 },
-        { id: 'cs_obs_2', x: 950, y: 318, w: 110 },
-      ],
-    },
     secret_sword_tomb: {
       hazards: [{ kind: 'spikes', x: 205, y: 428, span: 100 }],
-      crumbleSlabs: [{ id: 'cs_tomb_1', x: 300, y: 308, w: 105 }],
-    },
-    secret_thunder_vault: {
-      hazards: [{ kind: 'pendulum', x: 485, y: 36, span: 148, speed: 2.0, phase: 0.6 }],
     },
   };
 
@@ -3704,10 +3600,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 1260, y: 404, style: 'flagstone' },
         { x: 1600, y: 404, style: 'flagstone' },
       ],
-      solidBlocks: [
-        { x: 520, y: 340, w: 190, h: 30 },
-        { x: 910, y: 296, w: 210, h: 30 },
-      ],
+      solidBlocks: [],
       ceilingSpans: [],
       shafts: [],
       decorProps: [
@@ -3716,26 +3609,22 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       waterZones: [],
       pavilions: [],
-      archways: [{ x: 1475, title: '断魂驿亭' }],
+      archways: [],
       torches: [
         { x: 315, y: 332 },
-        { x: 880, y: 320 },
       ],
       foregrounds: [],
-      lanterns: [
-        { x: 615, y: 210 },
-        { x: 1330, y: 242 },
-      ],
+      lanterns: [],
       npcs: [],
       spawns: [
         { kind: 'corpse_soldier', x: 485, y: 432 },
-        { kind: 'blood_bat', x: 690, y: 195 },
+        { kind: 'spirit_crow', x: 690, y: 195 },
         { kind: 'corpse_soldier', x: 960, y: 392 },
-        { kind: 'blood_bat', x: 1190, y: 185 },
+        { kind: 'spirit_crow', x: 1190, y: 185 },
         { kind: 'corpse_soldier', x: 1350, y: 404 },
       ],
       pickups: [
-        { id: 'pk_woods_heal', kind: 'consumable', itemId: 'jinchuang_yao', x: 1015, y: 296 },
+        { id: 'pk_woods_heal', kind: 'consumable', itemId: 'jinchuang_yao', x: 1015, y: 392 },
       ],
     },
 
@@ -3776,7 +3665,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       waterZones: [],
       pavilions: [],
-      archways: [{ x: 735, title: '断魂古渡' }],
+      archways: [],
       torches: [
         { x: 165, y: 332 },
         { x: 635, y: 332 },
@@ -3855,28 +3744,14 @@ function createNormalCastleRooms(): BuiltRoom[] {
       waterZones: [{ x1: 1190, x2: 1970, surfaceY: 818 }],
       pavilions: [
         { x: 2004, y: 774, w: 178, hasPillars: false },
-        { x: 190, y: 690, w: 230, hasPillars: true },
-        { x: 2740, y: 690, w: 230, hasPillars: true },
       ],
-      archways: [
-        { x: 110, title: '正阳内阙' },
-        { x: 3060, title: '端门前街' },
-      ],
+      archways: [],
       torches: [
         { x: 965, y: 702 },
-        { x: 310, y: 286 },
-        { x: 2890, y: 286 },
+        { x: 2235, y: 702 },
       ],
-      foregrounds: [
-        { x: 880, kind: 'hanging_lantern', parallax: 1.18 },
-        { x: 2320, kind: 'hanging_lantern', parallax: 1.18 },
-      ],
-      lanterns: [
-        { x: 585, y: 632 },
-        { x: 1310, y: 290 },
-        { x: 1890, y: 290 },
-        { x: 2490, y: 632 },
-      ],
+      foregrounds: [],
+      lanterns: [],
       npcs: [],
       spawns: [
         { kind: 'paper_swordsman', x: 520, y: 804 },
@@ -3887,7 +3762,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'bone_archer', x: 610, y: 604 },
         { kind: 'paper_swordsman', x: 1600, y: 404 },
         { kind: 'bone_archer', x: 2490, y: 604 },
-        { kind: 'blood_bat', x: 1350, y: 280 },
+        { kind: 'spirit_crow', x: 1350, y: 280 },
       ],
       pickups: [
         { id: 'pk_inner_court_wine', kind: 'consumable', itemId: 'tiger_bone_wine', x: 1610, y: 404 },
@@ -3923,8 +3798,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       solidBlocks: [
         { x: 110, y: 276, w: 220, h: 32 },
-        { x: 560, y: 312, w: 210, h: 32 },
-        { x: 830, y: 248, w: 195, h: 30 },
+        { x: 830, y: 268, w: 210, h: 30 },
       ],
       ceilingSpans: [],
       shafts: [],
@@ -3935,27 +3809,23 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       waterZones: [],
       pavilions: [],
-      archways: [{ x: 1450, title: '正阳城楼' }],
+      archways: [],
       torches: [
-        { x: 190, y: 302 },
-        { x: 960, y: 332 },
-        { x: 1450, y: 324 },
+        { x: 430, y: 332 },
+        { x: 1220, y: 324 },
       ],
       foregrounds: [],
-      lanterns: [
-        { x: 480, y: 225 },
-        { x: 925, y: 175 },
-      ],
+      lanterns: [],
       npcs: [],
       spawns: [
-        { kind: 'bone_archer', x: 665, y: 312 },
-        { kind: 'blood_bat', x: 520, y: 185 },
+        { kind: 'bone_archer', x: 910, y: 268 },
+        { kind: 'spirit_crow', x: 520, y: 185 },
         { kind: 'bone_archer', x: 220, y: 276 },
-        { kind: 'paper_swordsman', x: 860, y: 408 },
+        { kind: 'paper_swordsman', x: 760, y: 408 },
       ],
       pickups: [
         { id: 'pk_battlement_spear', kind: 'weapon', itemId: 'spear_1', x: 195, y: 276 },
-        { id: 'pk_battlement_mp', kind: 'consumable', itemId: 'huiqi_dan', x: 925, y: 248 },
+        { id: 'pk_battlement_mp', kind: 'consumable', itemId: 'huiqi_dan', x: 925, y: 268 },
       ],
     },
 
@@ -4026,7 +3896,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       spawns: [
         { kind: 'corpse_soldier', x: 260, y: 408 },
         { kind: 'plague_toad', x: 775, y: 374 },
-        { kind: 'blood_bat', x: 960, y: 175 },
+        { kind: 'spirit_crow', x: 960, y: 175 },
         { kind: 'plague_toad', x: 1065, y: 356 },
       ],
       pickups: [
@@ -4239,16 +4109,13 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       waterZones: [],
       pavilions: [{ x: 274, y: 404, w: 172, hasPillars: false }],
-      archways: [{ x: 1490, title: '奉天前阙' }],
+      archways: [],
       torches: [
-        { x: 430, y: 332 },
+        { x: 480, y: 332 },
         { x: 1210, y: 332 },
       ],
       foregrounds: [],
-      lanterns: [
-        { x: 620, y: 205 },
-        { x: 1180, y: 225 },
-      ],
+      lanterns: [],
       npcs: [],
       spawns: [
         { kind: 'paper_swordsman', x: 640, y: 372 },
@@ -4286,7 +4153,6 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       solidBlocks: [
         { x: 140, y: 274, w: 230, h: 32 },
-        { x: 1140, y: 292, w: 220, h: 32 },
       ],
       ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 36, style: 'palace_timber' }],
       shafts: [{ x1: 840, x2: 1040, dir: 'down', targetRoomId: 'hall_courtyard' }],
@@ -4299,19 +4165,16 @@ function createNormalCastleRooms(): BuiltRoom[] {
       pavilions: [{ x: 834, y: 404, w: 212, hasPillars: false }],
       archways: [],
       torches: [
-        { x: 240, y: 328 },
-        { x: 1120, y: 328 },
+        { x: 420, y: 328 },
+        { x: 1220, y: 328 },
       ],
       foregrounds: [],
-      lanterns: [
-        { x: 460, y: 195 },
-        { x: 1250, y: 195 },
-      ],
+      lanterns: [],
       npcs: [],
       spawns: [
         { kind: 'paper_swordsman', x: 460, y: 372 },
         { kind: 'lantern_ghost', x: 720, y: 225 },
-        { kind: 'bone_archer', x: 1250, y: 292 },
+        { kind: 'bone_archer', x: 1250, y: 404 },
       ],
       pickups: [
         { id: 'pk_hall_whip1', kind: 'weapon', itemId: 'whip_1', x: 215, y: 274 },
@@ -4447,9 +4310,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 1040, y: 424, style: 'marble' },
         { x: 1600, y: 424, style: 'marble' },
       ],
-      solidBlocks: [
-        { x: 520, y: 292, w: 260, h: 32 },
-      ],
+      solidBlocks: [],
       ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 34, style: 'palace_timber' }],
       shafts: [{ x1: 1130, x2: 1370, dir: 'down', targetRoomId: 'gate_2' }],
       decorProps: [
@@ -4465,10 +4326,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 990, y: 348 },
       ],
       foregrounds: [],
-      lanterns: [
-        { x: 420, y: 205 },
-        { x: 920, y: 205 },
-      ],
+      lanterns: [],
       npcs: [],
       spawns: [
         { kind: 'paper_swordsman', x: 480, y: 392 },
@@ -4705,7 +4563,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       npcs: [],
       spawns: [
         { kind: 'plague_toad', x: 570, y: 344 },
-        { kind: 'blood_bat', x: 760, y: 195 },
+        { kind: 'spirit_crow', x: 760, y: 195 },
       ],
       pickups: [],
     },
@@ -5002,12 +4860,9 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 1600, y: 408, style: 'marble' },
       ],
       solidBlocks: [
-        { x: 420, y: 282, w: 230, h: 32 },
         { x: 950, y: 282, w: 230, h: 32 },
       ],
-      movingPlatforms: [
-        { x1: 680, y1: 232, x2: 830, y2: 232, w: 120, speed: 0.78, style: 'scholar_ladder' },
-      ],
+      movingPlatforms: [],
       ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 34, style: 'palace_timber' }],
       shafts: [],
       decorProps: [
@@ -5025,10 +4880,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 1280, y: 320 },
       ],
       foregrounds: [],
-      lanterns: [
-        { x: 535, y: 185 },
-        { x: 1065, y: 185 },
-      ],
+      lanterns: [],
       npcs: [],
       spawns: [
         { kind: 'scroll_demon', x: 535, y: 215 },
@@ -5069,7 +4921,6 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 1600, y: 416, style: 'marble' },
       ],
       solidBlocks: [
-        { x: 220, y: 288, w: 220, h: 32 },
         { x: 1120, y: 288, w: 220, h: 32 },
       ],
       ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 34, style: 'palace_timber' }],
@@ -5087,10 +4938,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 1140, y: 318 },
       ],
       foregrounds: [],
-      lanterns: [
-        { x: 330, y: 185 },
-        { x: 1230, y: 185 },
-      ],
+      lanterns: [],
       npcs: [],
       spawns: [
         { kind: 'opera_puppet', x: 520, y: 386 },
@@ -5266,7 +5114,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 565, y: 318 },
       ],
       foregrounds: [],
-      lanterns: [{ x: 400, y: 175 }],
+      lanterns: [],
       npcs: [],
       spawns: [
         { kind: 'bell_gargoyle', x: 480, y: 205 },
@@ -5304,9 +5152,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 1560, y: 412, style: 'marble' },
         { x: 2200, y: 412, style: 'marble' },
       ],
-      solidBlocks: [
-        { x: 960, y: 264, w: 280, h: 32 },
-      ],
+      solidBlocks: [],
       ceilingSpans: [],
       shafts: [{ x1: 290, x2: 510, dir: 'down', targetRoomId: 'east_outer_tower' }],
       decorProps: [
@@ -5317,17 +5163,13 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       waterZones: [],
       pavilions: [{ x: 284, y: 412, w: 232, hasPillars: false }],
-      archways: [{ x: 2060, title: '登天白玉阙' }],
+      archways: [],
       torches: [
         { x: 610, y: 332 },
         { x: 1590, y: 332 },
       ],
       foregrounds: [],
-      lanterns: [
-        { x: 780, y: 195 },
-        { x: 1100, y: 175 },
-        { x: 1420, y: 195 },
-      ],
+      lanterns: [],
       npcs: [],
       spawns: [
         { kind: 'bronze_guard', x: 880, y: 376 },
@@ -5335,7 +5177,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'bronze_guard', x: 1320, y: 376 },
       ],
       pickups: [
-        { id: 'pk_altar_bridge_jz', kind: 'consumable', itemId: 'jiuzhuan_jin_dan', x: 1100, y: 264 },
+        { id: 'pk_altar_bridge_jz', kind: 'consumable', itemId: 'jiuzhuan_jin_dan', x: 1100, y: 376 },
       ],
     },
     {
@@ -5380,7 +5222,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 590, y: 332 },
       ],
       foregrounds: [],
-      lanterns: [{ x: 240, y: 195 }],
+      lanterns: [],
       npcs: [],
       spawns: [
         { kind: 'bell_gargoyle', x: 520, y: 225 },
@@ -5416,7 +5258,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 1040, y: 404, style: 'marble' },
         { x: 1600, y: 404, style: 'marble' },
       ],
-      solidBlocks: [{ x: 540, y: 272, w: 220, h: 32 }],
+      solidBlocks: [],
       ceilingSpans: [],
       shafts: [{ x1: 1150, x2: 1330, dir: 'down', targetRoomId: 'altar_vestibule' }],
       decorProps: [
@@ -5426,19 +5268,19 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       waterZones: [],
       pavilions: [{ x: 1144, y: 404, w: 184, hasPillars: false }],
-      archways: [{ x: 1475, title: '祈年天阙' }],
+      archways: [],
       torches: [
         { x: 310, y: 320 },
         { x: 990, y: 320 },
       ],
       foregrounds: [],
-      lanterns: [{ x: 650, y: 185 }],
+      lanterns: [],
       npcs: [],
       spawns: [
         { kind: 'bronze_guard', x: 650, y: 372 },
       ],
       pickups: [
-        { id: 'pk_altar_fore_wine', kind: 'consumable', itemId: 'osmanthus_wine', x: 650, y: 272 },
+        { id: 'pk_altar_fore_wine', kind: 'consumable', itemId: 'osmanthus_wine', x: 650, y: 372 },
       ],
     },
   ];
@@ -5729,9 +5571,9 @@ function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
   const invertedUpgradePickups: Record<string, ScenePickup[]> = {
     west_armory: [{ id: 'inv_pk_gs3', kind: 'weapon', itemId: 'greatsword_3', x: 520 }],
     secret_archive: [{ id: 'inv_pk_sw3', kind: 'weapon', itemId: 'sword_3', x: 390 }],
-    relic_double_jump: [{ id: 'inv_pk_sp3', kind: 'weapon', itemId: 'spear_3', x: 420 }],
+    relic_double_jump: [{ id: 'inv_pk_dj_hp', kind: 'max_up', itemId: 'hp_vessel', x: 420 }],
     relic_mist_vault: [{ id: 'inv_pk_dg3', kind: 'weapon', itemId: 'daggers_3', x: 480 }],
-    relic_grapple_vault: [{ id: 'inv_pk_wh3', kind: 'weapon', itemId: 'whip_3', x: 440 }],
+    relic_grapple_vault: [{ id: 'inv_pk_gp_mp', kind: 'max_up', itemId: 'mp_vessel', x: 440 }],
     relic_wall_vault: [
       { id: 'inv_pk_robe_xn', kind: 'armor', itemId: 'xuanniao_robe', x: 210 },
     ],
@@ -5763,7 +5605,7 @@ function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
       { id: 'inv_pk_ice_wine', kind: 'consumable', itemId: 'tiger_bone_wine', x: 430 },
     ],
     secret_library_study: [
-      { id: 'inv_pk_dg_phantom', kind: 'weapon', itemId: 'daggers_phantom', x: 420 },
+      { id: 'inv_pk_study_jz', kind: 'consumable', itemId: 'jiuzhuan_jin_dan', x: 420 },
     ],
     observatory_bridge: [
       { id: 'inv_pk_obs_mp', kind: 'max_up', itemId: 'mp_vessel', x: 800 },
@@ -6024,7 +5866,7 @@ function createBossRushArena(): BuiltRoom {
       { x: 1120, y: 416, style: 'marble' },
       { x: 1500, y: 416, style: 'marble' },
     ],
-    solidBlocks: [{ x: 645, y: 266, w: 210, h: 28 }],
+    solidBlocks: [],
     ceilingSpans: [],
     shafts: [],
     decorProps: [
@@ -6032,20 +5874,14 @@ function createBossRushArena(): BuiltRoom {
       { kind: 'dragon_brazier', x: 1000, y: 382, scale: 0.92 },
     ],
     waterZones: [],
-    pavilions: [
-      { x: 130, y: 298, w: 210, hasPillars: true },
-      { x: 1160, y: 298, w: 210, hasPillars: true },
-    ],
-    archways: [{ x: 750, title: '百鬼镇妖塔' }],
+    pavilions: [],
+    archways: [],
     torches: [
       { x: 300, y: 340 },
       { x: 1200, y: 340 },
     ],
     foregrounds: [],
-    lanterns: [
-      { x: 480, y: 185 },
-      { x: 1020, y: 185 },
-    ],
+    lanterns: [],
     npcs: [],
     spawns: [],
     pickups: [],
@@ -6099,9 +5935,16 @@ class CastleWorldRegistry {
     backDoor?: SideDoor;
   } | null {
     const allDoors = getRoomSideDoors(cur, dir);
-    const doors = brokenSecretWalls
-      ? allDoors.filter((d) => !d.secretWallId || brokenSecretWalls.includes(d.secretWallId))
-      : allDoors;
+    const maxHeadClearance = cur.gridH > 1 ? 185 : 290;
+    const doors = allDoors.filter((d) => {
+      if (brokenSecretWalls && d.secretWallId && !brokenSecretWalls.includes(d.secretWallId)) {
+        return false;
+      }
+      if (playerY !== undefined && (playerY < d.floorY - maxHeadClearance || playerY > d.floorY + 42)) {
+        return false;
+      }
+      return true;
+    });
     if (doors.length === 0) return null;
 
     let chosen = doors[0];

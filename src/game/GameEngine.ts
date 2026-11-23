@@ -405,6 +405,13 @@ export class GameEngine {
     this.activeBuffs = { berserk_wine: 0, iron_skin: 0, wind_crit: 0 };
     if (!slot.discoveredDrops) slot.discoveredDrops = [];
     if (!slot.readSteles) slot.readSteles = [];
+    // 兼容旧存档中已合并/更名的兵刃与妖丹 ID
+    const migrateWeaponId = (id: string) =>
+      id === 'daggers_phantom' ? 'daggers_3' : id === 'whip_fire' ? 'whip_2' : WEAPONS[id] ? id : 'sword_0';
+    slot.ownedWeapons = Array.from(new Set(slot.ownedWeapons.map(migrateWeaponId)));
+    slot.equippedWeapon = migrateWeaponId(slot.equippedWeapon);
+    if (slot.equippedYaoCore === 'core_bat') slot.equippedYaoCore = 'core_crow';
+    slot.ownedYaoCores = slot.ownedYaoCores.map((c) => (c === 'core_bat' ? 'core_crow' : c));
     this.recalcStats(true);
 
     if (slot.mode === 'boss_rush') {
@@ -455,20 +462,17 @@ export class GameEngine {
     const core = cId ? YAO_CORES[cId] : undefined;
 
     const lv = s.level;
-    const str = 6 + Math.round(lv * 1.35) + armor.strBonus + acc.strBonus;
-    const con = 6 + Math.floor(lv * 1.5) + Math.floor(armor.def * 0.5);
-    const intStat = 7 + Math.round(lv * 1.45) + armor.intBonus + acc.intBonus;
-    const lck = 5 + lv + armor.lckBonus + acc.lckBonus;
+    const str = 6 + Math.floor(lv * 0.8) + armor.strBonus + acc.strBonus;
+    const con = 6 + Math.floor(lv * 0.9) + Math.floor(armor.def * 0.5);
+    const intStat = 7 + Math.floor(lv * 0.85) + armor.intBonus + acc.intBonus;
+    const lck = 5 + Math.floor(lv * 0.7) + armor.lckBonus + acc.lckBonus;
 
-    const maxHp = 100 + lv * 15 + s.maxHpBonus + armor.hpBonus + acc.hpBonus;
-    const maxMp = 64 + lv * 9 + s.maxMpBonus + armor.mpBonus + acc.mpBonus;
-    const temperBonus = (s.weaponTemperLv?.[wId] || 0) * 4;
+    const maxHp = 100 + lv * 8 + s.maxHpBonus + armor.hpBonus + acc.hpBonus;
+    const maxMp = 64 + lv * 5 + s.maxMpBonus + armor.mpBonus + acc.mpBonus;
     const wineMult = this.activeBuffs.berserk_wine > 0 ? 1.28 : 1;
-    let atk = Math.round(
-      (weapon.atk + temperBonus + str * 1.15) * (1 + (core?.atkPct || 0)) * wineMult
-    );
+    let atk = Math.round((weapon.atk + str * 1.05) * (1 + (core?.atkPct || 0)) * wineMult);
     if (s.mode === 'xiaoduanshui') atk = Math.round(atk * 1.18);
-    const rawDef = 4 + Math.floor(lv * 1.25) + armor.def + acc.def;
+    const rawDef = 3 + Math.floor(lv * 0.65) + armor.def + acc.def;
     const def = Math.round(rawDef * (1 + (core?.defPct || 0)));
 
     return { maxHp, maxMp, atk, def, str, con, int: intStat, lck };
@@ -766,67 +770,67 @@ export class GameEngine {
    * -> 第八幕百戏梨园(1.88x) -> 第九幕望月塔(2.08x) -> 终幕祭天坛(2.30x) -> 倒悬里城(×1.40 HP / ×1.25 ATK)
    */
   private getRoomDifficultyScale(room: BuiltRoom): { hpMult: number; atkMult: number; spdMult: number } {
-    let hpMult = 0.86;
-    let atkMult = 0.85;
+    let hpMult = 0.92;
+    let atkMult = 0.92;
     let spdMult = 0.98;
 
     switch (room.region) {
       case 'gatehouse':
-        hpMult = room.id === 'bamboo_outpost' || room.id === 'entrance_bamboo_woods' ? 0.78 : 0.88;
-        atkMult = 0.85;
+        hpMult = room.id === 'bamboo_outpost' || room.id === 'entrance_bamboo_woods' ? 0.85 : 0.96;
+        atkMult = 0.92;
         spdMult = 0.98;
         break;
       case 'main_hall':
-        hpMult = 1.04;
-        atkMult = 0.98;
-        spdMult = 1.0;
-        break;
-      case 'alchemy':
-        hpMult = 1.16;
-        atkMult = 1.08;
+        hpMult = 1.22;
+        atkMult = 1.15;
         spdMult = 1.02;
         break;
-      case 'forge':
-        hpMult = 1.3;
-        atkMult = 1.18;
+      case 'alchemy':
+        hpMult = 1.45;
+        atkMult = 1.3;
         spdMult = 1.04;
         break;
-      case 'prison':
-        hpMult = 1.44;
-        atkMult = 1.26;
-        spdMult = 1.05;
-        break;
-      case 'catacomb':
-        hpMult = 1.58;
-        atkMult = 1.34;
+      case 'forge':
+        hpMult = 1.72;
+        atkMult = 1.46;
         spdMult = 1.06;
         break;
-      case 'library':
-        hpMult = 1.72;
-        atkMult = 1.42;
+      case 'prison':
+        hpMult = 2.0;
+        atkMult = 1.62;
         spdMult = 1.07;
         break;
-      case 'opera':
-        hpMult = 1.88;
-        atkMult = 1.5;
+      case 'catacomb':
+        hpMult = 2.3;
+        atkMult = 1.78;
         spdMult = 1.08;
         break;
-      case 'clock_tower':
-        hpMult = room.id === 'east_outer_tower' ? 1.65 : 2.08;
-        atkMult = room.id === 'east_outer_tower' ? 1.36 : 1.58;
+      case 'library':
+        hpMult = 2.62;
+        atkMult = 1.95;
         spdMult = 1.09;
         break;
+      case 'opera':
+        hpMult = 2.98;
+        atkMult = 2.14;
+        spdMult = 1.11;
+        break;
+      case 'clock_tower':
+        hpMult = room.id === 'east_outer_tower' ? 2.25 : 3.38;
+        atkMult = room.id === 'east_outer_tower' ? 1.75 : 2.34;
+        spdMult = 1.13;
+        break;
       case 'altar':
-        hpMult = 2.3;
-        atkMult = 1.68;
-        spdMult = 1.1;
+        hpMult = 3.85;
+        atkMult = 2.58;
+        spdMult = 1.15;
         break;
     }
 
     if (room.realm === 'inverted') {
-      hpMult *= 1.4;
-      atkMult *= 1.25;
-      spdMult *= 1.06;
+      hpMult *= 1.48;
+      atkMult *= 1.32;
+      spdMult *= 1.08;
     }
 
     return { hpMult, atkMult, spdMult };
@@ -838,7 +842,7 @@ export class GameEngine {
       this.room && !baseProf.isBoss
         ? this.getRoomDifficultyScale(this.room)
         : this.room?.realm === 'inverted' && baseProf.kind !== 'boss_zhuyin'
-          ? { hpMult: 1.38, atkMult: 1.22, spdMult: 1.06 }
+          ? { hpMult: 1.45, atkMult: 1.3, spdMult: 1.08 }
           : { hpMult: 1, atkMult: 1, spdMult: 1 };
 
     const scaledHp = Math.round(baseProf.hp * scale.hpMult);
@@ -850,31 +854,40 @@ export class GameEngine {
             hp: scaledHp,
             atk: Math.round(baseProf.atk * scale.atkMult),
             speed: Math.round(baseProf.speed * scale.spdMult),
-            exp: Math.round(baseProf.exp * (0.72 + scale.hpMult * 0.28)),
-            gold: Math.round(baseProf.gold * (0.75 + scale.hpMult * 0.25)),
+            exp: Math.round(baseProf.exp * (0.68 + scale.hpMult * 0.22)),
+            gold: Math.round(baseProf.gold * (0.7 + scale.hpMult * 0.2)),
           };
 
-    const maxPoise = prof.isBoss
+    const basePoise = prof.isBoss
       ? kind === 'boss_zhuyin'
-        ? 290
+        ? 340
         : kind === 'boss_pei_wuji' || kind === 'boss_furnace_titan'
-          ? 240
-          : 190
+          ? 280
+          : 220
       : kind === 'bronze_guard'
-        ? 88
+        ? 96
         : kind === 'demon_wolf' || kind === 'bell_gargoyle'
-          ? 68
+          ? 76
           : kind === 'plague_toad' || kind === 'opera_puppet' || kind === 'bone_archer'
-            ? 52
-            : kind === 'blood_bat'
-              ? 24
-              : 38;
+            ? 58
+            : kind === 'spirit_crow'
+              ? 28
+              : 42;
+    const maxPoise = prof.isBoss
+      ? basePoise
+      : Math.round(basePoise * (0.85 + scale.hpMult * 0.34));
 
+    const groundRefY = this.room ? sampleSolidGroundY(this.room, x) : 400;
+    const isNearGround = groundRefY - y < 48;
     const initY =
-      kind === 'blood_bat'
-        ? Math.max(76, y - 118)
+      kind === 'spirit_crow'
+        ? isNearGround
+          ? Math.max(150, y - 120)
+          : Math.max(155, y)
         : prof.flying
-          ? y - 92
+          ? isNearGround
+            ? Math.max(150, y - 92)
+            : Math.max(155, y)
           : y;
 
     this.enemies.push({
@@ -900,7 +913,7 @@ export class GameEngine {
       hurtJoltTimer: 0,
       burrowEmergeTimer: 0,
       burrowTriggered: false,
-      roosting: kind === 'blood_bat',
+      roosting: kind === 'spirit_crow',
       bossMoveIdx: 0,
       slashHitPlayer: false,
     });
@@ -2043,7 +2056,7 @@ export class GameEngine {
           12
         );
         const roll = Math.random();
-        if (isUrn && roll < 0.1) {
+        if (isUrn && roll < 0.025) {
           this.drops.push({
             id: `lantern_${this.nextEntityId++}`,
             isStaticPickup: false,
@@ -2056,14 +2069,14 @@ export class GameEngine {
             color: '#4ade80',
             label: '金疮药',
           });
-        } else {
-          const dropGold = roll < 0.42;
+        } else if (roll < 0.32) {
+          const dropGold = roll < 0.14;
           this.drops.push({
             id: `lantern_${this.nextEntityId++}`,
             isStaticPickup: false,
             kind: dropGold ? 'gold' : 'heart',
             itemId: dropGold ? 'gold' : 'heart',
-            amount: dropGold ? 12 + Math.floor(Math.random() * 16) : Math.random() < 0.28 ? 5 : 2,
+            amount: dropGold ? 4 + Math.floor(Math.random() * 6) : Math.random() < 0.22 ? 2 : 1,
             x: ln.x,
             y: burstY,
             vy: -170,
@@ -2206,17 +2219,16 @@ export class GameEngine {
 
       this.shatterLanternsAndWallsInBox(bx, by, bw, bh, sl.archetype === 'greatsword', 1);
 
-      // 挥兵斩碎来袭小怪符咒、飞针、毒珠、雷叉与回旋铜斧（《恶魔城/斩妖行》经典拼刀拨弹手感！）
+      // 普攻拼刀仅可挑落轻型实体白骨弩矢；重型雷叉、回旋铜斧、咒符与梨园飞针需借重刃猛劈、身法闪避或【太极卸力】化解！
       for (let pi = this.projectiles.length - 1; pi >= 0; pi--) {
         const pr = this.projectiles[pi];
-        if (
-          pr.fromPlayer ||
-          pr.kind === 'qi_wave' ||
-          pr.enemyFx === 'venom_pool' ||
-          pr.enemyFx === 'magma_pool' ||
-          pr.enemyFx === 'magma_bomb' ||
-          pr.enemyFx === 'lava_wave'
-        ) {
+        const canCutWithLight = pr.enemyFx === 'bone_bolt';
+        const canCutWithHeavy =
+          sl.archetype === 'greatsword' &&
+          (pr.enemyFx === 'bone_bolt' ||
+            pr.enemyFx === 'opera_needle' ||
+            pr.enemyFx === 'cursed_talisman');
+        if (pr.fromPlayer || (!canCutWithLight && !canCutWithHeavy)) {
           continue;
         }
         if (
@@ -2386,11 +2398,11 @@ export class GameEngine {
             this.screenShake = Math.max(this.screenShake, 4.2);
           }
 
-          // 以战养气：近战挥砍命中敌人恢复真气（叠加衣甲与天罡聚气扳指加成！）
+          // 以战养气：近战挥砍命中敌人微量回气（抑制无脑连放武技，鼓励节奏攻防！）
           const eqArm = ARMORS[this.slot.equippedArmor] || ARMORS.cloth_tunic;
           const eqAcc = ARMORS[this.slot.equippedAccessory] || ARMORS.broken_jade;
           const eqCore = this.slot.equippedYaoCore ? YAO_CORES[this.slot.equippedYaoCore] : undefined;
-          const mpGain = 4.5 + (eqArm.mpOnHitBonus || 0) + (eqAcc.mpOnHitBonus || 0);
+          const mpGain = 2.4 + (eqArm.mpOnHitBonus || 0) + (eqAcc.mpOnHitBonus || 0);
           p.mp = Math.min(p.maxMp, p.mp + mpGain);
 
           const baseHitDmg = Math.round(this.player.atk * dmgMult);
@@ -3507,57 +3519,80 @@ export class GameEngine {
           }
         } else if (e.profile.flying) {
           if (e.roosting) {
-            // 血翼夜蝠妖：倒挂于屋檐拱顶静默潜伏，待少侠踏入 315px 索敌圈瞬间惊起俯冲！
+            // 玄冥三足阴鸦：敛翼栖驻于飞檐横梁，待少侠踏入索敌圈瞬间振翼惊起俯冲！
             e.vx = 0;
-            if (absDx < 315 && Math.abs(dy) < 280) {
+            if (absDx < 330 && Math.abs(dy) < 285) {
               e.roosting = false;
-              e.stateTimer = 0.38;
-              this.spawnInkBurst(e.x, e.y - 18, '#e11d48', '#090d16', 8);
+              e.stateTimer = 0.34;
+              this.spawnInkBurst(e.x, e.y - 18, '#10b981', '#090d16', 8);
               AudioFX.playSlash('light');
             }
             continue;
           }
-          e.animPhase += dt * (e.profile.kind === 'blood_bat' ? 7.2 : 4.5);
-          if (e.profile.kind === 'blood_bat') {
-            // 血翼夜蝠动态锁定少侠胸腹高度盘旋逼近！
+          e.animPhase += dt * (e.profile.kind === 'spirit_crow' ? 7.4 : 4.6);
+          if (e.profile.kind === 'spirit_crow') {
+            // 三足阴鸦动态锁定少侠胸腹高度盘旋掠袭！
             const targetBaseY = Math.max(82, Math.min(room.pixelH - 72, p.y - 44));
-            e.baseY += (targetBaseY - e.baseY) * Math.min(1, dt * 2.8);
+            e.baseY += (targetBaseY - e.baseY) * Math.min(1, dt * 3.1);
           }
           const waveAmp =
             e.profile.kind === 'bell_gargoyle'
               ? 34
-              : e.profile.kind === 'blood_bat'
+              : e.profile.kind === 'spirit_crow'
                 ? 14
                 : 18;
           e.y = e.baseY + Math.sin(e.animPhase) * waveAmp;
-          const minFlyDist = e.profile.kind === 'blood_bat' ? 58 : 95;
+          const minFlyDist = e.profile.kind === 'spirit_crow' ? 56 : 95;
           if (absDx < 480 && absDx > minFlyDist) {
             e.vx = e.facing * e.profile.speed;
             e.x = Math.max(54, Math.min(room.pixelW - 54, e.x + e.vx * dt));
           }
-          if (e.stateTimer <= 0 && absDx < 380) {
+          if (e.stateTimer <= 0 && absDx < 410) {
             if (e.profile.ranged) {
-              // 飞天书妖发射朱砂敕令符纸 / 飞天夜叉斜射黄金雷音钢叉！
               const isGargoyle = e.profile.kind === 'bell_gargoyle';
               const ang = Math.atan2(p.y - 42 - (e.y - 24), p.x - e.x);
-              const spd = isGargoyle ? 360 : 285;
+              const spd = isGargoyle ? 415 : 320;
               e.castAnimTimer = 0.36;
-              this.projectiles.push({
-                fromPlayer: false,
-                kind: 'dagger',
-                enemyFx: isGargoyle ? 'thunder_lance' : 'cursed_talisman',
-                x: e.x + e.facing * 18,
-                y: e.y - 24,
-                vx: Math.cos(ang) * spd,
-                vy: Math.sin(ang) * spd,
-                r: isGargoyle ? 10 : 9,
-                dmg: e.profile.atk,
-                color: isGargoyle ? '#facc15' : '#ef4444',
-                life: 1.8,
-                maxLife: 1.8,
-                pierce: 1,
-                hitIds: new Set(),
-              });
+              const isLateStage =
+                room.realm === 'inverted' ||
+                (room.region !== 'gatehouse' &&
+                  room.region !== 'main_hall' &&
+                  room.region !== 'alchemy');
+              // 中后期书妖展开三才镇魂符扇，雷部飞天夜叉齐射双雷叉并引落天雷劫柱！
+              const spreadOffsets = isGargoyle
+                ? [-0.11, 0.11]
+                : isLateStage
+                  ? [-0.22, 0, 0.22]
+                  : [0];
+              for (const offAng of spreadOffsets) {
+                const a = ang + offAng;
+                this.projectiles.push({
+                  fromPlayer: false,
+                  kind: 'dagger',
+                  enemyFx: isGargoyle ? 'thunder_lance' : 'cursed_talisman',
+                  x: e.x + e.facing * 18,
+                  y: e.y - 24,
+                  vx: Math.cos(a) * spd,
+                  vy: Math.sin(a) * spd,
+                  r: isGargoyle ? 10 : 9,
+                  dmg: e.profile.atk,
+                  color: isGargoyle ? '#facc15' : '#ef4444',
+                  life: 1.85,
+                  maxLife: 1.85,
+                  pierce: 1,
+                  hitIds: new Set(),
+                });
+              }
+              if (isGargoyle && isLateStage) {
+                const sx = Math.max(95, Math.min(room.pixelW - 95, p.x));
+                this.skyStrikes.push({
+                  x: sx,
+                  groundY: sampleGroundY(room, sx),
+                  timer: 0.78,
+                  maxTimer: 0.78,
+                  dmg: Math.round(e.profile.atk * 1.08),
+                });
+              }
               this.spawnInkBurst(
                 e.x + e.facing * 18,
                 e.y - 24,
@@ -3566,12 +3601,12 @@ export class GameEngine {
                 6
               );
               AudioFX.playSlash('light');
-              e.stateTimer = 1.65;
-            } else if (absDx < 220) {
+              e.stateTimer = isGargoyle ? 1.55 : 1.5;
+            } else if (absDx < 225) {
               e.aiState = 'windup';
-              const batWind = e.profile.kind === 'blood_bat' ? 0.36 : 0.5;
-              e.stateTimer = batWind;
-              e.stateDuration = batWind;
+              const crowWind = e.profile.kind === 'spirit_crow' ? 0.34 : 0.46;
+              e.stateTimer = crowWind;
+              e.stateDuration = crowWind;
               e.slashHitPlayer = false;
             }
           }
@@ -3806,22 +3841,22 @@ export class GameEngine {
           e.cleaveSlamDone = false;
           const lungeSpd =
             e.profile.kind === 'boss_thunder_yaksha' || isWarg
-              ? 555
+              ? 595
               : e.profile.kind === 'boss_zhuyin' || e.profile.kind === 'boss_pei_wuji'
-                ? 520
+                ? 540
                 : isTitanCharge
-                  ? 485
+                  ? 500
                   : e.profile.isBoss
-                    ? 475
+                    ? 490
                     : isIaido
-                      ? 430
-                      : e.profile.kind === 'blood_bat'
-                        ? 395
+                      ? 455
+                      : e.profile.kind === 'spirit_crow'
+                        ? 420
                         : e.profile.kind === 'corpse_soldier'
-                          ? 235
+                          ? 250
                           : e.profile.shieldedFront
-                            ? 270
-                            : 320;
+                            ? 290
+                            : 340;
           e.vx = e.facing * lungeSpd;
           AudioFX.playSlash(e.profile.shieldedFront || isTitanCharge || isWarg ? 'heavy' : 'light');
           if (e.profile.kind === 'lantern_ghost') {
@@ -3840,6 +3875,28 @@ export class GameEngine {
         ) {
           e.cleaveSlamDone = true;
           this.spawnInkBurst(e.x + e.facing * 52, e.y - 2, '#fbbf24', '#451a03', 10);
+          // 第四幕起玄甲重盾傀儡重戟砸地迸出一段贴地裂石震波，逼迫少侠腾跃或翻滚绕背！
+          if (
+            room.realm === 'inverted' ||
+            (room.region !== 'gatehouse' && room.region !== 'main_hall')
+          ) {
+            this.projectiles.push({
+              fromPlayer: false,
+              kind: 'qi_wave',
+              enemyFx: 'lava_wave',
+              x: e.x + e.facing * 36,
+              y: sampleSolidGroundY(room, e.x) - 18,
+              vx: e.facing * 315,
+              vy: 0,
+              r: 16,
+              dmg: Math.round(e.profile.atk * 0.9),
+              color: '#f97316',
+              life: 0.72,
+              maxLife: 0.72,
+              pierce: 99,
+              hitIds: new Set(),
+            });
+          }
         }
         if (e.profile.flying || e.profile.isBoss) {
           const nextBossX = e.x + e.vx * dt;
@@ -3883,9 +3940,27 @@ export class GameEngine {
         }
 
         if (e.stateTimer <= 0) {
-          e.aiState = 'recover';
-          e.stateTimer = e.profile.isBoss ? 0.65 : 0.58;
-          e.vx = 0;
+          // 中后期玄甲苍狼二连猛扑追咬！
+          const isLateWolf =
+            e.profile.kind === 'demon_wolf' &&
+            e.bossMoveIdx === 0 &&
+            Math.abs(p.x - e.x) < 175 &&
+            (room.realm === 'inverted' ||
+              (room.region !== 'gatehouse' && room.region !== 'main_hall'));
+          if (isLateWolf) {
+            e.bossMoveIdx = 1;
+            e.facing = p.x >= e.x ? 1 : -1;
+            e.aiState = 'windup';
+            e.stateTimer = 0.24;
+            e.stateDuration = 0.24;
+            e.vx = 0;
+            e.slashHitPlayer = false;
+          } else {
+            e.bossMoveIdx = 0;
+            e.aiState = 'recover';
+            e.stateTimer = e.profile.isBoss ? 0.56 : e.profile.kind === 'demon_wolf' ? 0.42 : 0.52;
+            e.vx = 0;
+          }
         }
       } else if (e.aiState === 'recover') {
         e.stateTimer -= dt;
@@ -3951,8 +4026,8 @@ export class GameEngine {
         e.poise = e.maxPoise;
         e.guardStanceTimer = 0;
         e.aiState = 'staggered';
-        e.stateTimer = e.profile.isBoss ? 1.35 : 1.15;
-        e.vx = this.player.facing * (e.profile.isBoss ? 95 : 165);
+        e.stateTimer = e.profile.isBoss ? 0.92 : 0.72;
+        e.vx = this.player.facing * (e.profile.isBoss ? 85 : 150);
         AudioFX.playParryClang();
         this.screenShake = Math.max(this.screenShake, e.profile.isBoss ? 7 : 4.5);
       } else if (!e.profile.isBoss && e.aiState === 'stalk') {
@@ -4104,30 +4179,39 @@ export class GameEngine {
         s.level++;
         needExp = this.getExpForNextLevel(s.level);
       }
-      this.recalcStats(true);
+      this.recalcStats(false);
+      this.player.hp = Math.min(this.player.maxHp, this.player.hp + Math.round(this.player.maxHp * 0.25));
+      this.player.mp = Math.min(this.player.maxMp, this.player.mp + Math.round(this.player.maxMp * 0.25));
       this.levelUpPillarTimer = 1.05;
       AudioFX.playRelicBell();
       this.spawnInkBurst(this.player.x, this.player.y - 40, '#fde047', '#090d16', 20);
     }
 
-    this.drops.push({
-      id: `drop_${this.nextEntityId++}`,
-      isStaticPickup: false,
-      kind: Math.random() < 0.55 ? 'gold' : 'heart',
-      itemId: 'gold',
-      amount: Math.random() < 0.55 ? e.profile.gold : e.profile.isBoss ? 10 : 3,
-      x: e.x,
-      y: e.y - 12,
-      vy: -230,
-      color: '#facc15',
-      label: '银两',
-    });
+    // 大幅收紧日常小怪基础银两与灵符掉落率（76% 小怪斩杀无额外杂落，使每一份收获更显珍贵！）
+    if (e.profile.isBoss || Math.random() < 0.24) {
+      const dropGold = e.profile.isBoss || Math.random() < 0.5;
+      this.drops.push({
+        id: `drop_${this.nextEntityId++}`,
+        isStaticPickup: false,
+        kind: dropGold ? 'gold' : 'heart',
+        itemId: dropGold ? 'gold' : 'heart',
+        amount: dropGold ? e.profile.gold : e.profile.isBoss ? 8 : Math.random() < 0.35 ? 2 : 1,
+        x: e.x,
+        y: e.y - 12,
+        vy: -230,
+        color: '#facc15',
+        label: '银两',
+      });
+    }
 
     const accDropMult = ARMORS[s.equippedAccessory]?.dropRateMult || 1;
-    const dropLuckMult = (1 + this.player.lck * 0.022) * accDropMult;
+    const dropLuckMult = Math.min(1.85, (1 + this.player.lck * 0.012) * accDropMult);
 
     const coreId = e.profile.yaoCoreId;
-    const dropRate = ((e.profile.yaoDropChance || 0.22) + this.player.lck * 0.008) * accDropMult;
+    const dropRate = Math.min(
+      0.35,
+      ((e.profile.yaoDropChance || 0.03) + this.player.lck * 0.0025) * accDropMult
+    );
     if (coreId && !s.ownedYaoCores.includes(coreId) && Math.random() < dropRate) {
       this.drops.push({
         id: `core_${this.nextEntityId++}`,
@@ -4303,14 +4387,15 @@ export class GameEngine {
   }
 
   public getExpForNextLevel(lv: number): number {
-    return Math.round(65 * Math.pow(1.24, lv - 1));
+    return Math.round(92 * Math.pow(1.34, lv - 1));
   }
 
   private damagePlayer(rawAtk: number, knockDir: 1 | -1): void {
     const p = this.player;
-    const skinMult = this.activeBuffs.iron_skin > 0 ? 0.62 : 1;
-    const armorMit = 1 - (p.def / (p.def + 48)) * 0.62;
-    const dmg = Math.max(4, Math.round(rawAtk * armorMit * skinMult));
+    const skinMult = this.activeBuffs.iron_skin > 0 ? 0.65 : 1;
+    const minFloor = Math.round(rawAtk * 0.34 * skinMult);
+    const reduced = Math.round((rawAtk - p.def * 0.6) * skinMult);
+    const dmg = Math.max(5, minFloor, reduced);
     p.hp = Math.max(0, p.hp - dmg);
     p.hurtStunTimer = 0.34;
     p.invulnTimer = 0.92;

@@ -405,7 +405,7 @@ export class UIManager {
     if (wKey !== this.lastHudWpnKey) {
       this.lastHudWpnKey = wKey;
       if (this.hudRefs.wpnIconWrap) {
-        this.hudRefs.wpnIconWrap.innerHTML = getWeaponArtHtml(w.archetype, isTouch ? 44 : 56);
+        this.hudRefs.wpnIconWrap.innerHTML = getWeaponArtHtml(w.archetype, isTouch ? 44 : 56, w.id);
       }
       if (this.hudRefs.wpnName) this.hudRefs.wpnName.textContent = w.name;
       if (this.hudRefs.swapHint) {
@@ -757,7 +757,7 @@ export class UIManager {
       if (kind === 'bell_gargoyle') return 'mob_gargoyle';
       if (kind === 'corpse_soldier') return 'mob_zombie';
       if (kind === 'demon_wolf') return 'mob_warg';
-      if (kind === 'blood_bat') return 'mob_bat';
+      if (kind === 'spirit_crow') return 'mob_crow';
       if (kind === 'bone_archer') return 'mob_bone_archer';
       if (kind === 'bronze_guard') return 'mob_gd_0';
       if (ENEMY_PROFILES[kind].flying) return 'mob_wr_0';
@@ -1225,24 +1225,38 @@ export class UIManager {
               : a === 'whip'
                 ? '八向雷鞭'
                 : '轻剑连斩';
-      rowsHtml = s.ownedWeapons
-        .map((id) => {
-          const w = WEAPONS[id];
-          const eq = s.equippedWeapon === id;
-          const tLv = s.weaponTemperLv?.[id] || 0;
-          return `
+      const totalWeapons = Object.keys(WEAPONS).length;
+      const validOwned = s.ownedWeapons.filter((id) => Boolean(WEAPONS[id]));
+      const tierBadge = (t: number) =>
+        t >= 4
+          ? '<span style="color:#fde047;font-size:11px;font-weight:800;">【传世绝品】</span>'
+          : t === 3
+            ? '<span style="color:#38bdf8;font-size:11px;font-weight:800;">【玄门名器】</span>'
+            : t === 2
+              ? '<span style="color:#a7f3d0;font-size:11px;font-weight:800;">【百炼良兵】</span>'
+              : '<span style="color:#94a3b8;font-size:11px;">【军中凡铁】</span>';
+      rowsHtml =
+        `<div style="font-size:12px;color:#cbd5e1;padding:2px 6px 6px;display:flex;justify-content:space-between;align-items:center;">
+          <span>独门兵刃收集录</span>
+          <span style="color:#fde68a;font-weight:800;">已收入囊 ${validOwned.length} / ${totalWeapons}</span>
+        </div>` +
+        validOwned
+          .map((id) => {
+            const w = WEAPONS[id];
+            const eq = s.equippedWeapon === id;
+            return `
           <div class="zx-item-row ${eq ? 'equipped' : ''}" data-pick-id="${id}">
             <div style="display:flex;align-items:center;gap:12px;min-width:0;">
-              ${getWeaponArtHtml(w.archetype, wpnIconSize)}
+              ${getWeaponArtHtml(w.archetype, wpnIconSize, w.id)}
               <div style="min-width:0;">
-                <div style="font-size:14.5px;font-weight:900;color:var(--rice);">${w.name} ${tLv > 0 ? `<span style="color:#fb923c;">+${tLv}</span>` : ''}</div>
-                <div style="font-size:11.5px;color:var(--ash);">杀伤 +${w.atk + tLv * 6} · ${archTag(w.archetype)}</div>
+                <div style="font-size:14.5px;font-weight:900;color:var(--rice);">${w.name} ${tierBadge(w.tier)}</div>
+                <div style="font-size:11.5px;color:var(--ash);">杀伤 +${w.atk}${w.critBonus ? ` · 暴击 +${Math.round(w.critBonus * 100)}%` : ''} · ${archTag(w.archetype)}</div>
               </div>
             </div>
             ${eq ? `<span class="zx-eq-seal">佩挂中</span>` : `<span class="zx-eq-hint">换装</span>`}
           </div>`;
-        })
-        .join('');
+          })
+          .join('');
     } else if (this.selectedEquipSlot === 'sub') {
       const focusSub =
         SUB_WEAPONS[(this.previewItemId as SubWeaponId) || s.equippedSubWeapon] || curSub;
@@ -1569,7 +1583,7 @@ export class UIManager {
         'greatsword_sunder',
         'spear_thunder',
         'daggers_poison',
-        'whip_fire',
+        'whip_2',
       ]) {
         if (!s.ownedWeapons.includes(id)) s.ownedWeapons.push(id);
       }
@@ -1992,36 +2006,28 @@ export class UIManager {
 
     const renderShopOrSmith = () => {
       if (kind === 'smith') {
-        const rows = s.ownedWeapons
-          .map((id) => {
-            const w = WEAPONS[id];
-            const tLv = s.weaponTemperLv?.[id] || 0;
-            const cost = 45 + tLv * 40;
-            const curAtk = w.atk + tLv * 6;
-            const nextId = w.upgradeTo;
-            const nextW = nextId ? WEAPONS[nextId] : null;
-            const evoCost = w.upgradeCost || 320;
-            const canEvo = nextW && !s.ownedWeapons.includes(nextW.id);
-
+        const masterworks = Object.values(WEAPONS).filter((w) => w.smithExclusive);
+        const rows = masterworks
+          .map((w) => {
+            const owned = s.ownedWeapons.includes(w.id);
+            const forgeCost = w.price || 580;
             return `
-              <div class="zx-item-row" style="cursor:default;flex-wrap:wrap;gap:8px;">
-                <div style="display:flex;align-items:center;gap:12px;">
-                  ${getWeaponArtHtml(w.archetype, compact ? 52 : 74)}
+              <div class="zx-item-row" style="cursor:default;flex-wrap:wrap;gap:10px;">
+                <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:210px;">
+                  ${getWeaponArtHtml(w.archetype, compact ? 56 : 78, w.id)}
                   <div>
-                    <div style="font-size:15px;font-weight:900;color:var(--rice);">${w.name} ${tLv > 0 ? `<span style="color:#fb923c;">+${tLv}</span>` : ''}</div>
-                    <div style="font-size:11.5px;color:var(--ash);">杀伤 ${curAtk} ${tLv < 5 ? `<span class="stat-up">➔ ${curAtk + 6}</span>` : '(满阶)'}${canEvo ? ` · 可铸【${nextW.name}】` : ''}</div>
+                    <div style="font-size:15px;font-weight:900;color:var(--rice);">${w.name}</div>
+                    <div style="font-size:11.5px;color:#fbbf24;">杀伤 +${w.atk}${w.critBonus ? ` · 暴击 +${Math.round(w.critBonus * 100)}%` : ''}</div>
+                    <div style="font-size:11.5px;color:var(--ash);margin-top:2px;">${w.desc}</div>
                   </div>
                 </div>
-                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                  <button class="zx-seal-btn" data-temper-id="${id}" style="padding:5px 10px;font-size:12px;border-color:#fb923c;opacity:${tLv >= 5 ? 0.45 : 1};">
-                    ${tLv >= 5 ? '已满阶' : `淬炼 +1 (${cost}银)`}
-                  </button>
+                <div style="display:flex;gap:8px;align-items:center;">
                   ${
-                    canEvo
-                      ? `<button class="zx-seal-btn" data-evolve-id="${id}" style="padding:5px 10px;font-size:12px;border-color:#fde047;color:#fde047;">
-                           升阶【${nextW.name}】(${evoCost}银)
+                    owned
+                      ? `<span class="zx-eq-seal">已铸入囊</span>`
+                      : `<button class="zx-seal-btn" data-forge-id="${w.id}" style="padding:6px 12px;font-size:12.5px;border-color:#fb923c;color:#fde68a;">
+                           开炉秘铸 (${forgeCost}银)
                          </button>`
-                      : ''
                   }
                 </div>
               </div>`;
@@ -2030,7 +2036,7 @@ export class UIManager {
 
         overlay.innerHTML = `
           <div class="zx-arsenal-topbar">
-            <span class="zx-modal-heading" style="color:#fb923c;">赤火淬兵台 · 欧冶残</span>
+            <span class="zx-modal-heading" style="color:#fb923c;">赤火名剑炉 · 欧冶残独门秘铸</span>
             <div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">
               <span style="color:#fde68a;font-weight:800;font-size:13px;">纹银 ${s.gold}</span>
               <button class="zx-seal-btn" id="btn-close-npc">${isTouch ? '告辞' : '收剑告辞 [ESC]'}</button>
@@ -2039,7 +2045,7 @@ export class UIManager {
           <div class="zx-npc-modal-body">
             <div class="zx-stage-col zx-npc-side-col">
               <div style="font-size:12.5px;color:#cbd5e1;line-height:1.55;padding:4px 4px 10px;">
-                “把兵刃递过来——淬锋或升阶重铸名器，老夫一条右臂皆给你办妥！”
+                “凡世神兵一器一魂，从无千篇一律的回炉加点！老夫毕生仅存四卷名器孤本，你若凑足纹银，老夫便为你开炉铸出一世孤品！”
               </div>
               ${getSpeakerPortraitSvg('欧冶残', 235)}
             </div>
@@ -2047,38 +2053,18 @@ export class UIManager {
           </div>
         `;
 
-        overlay.querySelectorAll<HTMLElement>('[data-temper-id]').forEach((el) => {
+        overlay.querySelectorAll<HTMLElement>('[data-forge-id]').forEach((el) => {
           el.onclick = () => {
-            const wid = el.dataset.temperId!;
-            if (!s.weaponTemperLv) s.weaponTemperLv = {};
-            const lv = s.weaponTemperLv[wid] || 0;
-            const cost = 45 + lv * 40;
-            if (lv >= 5 || s.gold < cost) {
-              AudioFX.playHurt();
-              return;
-            }
-            s.gold -= cost;
-            s.weaponTemperLv[wid] = lv + 1;
-            this.engine.recalcStats(false);
-            AudioFX.playParryClang();
-            renderShopOrSmith();
-          };
-        });
-
-        overlay.querySelectorAll<HTMLElement>('[data-evolve-id]').forEach((el) => {
-          el.onclick = () => {
-            const wid = el.dataset.evolveId!;
+            const wid = el.dataset.forgeId!;
             const w = WEAPONS[wid];
-            const evoCost = w.upgradeCost || 320;
-            if (!w.upgradeTo || s.gold < evoCost) {
+            const forgeCost = w?.price || 580;
+            if (!w || s.ownedWeapons.includes(wid) || s.gold < forgeCost) {
               AudioFX.playHurt();
               return;
             }
-            s.gold -= evoCost;
-            if (!s.ownedWeapons.includes(w.upgradeTo)) {
-              s.ownedWeapons.push(w.upgradeTo);
-            }
-            s.equippedWeapon = w.upgradeTo;
+            s.gold -= forgeCost;
+            s.ownedWeapons.push(wid);
+            s.equippedWeapon = wid;
             this.engine.recalcStats(false);
             AudioFX.playRelicBell();
             renderShopOrSmith();
@@ -2154,24 +2140,24 @@ export class UIManager {
             kind: 'wpn',
             name: '短兵 · 生铁双短匕',
             desc: '零前摇极速双匕连刺 · 绕背必定暴击',
-            price: 120,
-            icon: getWeaponArtHtml('daggers', 54),
+            price: 185,
+            icon: getWeaponArtHtml('daggers', 54, 'daggers_1'),
           },
           {
             id: 'whip_1',
             kind: 'wpn',
             name: '软鞭 · 生铁九节鞭',
             desc: '军中九节铁链鞭 · 八向远距抽击控场',
-            price: 165,
-            icon: getWeaponArtHtml('whip', 54),
+            price: 220,
+            icon: getWeaponArtHtml('whip', 54, 'whip_1'),
           },
           {
             id: 'sword_1',
             kind: 'wpn',
-            name: '轻剑 · 制式精铁剑',
-            desc: '百炼军中精铁佩剑 · 锋利轻捷',
-            price: 160,
-            icon: getWeaponArtHtml('sword', 54),
+            name: '轻剑 · 巡防百炼钢剑',
+            desc: '城防百炼精钢佩剑 · 锋利轻捷',
+            price: 210,
+            icon: getWeaponArtHtml('sword', 54, 'sword_1'),
           },
           {
             id: 'iron_lamellar',

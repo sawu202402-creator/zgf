@@ -1,7 +1,7 @@
 import { WEAPONS } from '../data/itemsAndSkills';
 import { SceneNpc } from '../data/worldMap';
 import { WeaponArchetype, WeaponDef } from '../types';
-import { AssetKey, Assets } from './AssetLoader';
+import { AssetKey, Assets, resolveWeaponAssetKey } from './AssetLoader';
 import { ActiveSkillAnim, ActiveSlash, EnemyEntity, GameEngine, WorldDrop } from './GameEngine';
 import { drawCelShadedWeapon, drawSoftGroundShadow } from './GuofengWorldArt';
 import {
@@ -64,7 +64,7 @@ function selectEnemySpriteFrame(e: EnemyEntity, t: number): AssetKey {
   if (kind === 'bell_gargoyle') return 'mob_gargoyle';
   if (kind === 'corpse_soldier') return 'mob_zombie';
   if (kind === 'demon_wolf') return 'mob_warg';
-  if (kind === 'blood_bat') return 'mob_bat';
+  if (kind === 'spirit_crow') return 'mob_crow';
   if (kind === 'bone_archer') return 'mob_bone_archer';
 
   if (kind === 'bronze_guard') {
@@ -296,70 +296,99 @@ function drawSingleCurvedDagger(
   wDef: WeaponDef,
   reverseGrip = false
 ): void {
-  const len = wDef.tier === 3 ? 38 : wDef.tier === 2 ? 34 : 30;
   ctx.save();
   if (reverseGrip) {
     ctx.scale(-1, -1);
   }
 
-  // 缠绳短柄与铜铸护手
+  ctx.strokeStyle = '#090d16';
+  ctx.lineWidth = 1.25;
+
+  if (wDef.id === 'daggers_2') {
+    // 分水精钢峨眉刺：中枢指环 + 两端菱形破甲双锋
+    ctx.fillStyle = '#0284c7';
+    ctx.beginPath();
+    ctx.arc(0, 0, 4.2, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = '#cbd5e1';
+    ctx.beginPath();
+    ctx.moveTo(-22, 0);
+    ctx.lineTo(-4, -2.6);
+    ctx.lineTo(4, -2.6);
+    ctx.lineTo(28, 0);
+    ctx.lineTo(4, 2.6);
+    ctx.lineTo(-4, 2.6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
+
+  if (wDef.id === 'daggers_3') {
+    // 子母鸳鸯追魂钺：错金对称双弯月护手钺刃
+    ctx.fillStyle = '#78350f';
+    ctx.fillRect(-7, -2.2, 14, 4.4);
+    ctx.fillStyle = '#fbbf24';
+    ctx.strokeStyle = '#090d16';
+    ctx.beginPath();
+    ctx.arc(4, 0, 14, -1.25, 1.25);
+    ctx.arc(9, 0, 10, 1.15, -1.15, true);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#f43f5e';
+    ctx.beginPath();
+    ctx.arc(-3, 0, 9.5, 1.95, 4.35);
+    ctx.arc(-7, 0, 6.5, 4.25, 2.05, true);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
+
+  const len = wDef.id === 'daggers_poison' ? 35 : 29;
+  // 缠绳短柄与铜铁护手
   ctx.fillStyle = '#3f2e21';
-  ctx.strokeStyle = '#0f172a';
-  ctx.lineWidth = 1.2;
   ctx.fillRect(-9, -2.2, 9, 4.4);
   ctx.strokeRect(-9, -2.2, 9, 4.4);
 
-  ctx.fillStyle = wDef.tier === 3 ? '#f59e0b' : '#ca8a04';
+  ctx.fillStyle = wDef.id === 'daggers_poison' ? '#15803d' : '#64748b';
   ctx.beginPath();
-  ctx.moveTo(-1, -6.2);
-  ctx.lineTo(3.5, -3.2);
-  ctx.lineTo(3.5, 3.2);
-  ctx.lineTo(-1, 6.2);
+  ctx.moveTo(-1, -5.5);
+  ctx.lineTo(3, -3);
+  ctx.lineTo(3, 3);
+  ctx.lineTo(-1, 5.5);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
 
-  // 弯月分水刃身（一阶寒铁翠芒 / 二阶幽冥紫刃或碧蟾毒芒 / 三阶残月赤金刃或鸳鸯追魂紫金刃）
-  const bg = ctx.createLinearGradient(2, 0, len, -4);
   if (wDef.id === 'daggers_poison') {
+    // 碧蟾曲刃毒刺：蛇形弯曲碧绿淬毒刃
+    const bg = ctx.createLinearGradient(2, 0, len, -4);
     bg.addColorStop(0, '#064e3b');
     bg.addColorStop(0.55, '#10b981');
     bg.addColorStop(1, '#bbf7d0');
-  } else if (wDef.id === 'daggers_phantom') {
-    bg.addColorStop(0, '#3b0764');
-    bg.addColorStop(0.55, '#c084fc');
-    bg.addColorStop(1, '#fef08a');
-  } else if (wDef.tier === 3) {
-    bg.addColorStop(0, '#4c0519');
-    bg.addColorStop(0.55, '#f43f5e');
-    bg.addColorStop(1, '#fef08a');
-  } else if (wDef.tier === 2) {
-    bg.addColorStop(0, '#1e1b4b');
-    bg.addColorStop(0.55, '#8b5cf6');
-    bg.addColorStop(1, '#e9d5ff');
+    ctx.fillStyle = bg;
+    ctx.beginPath();
+    ctx.moveTo(2.5, -3.2);
+    ctx.quadraticCurveTo(len * 0.48, -7.2, len, -4.4);
+    ctx.quadraticCurveTo(len * 0.62, 4.2, 2.5, 2.8);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
   } else {
-    bg.addColorStop(0, '#334155');
-    bg.addColorStop(0.55, '#94a3b8');
-    bg.addColorStop(1, '#ecfdf5');
+    // 生铁双短匕：朴拙笔直灰铁短匕
+    ctx.fillStyle = '#94a3b8';
+    ctx.beginPath();
+    ctx.moveTo(2.5, -3.0);
+    ctx.lineTo(len, -0.4);
+    ctx.lineTo(2.5, 3.0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
   }
-  ctx.fillStyle = bg;
-  ctx.strokeStyle = '#090d16';
-  ctx.lineWidth = 1.25;
-  ctx.beginPath();
-  ctx.moveTo(2.5, -3.2);
-  ctx.quadraticCurveTo(len * 0.56, -5.8, len, -4.6);
-  ctx.quadraticCurveTo(len * 0.68, 3.8, 2.5, 2.8);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-
-  // 刃口寒芒血槽
-  ctx.strokeStyle = wDef.glowColor;
-  ctx.lineWidth = 1.2;
-  ctx.beginPath();
-  ctx.moveTo(6, -1.2);
-  ctx.quadraticCurveTo(len * 0.58, -2.6, len - 3, -3.6);
-  ctx.stroke();
 
   ctx.restore();
 }
@@ -382,14 +411,14 @@ function drawEquippedWeaponInHeroHands(
     scale: HERO_SPRITE_METRICS.baseScale,
   };
 
-  // 重刃系：跑动/跳跃/下蹲时双手空拳、重刃背负于背；站立/蓄力/劈斩时按品阶点亮巨刃神纹！
+  // 重刃系：跑动/跳跃/下蹲时重刃背负于背；站立/蓄力/劈斩时沿双手握柄方向直接绘出对应重兵真容！
   if (wDef.archetype === 'greatsword') {
     if (
-      wDef.tier >= 2 &&
-      (frameKey === 'h18_modao_idle' ||
-        frameKey === 'h18_modao_windup' ||
-        frameKey === 'h18_modao_cleave')
+      frameKey === 'h18_modao_idle' ||
+      frameKey === 'h18_modao_windup' ||
+      frameKey === 'h18_modao_cleave'
     ) {
+      const gsImg = Assets.get(resolveWeaponAssetKey('greatsword', wDef.id));
       const bladeSeg =
         frameKey === 'h18_modao_idle'
           ? { p0: [152, 86], p1: [84, 52] }
@@ -398,15 +427,16 @@ function drawEquippedWeaponInHeroHands(
             : { p0: [176, 158], p1: [246, 206] };
       const a = transformSpinePoint(bladeSeg.p0[0], bladeSeg.p0[1], metrics, joints);
       const b = transformSpinePoint(bladeSeg.p1[0], bladeSeg.p1[1], metrics, joints);
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.strokeStyle = wDef.glowColor || (wDef.tier === 3 ? 'rgba(253, 224, 71, 0.82)' : 'rgba(251, 146, 60, 0.78)');
-      ctx.lineWidth = wDef.tier === 3 ? 4.4 : 3.2;
-      ctx.beginPath();
-      ctx.moveTo(a.x, a.y);
-      ctx.lineTo(b.x, b.y);
-      ctx.stroke();
-      ctx.restore();
+      if (gsImg) {
+        const ang = Math.atan2(b.y - a.y, b.x - a.x);
+        const gsLen = wDef.tier >= 4 ? 98 : wDef.tier === 3 ? 92 : 84;
+        const gsH = gsLen * (gsImg.height / gsImg.width);
+        ctx.save();
+        ctx.translate(a.x, a.y);
+        ctx.rotate(ang);
+        ctx.drawImage(gsImg, -gsLen * 0.22, -gsH * 0.5, gsLen, gsH);
+        ctx.restore();
+      }
     }
     return;
   }
@@ -420,7 +450,7 @@ function drawEquippedWeaponInHeroHands(
       ? transformSpinePoint(sock.lx, sock.ly, metrics, joints)
       : null;
 
-  // 1. 分水峨眉双刺 / 幽冥鬼爪 / 阴阳残月刃：真正的左右双手持双刺，抬手即反握弯刃！
+  // 1. 双刺奇门系（生铁双短匕 / 碧蟾曲刃毒刺 / 分水精钢峨眉刺 / 子母鸳鸯追魂钺）
   if (wDef.archetype === 'daggers') {
     if (lHand && sock.lAngle !== undefined) {
       ctx.save();
@@ -443,9 +473,9 @@ function drawEquippedWeaponInHeroHands(
     return;
   }
 
-  // 2. 白蜡点钢枪 / 寒星龙胆枪 / 破阵紫金霸王枪：全程持握红缨长枪，抬手蓄枪、弓步挺刺！
+  // 2. 长兵系（白蜡步卒枪 / 寒星龙胆亮银枪 / 紫电惊雷蛇矛 / 破阵紫金方天戟）：每杆长兵皆呈现独立手绘真容！
   if (wDef.archetype === 'spear') {
-    const spImg = Assets.get('part_wpn_spear');
+    const spImg = Assets.get(resolveWeaponAssetKey('spear', wDef.id));
     if (!spImg) return;
     const spLen = wDef.tier >= 4 ? 128 : wDef.tier === 3 ? 118 : 108;
     const spH = spLen * (spImg.height / spImg.width);
@@ -456,28 +486,16 @@ function drawEquippedWeaponInHeroHands(
       const aimAng =
         (slash.pogoDown ? 1.15 : slash.aimY < -0.35 ? -0.46 : 0) + rHand.angle;
       if (pr < 0.24) {
-        // 沉腰引枪蓄势阶段：枪身随双臂后撤蓄满寸劲！
         const cockBack = (pr / 0.24) * 10;
         ctx.translate(rHand.x - cockBack + 8, rHand.y + 3);
         ctx.rotate(aimAng - 0.05);
         ctx.drawImage(spImg, -spLen * 0.32, -spH * 0.5, spLen, spH);
       } else {
-        // 挺枪破空怒刺阶段：长枪自前手拳心笔直刺出！
         const p = Math.min(1, (pr - 0.24) / 0.72);
         const thrust = Math.sin(p * Math.PI) * 26;
         ctx.translate(rHand.x + thrust, rHand.y);
         ctx.rotate(aimAng);
         ctx.drawImage(spImg, -spLen * 0.24, -spH * 0.5, spLen, spH);
-      }
-      if (wDef.tier >= 3) {
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.strokeStyle = wDef.glowColor;
-        ctx.lineWidth = 2.1;
-        ctx.beginPath();
-        ctx.moveTo(spLen * 0.34, 0);
-        ctx.lineTo(spLen * 0.74, 0);
-        ctx.stroke();
-        ctx.globalCompositeOperation = 'source-over';
       }
       drawFistKnuckleClasp(ctx);
     } else if (
@@ -486,7 +504,6 @@ function drawEquippedWeaponInHeroHands(
         skillAnim.kind === 'shuofeng_wave' ||
         skillAnim.kind === 'shunying_flash')
     ) {
-      // 长枪施展绝学：惊鸿升龙直刺苍穹，朔风/瞬影破空平刺！
       const skAng =
         skillAnim.kind === 'jinghong_rising'
           ? -1.28 + rHand.angle
@@ -495,17 +512,8 @@ function drawEquippedWeaponInHeroHands(
       ctx.translate(rHand.x + thrust * Math.cos(skAng), rHand.y + thrust * Math.sin(skAng));
       ctx.rotate(skAng);
       ctx.drawImage(spImg, -spLen * 0.26, -spH * 0.5, spLen, spH);
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.strokeStyle = skillAnim.color;
-      ctx.lineWidth = 2.6;
-      ctx.beginPath();
-      ctx.moveTo(spLen * 0.18, 0);
-      ctx.lineTo(spLen * 0.78, 0);
-      ctx.stroke();
-      ctx.globalCompositeOperation = 'source-over';
       drawFistKnuckleClasp(ctx);
     } else {
-      // 待机 / 疾奔 / 腾跃 / 下蹲：斜提红缨长枪（枪锋斜扬不戳地，步态自然起伏）
       const carryAng =
         frameKey === 'h18_crouch'
           ? 0.04 + rHand.angle
@@ -513,40 +521,26 @@ function drawEquippedWeaponInHeroHands(
       ctx.translate(rHand.x + 4, rHand.y - 2);
       ctx.rotate(carryAng);
       ctx.drawImage(spImg, -spLen * 0.34, -spH * 0.5, spLen, spH);
-      if (wDef.tier >= 3) {
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.strokeStyle = wDef.glowColor;
-        ctx.lineWidth = 1.8;
-        ctx.beginPath();
-        ctx.moveTo(spLen * 0.28, 0);
-        ctx.lineTo(spLen * 0.64, 0);
-        ctx.stroke();
-        ctx.globalCompositeOperation = 'source-over';
-      }
       drawFistKnuckleClasp(ctx);
     }
     ctx.restore();
     return;
   }
 
-  // 3. 生铁九节鞭 / 缚魂赤铜锁链刀 / 赤练火龙软鞭 / 紫电雷音打神鞭：高举抖鞭蓄势 ➔ 振臂甩链！
+  // 3. 软鞭奇门系（生铁九节鞭 / 赤练火龙锁链刀 / 紫电打神雷音鞭）
   if (wDef.archetype === 'whip') {
     const rodCol =
-      wDef.id === 'whip_fire'
-        ? '#991b1b'
-        : wDef.tier >= 4
-          ? '#581c87'
-          : wDef.tier === 3
-            ? '#7c2d12'
-            : '#334155';
+      wDef.id === 'whip_3'
+        ? '#581c87'
+        : wDef.id === 'whip_2'
+          ? '#991b1b'
+          : '#334155';
     const ringCol =
-      wDef.id === 'whip_fire'
-        ? '#fb923c'
-        : wDef.tier >= 4
-          ? '#fde047'
-          : wDef.tier === 3
-            ? '#fb923c'
-            : '#94a3b8';
+      wDef.id === 'whip_3'
+        ? '#fde047'
+        : wDef.id === 'whip_2'
+          ? '#fb923c'
+          : '#94a3b8';
 
     ctx.save();
     ctx.translate(rHand.x, rHand.y);
@@ -554,17 +548,14 @@ function drawEquippedWeaponInHeroHands(
     if (slash) {
       const pr = slash.progress;
       if (pr < 0.24) {
-        // 抬手高举抖鞭 (`h18_sword_1`)：右拳高举鞭柄，九节铁链在头顶身后挽出蓄力S形鞭弧！
         const u = pr / 0.24;
         ctx.rotate(-2.15 + rHand.angle + u * 0.45);
-        // 鞭柄与红缨尾穗
         ctx.fillStyle = '#3f2e21';
         ctx.strokeStyle = '#090d16';
         ctx.lineWidth = 1.2;
         ctx.fillRect(-6, -2.4, 17, 4.8);
         ctx.strokeRect(-6, -2.4, 17, 4.8);
 
-        // 头顶蓄势抖动的九节铁链弧与弯月镰首
         ctx.strokeStyle = rodCol;
         ctx.lineWidth = 3.2;
         ctx.beginPath();
@@ -583,15 +574,13 @@ function drawEquippedWeaponInHeroHands(
         ctx.lineWidth = 1.4;
         ctx.stroke();
 
-        // 鞭梢弯钩血刃
-        ctx.fillStyle = '#e2e8f0';
+        ctx.fillStyle = wDef.id === 'whip_3' ? '#fde047' : wDef.id === 'whip_2' ? '#fb923c' : '#e2e8f0';
         ctx.beginPath();
-        ctx.arc(lx + 4, ly, 4.2, -0.8, 1.9);
+        ctx.arc(lx + 4, ly, wDef.id === 'whip_2' ? 5.6 : 4.2, -0.8, 1.9);
         ctx.lineTo(lx, ly);
         ctx.closePath();
         ctx.fill();
       } else {
-        // 振臂向前抽鞭 (`h18_sword_2`)：掌中紧握鞭柄与红缨，无缝衔接破空九节长链！
         const aimAng =
           (slash.aimY < -0.35 ? -0.62 : slash.aimY > 0.35 ? 0.38 : 0) + rHand.angle;
         ctx.rotate(aimAng);
@@ -605,44 +594,22 @@ function drawEquippedWeaponInHeroHands(
       }
       drawFistKnuckleClasp(ctx);
     } else {
-      // 平时收鞭持握：右手握乌金鞭柄，两圈九节铁链自然垂挂于手侧随步伐轻晃！
       const sway = Math.sin(animTime * 3.6 + runCycle * 0.9) * 0.08;
       ctx.rotate(0.32 + rHand.angle + sway);
-      ctx.fillStyle = '#3f2e21';
-      ctx.strokeStyle = '#090d16';
-      ctx.lineWidth = 1.2;
-      ctx.fillRect(-6, -2.3, 18, 4.6);
-      ctx.strokeRect(-6, -2.3, 18, 4.6);
-
-      // 盘挂手侧的九节铁链线圈
-      ctx.strokeStyle = rodCol;
-      ctx.lineWidth = 2.8;
-      ctx.beginPath();
-      ctx.ellipse(9, 9, 8.5, 11, 0.25, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.strokeStyle = ringCol;
-      ctx.lineWidth = 1.2;
-      ctx.setLineDash([3, 4]);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      // 朱红鞭穗
-      ctx.strokeStyle = '#dc2626';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(-6, 0);
-      ctx.quadraticCurveTo(-12, 5, -14, 11);
-      ctx.stroke();
+      const whipImg = Assets.get(resolveWeaponAssetKey('whip', wDef.id));
+      if (whipImg) {
+        ctx.drawImage(whipImg, -10, -8, 28, 28);
+      }
       drawFistKnuckleClasp(ctx);
     }
     ctx.restore();
     return;
   }
 
-  // 4. 轻剑系（粗铸铁剑 -> 制式精铁剑 -> 墨渊秋水剑 -> 七星龙渊剑）：按品阶递进剑身质感！
-  const swImg = Assets.get('part_wpn_sword');
+  // 4. 轻剑系（7把独有佩剑每把皆加载各自独立手绘剑身贴图！）
+  const swImg = Assets.get(resolveWeaponAssetKey('sword', wDef.id));
   if (!swImg) return;
-  const swLen = wDef.tier >= 4 ? 80 : wDef.tier === 3 ? 72 : wDef.tier === 2 ? 64 : 58;
+  const swLen = wDef.tier >= 4 ? 82 : wDef.tier === 3 ? 74 : wDef.tier === 2 ? 66 : 58;
   const swH = swLen * (swImg.height / swImg.width);
 
   ctx.save();
@@ -657,53 +624,7 @@ function drawEquippedWeaponInHeroHands(
     }
   }
   ctx.rotate(swAng);
-
-  // 二阶以上方缀剑穗，初始粗铸铁剑保持素面缠绳铁柄
-  if (wDef.tier >= 2) {
-    ctx.strokeStyle = wDef.tier >= 4 ? '#f59e0b' : wDef.tier === 3 ? '#0284c7' : '#991b1b';
-    ctx.lineWidth = 1.6;
-    ctx.beginPath();
-    ctx.moveTo(-swLen * 0.14, 0);
-    ctx.quadraticCurveTo(-swLen * 0.22, 5, -swLen * 0.26, 9);
-    ctx.stroke();
-  }
-
-  ctx.drawImage(swImg, -swLen * 0.14, -swH * 0.5, swLen, swH);
-
-  if (wDef.tier === 1) {
-    // 粗铸铁剑：素面灰黑生铁暗哑剑脊，绝无仙侠流光
-    ctx.strokeStyle = 'rgba(71, 85, 105, 0.65)';
-    ctx.lineWidth = 1.6;
-    ctx.beginPath();
-    ctx.moveTo(swLen * 0.1, 0);
-    ctx.lineTo(swLen * 0.8, 0);
-    ctx.stroke();
-  } else if (wDef.tier === 3) {
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.strokeStyle = wDef.glowColor || 'rgba(56, 189, 248, 0.85)';
-    ctx.lineWidth = 2.0;
-    ctx.beginPath();
-    ctx.moveTo(swLen * 0.14, 0);
-    ctx.lineTo(swLen * 0.82, 0);
-    ctx.stroke();
-    ctx.globalCompositeOperation = 'source-over';
-  } else if (wDef.tier >= 4) {
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.strokeStyle = wDef.glowColor || 'rgba(253, 224, 71, 0.9)';
-    ctx.lineWidth = 2.4;
-    ctx.beginPath();
-    ctx.moveTo(swLen * 0.12, 0);
-    ctx.lineTo(swLen * 0.86, 0);
-    ctx.stroke();
-    ctx.fillStyle = wDef.id === 'sword_phantom' ? '#d1fae5' : wDef.id === 'sword_blood' ? '#fecaca' : '#fef9c3';
-    for (let st = 0; st < 5; st++) {
-      ctx.beginPath();
-      ctx.arc(swLen * (0.22 + st * 0.13), st % 2 === 0 ? -0.9 : 0.9, 1.35, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.globalCompositeOperation = 'source-over';
-  }
-
+  ctx.drawImage(swImg, -swLen * 0.18, -swH * 0.5, swLen, swH);
   drawFistKnuckleClasp(ctx);
   ctx.restore();
 }
@@ -1182,8 +1103,8 @@ export function drawMonsterOrBoss(
               ? 0.55
               : e.profile.kind === 'bronze_guard'
                 ? 0.54
-                : e.profile.kind === 'blood_bat'
-                  ? 0.46
+                : e.profile.kind === 'spirit_crow'
+                  ? 0.5
                   : 0.52;
 
     const hoverY = e.roosting
@@ -1207,9 +1128,9 @@ export function drawMonsterOrBoss(
     ctx.save();
     ctx.translate(0, -hoverY);
     if (e.roosting) {
-      // 血翼夜蝠潜伏期：倒挂于古梁屋檐之下蓄势待发！
-      ctx.translate(0, -28);
-      ctx.scale(e.facing * 0.88, -0.88);
+      // 玄冥三足阴鸦栖梁期：正立敛翼停驻于飞檐古梁之上（绝非西式倒挂蝙蝠！）
+      ctx.translate(0, -8);
+      ctx.scale(e.facing * 0.94, 0.94);
     } else {
       ctx.scale(e.facing, 1);
     }
@@ -1448,7 +1369,7 @@ export function drawMonsterOrBoss(
 
   // 摒弃容易出戏的UI矢量【危】字弹窗：改为贴合怪物兵刃/凶眸的自然蓄势寒光微闪（配合 Spine 后仰蓄力姿态传达前摇！）
   if (e.aiState === 'windup') {
-    const isBeast = e.profile.kind === 'demon_wolf' || e.profile.kind === 'blood_bat';
+    const isBeast = e.profile.kind === 'demon_wolf' || e.profile.kind === 'spirit_crow';
     const gx = isBeast ? e.facing * (w * 0.38) : -e.facing * (w * 0.28);
     const gy = isBeast ? -h * 0.62 : -h * 0.68;
     const glintCol = isBeast ? 'rgba(251, 146, 60,' : 'rgba(254, 240, 138,';
@@ -1491,11 +1412,11 @@ export function drawMonsterOrBoss(
       const sAng = -1.55 + p * 0.35;
       const eAng = -1.15 + Math.min(1, p * 1.4) * 2.25;
       drawInkSlashRibbon(ctx, e.facing * 6, -h * 0.54, e.facing, false, 74, 18, sAng, eAng, '#b91c1c', fade);
-    } else if (kind === 'blood_bat') {
-      // 血翼夜蝠妖：俯冲掠袭猩红血牙残弧
+    } else if (kind === 'spirit_crow') {
+      // 玄冥三足阴鸦：振翼俯冲掠袭幽冥碧火鸦爪残弧
       const sAng = -0.95 + p * 0.28;
       const eAng = -0.62 + Math.min(1, p * 1.45) * 1.65;
-      drawInkSlashRibbon(ctx, e.facing * 6, -h * 0.5, e.facing, false, 58, 13, sAng, eAng, '#e11d48', fade);
+      drawInkSlashRibbon(ctx, e.facing * 6, -h * 0.5, e.facing, false, 60, 13, sAng, eAng, '#10b981', fade);
     } else if (kind === 'paper_swordsman') {
       // 剪纸刀客：极速冰青居合一字拔刀闪 + 飞舞白纸符片
       const sAng = -0.52 + p * 0.18;
@@ -1850,31 +1771,23 @@ export function drawWorldDrop(
       }
     } else {
       const w = wpnDef || WEAPONS.sword_0;
-      // 每把武器按自身真实兵刃外形（轻剑/陌刀/长枪/双刺/九节鞭）与专属品阶光晕独立呈现，空中翻旋、落地斜倚！
-      const restTilt = w.archetype === 'whip' ? 0 : -0.66;
+      // 每把武器按自身独立手绘真容（22把独门兵刃1对1独立贴图）呈现，空中翻旋、落地斜倚！
+      const restTilt = w.archetype === 'whip' || w.archetype === 'daggers' ? 0 : -0.62;
       ctx.rotate(inAir ? spin : restTilt);
-      if (w.archetype === 'daggers' && Assets.get('part_wpn_daggers')) {
-        const dg = Assets.get('part_wpn_daggers')!;
-        ctx.save();
-        ctx.rotate(-0.32);
-        ctx.drawImage(dg, -17, -5.5, 34, 11);
-        ctx.rotate(0.68);
-        ctx.drawImage(dg, -17, -5.5, 34, 11);
-        ctx.restore();
-      } else {
-        const len =
-          w.archetype === 'spear'
+      const len =
+        w.archetype === 'spear'
+          ? 56
+          : w.archetype === 'greatsword'
             ? 52
-            : w.archetype === 'greatsword'
-              ? 48
-              : w.archetype === 'whip'
-                ? 68
-                : 44;
-        if (w.archetype !== 'whip') {
-          ctx.translate(-len * 0.26, 0);
-        }
-        drawCelShadedWeapon(ctx, w.archetype, w.id, len);
+            : w.archetype === 'whip'
+              ? 64
+              : w.archetype === 'daggers'
+                ? 58
+                : 48;
+      if (w.archetype !== 'whip' && w.archetype !== 'daggers') {
+        ctx.translate(-len * 0.26, 0);
       }
+      drawCelShadedWeapon(ctx, w.archetype, w.id, len);
       // 寒锋流光星点
       const glint = 0.5 + 0.5 * Math.sin(t * 5.2 + d.x * 0.1);
       ctx.globalCompositeOperation = 'lighter';

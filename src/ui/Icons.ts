@@ -1,14 +1,11 @@
-import { AssetKey, Assets } from '../game/AssetLoader';
+import { AssetKey, Assets, resolveWeaponAssetKey } from '../game/AssetLoader';
 import { WeaponArchetype } from '../types';
 
-export function getWeaponArtHtml(archetype: WeaponArchetype, width = 68): string {
-  let key: AssetKey = 'part_wpn_sword';
-  if (archetype === 'greatsword') key = 'part_wpn_modao';
-  else if (archetype === 'spear') key = 'part_wpn_spear';
-  else if (archetype === 'daggers') key = 'part_wpn_daggers';
-  else if (archetype === 'whip') key = 'part_wpn_whip';
+export { resolveWeaponAssetKey };
 
-  const h = archetype === 'daggers' || archetype === 'whip' ? 30 : 22;
+export function getWeaponArtHtml(archetype: WeaponArchetype, width = 68, weaponId?: string): string {
+  const key = resolveWeaponAssetKey(archetype, weaponId);
+  const h = archetype === 'daggers' || archetype === 'whip' ? 28 : 22;
   return `<img src="${Assets.getUrl(key)}" style="width:${width}px;height:${h}px;object-fit:contain;display:block;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.9));" alt="兵刃" />`;
 }
 
