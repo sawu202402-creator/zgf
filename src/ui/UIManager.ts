@@ -13,6 +13,7 @@ import {
 } from '../data/itemsAndSkills';
 import { CHARACTER_BIOS, LORE_STELES } from '../data/storyAndNpcs';
 import {
+  BuiltRoom,
   getRoomSideDoors,
   INVERTED_REGION_NAMES,
   MAP_GRID_TOTAL_H,
@@ -83,10 +84,12 @@ export class UIManager {
   private mapZoom = 1;
   private mapPanX = 0;
   private mapPanY = 0;
+  private inspectedMapRoomId: string | null = null;
   private selectedEquipSlot: EquipSlotCategory = 'weapon';
   private previewItemId: string | null = null;
   private lastHudWpnKey = '';
   private warpModalCleanup: (() => void) | null = null;
+  private modalClosedAt = 0;
 
   constructor(
     private uiLayer: HTMLElement,
@@ -100,9 +103,45 @@ export class UIManager {
   private syncBlockState(): void {
     const blocked = this.isAnyOverlayOpen();
     this.engine.input.uiBlocked = blocked;
-    if (blocked) {
-      this.engine.input.resetAll();
-    }
+    this.engine.input.resetAll();
+  }
+
+  private bindFastTap(el: Element | null | undefined, fn: () => void): void {
+    if (!el) return;
+    let lastFire = 0;
+    const fire = (ev: Event) => {
+      const now = performance.now();
+      if (now - lastFire < 280) return;
+      lastFire = now;
+      ev.stopPropagation();
+      fn();
+    };
+    let downX = 0;
+    let downY = 0;
+    let active = false;
+    el.addEventListener('pointerdown', (e) => {
+      const pe = e as PointerEvent;
+      downX = pe.clientX;
+      downY = pe.clientY;
+      active = true;
+    });
+    el.addEventListener('pointerup', (e) => {
+      if (!active) return;
+      active = false;
+      const pe = e as PointerEvent;
+      if (Math.hypot(pe.clientX - downX, pe.clientY - downY) <= 26) {
+        fire(e);
+      }
+    });
+    // 阻断移动端弹层销毁后的幽灵穿透 click 落到底层 HUD 按钮上导致关而复开！
+    el.addEventListener(
+      'touchend',
+      (e) => {
+        if (e.cancelable) e.preventDefault();
+      },
+      { passive: false }
+    );
+    el.addEventListener('click', (e) => fire(e));
   }
 
   private stopStageLoop(): void {
@@ -377,22 +416,38 @@ export class UIManager {
       interactBtn,
     };
 
-    hud.querySelector('#hud-wpn-sheath')?.addEventListener('click', () => this.engine.cycleWeapon());
+    const guardGhostClick = () => performance.now() - this.modalClosedAt < 180;
+    hud.querySelector('#hud-wpn-sheath')?.addEventListener('click', () => {
+      if (guardGhostClick()) return;
+      this.engine.cycleWeapon();
+    });
     hud.querySelector('#hud-res-row')?.addEventListener('click', (ev) => {
+      if (guardGhostClick()) return;
       const target = (ev.target as HTMLElement | null)?.closest?.('[data-cycle-fam]');
       if (target) this.engine.cycleActiveFamiliar();
     });
     hud.querySelector('#btn-hud-arsenal')?.addEventListener('click', () => {
+      if (guardGhostClick()) return;
       this.pauseTab = 'equip';
       this.togglePauseModal();
     });
-    hud.querySelector('#btn-hud-map')?.addEventListener('click', () => this.toggleMapModal());
-    hud.querySelector('#hud-minimap-box')?.addEventListener('click', () => this.toggleMapModal());
+    hud.querySelector('#btn-hud-map')?.addEventListener('click', () => {
+      if (guardGhostClick()) return;
+      this.toggleMapModal();
+    });
+    hud.querySelector('#hud-minimap-box')?.addEventListener('click', () => {
+      if (guardGhostClick()) return;
+      this.toggleMapModal();
+    });
     hud.querySelector('#btn-hud-skills')?.addEventListener('click', () => {
+      if (guardGhostClick()) return;
       this.pauseTab = 'skills';
       this.togglePauseModal();
     });
-    interactBtn.addEventListener('click', () => this.engine.input.triggerInteractFromUI());
+    interactBtn.addEventListener('click', () => {
+      if (guardGhostClick()) return;
+      this.engine.input.triggerInteractFromUI();
+    });
   }
 
   public syncHud(): void {
@@ -497,6 +552,7 @@ export class UIManager {
       return;
     }
     this.mapViewRealm = this.engine.room?.realm || 'normal';
+    this.inspectedMapRoomId = null;
     this.pauseTab = 'map';
     this.renderArsenalModal();
   }
@@ -591,39 +647,37 @@ export class UIManager {
                  : ''
              }
            </div>`;
+      const inspectedRoom = this.inspectedMapRoomId
+        ? WorldMap.getAllRooms(this.mapViewRealm).find((r) => r.id === this.inspectedMapRoomId) ||
+          null
+        : null;
+      const inspectedMeta = inspectedRoom ? this.describeInspectedRoom(inspectedRoom) : null;
       mainHtml = `
         <div class="zx-map-pane">
           <div class="zx-map-header">
             <span class="zx-map-title">
-              ${this.mapViewRealm === 'inverted' ? '九幽倒悬里城 · 逆乱堪舆图' : '九幽玄城 · 十三幕立体堪舆图'}${curStageLabel ? ` <span style="font-size:12.5px;color:#fde047;margin-left:8px;">【${curStageLabel}】</span>` : ''}
+              ${this.mapViewRealm === 'inverted' ? '九幽倒悬里城 · 逆乱堪舆图' : '九幽玄城 · 立体堪舆图'}${curStageLabel ? ` <span style="font-size:12px;color:#fde047;margin-left:6px;">【${curStageLabel}】</span>` : ''}
             </span>
-            <span style="font-size:13px;color:var(--jade);font-weight:800;">
+            <span style="font-size:12.5px;color:var(--jade);font-weight:800;">
               探索度 ${pct}% / 200%+
             </span>
             ${realmSwitchHtml}
           </div>
-          <canvas id="full-castle-map-canvas" width="920" height="406" style="touch-action:none;cursor:${this.mapZoom > 1 ? 'grab' : 'pointer'};"></canvas>
+          <div class="zx-map-canvas-wrap">
+            <canvas id="full-castle-map-canvas" width="920" height="406" style="touch-action:none;cursor:${this.mapZoom > 1 ? 'grab' : 'pointer'};"></canvas>
+          </div>
           <div class="zx-map-legend">
-            <span><b style="color:#3b82f6;">■</b> 苦竹瓮城</span>
-            <span><b style="color:#d97706;">■</b> 奉天正殿</span>
-            <span><b style="color:#8b5cf6;">■</b> 钦天炼丹</span>
-            <span><b style="color:#dc2626;">■</b> 神武校场</span>
-            <span><b style="color:#ea580c;">■</b> 地肺铸剑</span>
-            <span><b style="color:#1d4ed8;">■</b> 九曲寒潭</span>
-            <span><b style="color:#0d9488;">■</b> 归墟船坞</span>
-            <span><b style="color:#0f766e;">■</b> 九幽荒冢</span>
-            <span><b style="color:#059669;">■</b> 忘川极渊</span>
-            <span><b style="color:#0e7490;">■</b> 万卷书阁</span>
-            <span><b style="color:#db2777;">■</b> 百戏梨园</span>
-            <span><b style="color:#64748b;">■</b> 望月外壁</span>
-            <span><b style="color:#e11d48;">■</b> 凌霄天坛</span>
-            <span><b style="color:#f59e0b;">◆</b> 留档祠</span>
-            <span><b style="color:#10b981;">◯</b> 乾坤阵</span>
+            <span><b style="color:#fde047;">●</b> 当前所在</span>
+            <span><b style="color:#f59e0b;">◆</b> 留档古祠</span>
+            <span><b style="color:#10b981;">◯</b> 乾坤传送阵</span>
+            <span><b style="color:#fde047;">✦</b> 未取秘宝</span>
+            <span style="color:#94a3b8;">轻点地图任意殿宇可查看名称与详情</span>
           </div>
         </div>
       `;
-      footerLeft =
-        '十三幕月下级立体迷城 · 阳表 155 厅 + 180° 倒悬里城 155 厅（共 310 座手工殿宇 · 点击【详图 2×】支持指尖拖曳阅览）';
+      footerLeft = inspectedMeta
+        ? `【${inspectedMeta.stage}】${inspectedMeta.title}${inspectedMeta.badge ? ` · [${inspectedMeta.badge}]` : ''} — ${inspectedMeta.detail}`
+        : '轻点地图中任意已探明方格即可浮现殿宇名称与机关秘宝详情（点击【详图 2×】可放大拖曳阅览）';
     } else if (this.pauseTab === 'bestiary') {
       mainHtml = this.buildBestiaryTabHtml();
       footerLeft = '镇妖司百鬼图鉴：记录妖邪属性、常掉补给、稀世神兵掉宝与本命妖丹';
@@ -739,11 +793,14 @@ export class UIManager {
     this.modalEl = overlay;
     this.syncBlockState();
 
-    overlay.querySelector('#btn-close-pause')?.addEventListener('click', () => this.closeModal());
+    this.bindFastTap(overlay.querySelector('#btn-close-pause'), () => this.closeModal());
     overlay.querySelectorAll<HTMLButtonElement>('[data-ptab]').forEach((b) => {
       b.onclick = () => {
         this.pauseTab = b.dataset.ptab as typeof this.pauseTab;
         this.previewItemId = null;
+        if (this.pauseTab === 'map') {
+          this.inspectedMapRoomId = null;
+        }
         this.renderArsenalModal();
       };
     });
@@ -751,25 +808,28 @@ export class UIManager {
     if (this.pauseTab === 'equip') {
       this.bindEquipEventsAndLiveStage(overlay);
     } else if (this.pauseTab === 'map') {
-      overlay.querySelector('#btn-map-zoom')?.addEventListener('click', () => {
+      this.bindFastTap(overlay.querySelector('#btn-map-zoom'), () => {
         this.mapZoom = this.mapZoom > 1 ? 1 : 2;
         this.mapPanX = 0;
         this.mapPanY = 0;
         this.renderArsenalModal();
       });
-      overlay.querySelector('#btn-map-normal')?.addEventListener('click', () => {
+      this.bindFastTap(overlay.querySelector('#btn-map-normal'), () => {
         this.mapViewRealm = 'normal';
+        this.inspectedMapRoomId = null;
         this.mapPanX = 0;
         this.mapPanY = 0;
         this.renderArsenalModal();
       });
-      overlay.querySelector('#btn-map-inverted')?.addEventListener('click', () => {
+      this.bindFastTap(overlay.querySelector('#btn-map-inverted'), () => {
         this.mapViewRealm = 'inverted';
+        this.inspectedMapRoomId = null;
         this.mapPanX = 0;
         this.mapPanY = 0;
         this.renderArsenalModal();
       });
       const mapCanvas = overlay.querySelector('#full-castle-map-canvas') as HTMLCanvasElement | null;
+      const footerDescEl = overlay.querySelector('.zx-footer-desc') as HTMLElement | null;
       if (mapCanvas) {
         const mctx = mapCanvas.getContext('2d');
         const redraw = () => {
@@ -782,28 +842,34 @@ export class UIManager {
             this.mapViewRealm,
             this.mapZoom,
             this.mapPanX,
-            this.mapPanY
+            this.mapPanY,
+            this.inspectedMapRoomId
           );
         };
         redraw();
 
         let dragging = false;
+        let downX = 0;
+        let downY = 0;
         let lastX = 0;
         let lastY = 0;
         let moved = false;
         mapCanvas.addEventListener('pointerdown', (ev) => {
           dragging = true;
           moved = false;
+          downX = ev.clientX;
+          downY = ev.clientY;
           lastX = ev.clientX;
           lastY = ev.clientY;
           mapCanvas.setPointerCapture?.(ev.pointerId);
         });
         mapCanvas.addEventListener('pointermove', (ev) => {
           if (!dragging) return;
-          const dx = ev.clientX - lastX;
-          const dy = ev.clientY - lastY;
-          if (Math.hypot(dx, dy) > 3) moved = true;
-          if (this.mapZoom > 1) {
+          const totalDist = Math.hypot(ev.clientX - downX, ev.clientY - downY);
+          if (totalDist > 7) moved = true;
+          if (this.mapZoom > 1 && moved) {
+            const dx = ev.clientX - lastX;
+            const dy = ev.clientY - lastY;
             const rect = mapCanvas.getBoundingClientRect();
             const scaleX = mapCanvas.width / Math.max(1, rect.width);
             const scaleY = mapCanvas.height / Math.max(1, rect.height);
@@ -814,15 +880,52 @@ export class UIManager {
             redraw();
           }
         });
-        mapCanvas.addEventListener('pointerup', () => {
+        mapCanvas.addEventListener('pointerup', (ev) => {
           if (dragging && !moved) {
-            this.mapZoom = this.mapZoom > 1 ? 1 : 2;
-            this.mapPanX = 0;
-            this.mapPanY = 0;
-            this.renderArsenalModal();
+            const hitRoom = this.hitTestVisitedRoomOnCanvas(
+              mapCanvas,
+              ev.clientX,
+              ev.clientY,
+              this.mapViewRealm,
+              this.mapZoom,
+              this.mapPanX,
+              this.mapPanY
+            );
+            if (hitRoom) {
+              this.inspectedMapRoomId =
+                this.inspectedMapRoomId === hitRoom.id ? null : hitRoom.id;
+              AudioFX.playHit(false);
+            } else {
+              this.inspectedMapRoomId = null;
+            }
+            if (footerDescEl) {
+              const inspected = this.inspectedMapRoomId
+                ? WorldMap.getAllRooms(this.mapViewRealm).find(
+                    (r) => r.id === this.inspectedMapRoomId
+                  ) || null
+                : null;
+              if (inspected) {
+                const meta = this.describeInspectedRoom(inspected);
+                footerDescEl.textContent = `【${meta.stage}】${meta.title}${meta.badge ? ` · [${meta.badge}]` : ''} — ${meta.detail}`;
+              } else {
+                footerDescEl.textContent =
+                  '轻点地图中任意已探明方格即可浮现殿宇名称与机关秘宝详情（点击【详图 2×】可放大拖曳阅览）';
+              }
+            }
+            redraw();
           }
           dragging = false;
         });
+        mapCanvas.addEventListener('pointercancel', () => {
+          dragging = false;
+        });
+        mapCanvas.addEventListener(
+          'touchend',
+          (ev) => {
+            if (ev.cancelable) ev.preventDefault();
+          },
+          { passive: false }
+        );
         mapCanvas.addEventListener(
           'wheel',
           (ev) => {
@@ -953,9 +1056,204 @@ export class UIManager {
     `;
   }
 
+  private getBlueprintMetrics(
+    w: number,
+    h: number,
+    targetRealm: CastleRealm,
+    zoom = 1,
+    panX = 0,
+    panY = 0
+  ): { cellW: number; cellH: number; ox: number; oy: number } {
+    const curRoom = this.engine.room;
+    const p = this.engine.player;
+    const padX = 20;
+    const padY = 14;
+    const baseCellW = Math.floor((w - padX * 2) / MAP_GRID_TOTAL_W);
+    const baseCellH = Math.floor((h - padY * 2) / MAP_GRID_TOTAL_H);
+    const cellW = Math.round(baseCellW * zoom);
+    const cellH = Math.round(baseCellH * zoom);
+    let ox: number;
+    let oy: number;
+    if (zoom > 1 && curRoom) {
+      const playerGridX = curRoom.mapX + (p.x / Math.max(1, curRoom.pixelW)) * curRoom.gridW;
+      const playerGridY = curRoom.mapY + (p.y / Math.max(1, curRoom.pixelH)) * curRoom.gridH;
+      const focusGx = curRoom.realm === targetRealm ? playerGridX : MAP_GRID_TOTAL_W * 0.5;
+      const focusGy = curRoom.realm === targetRealm ? playerGridY : MAP_GRID_TOTAL_H * 0.5;
+      ox = Math.round(w * 0.5 - focusGx * cellW + panX);
+      oy = Math.round(h * 0.5 - focusGy * cellH + panY);
+    } else {
+      ox = Math.floor((w - cellW * MAP_GRID_TOTAL_W) * 0.5);
+      oy = Math.floor((h - cellH * MAP_GRID_TOTAL_H) * 0.5);
+    }
+    return { cellW, cellH, ox, oy };
+  }
+
+  private isRoomVisitedInSlot(rm: BuiltRoom, targetRealm: CastleRealm, visitedSet: Set<string>): boolean {
+    if (visitedSet.has(`${targetRealm}:${rm.id}`)) return true;
+    for (let dy = 0; dy < rm.gridH; dy++) {
+      for (let dx = 0; dx < rm.gridW; dx++) {
+        const key = `${rm.mapX + dx},${rm.mapY + dy}`;
+        if (
+          visitedSet.has(`cell:${targetRealm}:${key}`) ||
+          (targetRealm === 'normal' && visitedSet.has(`cell:${key}`))
+        ) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  private hitTestVisitedRoomOnCanvas(
+    canvas: HTMLCanvasElement,
+    clientX: number,
+    clientY: number,
+    targetRealm: CastleRealm,
+    zoom = 1,
+    panX = 0,
+    panY = 0
+  ): BuiltRoom | null {
+    const s = this.engine.slot;
+    if (!s) return null;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    const mx = ((clientX - rect.left) / rect.width) * canvas.width;
+    const my = ((clientY - rect.top) / rect.height) * canvas.height;
+    const { cellW, cellH, ox, oy } = this.getBlueprintMetrics(
+      canvas.width,
+      canvas.height,
+      targetRealm,
+      zoom,
+      panX,
+      panY
+    );
+    const gx = (mx - ox) / Math.max(1, cellW);
+    const gy = (my - oy) / Math.max(1, cellH);
+
+    const visitedSet = new Set(s.visitedRooms);
+    const rooms = WorldMap.getAllRooms(targetRealm);
+
+    for (const rm of rooms) {
+      if (!this.isRoomVisitedInSlot(rm, targetRealm, visitedSet)) continue;
+      if (gx >= rm.mapX && gx <= rm.mapX + rm.gridW && gy >= rm.mapY && gy <= rm.mapY + rm.gridH) {
+        return rm;
+      }
+    }
+
+    // 移动端指尖宽容匹配：若轻偏离 1×1 小祠堂/传送室边缘 0.35 格以内亦精准命中
+    let nearest: BuiltRoom | null = null;
+    let bestDist = 0.38;
+    for (const rm of rooms) {
+      if (!this.isRoomVisitedInSlot(rm, targetRealm, visitedSet)) continue;
+      const clampedX = Math.max(rm.mapX, Math.min(rm.mapX + rm.gridW, gx));
+      const clampedY = Math.max(rm.mapY, Math.min(rm.mapY + rm.gridH, gy));
+      const d = Math.hypot(gx - clampedX, gy - clampedY);
+      if (d < bestDist) {
+        bestDist = d;
+        nearest = rm;
+      }
+    }
+    return nearest;
+  }
+
+  private describeInspectedRoom(rm: BuiltRoom): {
+    title: string;
+    stage: string;
+    badge: string;
+    detail: string;
+  } {
+    const s = this.engine.slot;
+    const stage =
+      rm.realm === 'inverted' ? INVERTED_REGION_NAMES[rm.region] : REGION_NAMES[rm.region];
+    const title = rm.warpName || rm.name;
+    let badge = '';
+    if (rm.special === 'save_shrine') badge = '留档古祠';
+    else if (rm.special === 'warp_bagua') badge = '乾坤传送阵';
+    else if (rm.special === 'boss_room') badge = '妖王镇守';
+    else if (rm.id === 'forge_smithy') badge = '赤火名剑炉';
+    else if (rm.id === 'library_shop') badge = '子夜鬼市';
+    else if (rm.isSecretRoom) badge = '隐秘暗室';
+
+    const notes: string[] = [rm.subtitle];
+    if (s) {
+      const hasTreasure = rm.pickups.some(
+        (pk) => pk.kind !== 'consumable' && !s.collectedPickups.includes(pk.id)
+      );
+      if (hasTreasure) notes.push('尚有秘宝未取');
+      if (rm.ironGate && !s.brokenSecretWalls.includes(rm.ironGate.id)) {
+        const isMistUnlocked =
+          rm.ironGate.gateKind === 'mist_only' && s.abilities.includes('mist_dash');
+        if (!isMistUnlocked) notes.push('机关封锁待破');
+      }
+    }
+    return { title, stage, badge, detail: notes.join(' · ') };
+  }
+
+  private drawFloatingRoomCallout(
+    ctx: CanvasRenderingContext2D,
+    w: number,
+    h: number,
+    anchorX: number,
+    topEdgeY: number,
+    bottomEdgeY: number,
+    line1: string,
+    line2: string,
+    accentColor = '#fde047'
+  ): void {
+    ctx.save();
+    ctx.font = 'bold 12.5px "STKaiti", "KaiTi", "Noto Serif SC", serif';
+    const w1 = ctx.measureText(line1).width;
+    ctx.font = '11px "STKaiti", "KaiTi", "Noto Serif SC", serif';
+    const w2 = line2 ? ctx.measureText(line2).width : 0;
+
+    const padH = 11;
+    const boxW = Math.min(w - 16, Math.max(w1, w2) + padH * 2);
+    const boxH = line2 ? 38 : 22;
+    const placeAbove = topEdgeY > boxH + 14;
+    const bx = Math.max(8, Math.min(w - boxW - 8, anchorX - boxW * 0.5));
+    const by = placeAbove
+      ? Math.max(6, topEdgeY - boxH - 9)
+      : Math.min(h - boxH - 6, bottomEdgeY + 9);
+
+    ctx.fillStyle = 'rgba(6, 10, 20, 0.95)';
+    ctx.strokeStyle = accentColor;
+    ctx.lineWidth = 1.5;
+    ctx.fillRect(bx, by, boxW, boxH);
+    ctx.strokeRect(bx, by, boxW, boxH);
+
+    // 指向选中房间的精致小尖角
+    const tipX = Math.max(bx + 10, Math.min(bx + boxW - 10, anchorX));
+    ctx.fillStyle = accentColor;
+    ctx.beginPath();
+    if (placeAbove) {
+      ctx.moveTo(tipX - 5, by + boxH);
+      ctx.lineTo(tipX + 5, by + boxH);
+      ctx.lineTo(tipX, by + boxH + 5);
+    } else {
+      ctx.moveTo(tipX - 5, by);
+      ctx.lineTo(tipX + 5, by);
+      ctx.lineTo(tipX, by - 5);
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.font = 'bold 12.5px "STKaiti", "KaiTi", "Noto Serif SC", serif';
+    ctx.fillStyle = '#fef08a';
+    ctx.fillText(line1, bx + padH, by + (line2 ? 12.5 : boxH * 0.52), boxW - padH * 2);
+
+    if (line2) {
+      ctx.font = '11px "STKaiti", "KaiTi", "Noto Serif SC", serif';
+      ctx.fillStyle = '#cbd5e1';
+      ctx.fillText(line2, bx + padH, by + 28, boxW - padH * 2);
+    }
+    ctx.restore();
+  }
+
   /**
    * 经典《恶魔城：月下夜想曲 / 晓月圆舞曲》2D 连通方格地图渲染器：
-   * 支持阳表玄城 & 180° 九幽倒悬里城双城分格点亮、外墙合并、门廊与竖井缺口！
+   * 地图方格内零文字杂讯，点击任意房间再按需浮现精致地名路牌！
    */
   private drawCastlevaniaBlueprint(
     ctx: CanvasRenderingContext2D,
@@ -965,7 +1263,8 @@ export class UIManager {
     realmOverride?: CastleRealm,
     zoom = 1,
     panX = 0,
-    panY = 0
+    panY = 0,
+    inspectedRoomId: string | null = null
   ): void {
     const s = this.engine.slot;
     const curRoom = this.engine.room;
@@ -990,23 +1289,11 @@ export class UIManager {
     const playerGridY = curRoom.mapY + (p.y / Math.max(1, curRoom.pixelH)) * curRoom.gridH;
 
     if (detailed) {
-      const padX = 20;
-      const padY = 14;
-      const baseCellW = Math.floor((w - padX * 2) / MAP_GRID_TOTAL_W);
-      const baseCellH = Math.floor((h - padY * 2) / MAP_GRID_TOTAL_H);
-      cellW = Math.round(baseCellW * zoom);
-      cellH = Math.round(baseCellH * zoom);
-      if (zoom > 1) {
-        const focusGx =
-          curRoom.realm === targetRealm ? playerGridX : MAP_GRID_TOTAL_W * 0.5;
-        const focusGy =
-          curRoom.realm === targetRealm ? playerGridY : MAP_GRID_TOTAL_H * 0.5;
-        ox = Math.round(w * 0.5 - focusGx * cellW + panX);
-        oy = Math.round(h * 0.5 - focusGy * cellH + panY);
-      } else {
-        ox = Math.floor((w - cellW * MAP_GRID_TOTAL_W) * 0.5);
-        oy = Math.floor((h - cellH * MAP_GRID_TOTAL_H) * 0.5);
-      }
+      const m = this.getBlueprintMetrics(w, h, targetRealm, zoom, panX, panY);
+      cellW = m.cellW;
+      cellH = m.cellH;
+      ox = m.ox;
+      oy = m.oy;
 
       ctx.strokeStyle = 'rgba(148, 163, 184, 0.08)';
       ctx.lineWidth = 1;
@@ -1208,31 +1495,30 @@ export class UIManager {
       drawSideWallWithDoors('left');
       drawSideWallWithDoors('right');
 
-      // 《恶魔城》式堪舆图地标微缩徽记（古祠存档、八卦传送阵、万宝商铺在小地图与大地图一目了然！）
+      // 《恶魔城：月下夜想曲》式纯几何徽记（无文字杂讯，古祠菱印、乾坤阵环、商坊圆印一目了然）
       const midRx = rx + rw * 0.5;
       const midRy = ry + rh * 0.5;
-      if (!detailed) {
-        if (rm.special === 'save_shrine') {
-          ctx.fillStyle = '#fef08a';
-          ctx.beginPath();
-          ctx.moveTo(midRx, midRy - 2.6);
-          ctx.lineTo(midRx + 2.6, midRy);
-          ctx.lineTo(midRx, midRy + 2.6);
-          ctx.lineTo(midRx - 2.6, midRy);
-          ctx.closePath();
-          ctx.fill();
-        } else if (rm.special === 'warp_bagua') {
-          ctx.strokeStyle = '#5eead4';
-          ctx.lineWidth = 1.2;
-          ctx.beginPath();
-          ctx.arc(midRx, midRy, 2.3, 0, Math.PI * 2);
-          ctx.stroke();
-        } else if (rm.id === 'library_shop' || rm.id === 'forge_smithy') {
-          ctx.fillStyle = '#fdba74';
-          ctx.beginPath();
-          ctx.arc(midRx, midRy, 2, 0, Math.PI * 2);
-          ctx.fill();
-        }
+      const symR = detailed ? 4.4 : 2.6;
+      if (rm.special === 'save_shrine') {
+        ctx.fillStyle = '#fef08a';
+        ctx.beginPath();
+        ctx.moveTo(midRx, midRy - symR);
+        ctx.lineTo(midRx + symR, midRy);
+        ctx.lineTo(midRx, midRy + symR);
+        ctx.lineTo(midRx - symR, midRy);
+        ctx.closePath();
+        ctx.fill();
+      } else if (rm.special === 'warp_bagua') {
+        ctx.strokeStyle = '#5eead4';
+        ctx.lineWidth = detailed ? 1.8 : 1.2;
+        ctx.beginPath();
+        ctx.arc(midRx, midRy, symR * 0.92, 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (rm.id === 'library_shop' || rm.id === 'forge_smithy') {
+        ctx.fillStyle = '#fdba74';
+        ctx.beginPath();
+        ctx.arc(midRx, midRy, symR * 0.78, 0, Math.PI * 2);
+        ctx.fill();
       }
 
       // 《月下 / 空洞骑士》式堪舆图记忆标记：未破五灵机关锁、单向拉杆门、重刃铁闸、二段跳高崖自动色标高亮提示！
@@ -1284,25 +1570,17 @@ export class UIManager {
             pk.kind !== 'consumable' && !s.collectedPickups.includes(pk.id)
         );
         if (hasUncollectedTreasure) {
-          const tx = rx + rw - 8;
-          const ty = ry + 8;
+          const tx = rx + rw - 6;
+          const ty = ry + 6;
           ctx.fillStyle = '#fde047';
           ctx.beginPath();
-          ctx.moveTo(tx, ty - 4);
-          ctx.lineTo(tx + 3.5, ty);
-          ctx.lineTo(tx, ty + 4);
-          ctx.lineTo(tx - 3.5, ty);
+          ctx.moveTo(tx, ty - 3.5);
+          ctx.lineTo(tx + 3.2, ty);
+          ctx.lineTo(tx, ty + 3.5);
+          ctx.lineTo(tx - 3.2, ty);
           ctx.closePath();
           ctx.fill();
         }
-      }
-
-      if (detailed && rw >= 38) {
-        ctx.font = `bold ${zoom > 1 ? 11.5 : 9}px "STKaiti", "KaiTi", serif`;
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#fffbeb';
-        const cleanName = rm.name.replace(/^(里 · )/, '').split(' · ')[0];
-        ctx.fillText(cleanName, rx + rw * 0.5, ry + rh * 0.56, Math.max(22, rw - 5));
       }
     }
 
@@ -1321,6 +1599,40 @@ export class UIManager {
         ctx.beginPath();
         ctx.arc(dotX, dotY, 8.5, 0, Math.PI * 2);
         ctx.stroke();
+      }
+    }
+
+    // 仅在玩家点击选中某间已探明殿宇时，高亮外框并弹出单枚悬浮铭牌（平时地图 100% 纯净无文字！）
+    if (detailed && inspectedRoomId) {
+      const targetRm = rooms.find((r) => r.id === inspectedRoomId);
+      if (targetRm && this.isRoomVisitedInSlot(targetRm, targetRealm, visitedSet)) {
+        const irx = ox + targetRm.mapX * cellW + 0.5;
+        const iry = oy + targetRm.mapY * cellH + 0.5;
+        const irw = targetRm.gridW * cellW - 1;
+        const irh = targetRm.gridH * cellH - 1;
+
+        ctx.save();
+        ctx.strokeStyle = '#fef08a';
+        ctx.lineWidth = 2.6;
+        ctx.strokeRect(irx - 1, iry - 1, irw + 2, irh + 2);
+        ctx.fillStyle = 'rgba(254, 240, 138, 0.22)';
+        ctx.fillRect(irx, iry, irw, irh);
+        ctx.restore();
+
+        const meta = this.describeInspectedRoom(targetRm);
+        const l1 = `${meta.title}${meta.badge ? ` · 【${meta.badge}】` : ''}`;
+        const l2 = `${meta.stage} · ${meta.detail}`;
+        this.drawFloatingRoomCallout(
+          ctx,
+          w,
+          h,
+          irx + irw * 0.5,
+          iry,
+          iry + irh,
+          l1,
+          l2,
+          '#fde047'
+        );
       }
     }
     ctx.restore();
@@ -1895,7 +2207,6 @@ export class UIManager {
 
       const getRealmStops = () => allStops.filter((st) => st.realm === viewRealm);
 
-      // 默认优先将地图准星对准同一城界内另一座可瞬移阵眼，省去多余点选步骤
       let selectedStop =
         allStops.find((st) => st.realm === viewRealm && st.roomId !== curRoomId) ||
         allStops.find((st) => !(st.realm === curRealm && st.roomId === curRoomId)) ||
@@ -1905,6 +2216,8 @@ export class UIManager {
         viewRealm = selectedStop.realm;
       }
       let hoveredRoomId: string | null = null;
+      // 初始画面保持地图纯净无文字，玩家点到哪座阵眼或殿宇，才弹出哪里的悬浮文字！
+      let warpInspectedRoomId: string | null = null;
 
       const realmSwitchHtml = s.invertedUnlocked
         ? `<div style="display:flex;gap:6px;">
@@ -1916,45 +2229,48 @@ export class UIManager {
       overlay.innerHTML = `
         <div class="zx-arsenal-topbar">
           <span class="zx-modal-heading" style="color:var(--jade);">乾坤八卦阵 · 堪舆选点瞬移</span>
-          <div style="display:flex;align-items:center;gap:10px;">
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
             ${realmSwitchHtml}
-            <button class="zx-seal-btn" id="btn-close-npc">${isTouch ? '返回' : '留在原处 [ESC]'}</button>
+            <button class="zx-seal-btn" id="btn-close-npc" style="border-color:var(--bronze-light);color:var(--bronze-light);">${isTouch ? '✕ 返回' : '留在原处 [ESC]'}</button>
           </div>
         </div>
         <div class="zx-map-pane">
           <div class="zx-map-header">
-            <span class="zx-map-title" id="warp-map-subtitle" style="font-size:13.5px;color:#e2e8f0;">
-              直接在下方玄城地图上点击发光【八卦阵眼】选择或瞬移
+            <span class="zx-map-title" id="warp-map-subtitle" style="font-size:13px;color:#e2e8f0;">
+              点击地图发光【八卦阵眼】查看地名并选点，再点阵眼或右下瞬移即可跨区传送
             </span>
-            <span style="font-size:12.5px;color:#5eead4;font-weight:800;">
+            <span style="font-size:12px;color:#5eead4;font-weight:800;">
               已点亮阵眼 ${allStops.length} 座
             </span>
           </div>
-          <canvas id="warp-castle-map-canvas" width="920" height="406" style="cursor:pointer;touch-action:manipulation;"></canvas>
+          <div class="zx-map-canvas-wrap">
+            <canvas id="warp-castle-map-canvas" width="920" height="406" style="cursor:pointer;touch-action:none;"></canvas>
+          </div>
         </div>
-        <div class="zx-arsenal-footer" style="align-items:center;gap:12px;">
-          <span class="zx-footer-desc" id="warp-target-desc" style="font-size:13px;color:#f8fafc;"></span>
-          <button class="zx-seal-btn" id="btn-confirm-warp" style="border-color:#2dd4bf;color:#fef08a;background:rgba(15,118,110,0.55);font-weight:900;padding:6px 18px;">
-            乾坤瞬移 · 传送至此
-          </button>
+        <div class="zx-arsenal-footer" style="align-items:center;gap:10px;">
+          <span class="zx-footer-desc" id="warp-target-desc" style="font-size:12.5px;color:#f8fafc;"></span>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+            <button class="zx-seal-btn" id="btn-cancel-warp" style="padding:5px 14px;">
+              返回原处
+            </button>
+            <button class="zx-seal-btn" id="btn-confirm-warp" style="border-color:#2dd4bf;color:#fef08a;background:rgba(15,118,110,0.55);font-weight:900;padding:5px 16px;">
+              乾坤瞬移
+            </button>
+          </div>
         </div>
       `;
 
       const mapCanvas = overlay.querySelector('#warp-castle-map-canvas') as HTMLCanvasElement;
       const targetDescEl = overlay.querySelector('#warp-target-desc') as HTMLElement;
       const confirmBtn = overlay.querySelector('#btn-confirm-warp') as HTMLButtonElement;
+      const cancelBtn = overlay.querySelector('#btn-cancel-warp') as HTMLButtonElement;
       const btnNorm = overlay.querySelector('#btn-warp-realm-normal') as HTMLButtonElement | null;
       const btnInv = overlay.querySelector('#btn-warp-realm-inverted') as HTMLButtonElement | null;
 
       const computeNodeScreenPoints = () => {
         const w = mapCanvas.width;
         const h = mapCanvas.height;
-        const padX = 24;
-        const padY = 18;
-        const cellW = Math.floor((w - padX * 2) / MAP_GRID_TOTAL_W);
-        const cellH = Math.floor((h - padY * 2) / MAP_GRID_TOTAL_H);
-        const ox = Math.floor((w - cellW * MAP_GRID_TOTAL_W) * 0.5);
-        const oy = Math.floor((h - cellH * MAP_GRID_TOTAL_H) * 0.5);
+        const { cellW, cellH, ox, oy } = this.getBlueprintMetrics(w, h, viewRealm, 1, 0, 0);
         return getRealmStops().map((st) => ({
           stop: st,
           cx: ox + (st.mapX + st.gridW * 0.5) * cellW,
@@ -1974,27 +2290,31 @@ export class UIManager {
           btnInv.style.color = viewRealm === 'inverted' ? '#fda4af' : '';
         }
 
-        if (!selectedStop) {
-          targetDescEl.innerHTML = '尚未点亮任何乾坤传送阵';
-          confirmBtn.disabled = true;
-          confirmBtn.style.opacity = '0.45';
+        const otherStopCount = allStops.filter(
+          (st) => !(st.realm === curRealm && st.roomId === curRoomId)
+        ).length;
+
+        if (!selectedStop || otherStopCount === 0) {
+          const curName = selectedStop ? selectedStop.name : this.engine.room?.name || '当前阵眼';
+          targetDescEl.innerHTML = `当前驻地：<strong style="color:#fde047;">${curName}</strong> · 探索玄城点亮更多八卦阵眼后即可跨区瞬移（轻点地图可查看地名）`;
+          confirmBtn.style.display = 'none';
           return;
         }
+
         const isCurrent = selectedStop.realm === curRealm && selectedStop.roomId === curRoomId;
-        if (allStops.length <= 1 && isCurrent) {
-          targetDescEl.innerHTML = `当前驻地：<strong style="color:#fde047;">${selectedStop.name}</strong>（${selectedStop.stageTitle}）· 探索玄城点亮更多八卦阵眼后即可跨区瞬移`;
-        } else if (isCurrent) {
-          targetDescEl.innerHTML = `当前所在阵眼：<strong style="color:#fb923c;">${selectedStop.name}</strong>（${selectedStop.stageTitle}）· 请在地图上点击其他发光阵眼`;
-        } else {
-          targetDescEl.innerHTML = `已锁定目标：<strong style="color:#5eead4;">【${selectedStop.stageTitle}】${selectedStop.name}</strong> · 再次点击地图阵眼或右侧按钮即可瞬移`;
+        if (isCurrent) {
+          targetDescEl.innerHTML = `当前所在阵眼：<strong style="color:#fb923c;">${selectedStop.name}</strong>（${selectedStop.stageTitle}）· 请点击地图上其他青绿发光阵眼`;
+          confirmBtn.style.display = 'none';
+          return;
         }
-        confirmBtn.disabled = isCurrent;
-        confirmBtn.style.opacity = isCurrent ? '0.45' : '1';
-        confirmBtn.textContent = isCurrent
-          ? '当前所在阵眼'
-          : isTouch
-            ? `瞬移至 · ${selectedStop.name}`
-            : `乾坤瞬移 · ${selectedStop.name} [Enter]`;
+
+        confirmBtn.style.display = '';
+        confirmBtn.disabled = false;
+        confirmBtn.style.opacity = '1';
+        targetDescEl.innerHTML = `目标阵眼：<strong style="color:#5eead4;">【${selectedStop.stageTitle}】${selectedStop.name}</strong>`;
+        confirmBtn.textContent = isTouch
+          ? `瞬移至 · ${selectedStop.name}`
+          : `乾坤瞬移 · ${selectedStop.name} [Enter]`;
       };
 
       const executeTeleportTo = (st: NonNullable<typeof selectedStop>) => {
@@ -2010,19 +2330,30 @@ export class UIManager {
         if (mctx) {
           const w = mapCanvas.width;
           const h = mapCanvas.height;
-          this.drawCastlevaniaBlueprint(mctx, w, h, true, viewRealm);
+          const inspectedIsWarp = getRealmStops().some((st) => st.roomId === warpInspectedRoomId);
+          this.drawCastlevaniaBlueprint(
+            mctx,
+            w,
+            h,
+            true,
+            viewRealm,
+            1,
+            0,
+            0,
+            inspectedIsWarp ? null : warpInspectedRoomId
+          );
 
           // 轻度压暗普通房间，凸显全城龙脉连线与发光八卦传送阵眼
-          mctx.fillStyle = 'rgba(3, 6, 14, 0.32)';
+          mctx.fillStyle = 'rgba(3, 6, 14, 0.28)';
           mctx.fillRect(0, 0, w, h);
 
           const pts = computeNodeScreenPoints();
           const t = (now - startTs) * 0.001;
 
-          // 绘制已点亮八卦阵之间的金色龙脉星轨虚线
+          // 绘制已点亮八卦阵之间的青金龙脉星轨虚线
           if (pts.length > 1) {
             mctx.save();
-            mctx.strokeStyle = 'rgba(45, 212, 191, 0.34)';
+            mctx.strokeStyle = 'rgba(45, 212, 191, 0.36)';
             mctx.lineWidth = 1.6;
             mctx.setLineDash([6, 5]);
             mctx.lineDashOffset = -t * 18;
@@ -2035,17 +2366,26 @@ export class UIManager {
             mctx.restore();
           }
 
-          // 绘制每一座可点击的八卦阵眼星标与悬浮路牌
+          // 绘制每一座可点击的八卦阵眼星标（平时无文字遮挡，仅在点击选中时浮现阵名路牌！）
+          let calloutTarget: {
+            cx: number;
+            cy: number;
+            outerR: number;
+            line1: string;
+            line2: string;
+            accent: string;
+          } | null = null;
+
           for (const p of pts) {
             const isCur = p.stop.realm === curRealm && p.stop.roomId === curRoomId;
             const isSel =
               selectedStop?.realm === p.stop.realm && selectedStop?.roomId === p.stop.roomId;
             const isHov = hoveredRoomId === p.stop.roomId;
-            const pulse = Math.sin(t * 4.2 + p.cx * 0.03) * 2.5;
-            const outerR = (isSel ? 17 : 13) + pulse;
+            const pulse = Math.sin(t * 4.2 + p.cx * 0.03) * 2.2;
+            const outerR = (isSel ? 15 : 12) + pulse;
 
             mctx.save();
-            const glow = mctx.createRadialGradient(p.cx, p.cy, 2, p.cx, p.cy, outerR + 12);
+            const glow = mctx.createRadialGradient(p.cx, p.cy, 2, p.cx, p.cy, outerR + 11);
             if (isSel) {
               glow.addColorStop(0, 'rgba(254, 240, 138, 0.92)');
               glow.addColorStop(0.5, 'rgba(45, 212, 191, 0.48)');
@@ -2059,7 +2399,7 @@ export class UIManager {
             }
             mctx.fillStyle = glow;
             mctx.beginPath();
-            mctx.arc(p.cx, p.cy, outerR + 12, 0, Math.PI * 2);
+            mctx.arc(p.cx, p.cy, outerR + 11, 0, Math.PI * 2);
             mctx.fill();
 
             // 旋转八卦阵环与选中准星
@@ -2081,7 +2421,7 @@ export class UIManager {
             mctx.restore();
 
             if (isSel) {
-              const br = outerR + 6;
+              const br = outerR + 5;
               mctx.strokeStyle = '#fde047';
               mctx.lineWidth = 2;
               for (const [sx, sy] of [
@@ -2091,9 +2431,9 @@ export class UIManager {
                 [-1, 1],
               ]) {
                 mctx.beginPath();
-                mctx.moveTo(sx * br, sy * (br - 6));
+                mctx.moveTo(sx * br, sy * (br - 5));
                 mctx.lineTo(sx * br, sy * br);
-                mctx.lineTo(sx * (br - 6), sy * br);
+                mctx.lineTo(sx * (br - 5), sy * br);
                 mctx.stroke();
               }
             }
@@ -2101,27 +2441,60 @@ export class UIManager {
             // 中心阵眼宝珠
             mctx.fillStyle = isSel ? '#fef08a' : isCur ? '#fb923c' : '#2dd4bf';
             mctx.beginPath();
-            mctx.arc(0, 0, isSel ? 5.5 : 4.5, 0, Math.PI * 2);
+            mctx.arc(0, 0, isSel ? 5 : 4, 0, Math.PI * 2);
             mctx.fill();
             mctx.restore();
 
-            // 地图原位悬浮阵名路牌
-            mctx.save();
-            mctx.font = 'bold 11.5px "Noto Serif SC", "PingFang SC", serif';
-            const tagText = isCur ? `★ ${p.stop.name} (当前)` : `✦ ${p.stop.name}`;
-            const tw = mctx.measureText(tagText).width + 14;
-            const th = 20;
-            const tx = Math.max(8, Math.min(w - tw - 8, p.cx - tw * 0.5));
-            const ty = p.cy > 54 ? p.cy - outerR - 26 : p.cy + outerR + 8;
-            mctx.fillStyle = isSel ? 'rgba(15, 23, 42, 0.94)' : 'rgba(9, 13, 24, 0.86)';
-            mctx.strokeStyle = isSel ? '#fde047' : isCur ? '#fb923c' : 'rgba(94, 234, 212, 0.68)';
-            mctx.lineWidth = isSel ? 1.6 : 1.1;
-            mctx.fillRect(tx, ty, tw, th);
-            mctx.strokeRect(tx, ty, tw, th);
-            mctx.fillStyle = isSel ? '#fef08a' : isCur ? '#fed7aa' : '#ccfbf1';
-            mctx.textBaseline = 'middle';
-            mctx.fillText(tagText, tx + 7, ty + th * 0.52);
-            mctx.restore();
+            if (warpInspectedRoomId === p.stop.roomId) {
+              calloutTarget = {
+                cx: p.cx,
+                cy: p.cy,
+                outerR,
+                line1: isCur ? `★ ${p.stop.name} · 【当前阵眼】` : `✦ ${p.stop.name}`,
+                line2: isCur
+                  ? `${p.stop.stageTitle} · 你正身处此乾坤阵中`
+                  : `${p.stop.stageTitle} · 再次点击阵眼或右下按钮立即传送`,
+                accent: isCur ? '#fb923c' : '#5eead4',
+              };
+            }
+          }
+
+          if (calloutTarget) {
+            this.drawFloatingRoomCallout(
+              mctx,
+              w,
+              h,
+              calloutTarget.cx,
+              calloutTarget.cy - calloutTarget.outerR,
+              calloutTarget.cy + calloutTarget.outerR,
+              calloutTarget.line1,
+              calloutTarget.line2,
+              calloutTarget.accent
+            );
+          } else if (warpInspectedRoomId && !inspectedIsWarp) {
+            // 普通房间高亮已在 drawCastlevaniaBlueprint 中绘出，此处重绘最顶层清晰文字框以免被压暗层减弱对比度
+            const { cellW, cellH, ox, oy } = this.getBlueprintMetrics(w, h, viewRealm, 1, 0, 0);
+            const targetRm = WorldMap.getAllRooms(viewRealm).find(
+              (r) => r.id === warpInspectedRoomId
+            );
+            if (targetRm) {
+              const irx = ox + targetRm.mapX * cellW + 0.5;
+              const iry = oy + targetRm.mapY * cellH + 0.5;
+              const irw = targetRm.gridW * cellW - 1;
+              const irh = targetRm.gridH * cellH - 1;
+              const meta = this.describeInspectedRoom(targetRm);
+              this.drawFloatingRoomCallout(
+                mctx,
+                w,
+                h,
+                irx + irw * 0.5,
+                iry,
+                iry + irh,
+                `${meta.title}${meta.badge ? ` · 【${meta.badge}】` : ''}`,
+                `${meta.stage}（非传送阵眼 · 请点击发光八卦环瞬移）`,
+                '#fde047'
+              );
+            }
           }
         }
         animId = window.requestAnimationFrame(renderWarpMapFrame);
@@ -2134,7 +2507,7 @@ export class UIManager {
         const my = ((clientY - rect.top) / rect.height) * mapCanvas.height;
         const pts = computeNodeScreenPoints();
         let best: (typeof pts)[number] | null = null;
-        let bestDist = 42; // 宽裕触控/鼠标热区半径
+        let bestDist = 34;
         for (const p of pts) {
           const d = Math.hypot(mx - p.cx, my - p.cy);
           if (d < bestDist) {
@@ -2145,39 +2518,103 @@ export class UIManager {
         return best?.stop || null;
       };
 
-      mapCanvas.addEventListener('mousemove', (ev) => {
-        const hit = pickStopAtClientPos(ev.clientX, ev.clientY);
-        hoveredRoomId = hit ? hit.roomId : null;
-        mapCanvas.style.cursor = hit ? 'pointer' : 'default';
-      });
-
-      mapCanvas.addEventListener('click', (ev) => {
-        const hit = pickStopAtClientPos(ev.clientX, ev.clientY);
-        if (!hit) return;
-        const alreadySelected =
-          selectedStop?.realm === hit.realm && selectedStop?.roomId === hit.roomId;
-        selectedStop = hit;
-        syncFooterAndRealmButtons();
-        AudioFX.playRelicBell();
-        if (alreadySelected && !(hit.realm === curRealm && hit.roomId === curRoomId)) {
-          executeTeleportTo(hit);
+      mapCanvas.addEventListener('pointermove', (ev) => {
+        if (ev.pointerType === 'mouse') {
+          const hit = pickStopAtClientPos(ev.clientX, ev.clientY);
+          hoveredRoomId = hit ? hit.roomId : null;
+          mapCanvas.style.cursor = hit ? 'pointer' : 'default';
         }
       });
 
-      confirmBtn.addEventListener('click', () => {
-        if (selectedStop) executeTeleportTo(selectedStop);
+      let tapDownX = 0;
+      let tapDownY = 0;
+      let tapActive = false;
+      mapCanvas.addEventListener('pointerdown', (ev) => {
+        tapDownX = ev.clientX;
+        tapDownY = ev.clientY;
+        tapActive = true;
+      });
+      mapCanvas.addEventListener('pointerup', (ev) => {
+        if (!tapActive) return;
+        tapActive = false;
+        if (Math.hypot(ev.clientX - tapDownX, ev.clientY - tapDownY) > 20) return;
+
+        const hitStop = pickStopAtClientPos(ev.clientX, ev.clientY);
+        if (hitStop) {
+          const wasInspectedAndSelected =
+            selectedStop?.realm === hitStop.realm &&
+            selectedStop?.roomId === hitStop.roomId &&
+            warpInspectedRoomId === hitStop.roomId;
+          selectedStop = hitStop;
+          warpInspectedRoomId = hitStop.roomId;
+          syncFooterAndRealmButtons();
+          AudioFX.playRelicBell();
+          if (
+            wasInspectedAndSelected &&
+            !(hitStop.realm === curRealm && hitStop.roomId === curRoomId)
+          ) {
+            executeTeleportTo(hitStop);
+          }
+          return;
+        }
+
+        // 点击普通已探明房间：同样按需浮现该房间地名与详情，点空白处收起文字！
+        const hitRoom = this.hitTestVisitedRoomOnCanvas(
+          mapCanvas,
+          ev.clientX,
+          ev.clientY,
+          viewRealm,
+          1,
+          0,
+          0
+        );
+        if (hitRoom) {
+          warpInspectedRoomId = warpInspectedRoomId === hitRoom.id ? null : hitRoom.id;
+          AudioFX.playHit(false);
+          if (warpInspectedRoomId) {
+            const meta = this.describeInspectedRoom(hitRoom);
+            targetDescEl.innerHTML = `【${meta.stage}】<strong style="color:#fde047;">${meta.title}</strong> — ${meta.detail}`;
+          } else {
+            syncFooterAndRealmButtons();
+          }
+        } else {
+          warpInspectedRoomId = null;
+          syncFooterAndRealmButtons();
+        }
       });
 
-      btnNorm?.addEventListener('click', () => {
+      mapCanvas.addEventListener(
+        'touchend',
+        (ev) => {
+          if (ev.cancelable) ev.preventDefault();
+        },
+        { passive: false }
+      );
+
+      this.bindFastTap(confirmBtn, () => {
+        if (selectedStop) executeTeleportTo(selectedStop);
+      });
+      this.bindFastTap(cancelBtn, () => this.closeModal());
+      this.bindFastTap(overlay.querySelector('#btn-close-npc'), () => this.closeModal());
+
+      this.bindFastTap(btnNorm, () => {
         viewRealm = 'normal';
+        warpInspectedRoomId = null;
         const rStops = getRealmStops();
-        selectedStop = rStops.find((st) => !(st.realm === curRealm && st.roomId === curRoomId)) || rStops[0] || null;
+        selectedStop =
+          rStops.find((st) => !(st.realm === curRealm && st.roomId === curRoomId)) ||
+          rStops[0] ||
+          null;
         syncFooterAndRealmButtons();
       });
-      btnInv?.addEventListener('click', () => {
+      this.bindFastTap(btnInv, () => {
         viewRealm = 'inverted';
+        warpInspectedRoomId = null;
         const rStops = getRealmStops();
-        selectedStop = rStops.find((st) => !(st.realm === curRealm && st.roomId === curRoomId)) || rStops[0] || null;
+        selectedStop =
+          rStops.find((st) => !(st.realm === curRealm && st.roomId === curRoomId)) ||
+          rStops[0] ||
+          null;
         syncFooterAndRealmButtons();
       });
 
@@ -2201,6 +2638,7 @@ export class UIManager {
             rStops.findIndex((st) => st.roomId === selectedStop?.roomId)
           );
           selectedStop = rStops[(idx - 1 + rStops.length) % rStops.length];
+          warpInspectedRoomId = selectedStop.roomId;
           AudioFX.playRelicBell();
           syncFooterAndRealmButtons();
         } else if (
@@ -2215,6 +2653,7 @@ export class UIManager {
             rStops.findIndex((st) => st.roomId === selectedStop?.roomId)
           );
           selectedStop = rStops[(idx + 1) % rStops.length];
+          warpInspectedRoomId = selectedStop.roomId;
           AudioFX.playRelicBell();
           syncFooterAndRealmButtons();
         } else if (ev.code === 'Enter' || ev.code === 'Space' || ev.code === 'KeyJ') {
@@ -2229,7 +2668,6 @@ export class UIManager {
         window.removeEventListener('keydown', onWarpKeyDown);
       };
 
-      overlay.querySelector('#btn-close-npc')?.addEventListener('click', () => this.closeModal());
       syncFooterAndRealmButtons();
       animId = window.requestAnimationFrame(renderWarpMapFrame);
       return;
@@ -2509,7 +2947,7 @@ export class UIManager {
         });
       }
 
-      overlay.querySelector('#btn-close-npc')?.addEventListener('click', () => this.closeModal());
+      this.bindFastTap(overlay.querySelector('#btn-close-npc'), () => this.closeModal());
     };
 
     renderShopOrSmith();
@@ -2524,6 +2962,7 @@ export class UIManager {
     if (this.modalEl) {
       this.modalEl.remove();
       this.modalEl = null;
+      this.modalClosedAt = performance.now();
     }
     this.syncBlockState();
   }

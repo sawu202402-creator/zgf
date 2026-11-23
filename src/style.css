@@ -399,6 +399,7 @@ body {
 .zx-seal-btn {
   pointer-events: auto;
   cursor: pointer;
+  touch-action: manipulation;
   font-family: inherit;
   font-size: 13px;
   font-weight: 800;
@@ -407,6 +408,7 @@ body {
   background: rgba(8, 11, 20, 0.84);
   border: 1px solid var(--bronze-line);
   padding: 6px 13px;
+  flex-shrink: 0;
   transition: all 0.14s ease;
 }
 .zx-seal-btn:hover {
@@ -496,6 +498,8 @@ body {
   padding-bottom: 10px;
   border-bottom: 1px solid var(--bronze-line);
   flex-shrink: 0;
+  position: relative;
+  z-index: 5;
 }
 
 .zx-modal-heading {
@@ -560,21 +564,26 @@ body {
 }
 
 .zx-map-pane {
-  flex: 1;
+  flex: 1 1 0;
   min-height: 0;
+  width: 100%;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
   padding: 6px 0;
+  position: relative;
+  z-index: 1;
 }
 .zx-map-header {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
   flex-wrap: wrap;
   justify-content: center;
+  flex-shrink: 0;
 }
 .zx-map-title {
   font-size: 17px;
@@ -582,11 +591,23 @@ body {
   letter-spacing: 3px;
   color: var(--bronze-light);
 }
-#full-castle-map-canvas {
+.zx-map-canvas-wrap {
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+#full-castle-map-canvas,
+#warp-castle-map-canvas {
+  display: block;
   max-width: 100%;
-  max-height: calc(100dvh - 185px);
+  max-height: min(100%, calc(100dvh - 175px));
   width: auto;
   height: auto;
+  aspect-ratio: 920 / 406;
   border: 1px solid var(--bronze-line);
   background: rgba(4, 7, 14, 0.94);
 }
@@ -597,6 +618,7 @@ body {
   justify-content: center;
   font-size: 12px;
   color: #cbd5e1;
+  flex-shrink: 0;
 }
 
 .zx-arsenal-body {
@@ -755,8 +777,10 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   flex-shrink: 0;
+  position: relative;
+  z-index: 5;
 }
 .zx-footer-desc {
   font-size: 13px;
@@ -1057,20 +1081,24 @@ body {
     gap: 8px;
   }
 
-  /* 17×7 全境大地图自适应小屏高度，绝不撑破屏幕 */
+  /* 36×12 全境大地图与乾坤传送阵自适应小屏高度，绝不撑破或遮挡返回键 */
   .zx-map-pane {
-    gap: 5px;
-    padding: 4px 0;
+    gap: 4px;
+    padding: 3px 0;
+  }
+  .zx-map-header {
+    gap: 8px;
   }
   .zx-map-title {
-    font-size: 14px;
-    letter-spacing: 2px;
+    font-size: 13.5px;
+    letter-spacing: 1.5px;
   }
-  #full-castle-map-canvas {
-    max-height: calc(100dvh - 118px);
+  #full-castle-map-canvas,
+  #warp-castle-map-canvas {
+    max-height: min(100%, calc(100dvh - 114px));
   }
   .zx-map-legend {
-    gap: 8px;
+    gap: 10px;
     font-size: 10.5px;
   }
 
