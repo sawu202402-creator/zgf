@@ -80,6 +80,9 @@ export class UIManager {
 
   private pauseTab: 'equip' | 'skills' | 'map' | 'bestiary' | 'lore' | 'settings' = 'equip';
   private mapViewRealm: CastleRealm = 'normal';
+  private mapZoom = 1;
+  private mapPanX = 0;
+  private mapPanY = 0;
   private selectedEquipSlot: EquipSlotCategory = 'weapon';
   private previewItemId: string | null = null;
   private lastHudWpnKey = '';
@@ -579,43 +582,48 @@ export class UIManager {
           ? INVERTED_REGION_NAMES[curRoomNow.region]
           : REGION_NAMES[curRoomNow.region]
         : '';
-      const realmSwitchHtml = s.invertedUnlocked
-        ? `<div style="display:flex;gap:6px;">
-             <button class="zx-seal-btn" id="btn-map-normal" style="${this.mapViewRealm === 'normal' ? 'border-color:#fde047;color:#fde047;' : ''}">阳表玄城</button>
-             <button class="zx-seal-btn" id="btn-map-inverted" style="${this.mapViewRealm === 'inverted' ? 'border-color:#f43f5e;color:#fda4af;' : ''}">倒悬里城</button>
-           </div>`
-        : '';
+      const realmSwitchHtml = `<div style="display:flex;gap:6px;flex-wrap:wrap;">
+             <button class="zx-seal-btn" id="btn-map-zoom" style="${this.mapZoom > 1 ? 'border-color:#5eead4;color:#5eead4;' : ''}">${this.mapZoom > 1 ? '全览 1×' : '详图 2×'}</button>
+             ${
+               s.invertedUnlocked
+                 ? `<button class="zx-seal-btn" id="btn-map-normal" style="${this.mapViewRealm === 'normal' ? 'border-color:#fde047;color:#fde047;' : ''}">阳表玄城</button>
+                    <button class="zx-seal-btn" id="btn-map-inverted" style="${this.mapViewRealm === 'inverted' ? 'border-color:#f43f5e;color:#fda4af;' : ''}">倒悬里城</button>`
+                 : ''
+             }
+           </div>`;
       mainHtml = `
         <div class="zx-map-pane">
           <div class="zx-map-header">
             <span class="zx-map-title">
-              ${this.mapViewRealm === 'inverted' ? '九幽倒悬里城 · 逆乱堪舆图' : '九幽玄城 · 十大关卡立体堪舆图'}${curStageLabel ? ` <span style="font-size:12.5px;color:#fde047;margin-left:8px;">【${curStageLabel}】</span>` : ''}
+              ${this.mapViewRealm === 'inverted' ? '九幽倒悬里城 · 逆乱堪舆图' : '九幽玄城 · 十三幕立体堪舆图'}${curStageLabel ? ` <span style="font-size:12.5px;color:#fde047;margin-left:8px;">【${curStageLabel}】</span>` : ''}
             </span>
             <span style="font-size:13px;color:var(--jade);font-weight:800;">
               探索度 ${pct}% / 200%+
             </span>
             ${realmSwitchHtml}
           </div>
-          <canvas id="full-castle-map-canvas" width="920" height="406"></canvas>
+          <canvas id="full-castle-map-canvas" width="920" height="406" style="touch-action:none;cursor:${this.mapZoom > 1 ? 'grab' : 'pointer'};"></canvas>
           <div class="zx-map-legend">
             <span><b style="color:#3b82f6;">■</b> 苦竹瓮城</span>
             <span><b style="color:#d97706;">■</b> 奉天正殿</span>
             <span><b style="color:#8b5cf6;">■</b> 钦天炼丹</span>
+            <span><b style="color:#dc2626;">■</b> 神武校场</span>
             <span><b style="color:#ea580c;">■</b> 地肺铸剑</span>
             <span><b style="color:#1d4ed8;">■</b> 九曲寒潭</span>
+            <span><b style="color:#0d9488;">■</b> 归墟船坞</span>
             <span><b style="color:#0f766e;">■</b> 九幽荒冢</span>
+            <span><b style="color:#059669;">■</b> 忘川极渊</span>
             <span><b style="color:#0e7490;">■</b> 万卷书阁</span>
             <span><b style="color:#db2777;">■</b> 百戏梨园</span>
-            <span><b style="color:#64748b;">■</b> 东垣望月塔</span>
-            <span><b style="color:#e11d48;">■</b> 凌霄祭天坛</span>
-            <span><b style="color:#f59e0b;">◆</b> 镇魂祠</span>
-            <span><b style="color:#10b981;">◯</b> 传送阵</span>
-            <span><b style="color:#a855f7;">■</b> 破壁密室</span>
+            <span><b style="color:#64748b;">■</b> 望月外壁</span>
+            <span><b style="color:#e11d48;">■</b> 凌霄天坛</span>
+            <span><b style="color:#f59e0b;">◆</b> 留档祠</span>
+            <span><b style="color:#10b981;">◯</b> 乾坤阵</span>
           </div>
         </div>
       `;
       footerLeft =
-        '十大剧情关卡立体回环玄城 · 阳表 97 厅 + 180° 倒悬里城 97 厅（共 194 座手工殿宇 · 八重互通捷径与五灵封印）';
+        '十三幕月下级立体迷城 · 阳表 155 厅 + 180° 倒悬里城 155 厅（共 310 座手工殿宇 · 点击【详图 2×】支持指尖拖曳阅览）';
     } else if (this.pauseTab === 'bestiary') {
       mainHtml = this.buildBestiaryTabHtml();
       footerLeft = '镇妖司百鬼图鉴：记录妖邪属性、常掉补给、稀世神兵掉宝与本命妖丹';
@@ -743,26 +751,92 @@ export class UIManager {
     if (this.pauseTab === 'equip') {
       this.bindEquipEventsAndLiveStage(overlay);
     } else if (this.pauseTab === 'map') {
+      overlay.querySelector('#btn-map-zoom')?.addEventListener('click', () => {
+        this.mapZoom = this.mapZoom > 1 ? 1 : 2;
+        this.mapPanX = 0;
+        this.mapPanY = 0;
+        this.renderArsenalModal();
+      });
       overlay.querySelector('#btn-map-normal')?.addEventListener('click', () => {
         this.mapViewRealm = 'normal';
+        this.mapPanX = 0;
+        this.mapPanY = 0;
         this.renderArsenalModal();
       });
       overlay.querySelector('#btn-map-inverted')?.addEventListener('click', () => {
         this.mapViewRealm = 'inverted';
+        this.mapPanX = 0;
+        this.mapPanY = 0;
         this.renderArsenalModal();
       });
       const mapCanvas = overlay.querySelector('#full-castle-map-canvas') as HTMLCanvasElement | null;
       if (mapCanvas) {
         const mctx = mapCanvas.getContext('2d');
-        if (mctx) {
+        const redraw = () => {
+          if (!mctx) return;
           this.drawCastlevaniaBlueprint(
             mctx,
             mapCanvas.width,
             mapCanvas.height,
             true,
-            this.mapViewRealm
+            this.mapViewRealm,
+            this.mapZoom,
+            this.mapPanX,
+            this.mapPanY
           );
-        }
+        };
+        redraw();
+
+        let dragging = false;
+        let lastX = 0;
+        let lastY = 0;
+        let moved = false;
+        mapCanvas.addEventListener('pointerdown', (ev) => {
+          dragging = true;
+          moved = false;
+          lastX = ev.clientX;
+          lastY = ev.clientY;
+          mapCanvas.setPointerCapture?.(ev.pointerId);
+        });
+        mapCanvas.addEventListener('pointermove', (ev) => {
+          if (!dragging) return;
+          const dx = ev.clientX - lastX;
+          const dy = ev.clientY - lastY;
+          if (Math.hypot(dx, dy) > 3) moved = true;
+          if (this.mapZoom > 1) {
+            const rect = mapCanvas.getBoundingClientRect();
+            const scaleX = mapCanvas.width / Math.max(1, rect.width);
+            const scaleY = mapCanvas.height / Math.max(1, rect.height);
+            this.mapPanX = Math.max(-960, Math.min(960, this.mapPanX + dx * scaleX));
+            this.mapPanY = Math.max(-480, Math.min(480, this.mapPanY + dy * scaleY));
+            lastX = ev.clientX;
+            lastY = ev.clientY;
+            redraw();
+          }
+        });
+        mapCanvas.addEventListener('pointerup', () => {
+          if (dragging && !moved) {
+            this.mapZoom = this.mapZoom > 1 ? 1 : 2;
+            this.mapPanX = 0;
+            this.mapPanY = 0;
+            this.renderArsenalModal();
+          }
+          dragging = false;
+        });
+        mapCanvas.addEventListener(
+          'wheel',
+          (ev) => {
+            ev.preventDefault();
+            const nextZoom = ev.deltaY < 0 ? 2 : 1;
+            if (nextZoom !== this.mapZoom) {
+              this.mapZoom = nextZoom;
+              this.mapPanX = 0;
+              this.mapPanY = 0;
+              this.renderArsenalModal();
+            }
+          },
+          { passive: false }
+        );
       }
     } else if (this.pauseTab === 'settings') {
       this.bindSettingsEvents(overlay);
@@ -888,7 +962,10 @@ export class UIManager {
     w: number,
     h: number,
     detailed: boolean,
-    realmOverride?: CastleRealm
+    realmOverride?: CastleRealm,
+    zoom = 1,
+    panX = 0,
+    panY = 0
   ): void {
     const s = this.engine.slot;
     const curRoom = this.engine.room;
@@ -896,8 +973,14 @@ export class UIManager {
 
     const targetRealm = realmOverride || curRoom.realm;
     ctx.clearRect(0, 0, w, h);
+    ctx.save();
+    if (detailed && zoom > 1) {
+      ctx.beginPath();
+      ctx.rect(2, 2, w - 4, h - 4);
+      ctx.clip();
+    }
 
-    // 大地图完整铺展 17×7 全城蓝图；右上角 HUD 小地图自动以玩家为中心平滑取景！
+    // 大地图支持 36×12 全览 1× 与局部 2× 拖曳详图；右上角 HUD 小地图自动以玩家为中心平滑取景！
     let cellW: number;
     let cellH: number;
     let ox: number;
@@ -907,12 +990,23 @@ export class UIManager {
     const playerGridY = curRoom.mapY + (p.y / Math.max(1, curRoom.pixelH)) * curRoom.gridH;
 
     if (detailed) {
-      const padX = 24;
-      const padY = 18;
-      cellW = Math.floor((w - padX * 2) / MAP_GRID_TOTAL_W);
-      cellH = Math.floor((h - padY * 2) / MAP_GRID_TOTAL_H);
-      ox = Math.floor((w - cellW * MAP_GRID_TOTAL_W) * 0.5);
-      oy = Math.floor((h - cellH * MAP_GRID_TOTAL_H) * 0.5);
+      const padX = 20;
+      const padY = 14;
+      const baseCellW = Math.floor((w - padX * 2) / MAP_GRID_TOTAL_W);
+      const baseCellH = Math.floor((h - padY * 2) / MAP_GRID_TOTAL_H);
+      cellW = Math.round(baseCellW * zoom);
+      cellH = Math.round(baseCellH * zoom);
+      if (zoom > 1) {
+        const focusGx =
+          curRoom.realm === targetRealm ? playerGridX : MAP_GRID_TOTAL_W * 0.5;
+        const focusGy =
+          curRoom.realm === targetRealm ? playerGridY : MAP_GRID_TOTAL_H * 0.5;
+        ox = Math.round(w * 0.5 - focusGx * cellW + panX);
+        oy = Math.round(h * 0.5 - focusGy * cellH + panY);
+      } else {
+        ox = Math.floor((w - cellW * MAP_GRID_TOTAL_W) * 0.5);
+        oy = Math.floor((h - cellH * MAP_GRID_TOTAL_H) * 0.5);
+      }
 
       ctx.strokeStyle = 'rgba(148, 163, 184, 0.08)';
       ctx.lineWidth = 1;
@@ -965,12 +1059,18 @@ export class UIManager {
         fillCol = 'rgba(180, 83, 9, 0.86)';
       } else if (rm.region === 'alchemy') {
         fillCol = 'rgba(124, 58, 237, 0.85)';
+      } else if (rm.region === 'colosseum') {
+        fillCol = 'rgba(185, 28, 28, 0.86)';
       } else if (rm.region === 'forge') {
         fillCol = 'rgba(194, 65, 12, 0.86)';
       } else if (rm.region === 'prison') {
         fillCol = 'rgba(29, 78, 216, 0.86)';
+      } else if (rm.region === 'shipyard') {
+        fillCol = 'rgba(13, 148, 136, 0.87)';
       } else if (rm.region === 'catacomb') {
         fillCol = 'rgba(15, 118, 110, 0.88)';
+      } else if (rm.region === 'nether') {
+        fillCol = 'rgba(5, 150, 105, 0.88)';
       } else if (rm.region === 'library') {
         fillCol = 'rgba(14, 116, 144, 0.86)';
       } else if (rm.region === 'opera') {
@@ -1197,12 +1297,12 @@ export class UIManager {
         }
       }
 
-      if (detailed && rw >= 44) {
-        ctx.font = 'bold 9.5px "STKaiti", "KaiTi", serif';
+      if (detailed && rw >= 38) {
+        ctx.font = `bold ${zoom > 1 ? 11.5 : 9}px "STKaiti", "KaiTi", serif`;
         ctx.textAlign = 'center';
         ctx.fillStyle = '#fffbeb';
         const cleanName = rm.name.replace(/^(里 · )/, '').split(' · ')[0];
-        ctx.fillText(cleanName, rx + rw * 0.5, ry + rh * 0.54, Math.max(24, rw - 6));
+        ctx.fillText(cleanName, rx + rw * 0.5, ry + rh * 0.56, Math.max(22, rw - 5));
       }
     }
 
@@ -1223,6 +1323,7 @@ export class UIManager {
         ctx.stroke();
       }
     }
+    ctx.restore();
   }
 
   private buildEquipColumnsHtml(): { html: string; footer: string } {
@@ -1703,7 +1804,17 @@ export class UIManager {
       ]) {
         if (!s.ownedWeapons.includes(id)) s.ownedWeapons.push(id);
       }
-      for (const aid of ['black_tortoise_mail', 'mojin_talisman', 'greedy_wolf_jade']) {
+      for (const aid of [
+        'black_tortoise_mail',
+        'martial_tiger_cuirass',
+        'sunken_pearl_robe',
+        'nether_dragon_armor',
+        'mojin_talisman',
+        'greedy_wolf_jade',
+        'colosseum_war_drum',
+        'abyss_soul_lantern',
+        'outer_sea_compass',
+      ]) {
         if (!s.ownedArmors.includes(aid)) s.ownedArmors.push(aid);
       }
       s.consumables.tiger_bone_wine = Math.max(2, s.consumables.tiger_bone_wine || 0);

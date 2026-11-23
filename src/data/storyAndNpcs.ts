@@ -160,6 +160,42 @@ export const LORE_STELES: Record<string, LoreSteleEntry> = {
     content:
       '“十步杀一人，千里不留行；事了拂衣去，深藏身与名。吾观后世习剑者，多困于招式轻重，殊不知剑心通明之时，一剑既出，万影随行。留千影剑魄于倒悬秘冢，待心怀苍生之少年取之斩魔！”',
   },
+  stele_colosseum_valor: {
+    id: 'stele_colosseum_valor',
+    volume: '秘档卷九 · 神武夺魁碑',
+    title: '《镇妖司大比演武纪事碑》',
+    locationHint: '神武百战演武场',
+    author: '镇妖司右佥事 · 壬午年秋立',
+    content:
+      '“壬午秋狩，镇妖司与神机营会猎于神武校场。十九岁少统领萧断水单骑持枪，连破十八座铁甲刀阵；年方十五的小师弟李逸承竟亦凭一柄木剑撑过大师兄三十合而不败。彼时满场喝彩，裴魁首抚须而笑——谁料仅隔两载，师门喋血，演武鼓声竟成绝响。”',
+  },
+  stele_mine_dragon_iron: {
+    id: 'stele_mine_dragon_iron',
+    volume: '秘档卷十 · 地肺采矿禁碑',
+    title: '《工部严封太古朱砂矿脉碑》',
+    locationHint: '荒废坑木矿道',
+    author: '工部虞衡清吏司 · 甲申年五月',
+    content:
+      '“自矿井凿入地肺八百丈，矿工屡闻岩壁下有巨物心跳如闷雷，掘出之赤晶尽带紫黑尸气，触之者双目赤红、力大无穷而神智尽丧。欧冶宗师亲下深井勘验后惊呼：‘此非铁矿，乃镇封太古凶神之龙骨锁钉，再掘一寸则皇城倾覆！’然内廷监军竟杖责矿工，逼其昼夜开凿不休。”',
+  },
+  stele_shipyard_fleet: {
+    id: 'stele_shipyard_fleet',
+    volume: '秘档卷十一 · 归墟沉舰志',
+    title: '《东水寨镇海楼船封存手札》',
+    locationHint: '皇家艨艟废船坞',
+    author: '水师提督遗墨',
+    content:
+      '“甲申七月十四夜，裴魁首密令水师将三艘龙首艨艟巨舰驶入城东地下船坞，表面言备海防，实则满舱皆载旧都孤幼妇孺三千余口，赶在子夜血月封城大阵合拢前顺暗河潜流入海！世人骂裴公闭城坑民，殊不知东水关铁闸落下那一刻，他把生路留给了百姓，把死路留给了自己。”',
+  },
+  stele_nether_zhuyin: {
+    id: 'stele_nether_zhuyin',
+    volume: '秘档卷十二 · 九幽镇龙古铭',
+    title: '《太古玄鸟封魔总纲石刻》',
+    locationHint: '太古镇魔碑窟',
+    author: '先秦方士 · 鬼谷遗脉篆刻',
+    content:
+      '“夫烛阴者，视昼为瞑，视瞑为昼，嘘气成九幽逆城。上古大禹铸九鼎余铁锁其脊于忘川之下，以玄鸟双佩为钥、破妄昆仑镜为眼。千载之后若血月重临、人心贪长生而自毁龙钉，唯持双信物者可自阳表天坛劈开阴阳倒悬之门，入逆城绝其真灵！”',
+  },
 };
 
 export const STORY_SCENES: Record<string, StoryScene> = {

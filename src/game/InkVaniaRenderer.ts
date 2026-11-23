@@ -503,7 +503,11 @@ export class InkVaniaRenderer {
     vH: number
   ): void {
     const t = this.ambientTime;
-    const isCatacomb = room.region === 'catacomb' || room.bgKey === 'bg_catacomb_tomb';
+    const isCatacomb =
+      room.region === 'catacomb' ||
+      room.region === 'nether' ||
+      room.bgKey === 'bg_catacomb_tomb' ||
+      room.bgKey === 'bg_nether_abyss';
 
     ctx.save();
     if (room.region === 'gatehouse' && !room.indoor && room.bgKey !== 'bg_city_avenue') {
@@ -565,7 +569,9 @@ export class InkVaniaRenderer {
       }
     } else if (
       room.region === 'prison' ||
+      room.region === 'shipyard' ||
       room.region === 'catacomb' ||
+      room.region === 'nether' ||
       room.bgKey === 'bg_moat_sluice'
     ) {
       // 寒潭水牢 & 九幽冥廊：洞顶钟乳石滴落水珠 + 落地水圈 + 幽冥碧磷鬼火
@@ -633,7 +639,7 @@ export class InkVaniaRenderer {
         ctx.ellipse(px, py, 2.8, 1.5, t + i, 0, Math.PI * 2);
         ctx.fill();
       }
-    } else if (room.region === 'altar') {
+    } else if (room.region === 'altar' || room.region === 'colosseum') {
       // 凌霄祭天坛：血月天顶飘升的赤金灵烬与二十八宿微芒
       ctx.globalCompositeOperation = 'lighter';
       for (let i = 0; i < 14; i++) {
@@ -680,7 +686,9 @@ export class InkVaniaRenderer {
   ): void {
     const isDarkDungeon =
       room.region === 'prison' ||
+      room.region === 'shipyard' ||
       room.region === 'catacomb' ||
+      room.region === 'nether' ||
       room.region === 'forge' ||
       room.bgKey === 'bg_moat_sluice' ||
       Boolean(room.isSecretRoom) ||
@@ -702,13 +710,15 @@ export class InkVaniaRenderer {
     lctx.clearRect(0, 0, lw, lh);
 
     const darknessAlpha =
-      room.region === 'catacomb' || room.bgKey === 'bg_catacomb_tomb'
-        ? 0.52
-        : room.region === 'prison' || room.bgKey === 'bg_moat_sluice'
-          ? 0.42
-          : room.region === 'forge'
-            ? 0.36
-            : 0.34;
+      room.region === 'nether' || room.bgKey === 'bg_nether_abyss'
+        ? 0.54
+        : room.region === 'catacomb' || room.bgKey === 'bg_catacomb_tomb'
+          ? 0.52
+          : room.region === 'prison' || room.region === 'shipyard' || room.bgKey === 'bg_moat_sluice'
+            ? 0.42
+            : room.region === 'forge'
+              ? 0.36
+              : 0.34;
     lctx.globalCompositeOperation = 'source-over';
     lctx.fillStyle = `rgba(3, 6, 13, ${darknessAlpha})`;
     lctx.fillRect(0, 0, lw, lh);
@@ -1386,7 +1396,7 @@ export class InkVaniaRenderer {
     } else if (room.region === 'alchemy') {
       wash.addColorStop(0, 'rgba(109, 40, 217, 0.08)');
       wash.addColorStop(1, 'rgba(180, 115, 45, 0.09)');
-    } else if (room.region === 'altar') {
+    } else if (room.region === 'altar' || room.region === 'colosseum') {
       wash.addColorStop(0, 'rgba(159, 18, 57, 0.11)');
       wash.addColorStop(1, 'rgba(120, 53, 15, 0.08)');
     } else if (room.region === 'opera') {
@@ -1402,7 +1412,9 @@ export class InkVaniaRenderer {
       wash.addColorStop(1, 'rgba(120, 72, 28, 0.075)');
     } else if (
       room.region === 'prison' ||
+      room.region === 'shipyard' ||
       room.region === 'catacomb' ||
+      room.region === 'nether' ||
       room.bgKey === 'bg_moat_sluice'
     ) {
       wash.addColorStop(0, 'rgba(13, 148, 136, 0.08)');

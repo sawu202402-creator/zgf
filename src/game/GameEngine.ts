@@ -562,9 +562,15 @@ export class GameEngine {
       AudioFX.setMood('inverted');
     } else if (room.region === 'library' || room.region === 'opera' || room.region === 'alchemy') {
       AudioFX.setMood('library');
-    } else if (room.region === 'clock_tower' || room.region === 'altar') {
+    } else if (room.region === 'clock_tower' || room.region === 'altar' || room.region === 'colosseum') {
       AudioFX.setMood('clock');
-    } else if (room.region === 'prison' || room.region === 'forge' || room.region === 'catacomb') {
+    } else if (
+      room.region === 'prison' ||
+      room.region === 'shipyard' ||
+      room.region === 'forge' ||
+      room.region === 'catacomb' ||
+      room.region === 'nether'
+    ) {
       AudioFX.setMood('prison');
     } else {
       AudioFX.setMood('castle');
@@ -806,6 +812,11 @@ export class GameEngine {
         atkMult = 1.3;
         spdMult = 1.04;
         break;
+      case 'colosseum':
+        hpMult = 1.85;
+        atkMult = 1.54;
+        spdMult = 1.07;
+        break;
       case 'forge':
         hpMult = 1.72;
         atkMult = 1.46;
@@ -816,10 +827,20 @@ export class GameEngine {
         atkMult = 1.62;
         spdMult = 1.07;
         break;
+      case 'shipyard':
+        hpMult = 2.46;
+        atkMult = 1.86;
+        spdMult = 1.09;
+        break;
       case 'catacomb':
         hpMult = 2.3;
         atkMult = 1.78;
         spdMult = 1.08;
+        break;
+      case 'nether':
+        hpMult = 3.55;
+        atkMult = 2.42;
+        spdMult = 1.13;
         break;
       case 'library':
         hpMult = 2.62;

@@ -96,7 +96,10 @@ export function drawSeamlessParallaxBackdrop(
     else if (room.region === 'library') bgKey = 'bg_library_opera';
     else if (room.region === 'clock_tower') bgKey = room.indoor ? 'bg_tower_interior' : 'bg_chapel_spire';
     else if (room.region === 'prison') bgKey = 'bg_cavern_waterfall';
+    else if (room.region === 'shipyard') bgKey = 'bg_sunken_shipyard';
     else if (room.region === 'catacomb') bgKey = 'bg_catacomb_tomb';
+    else if (room.region === 'nether') bgKey = 'bg_nether_abyss';
+    else if (room.region === 'colosseum') bgKey = 'bg_martial_colosseum';
     else if (room.region === 'altar') bgKey = 'bg_sky_altar';
   }
 
@@ -158,11 +161,16 @@ export function drawSeamlessParallaxBackdrop(
     } else {
       // 全平台通用空气透视色雾层（不依赖移动端兼容性受限的 ctx.filter，让远景自然退后、凸显实体砖石台阶！）
       const depthGrad = ctx.createLinearGradient(0, 0, 0, vH);
-      if (room.region === 'catacomb' || room.bgKey === 'bg_catacomb_tomb') {
+      if (
+        room.region === 'catacomb' ||
+        room.region === 'nether' ||
+        room.bgKey === 'bg_catacomb_tomb' ||
+        room.bgKey === 'bg_nether_abyss'
+      ) {
         depthGrad.addColorStop(0, 'rgba(6, 16, 20, 0.36)');
         depthGrad.addColorStop(0.62, 'rgba(7, 18, 22, 0.48)');
         depthGrad.addColorStop(1, 'rgba(4, 9, 13, 0.76)');
-      } else if (room.bgKey === 'bg_moat_sluice') {
+      } else if (room.region === 'shipyard' || room.bgKey === 'bg_sunken_shipyard' || room.bgKey === 'bg_moat_sluice') {
         depthGrad.addColorStop(0, 'rgba(7, 16, 22, 0.32)');
         depthGrad.addColorStop(0.62, 'rgba(8, 19, 25, 0.44)');
         depthGrad.addColorStop(1, 'rgba(4, 9, 14, 0.74)');
@@ -269,13 +277,21 @@ type PropHarmonizeTone =
 function resolveRoomHarmonizeTone(room?: BuiltRoom): PropHarmonizeTone {
   if (!room) return 'imperial_warm';
   if (room.realm === 'inverted') return 'inverted';
-  if (room.region === 'catacomb' || room.bgKey === 'bg_catacomb_tomb' || room.bgKey === 'bg_moat_sluice') {
+  if (
+    room.region === 'catacomb' ||
+    room.region === 'nether' ||
+    room.bgKey === 'bg_catacomb_tomb' ||
+    room.bgKey === 'bg_nether_abyss' ||
+    room.bgKey === 'bg_moat_sluice'
+  ) {
     return 'catacomb_moss';
   }
-  if (room.region === 'prison') return 'cavern_cool';
+  if (room.region === 'prison' || room.region === 'shipyard' || room.bgKey === 'bg_sunken_shipyard') {
+    return 'cavern_cool';
+  }
   if (room.region === 'forge') return 'forge_ember';
   if (room.region === 'alchemy') return 'alchemy_violet';
-  if (room.region === 'altar') return 'altar_crimson';
+  if (room.region === 'altar' || room.region === 'colosseum') return 'altar_crimson';
   if (room.bgKey === 'bg_bamboo_cliff' || (room.bgKey === 'bg_gatehouse' && !room.indoor)) {
     return 'bamboo_night';
   }
@@ -530,7 +546,9 @@ function drawWallCorbel(
 function isStoneFortressOrDungeon(room: BuiltRoom): boolean {
   return (
     room.region === 'prison' ||
+    room.region === 'shipyard' ||
     room.region === 'catacomb' ||
+    room.region === 'nether' ||
     room.region === 'forge' ||
     room.bgKey === 'bg_moat_sluice'
   );
@@ -1242,10 +1260,15 @@ export function bakeOrthographicRoomTerrain(
   if (room.realm === 'inverted') {
     bctx.fillStyle = 'rgba(76, 15, 38, 0.22)';
     bctx.fillRect(0, 0, room.pixelW, room.pixelH);
-  } else if (room.region === 'catacomb' || room.bgKey === 'bg_catacomb_tomb') {
+  } else if (
+    room.region === 'catacomb' ||
+    room.region === 'nether' ||
+    room.bgKey === 'bg_catacomb_tomb' ||
+    room.bgKey === 'bg_nether_abyss'
+  ) {
     bctx.fillStyle = 'rgba(20, 56, 52, 0.28)';
     bctx.fillRect(0, 0, room.pixelW, room.pixelH);
-  } else if (room.bgKey === 'bg_moat_sluice') {
+  } else if (room.region === 'shipyard' || room.bgKey === 'bg_sunken_shipyard' || room.bgKey === 'bg_moat_sluice') {
     bctx.fillStyle = 'rgba(18, 46, 52, 0.26)';
     bctx.fillRect(0, 0, room.pixelW, room.pixelH);
   } else if (room.bgKey === 'bg_gatehouse_interior' || room.bgKey === 'bg_city_avenue') {
