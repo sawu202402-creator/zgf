@@ -57,6 +57,21 @@ function selectEnemySpriteFrame(e: EnemyEntity, t: number): AssetKey {
     return 'boss_yk_0';
   }
 
+  if (kind === 'boss_colosseum_general') {
+    if (e.aiState === 'windup' || e.aiState === 'lunge_slash') return 'boss_gen_1';
+    return 'boss_gen_0';
+  }
+
+  if (kind === 'boss_shipyard_leviathan') {
+    if (e.aiState === 'windup' || e.aiState === 'lunge_slash') return 'boss_lev_1';
+    return 'boss_lev_0';
+  }
+
+  if (kind === 'boss_dragon_warden') {
+    if (e.aiState === 'windup' || e.aiState === 'lunge_slash') return 'boss_wdn_1';
+    return 'boss_wdn_0';
+  }
+
   if (kind === 'boss_scroll_king' || e.profile.isBoss) {
     if (e.aiState === 'windup') return 'boss_ik_1';
     if (e.aiState === 'lunge_slash') return 'boss_ik_2';
@@ -71,6 +86,12 @@ function selectEnemySpriteFrame(e: EnemyEntity, t: number): AssetKey {
   if (kind === 'demon_wolf') return 'mob_warg';
   if (kind === 'spirit_crow') return 'mob_crow';
   if (kind === 'bone_archer') return 'mob_bone_archer';
+  if (kind === 'shenji_musketeer') return 'mob_musketeer';
+  if (kind === 'jinwu_mace_guard') return 'mob_mace_guard';
+  if (kind === 'guixu_water_fiend') return 'mob_water_fiend';
+  if (kind === 'armored_tortoise') return 'mob_tortoise';
+  if (kind === 'wuchang_reaper') return 'mob_wuchang';
+  if (kind === 'bixie_stone_beast') return 'mob_bixie';
 
   if (kind === 'bronze_guard') {
     if (e.aiState === 'windup') return 'mob_gd_2';

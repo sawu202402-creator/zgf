@@ -1,4 +1,4 @@
-import { WEAPONS } from '../data/itemsAndSkills';
+import { ALL_FAMILIAR_IDS, FAMILIARS, WEAPONS } from '../data/itemsAndSkills';
 import { LORE_STELES } from '../data/storyAndNpcs';
 import {
   BuiltRoom,
@@ -61,7 +61,14 @@ export class InkVaniaRenderer {
     // 超宽带鱼屏 >2.23:1 时轻柔贴合至 minVH=408 并居中延伸两侧古堡山墙！）
     const baseScale = viewH / 440;
     const fitWidthScale = Math.min(viewH / 408, viewW / room.pixelW);
-    const scale = Math.max(baseScale, fitWidthScale);
+    const combatZoom =
+      (engine.parryZoomTimer > 0
+        ? 1 + Math.sin((engine.parryZoomTimer / 0.24) * Math.PI) * 0.048
+        : 1) *
+      (engine.bossKillSlowTimer > 0
+        ? 1 + Math.sin((engine.bossKillSlowTimer / 0.68) * Math.PI) * 0.055
+        : 1);
+    const scale = Math.max(baseScale, fitWidthScale) * combatZoom;
     const vW = viewW / scale;
     const vH = viewH / scale;
 
@@ -152,6 +159,17 @@ export class InkVaniaRenderer {
 
     drawSwordFamiliar(ctx, engine, this.ambientTime);
     this.renderSkillGroundFormation(ctx, engine);
+    if (engine.player.chargeTimer >= 0.18) {
+      const cr = Math.min(1, engine.player.chargeTimer / 0.46);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = cr >= 1 ? 'rgba(253, 224, 71, 0.9)' : 'rgba(251, 146, 60, 0.65)';
+      ctx.lineWidth = cr >= 1 ? 3.2 : 2;
+      ctx.beginPath();
+      ctx.ellipse(engine.player.x, engine.player.y - 6, 22 + cr * 16, 7 + cr * 4, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
     drawHeroCharacter(ctx, engine, this.ambientTime);
     this.renderActiveSkillWorldVfx(ctx, engine);
     this.renderOrbitingSwordsAndLevelUp(ctx, engine);
@@ -853,7 +871,7 @@ export class InkVaniaRenderer {
   }
 
   private ensureBakedStoneContour(room: BuiltRoom, brokenSecretWalls: string[]): void {
-    const readyKey = `${room.realm}:${room.id}:${brokenSecretWalls.length}:${Boolean(Assets.get('env_ground_slab'))}:${Boolean(Assets.get('env_palace_floor'))}:${Boolean(Assets.get('env_indoor_ledge'))}:${Boolean(Assets.get('env_pavilion'))}:${Boolean(Assets.get('env_stone_ledge'))}:${Boolean(Assets.get('env_bridge'))}:${Boolean(Assets.get('arch_timber_pillar'))}:${Boolean(Assets.get('arch_stone_pillar'))}:${Boolean(Assets.get('arch_corbel_bracket'))}:${Boolean(Assets.get('arch_iron_chain'))}:${Boolean(Assets.get('arch_side_doorframe'))}:${Boolean(Assets.get('prop_wooden_lamp_pole'))}`;
+    const readyKey = `${room.realm}:${room.id}:${brokenSecretWalls.length}:${Assets.loadedVersion}`;
     if (this.terrainCanvas && this.cachedTerrainKey === readyKey) return;
 
     this.cachedTerrainKey = readyKey;
@@ -2281,9 +2299,33 @@ export class InkVaniaRenderer {
    * 命中瞬间【破空寒芒裂痕 + 扩散气浪环】（《斩妖行/只狼》灵魂刀刀入肉反馈！）
    */
   private renderSlashImpacts(ctx: CanvasRenderingContext2D, engine: GameEngine): void {
-    if (engine.slashImpacts.length === 0) return;
+    if (engine.slashImpacts.length === 0 && engine.lightningArcs.length === 0) return;
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
+
+    // 紫电奔雷链：在群妖之间跳跃的折线雷弧！
+    for (const arc of engine.lightningArcs) {
+      const a = Math.max(0, arc.life / arc.maxLife);
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.strokeStyle = arc.color;
+      ctx.lineWidth = 3.2 * a + 1;
+      ctx.beginPath();
+      ctx.moveTo(arc.x1, arc.y1);
+      const segs = 5;
+      for (let s = 1; s < segs; s++) {
+        const t = s / segs;
+        const jx = (Math.sin(this.ambientTime * 60 + s * 3.7) - 0.1) * 14;
+        const jy = Math.cos(this.ambientTime * 55 + s * 2.3) * 14;
+        ctx.lineTo(arc.x1 + (arc.x2 - arc.x1) * t + jx, arc.y1 + (arc.y2 - arc.y1) * t + jy);
+      }
+      ctx.lineTo(arc.x2, arc.y2);
+      ctx.stroke();
+      ctx.strokeStyle = '#fef08a';
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+      ctx.restore();
+    }
 
     for (const si of engine.slashImpacts) {
       const prog = 1 - si.life / si.maxLife;
@@ -2763,6 +2805,25 @@ export class InkVaniaRenderer {
       ctx.fillStyle = `rgba(127, 29, 29, ${engine.soulStealFlashTimer * 0.24})`;
       ctx.fillRect(0, 0, viewW, viewH);
     }
+    if (engine.bossKillSlowTimer > 0) {
+      const kp = engine.bossKillSlowTimer / 0.68;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const rg = ctx.createRadialGradient(
+        viewW * 0.5,
+        viewH * 0.45,
+        20,
+        viewW * 0.5,
+        viewH * 0.45,
+        Math.max(viewW, viewH) * 0.62
+      );
+      rg.addColorStop(0, `rgba(254, 240, 138, ${kp * 0.28})`);
+      rg.addColorStop(0.55, `rgba(239, 68, 68, ${kp * 0.14})`);
+      rg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = rg;
+      ctx.fillRect(0, 0, viewW, viewH);
+      ctx.restore();
+    }
 
     if (engine.skillBanner) {
       const sb = engine.skillBanner;
@@ -2799,7 +2860,8 @@ export class InkVaniaRenderer {
 
     const bx = input.stickBaseX;
     const by = input.stickBaseY;
-    const wellR = 52;
+    const pScale = Math.max(0.82, Math.min(1.18, input.padScale || 1.0));
+    const wellR = Math.round(52 * pScale);
 
     // ==================== 1. 左手：主机手柄方向总成（左摇杆 / 经典十字键） ====================
     ctx.fillStyle = 'rgba(7, 10, 18, 0.56)';
@@ -3004,9 +3066,21 @@ export class InkVaniaRenderer {
 
         ctx.font = 'bold 11.5px "STKaiti", "KaiTi", serif';
         ctx.textAlign = 'right';
-        ctx.fillStyle =
-          onCooldown || (b.id === 'skill' && !skillReady) ? '#94a3b8' : '#f8fafc';
-        const btnText = onCooldown ? `${cdLeft.toFixed(1)}s` : b.label;
+        const ownedFamCount = engine?.slot
+          ? ALL_FAMILIAR_IDS.filter((fid) => engine.slot!.abilities.includes(fid)).length
+          : 0;
+        const activeFamId = engine?.getActiveFamiliar();
+        const famLabel =
+          b.id === 'familiar' && activeFamId && FAMILIARS[activeFamId]
+            ? FAMILIARS[activeFamId].shortName
+            : b.label;
+        const dimmedPill =
+          onCooldown ||
+          (b.id === 'skill' && !skillReady) ||
+          (b.id === 'familiar' && ownedFamCount < 2) ||
+          (b.id === 'swap' && (engine?.slot?.ownedWeapons.length || 0) < 2);
+        ctx.fillStyle = dimmedPill ? '#94a3b8' : '#f8fafc';
+        const btnText = onCooldown ? `${cdLeft.toFixed(1)}s` : famLabel;
         ctx.fillText(btnText, x0 + b.w - 8, y0 + b.h * 0.52);
         continue;
       }

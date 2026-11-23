@@ -154,6 +154,18 @@ export type AssetKey =
   | 'mob_warg'
   | 'mob_crow'
   | 'mob_bone_archer'
+  | 'mob_musketeer'
+  | 'mob_mace_guard'
+  | 'mob_water_fiend'
+  | 'mob_tortoise'
+  | 'mob_wuchang'
+  | 'mob_bixie'
+  | 'boss_gen_0'
+  | 'boss_gen_1'
+  | 'boss_lev_0'
+  | 'boss_lev_1'
+  | 'boss_wdn_0'
+  | 'boss_wdn_1'
   | 'boss_ik_0'
   | 'boss_ik_1'
   | 'boss_ik_2'
@@ -171,7 +183,7 @@ export type AssetKey =
   | 'boss_op_0'
   | 'boss_op_1';
 
-const ASSET_VERSION = 'painted_v21';
+const ASSET_VERSION = 'painted_v22';
 
 const ASSET_FILES: Record<AssetKey, string> = {
   bg_title: './assets/bg_title.webp',
@@ -329,6 +341,18 @@ const ASSET_FILES: Record<AssetKey, string> = {
   mob_warg: './assets/mob_warg.webp',
   mob_crow: './assets/mob_crow.webp',
   mob_bone_archer: './assets/mob_bone_archer.webp',
+  mob_musketeer: './assets/mob_musketeer.webp',
+  mob_mace_guard: './assets/mob_mace_guard.webp',
+  mob_water_fiend: './assets/mob_water_fiend.webp',
+  mob_tortoise: './assets/mob_tortoise.webp',
+  mob_wuchang: './assets/mob_wuchang.webp',
+  mob_bixie: './assets/mob_bixie.webp',
+  boss_gen_0: './assets/boss_gen_0.webp',
+  boss_gen_1: './assets/boss_gen_1.webp',
+  boss_lev_0: './assets/boss_lev_0.webp',
+  boss_lev_1: './assets/boss_lev_1.webp',
+  boss_wdn_0: './assets/boss_wdn_0.webp',
+  boss_wdn_1: './assets/boss_wdn_1.webp',
   boss_ik_0: './assets/boss_ik_0.webp',
   boss_ik_1: './assets/boss_ik_1.webp',
   boss_ik_2: './assets/boss_ik_2.webp',
@@ -347,12 +371,54 @@ const ASSET_FILES: Record<AssetKey, string> = {
   boss_op_1: './assets/boss_op_1.webp',
 };
 
-const CRITICAL_ASSETS: AssetKey[] = Object.keys(ASSET_FILES) as AssetKey[];
+// 首屏秒开关键资源集（仅含标题画卷、开场动态序章、主角骨骼序列与第一幕苦竹外哨核心构件，实现 <1s 极速入画！）
+const BOOT_CRITICAL_ASSETS: AssetKey[] = [
+  'bg_title',
+  'bg_bamboo_cliff',
+  'bg_gatehouse',
+  'bg_city_avenue',
+  'bg_sky_altar',
+  'boss_pei_0',
+  'env_ground_slab',
+  'env_bridge',
+  'env_pavilion',
+  'env_stone_ledge',
+  'arch_side_doorframe',
+  'prop_stone_lantern_post',
+  'prop_breakable_urn',
+  'prop_shrine',
+  'prop_dragon_brazier',
+  'wpn_sword_0',
+  'part_wpn_sword',
+  'part_wpn_daggers',
+  'h18_idle_0',
+  'h18_idle_1',
+  'h18_jump_up',
+  'h18_jump_fall',
+  'h18_run_0',
+  'h18_run_1',
+  'h18_run_2',
+  'h18_run_3',
+  'h18_sword_0',
+  'h18_sword_1',
+  'h18_sword_2',
+  'mob_sw_0',
+  'mob_sw_1',
+  'mob_crow',
+  'mob_zombie',
+  'mob_bone_archer',
+  'npc_su_0',
+  'bust_liyicheng',
+  'bust_su_qingyan',
+];
+
+const ALL_ASSET_KEYS: AssetKey[] = Object.keys(ASSET_FILES) as AssetKey[];
 
 class GameAssetRegistry {
   private images = new Map<AssetKey, HTMLImageElement>();
   private tintedSilhouettes = new Map<string, HTMLCanvasElement>();
   private inflight = new Map<AssetKey, Promise<void>>();
+  public loadedVersion = 0;
 
   private loadOne(key: AssetKey): Promise<void> {
     if (this.images.has(key)) return Promise.resolve();
@@ -364,6 +430,7 @@ class GameAssetRegistry {
       img.onload = () => {
         this.images.set(key, img);
         this.inflight.delete(key);
+        this.loadedVersion++;
         resolve();
       };
       img.onerror = () => {
@@ -378,9 +445,9 @@ class GameAssetRegistry {
 
   public async preloadCritical(onProgress?: (loaded: number, total: number) => void): Promise<void> {
     let loaded = 0;
-    const total = CRITICAL_ASSETS.length;
+    const total = BOOT_CRITICAL_ASSETS.length;
     await Promise.all(
-      CRITICAL_ASSETS.map((k) =>
+      BOOT_CRITICAL_ASSETS.map((k) =>
         this.loadOne(k).then(() => {
           loaded++;
           onProgress?.(loaded, total);
@@ -389,7 +456,22 @@ class GameAssetRegistry {
     );
   }
 
-  public async preloadRemainingInBackground(): Promise<void> {}
+  public ensurePriorityKeys(keys: (AssetKey | undefined)[]): void {
+    for (const k of keys) {
+      if (k && !this.images.has(k)) {
+        void this.loadOne(k);
+      }
+    }
+  }
+
+  public async preloadRemainingInBackground(): Promise<void> {
+    const remaining = ALL_ASSET_KEYS.filter((k) => !this.images.has(k));
+    const BATCH = 10;
+    for (let i = 0; i < remaining.length; i += BATCH) {
+      const slice = remaining.slice(i, i + BATCH);
+      await Promise.all(slice.map((k) => this.loadOne(k)));
+    }
+  }
 
   public get(key: AssetKey): HTMLImageElement | undefined {
     return this.images.get(key);

@@ -556,6 +556,96 @@ export const STORY_SCENES: Record<string, StoryScene> = {
     ],
   },
 
+  boss_general_pre: {
+    id: 'boss_general_pre',
+    title: '校场问戟 · 武魂不灭',
+    lines: [
+      {
+        speaker: '镇武大将军 · 拓跋烈',
+        role: '前神武营主帅英魂',
+        portraitColor: '#f59e0b',
+        text: '擂鼓——列阵！甲申之夜本帅率神武营死守校场，纵尸身成灰，这杆方天画戟也绝不放半个怯战之辈过关！来者报上名号！',
+      },
+      {
+        speaker: '李逸承',
+        role: '镇妖司传剑弟子',
+        portraitColor: '#48c9b0',
+        text: '晚辈镇妖司李逸承，特来神武校场求取破魔重甲，请拓跋老将军赐教！',
+      },
+    ],
+  },
+
+  boss_general_post: {
+    id: 'boss_general_post',
+    title: '帅旗归位',
+    lines: [
+      {
+        speaker: '镇武大将军 · 拓跋烈',
+        role: '欣慰消散的武神残魂',
+        portraitColor: '#fde047',
+        text: '痛快！好俊的镇妖剑法，颇有裴魁首当年的风骨！坛上这领【神武吞猊山文甲】便赐予少侠，替老夫杀上祭天坛，斩尽国贼妖氛！',
+      },
+    ],
+  },
+
+  boss_leviathan_pre: {
+    id: 'boss_leviathan_pre',
+    title: '归墟惊涛 · 镇海龙吟',
+    lines: [
+      {
+        speaker: '归墟镇海蛟王 · 敖溟',
+        role: '遭血月戾气狂化的护海蛟神',
+        portraitColor: '#22d3ee',
+        text: '昂——！！东水关铁闸既落，擅入沉船古渡者皆葬鱼腹！谁敢惊扰本王守护的三千渡海遗迹？！',
+      },
+      {
+        speaker: '李逸承',
+        role: '镇妖司传剑弟子',
+        portraitColor: '#48c9b0',
+        text: '水师楼船早已载百姓平安远渡重洋，蛟王何苦仍困于九幽浊浪？且看我一剑斩散你周身尸瘴！',
+      },
+    ],
+  },
+
+  boss_leviathan_post: {
+    id: 'boss_leviathan_post',
+    title: '沧溟澄澈',
+    lines: [
+      {
+        speaker: '归墟镇海蛟王 · 敖溟',
+        role: '重归清明的镇海灵蛟',
+        portraitColor: '#67e8f9',
+        text: '浊浪退散……原来当年那三艘楼船真的逃出生天了……多谢少侠点醒，船坞祭坛上的【鲛绡避水云霓裳】便助你横渡东海绝壁！',
+      },
+    ],
+  },
+
+  boss_warden_pre: {
+    id: 'boss_warden_pre',
+    title: '地心龙渊 · 刑天舞干戚',
+    lines: [
+      {
+        speaker: '守陵太古战魄 · 刑天',
+        role: '大禹留镇龙脉的太古无首战神',
+        portraitColor: '#f43f5e',
+        text: '刑天舞干戚，猛志固常在！！凡欲踏足祖龙极渊者，先接吾千钧铜钺而不跪，方配披挂祖龙逆鳞！',
+      },
+    ],
+  },
+
+  boss_warden_post: {
+    id: 'boss_warden_post',
+    title: '猛志传薪',
+    lines: [
+      {
+        speaker: '李逸承',
+        role: '镇妖司传剑弟子',
+        portraitColor: '#48c9b0',
+        text: '好霸道的太古战意……纵断首千载仍死守龙脉不退半步！前辈放心，这袭【九幽祖龙逆鳞铠】既入我手，烛阴必伏诛于此剑之下！',
+      },
+    ],
+  },
+
   boss_pei_pre: {
     id: 'boss_pei_pre',
     title: '第八章 · 凌霄问心',

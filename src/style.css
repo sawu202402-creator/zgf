@@ -643,6 +643,25 @@ body {
   padding-bottom: 0;
   overflow: hidden;
 }
+.zx-npc-side-col .zx-frameless-bust {
+  max-height: 215px;
+  max-width: 100%;
+  width: auto;
+  object-fit: contain;
+}
+.zx-shop-icon-slot {
+  width: 52px;
+  height: 32px;
+  flex: 0 0 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.zx-item-row img {
+  flex-shrink: 0;
+  object-fit: contain;
+}
 
 /* 左栏：60fps 真人骨骼动态持兵舞台！ */
 .zx-stage-col {

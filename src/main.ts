@@ -39,6 +39,7 @@ async function bootstrap() {
 
   const input = new InputController(canvas);
   input.controlStyle = meta.controlStyle;
+  input.padScale = meta.padScale || 1.0;
 
   let ui!: UIManager;
   const engine = new GameEngine(input, {

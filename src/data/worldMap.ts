@@ -3659,7 +3659,6 @@ function createNormalCastleRooms(): BuiltRoom[] {
     'opera_gallery',
     'catacomb_hall',
     'clock_gear_hall',
-    'colosseum_grand_arena',
     'outer_wall_battlement',
     'nether_trial_colosseum',
   ]);
@@ -6979,10 +6978,10 @@ function createNormalCastleRooms(): BuiltRoom[] {
       npcs: [],
       spawns: [
         { kind: 'spirit_crow', x: 680, y: 420 },
-        { kind: 'bone_archer', x: 910, y: 604 },
-        { kind: 'bronze_guard', x: 1260, y: 744 },
+        { kind: 'shenji_musketeer', x: 910, y: 604 },
+        { kind: 'jinwu_mace_guard', x: 1260, y: 744 },
         { kind: 'bell_gargoyle', x: 1640, y: 260 },
-        { kind: 'paper_swordsman', x: 2080, y: 356 },
+        { kind: 'shenji_musketeer', x: 2080, y: 356 },
       ],
       pickups: [],
     },
@@ -7039,15 +7038,15 @@ function createNormalCastleRooms(): BuiltRoom[] {
       lanterns: [],
       npcs: [],
       spawns: [
-        { kind: 'demon_wolf', x: 880, y: 376 },
-        { kind: 'bronze_guard', x: 1320, y: 408 },
+        { kind: 'shenji_musketeer', x: 880, y: 376 },
+        { kind: 'jinwu_mace_guard', x: 1320, y: 408 },
       ],
       pickups: [],
     },
     {
       id: 'colosseum_grand_arena',
       name: '神武百战演武场',
-      subtitle: '三格血月校场 · 破阵夺魁赐【神武吞猊山文甲】',
+      subtitle: '镇武大将军·拓跋烈镇守 · 破阵夺魁赐【神武吞猊山文甲】',
       region: 'colosseum',
       bgKey: 'bg_martial_colosseum',
       realm: 'normal',
@@ -7058,7 +7057,9 @@ function createNormalCastleRooms(): BuiltRoom[] {
       gridH: 1,
       pixelW: 2200,
       pixelH: 500,
-      special: 'relic_pedestal',
+      special: 'boss_room',
+      bossKind: 'boss_colosseum_general',
+      storyTriggerId: 'boss_general_pre',
       focalX: 1100,
       focalY: 376,
       leftRoomId: 'colosseum_west_gate',
@@ -7096,14 +7097,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       lanterns: [],
       npcs: [],
       steles: [{ id: 'stele_colosseum_valor', x: 920 }],
-      spawns: [
-        { kind: 'bronze_guard', x: 520, y: 412 },
-        { kind: 'demon_wolf', x: 860, y: 376 },
-        { kind: 'demon_wolf', x: 1340, y: 376 },
-        { kind: 'bronze_guard', x: 1680, y: 412 },
-        { kind: 'bone_archer', x: 440, y: 288 },
-        { kind: 'bone_archer', x: 1740, y: 288 },
-      ],
+      spawns: [],
       pickups: [
         {
           id: 'pk_colosseum_cuirass',
@@ -7218,8 +7212,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
       lanterns: [],
       npcs: [],
       spawns: [
-        { kind: 'bronze_guard', x: 280, y: 408 },
-        { kind: 'opera_puppet', x: 1080, y: 408 },
+        { kind: 'jinwu_mace_guard', x: 280, y: 408 },
+        { kind: 'shenji_musketeer', x: 1080, y: 408 },
       ],
       pickups: [
         {
@@ -7392,9 +7386,9 @@ function createNormalCastleRooms(): BuiltRoom[] {
       lanterns: [{ x: 1110, y: 210 }],
       npcs: [],
       spawns: [
-        { kind: 'plague_toad', x: 1110, y: 348 },
-        { kind: 'spirit_crow', x: 780, y: 210 },
-        { kind: 'bone_archer', x: 1880, y: 408 },
+        { kind: 'armored_tortoise', x: 1110, y: 348 },
+        { kind: 'guixu_water_fiend', x: 780, y: 210 },
+        { kind: 'shenji_musketeer', x: 1880, y: 408 },
       ],
       pickups: [],
     },
@@ -8527,7 +8521,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
     {
       id: 'dock_shipyard_hall',
       name: '皇家艨艟废船坞',
-      subtitle: '四格双层巨舰残骸洞窟 · 藏【鲛绡避水云霓裳】与《镇海楼船手札》',
+      subtitle: '归墟镇海蛟王·敖溟镇守 · 藏【鲛绡避水云霓裳】与《镇海楼船手札》',
       region: 'shipyard',
       bgKey: 'bg_sunken_shipyard',
       realm: 'normal',
@@ -8538,7 +8532,9 @@ function createNormalCastleRooms(): BuiltRoom[] {
       gridH: 2,
       pixelW: 3200,
       pixelH: 880,
-      special: 'relic_pedestal',
+      special: 'boss_room',
+      bossKind: 'boss_shipyard_leviathan',
+      storyTriggerId: 'boss_leviathan_pre',
       focalX: 1620,
       focalY: 486,
       sideDoors: [
@@ -8591,14 +8587,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       npcs: [],
       steles: [{ id: 'stele_shipyard_fleet', x: 2920 }],
-      spawns: [
-        { kind: 'bone_archer', x: 580, y: 468 },
-        { kind: 'plague_toad', x: 1020, y: 592 },
-        { kind: 'bell_gargoyle', x: 1260, y: 330 },
-        { kind: 'bronze_guard', x: 1620, y: 486 },
-        { kind: 'opera_puppet', x: 2180, y: 592 },
-        { kind: 'demon_wolf', x: 2680, y: 804 },
-      ],
+      spawns: [],
       pickups: [
         {
           id: 'pk_shipyard_pearl_robe',
@@ -8712,8 +8701,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
       npcs: [],
       spawns: [
         { kind: 'plague_toad', x: 830, y: 356 },
-        { kind: 'scroll_demon', x: 1120, y: 215 },
-        { kind: 'bone_archer', x: 1330, y: 356 },
+        { kind: 'guixu_water_fiend', x: 1120, y: 215 },
+        { kind: 'armored_tortoise', x: 1330, y: 356 },
       ],
       pickups: [],
     },
@@ -8775,8 +8764,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
       npcs: [],
       spawns: [
         { kind: 'plague_toad', x: 990, y: 358 },
-        { kind: 'bell_gargoyle', x: 1320, y: 205 },
-        { kind: 'demon_wolf', x: 2180, y: 416 },
+        { kind: 'guixu_water_fiend', x: 1320, y: 205 },
+        { kind: 'armored_tortoise', x: 2180, y: 416 },
       ],
       pickups: [],
     },
@@ -8871,9 +8860,9 @@ function createNormalCastleRooms(): BuiltRoom[] {
       lanterns: [],
       npcs: [],
       spawns: [
-        { kind: 'bronze_guard', x: 560, y: 412 },
-        { kind: 'bell_gargoyle', x: 1340, y: 205 },
-        { kind: 'opera_puppet', x: 1840, y: 412 },
+        { kind: 'armored_tortoise', x: 560, y: 412 },
+        { kind: 'guixu_water_fiend', x: 1340, y: 205 },
+        { kind: 'armored_tortoise', x: 1840, y: 412 },
       ],
       pickups: [],
     },
@@ -8934,9 +8923,9 @@ function createNormalCastleRooms(): BuiltRoom[] {
       npcs: [],
       spawns: [
         { kind: 'plague_toad', x: 1070, y: 364 },
-        { kind: 'bell_gargoyle', x: 1540, y: 205 },
-        { kind: 'scroll_demon', x: 2280, y: 205 },
-        { kind: 'bronze_guard', x: 3180, y: 420 },
+        { kind: 'guixu_water_fiend', x: 1540, y: 205 },
+        { kind: 'guixu_water_fiend', x: 2280, y: 205 },
+        { kind: 'armored_tortoise', x: 3180, y: 420 },
       ],
       pickups: [],
     },
@@ -9557,11 +9546,11 @@ function createNormalCastleRooms(): BuiltRoom[] {
       lanterns: [],
       npcs: [],
       spawns: [
-        { kind: 'bronze_guard', x: 520, y: 416 },
-        { kind: 'opera_puppet', x: 940, y: 382 },
-        { kind: 'demon_wolf', x: 1260, y: 382 },
-        { kind: 'bell_gargoyle', x: 1100, y: 195 },
-        { kind: 'bronze_guard', x: 1680, y: 416 },
+        { kind: 'bixie_stone_beast', x: 520, y: 416 },
+        { kind: 'wuchang_reaper', x: 940, y: 210 },
+        { kind: 'jinwu_mace_guard', x: 1260, y: 382 },
+        { kind: 'wuchang_reaper', x: 1480, y: 195 },
+        { kind: 'bixie_stone_beast', x: 1680, y: 416 },
       ],
       pickups: [{ id: 'pk_nether_trial_mp', kind: 'max_up', itemId: 'mp_vessel', x: 1100, y: 382 }],
     },
@@ -9621,8 +9610,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
       lanterns: [],
       npcs: [],
       spawns: [
-        { kind: 'scroll_demon', x: 760, y: 205 },
-        { kind: 'opera_puppet', x: 1580, y: 416 },
+        { kind: 'wuchang_reaper', x: 760, y: 205 },
+        { kind: 'bixie_stone_beast', x: 1580, y: 416 },
       ],
       pickups: [
         {
@@ -9685,10 +9674,10 @@ function createNormalCastleRooms(): BuiltRoom[] {
       lanterns: [],
       npcs: [],
       spawns: [
-        { kind: 'corpse_soldier', x: 620, y: 416 },
-        { kind: 'bone_archer', x: 1480, y: 352 },
-        { kind: 'bell_gargoyle', x: 1960, y: 205 },
-        { kind: 'bronze_guard', x: 2380, y: 416 },
+        { kind: 'bixie_stone_beast', x: 620, y: 416 },
+        { kind: 'shenji_musketeer', x: 1480, y: 352 },
+        { kind: 'wuchang_reaper', x: 1960, y: 205 },
+        { kind: 'bixie_stone_beast', x: 2380, y: 416 },
       ],
       pickups: [],
     },
@@ -9792,9 +9781,9 @@ function createNormalCastleRooms(): BuiltRoom[] {
       lanterns: [],
       npcs: [],
       spawns: [
-        { kind: 'demon_wolf', x: 560, y: 420 },
-        { kind: 'bell_gargoyle', x: 1680, y: 205 },
-        { kind: 'bronze_guard', x: 2320, y: 420 },
+        { kind: 'bixie_stone_beast', x: 560, y: 420 },
+        { kind: 'wuchang_reaper', x: 1680, y: 205 },
+        { kind: 'armored_tortoise', x: 2320, y: 420 },
       ],
       pickups: [],
     },
@@ -9850,7 +9839,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
     {
       id: 'dragon_tomb_heart',
       name: '九幽龙脉盘龙渊',
-      subtitle: '五格地心龙脉圣殿 · 供奉至宝【九幽祖龙逆鳞铠】',
+      subtitle: '守陵太古战魄·刑天镇守 · 供奉至宝【九幽祖龙逆鳞铠】',
       region: 'nether',
       bgKey: 'bg_nether_abyss',
       realm: 'normal',
@@ -9861,7 +9850,9 @@ function createNormalCastleRooms(): BuiltRoom[] {
       gridH: 1,
       pixelW: 3800,
       pixelH: 520,
-      special: 'relic_pedestal',
+      special: 'boss_room',
+      bossKind: 'boss_dragon_warden',
+      storyTriggerId: 'boss_warden_pre',
       focalX: 1900,
       focalY: 372,
       leftRoomId: 'dragon_tomb_save',
@@ -9906,14 +9897,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       foregrounds: [],
       lanterns: [],
       npcs: [],
-      spawns: [
-        { kind: 'bronze_guard', x: 480, y: 420 },
-        { kind: 'bell_gargoyle', x: 1080, y: 200 },
-        { kind: 'opera_puppet', x: 1720, y: 372 },
-        { kind: 'demon_wolf', x: 2080, y: 372 },
-        { kind: 'bell_gargoyle', x: 2720, y: 200 },
-        { kind: 'bronze_guard', x: 3320, y: 420 },
-      ],
+      spawns: [],
       pickups: [
         {
           id: 'pk_dragon_tomb_armor',
@@ -10785,16 +10769,34 @@ function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
       rm.special !== 'warp_bagua' &&
       (!rm.isSecretRoom || rm.id === 'secret_sword_tomb')
     ) {
+      const flyerKind: EnemyKind =
+        rm.region === 'shipyard' || rm.region === 'prison'
+          ? 'guixu_water_fiend'
+          : rm.region === 'nether' || rm.region === 'catacomb'
+            ? 'wuchang_reaper'
+            : 'bell_gargoyle';
+      const groundKind1: EnemyKind =
+        rm.region === 'colosseum' || rm.region === 'forge'
+          ? 'jinwu_mace_guard'
+          : rm.region === 'shipyard' || rm.region === 'prison'
+            ? 'armored_tortoise'
+            : rm.region === 'nether' || rm.region === 'catacomb'
+              ? 'bixie_stone_beast'
+              : 'bronze_guard';
+      const groundKind2: EnemyKind =
+        rm.region === 'colosseum' || rm.region === 'clock_tower'
+          ? 'shenji_musketeer'
+          : 'opera_puppet';
       if (W >= 1500) {
-        eliteSpawns.push({ kind: 'bell_gargoyle', x: Math.round(W * 0.28), y: 210 });
+        eliteSpawns.push({ kind: flyerKind, x: Math.round(W * 0.28), y: 210 });
         const gx1 = findSafeDrySpawnX(W * 0.52);
-        if (gx1 !== null) eliteSpawns.push({ kind: 'bronze_guard', x: gx1 });
+        if (gx1 !== null) eliteSpawns.push({ kind: groundKind1, x: gx1 });
         const gx2 = findSafeDrySpawnX(W * 0.78);
         if (gx2 !== null && (gx1 === null || Math.abs(gx2 - gx1) > 140)) {
-          eliteSpawns.push({ kind: 'opera_puppet', x: gx2 });
+          eliteSpawns.push({ kind: groundKind2, x: gx2 });
         }
       } else {
-        eliteSpawns.push({ kind: 'bell_gargoyle', x: Math.round(W * 0.48), y: 200 });
+        eliteSpawns.push({ kind: flyerKind, x: Math.round(W * 0.48), y: 200 });
       }
     }
 

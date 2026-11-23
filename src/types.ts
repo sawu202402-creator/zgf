@@ -199,6 +199,15 @@ export type EnemyKind =
   | 'plague_toad' // 毒沼金蟾
   | 'opera_puppet' // 梨园提线木偶
   | 'bell_gargoyle' // 飞天夜叉
+  | 'shenji_musketeer' // 神机营三眼火铳兵（演武校场/外壁远程火器）
+  | 'jinwu_mace_guard' // 金吾铁锤力士（演武校场/铸剑坊重锤精兵）
+  | 'guixu_water_fiend' // 归墟巡海夜叉（沉船坞/寒潭水妖）
+  | 'armored_tortoise' // 玄甲覆海妖龟（沉船坞/极渊正甲霸体妖兽）
+  | 'wuchang_reaper' // 勾魂白无常（荒冢/九幽忘川索魂阴差）
+  | 'bixie_stone_beast' // 镇陵辟邪石兽（帝陵/太古龙陵活化石兽）
+  | 'boss_colosseum_general' // 演武校场Boss: 镇武大将军·拓跋烈
+  | 'boss_shipyard_leviathan' // 沉船古渡Boss: 归墟镇海蛟王·敖溟
+  | 'boss_dragon_warden' // 太古龙陵Boss: 守陵太古战魄·刑天
   | 'boss_scroll_king' // 藏书阁Boss: 画皮书妖·墨千秋 -> 踏云步(二段跳)
   | 'boss_furnace_titan' // 铸剑坊Boss: 赤铜熔炉巨灵 -> 千斤坠
   | 'boss_xiao_duanshui' // 水牢宿敌Boss: 镇妖少统领·萧断水 -> 缩地化雾符
@@ -274,6 +283,7 @@ export interface SaveSlotData {
   defeatedBosses: string[];
   triggeredStories: string[];
   readSteles?: string[];
+  mapPins?: string[];
   brokenSecretWalls: string[];
   playTimeSec: number;
 }
@@ -284,6 +294,7 @@ export interface GlobalMetaUnlock {
   bestExplorationPct: number;
   bestBossRushSec: number | null;
   controlStyle: 'joystick' | 'dpad';
+  padScale?: number;
   sfxMuted: boolean;
   bgmMuted: boolean;
 }

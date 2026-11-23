@@ -10,11 +10,11 @@ interface RawDirSample {
 }
 
 export interface VirtualButtonRect {
-  id: 'attack' | 'jump' | 'dash' | 'sub' | 'potion' | 'swap' | 'skill';
+  id: 'attack' | 'jump' | 'dash' | 'sub' | 'potion' | 'swap' | 'familiar' | 'skill';
   shape: 'circle' | 'pill';
-  /** 主键单字（斩 / 跃 / 闪 / 符）或肩键名（L1 换兵 / RT 绝技 / R1 灵药） */
+  /** 主键单字（斩 / 跃 / 闪 / 符）或肩键名（L1 换兵 / L2 唤灵 / RT 绝技 / R1 灵药） */
   label: string;
-  /** 手柄键位微标（X / A / B / Y / L1 / RT / R1） */
+  /** 手柄键位微标（X / A / B / Y / L1 / L2 / RT / R1） */
   padBadge: string;
   cx: number;
   cy: number;
@@ -30,6 +30,7 @@ export class InputController {
   public moveY = 0; // -1..1
   public usingTouch = false;
   public controlStyle: 'joystick' | 'dpad' = 'joystick';
+  public padScale = 1.0;
   public uiBlocked = false;
 
   // 边沿触发按键状态
@@ -83,16 +84,18 @@ export class InputController {
    */
   public layoutVirtualControls(viewW: number, viewH: number): void {
     const minDim = Math.min(viewW, viewH);
-    const faceR = Math.max(23, Math.min(29, Math.round(minDim * 0.066)));
-    const arm = Math.round(faceR * 1.84);
+    const scaleClamp = Math.max(0.82, Math.min(1.18, this.padScale || 1.0));
+    const baseFaceR = Math.max(22, Math.min(29, Math.round(minDim * 0.066)));
+    const faceR = Math.max(20, Math.min(33, Math.round(baseFaceR * scaleClamp)));
+    const arm = Math.round(faceR * 1.82);
 
-    const sideMargin = Math.max(96, Math.min(126, Math.round(viewW * 0.125)));
-    const bottomMargin = Math.max(84, Math.min(108, Math.round(viewH * 0.235)));
+    const sideMargin = Math.max(98, Math.min(134, Math.round(viewW * 0.13)));
+    const bottomMargin = Math.max(82, Math.min(112, Math.round(viewH * 0.24)));
 
     const leftX = sideMargin;
     const rightX = viewW - sideMargin;
     const centerY = viewH - bottomMargin;
-    const shoulderY = Math.max(122, centerY - arm - faceR - 24);
+    const shoulderY = Math.max(108, centerY - arm - faceR - 22);
 
     this.padLeftHomeX = leftX;
     this.padLeftHomeY = centerY;
@@ -108,7 +111,7 @@ export class InputController {
       this.stickKnobY = centerY;
     }
 
-    const shoulderW = Math.round(faceR * 2.75);
+    const shoulderW = Math.round(faceR * 2.68);
     const shoulderH = Math.round(faceR * 1.02);
 
     this.buttons = [
@@ -158,18 +161,31 @@ export class InputController {
         pressed: false,
       },
 
-      // 左右对称手柄肩键与扳机键 (L1 换兵 ⟷ RT 绝技 + R1 灵药)
+      // 左右对称手柄双肩键 (L1 换兵 + L2 唤灵 ⟷ RT 绝技 + R1 灵药)
       {
         id: 'swap',
         shape: 'pill',
         label: '换兵',
         padBadge: 'L1',
-        cx: leftX - 8,
+        cx: leftX - Math.round(shoulderW * 0.46) - 3,
         cy: shoulderY,
         r: Math.round(shoulderH * 0.5),
-        w: shoulderW,
+        w: Math.round(shoulderW * 0.96),
         h: shoulderH,
         accentColor: '#eab308',
+        pressed: false,
+      },
+      {
+        id: 'familiar',
+        shape: 'pill',
+        label: '唤灵',
+        padBadge: 'L2',
+        cx: leftX + Math.round(shoulderW * 0.54) + 3,
+        cy: shoulderY,
+        r: Math.round(shoulderH * 0.5),
+        w: Math.round(shoulderW * 0.96),
+        h: shoulderH,
+        accentColor: '#2dd4bf',
         pressed: false,
       },
       {
@@ -487,6 +503,8 @@ export class InputController {
       this.potionJustPressed = true;
     } else if (id === 'swap' && down) {
       this.weaponSwapJustPressed = true;
+    } else if (id === 'familiar' && down) {
+      this.familiarSwapJustPressed = true;
     }
   }
 

@@ -191,7 +191,7 @@ export class UIManager {
         </button>
         <button class="zx-menu-item" id="btn-boss-rush">
           <span>百鬼试炼</span>
-          <span class="zx-menu-sub">${meta.bestBossRushSec ? `镇妖塔最快 ${meta.bestBossRushSec}s` : '七大妖王宿敌连战'}</span>
+          <span class="zx-menu-sub">${meta.bestBossRushSec ? `镇妖塔最快 ${meta.bestBossRushSec}s` : '十大妖王神将连战'}</span>
         </button>
         <button class="zx-menu-item" id="btn-title-moves">
           <span>剑诀要术</span>
@@ -685,6 +685,16 @@ export class UIManager {
           null
         : null;
       const inspectedMeta = inspectedRoom ? this.describeInspectedRoom(inspectedRoom) : null;
+      const pinTargetId =
+        this.inspectedMapRoomId ||
+        (this.engine.room && this.mapViewRealm === this.engine.room.realm
+          ? this.engine.room.id
+          : null);
+      const pinKey = pinTargetId ? `${this.mapViewRealm}:${pinTargetId}` : '';
+      const isPinned = Boolean(pinKey && (s.mapPins || []).includes(pinKey));
+      const pinBtnHtml = pinTargetId
+        ? `<button class="zx-seal-btn" id="btn-map-pin" style="padding:4px 10px;font-size:12px;${isPinned ? 'border-color:#fb7185;color:#fecdd3;background:rgba(159,18,57,0.55);' : ''}">${isPinned ? '⚑ 取消标点' : '⚑ 朱砂标点'}</button>`
+        : '';
       mainHtml = `
         <div class="zx-map-pane">
           <div class="zx-map-header">
@@ -695,6 +705,7 @@ export class UIManager {
               探索度 ${pct}% / 200%+
             </span>
             ${realmSwitchHtml}
+            ${pinBtnHtml}
           </div>
           <div class="zx-map-canvas-wrap">
             <canvas id="full-castle-map-canvas" width="920" height="406" style="touch-action:none;cursor:${this.mapZoom > 1 ? 'grab' : 'pointer'};"></canvas>
@@ -704,7 +715,8 @@ export class UIManager {
             <span><b style="color:#f59e0b;">◆</b> 留档古祠</span>
             <span><b style="color:#10b981;">◯</b> 乾坤传送阵</span>
             <span><b style="color:#fde047;">✦</b> 未取秘宝</span>
-            <span style="color:#94a3b8;">轻点地图任意殿宇可查看名称与详情</span>
+            <span><b style="color:#fb7185;">⚑</b> 朱砂标点</span>
+            <span style="color:#94a3b8;">轻点殿宇显机关锁需求与标点</span>
           </div>
         </div>
       `;
@@ -769,6 +781,8 @@ export class UIManager {
       footerLeft = `甲申血月秘档（${readList.length}/${steleEntries.length}） · 镇妖司人物密档`;
     } else {
       const mute = AudioFX.getMuteState();
+      const pScale = this.engine.input.padScale || 1.0;
+      const padScaleLabel = pScale >= 1.1 ? '放大 (115%)' : pScale <= 0.9 ? '紧凑 (86%)' : '标准 (100%)';
       mainHtml = `
         <div class="zx-scroll-pane" style="display:flex;flex-direction:column;gap:10px;max-width:560px;">
           <div class="zx-item-row" style="cursor:default;flex-direction:column;align-items:flex-start;gap:8px;">
@@ -779,6 +793,7 @@ export class UIManager {
               <button class="zx-seal-btn" id="set-pad-style">左手按键：${
                 this.engine.input.controlStyle === 'dpad' ? '经典十字键' : '手柄左摇杆'
               }</button>
+              <button class="zx-seal-btn" id="set-pad-scale">触控键尺寸：${padScaleLabel}</button>
               <button class="zx-seal-btn" id="set-fullscreen">全屏横屏锁定</button>
             </div>
           </div>
@@ -860,6 +875,57 @@ export class UIManager {
         this.mapPanX = 0;
         this.mapPanY = 0;
         this.renderArsenalModal();
+      });
+      const syncPinBtnVisual = () => {
+        const pinBtn = overlay.querySelector('#btn-map-pin') as HTMLButtonElement | null;
+        if (!pinBtn) return;
+        const targetId =
+          this.inspectedMapRoomId ||
+          (this.engine.room && this.mapViewRealm === this.engine.room.realm
+            ? this.engine.room.id
+            : null);
+        if (!targetId) {
+          pinBtn.style.display = 'none';
+          return;
+        }
+        pinBtn.style.display = '';
+        const pk = `${this.mapViewRealm}:${targetId}`;
+        const pinned = (s.mapPins || []).includes(pk);
+        pinBtn.textContent = pinned ? '⚑ 取消标点' : '⚑ 朱砂标点';
+        pinBtn.style.borderColor = pinned ? '#fb7185' : '';
+        pinBtn.style.color = pinned ? '#fecdd3' : '';
+        pinBtn.style.background = pinned ? 'rgba(159,18,57,0.55)' : '';
+      };
+      this.bindFastTap(overlay.querySelector('#btn-map-pin'), () => {
+        const targetId =
+          this.inspectedMapRoomId ||
+          (this.engine.room && this.mapViewRealm === this.engine.room.realm
+            ? this.engine.room.id
+            : null);
+        if (!targetId) return;
+        if (!s.mapPins) s.mapPins = [];
+        const pk = `${this.mapViewRealm}:${targetId}`;
+        const idx = s.mapPins.indexOf(pk);
+        if (idx >= 0) s.mapPins.splice(idx, 1);
+        else s.mapPins.push(pk);
+        SaveManager.saveSlot(s);
+        AudioFX.playHit(false);
+        syncPinBtnVisual();
+        const mc = overlay.querySelector('#full-castle-map-canvas') as HTMLCanvasElement | null;
+        const mctx2 = mc?.getContext('2d');
+        if (mc && mctx2) {
+          this.drawCastlevaniaBlueprint(
+            mctx2,
+            mc.width,
+            mc.height,
+            true,
+            this.mapViewRealm,
+            this.mapZoom,
+            this.mapPanX,
+            this.mapPanY,
+            this.inspectedMapRoomId
+          );
+        }
       });
       const mapCanvas = overlay.querySelector('#full-castle-map-canvas') as HTMLCanvasElement | null;
       const footerDescEl = overlay.querySelector('.zx-footer-desc') as HTMLElement | null;
@@ -945,6 +1011,7 @@ export class UIManager {
                   '轻点地图中任意已探明方格即可浮现殿宇名称与机关秘宝详情（点击【详图 2×】可放大拖曳阅览）';
               }
             }
+            syncPinBtnVisual();
             redraw();
           }
           dragging = false;
@@ -987,6 +1054,9 @@ export class UIManager {
       if (kind === 'boss_thunder_yaksha') return 'boss_yk_0';
       if (kind === 'boss_furnace_titan') return 'boss_ft_0';
       if (kind === 'boss_opera_god') return 'boss_op_0';
+      if (kind === 'boss_colosseum_general') return 'boss_gen_0';
+      if (kind === 'boss_shipyard_leviathan') return 'boss_lev_0';
+      if (kind === 'boss_dragon_warden') return 'boss_wdn_0';
       if (kind === 'boss_pei_wuji' || kind === 'boss_zhuyin') {
         return 'boss_pei_0';
       }
@@ -999,6 +1069,12 @@ export class UIManager {
       if (kind === 'demon_wolf') return 'mob_warg';
       if (kind === 'spirit_crow') return 'mob_crow';
       if (kind === 'bone_archer') return 'mob_bone_archer';
+      if (kind === 'shenji_musketeer') return 'mob_musketeer';
+      if (kind === 'jinwu_mace_guard') return 'mob_mace_guard';
+      if (kind === 'guixu_water_fiend') return 'mob_water_fiend';
+      if (kind === 'armored_tortoise') return 'mob_tortoise';
+      if (kind === 'wuchang_reaper') return 'mob_wuchang';
+      if (kind === 'bixie_stone_beast') return 'mob_bixie';
       if (kind === 'bronze_guard') return 'mob_gd_0';
       if (ENEMY_PROFILES[kind].flying) return 'mob_wr_0';
       return 'mob_sw_0';
@@ -1207,17 +1283,45 @@ export class UIManager {
     else if (rm.id === 'library_shop') badge = '子夜鬼市';
     else if (rm.isSecretRoom) badge = '隐秘暗室';
 
-    const notes: string[] = [rm.subtitle];
+    const notes: string[] = [];
     if (s) {
+      if (rm.ironGate && !s.brokenSecretWalls.includes(rm.ironGate.id)) {
+        const gk = rm.ironGate.gateKind;
+        if (gk === 'mist_only' && !s.abilities.includes('mist_dash')) {
+          notes.push('未解：需【缩地化雾】穿过紫瘴栅');
+        } else if (gk === 'ice_phoenix') {
+          notes.push('未解：需唤【朱雀丹火】融开寒冰障');
+        } else if (gk === 'sluice_tortoise') {
+          notes.push('未解：需唤【玄武镇岳】镇压水枢闸');
+        } else if (gk === 'gear_kestrel') {
+          notes.push('未解：需唤【天机木鸢】拨开齿轮锁');
+        } else if (gk === 'illusion_fox') {
+          notes.push('未解：需唤【青丘玉狐】勘破幻障');
+        } else if (gk === 'lever_shortcut') {
+          notes.push('未解：单向青铜枢机门（需从门内扳动）');
+        } else if (gk !== 'mist_only') {
+          notes.push('未解：需【重刃】劈开千斤铁闸');
+        }
+      }
+      const unbrokenSeal = rm.shafts.some(
+        (sh) => sh.sealId && !s.brokenSecretWalls.includes(sh.sealId)
+      );
+      if (unbrokenSeal) {
+        notes.push('未解：需【千斤坠】震碎裂地封印');
+      }
+      if (!s.abilities.includes('double_jump') && rm.solidBlocks?.some((sb) => sb.blocking)) {
+        notes.push('未解：需【踏云步】二段跳登高崖');
+      }
       const hasTreasure = rm.pickups.some(
         (pk) => pk.kind !== 'consumable' && !s.collectedPickups.includes(pk.id)
       );
       if (hasTreasure) notes.push('尚有秘宝未取');
-      if (rm.ironGate && !s.brokenSecretWalls.includes(rm.ironGate.id)) {
-        const isMistUnlocked =
-          rm.ironGate.gateKind === 'mist_only' && s.abilities.includes('mist_dash');
-        if (!isMistUnlocked) notes.push('机关封锁待破');
+      if ((s.mapPins || []).includes(`${rm.realm}:${rm.id}`)) {
+        notes.push('已打朱砂标点');
       }
+    }
+    if (notes.length === 0) {
+      notes.push(rm.subtitle);
     }
     return { title, stage, badge, detail: notes.join(' · ') };
   }
@@ -1614,6 +1718,25 @@ export class UIManager {
           ctx.closePath();
           ctx.fill();
         }
+      }
+
+      // 玩家自定义朱砂小旗标点（全图与微缩地图同步清晰标识！）
+      if ((s.mapPins || []).includes(`${targetRealm}:${rm.id}`)) {
+        const px = rx + (detailed ? 6 : 4);
+        const py = ry + (detailed ? 5 : 3.5);
+        ctx.strokeStyle = '#fef08a';
+        ctx.lineWidth = detailed ? 1.5 : 1;
+        ctx.beginPath();
+        ctx.moveTo(px, py - (detailed ? 3 : 2));
+        ctx.lineTo(px, py + (detailed ? 6 : 4));
+        ctx.stroke();
+        ctx.fillStyle = '#fb7185';
+        ctx.beginPath();
+        ctx.moveTo(px, py - (detailed ? 3 : 2));
+        ctx.lineTo(px + (detailed ? 7 : 4.5), py);
+        ctx.lineTo(px, py + (detailed ? 3 : 2));
+        ctx.closePath();
+        ctx.fill();
       }
     }
 
@@ -2133,6 +2256,15 @@ export class UIManager {
       const next = this.engine.input.controlStyle === 'joystick' ? 'dpad' : 'joystick';
       this.engine.input.controlStyle = next;
       SaveManager.saveMeta({ controlStyle: next });
+      AudioFX.playHit(false);
+      this.renderArsenalModal();
+    });
+    overlay.querySelector('#set-pad-scale')?.addEventListener('click', () => {
+      const cur = this.engine.input.padScale || 1.0;
+      const nextScale = cur < 0.95 ? 1.0 : cur < 1.08 ? 1.15 : 0.86;
+      this.engine.input.padScale = nextScale;
+      this.engine.input.layoutVirtualControls(window.innerWidth, window.innerHeight);
+      SaveManager.saveMeta({ padScale: nextScale });
       AudioFX.playHit(false);
       this.renderArsenalModal();
     });
@@ -2716,7 +2848,7 @@ export class UIManager {
             return `
               <div class="zx-item-row" style="cursor:default;flex-wrap:wrap;gap:10px;">
                 <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:210px;">
-                  ${getWeaponArtHtml(w.archetype, compact ? 56 : 78, w.id)}
+                  <div class="zx-shop-icon-slot">${getWeaponArtHtml(w.archetype, 52, w.id)}</div>
                   <div>
                     <div style="font-size:15px;font-weight:900;color:var(--rice);">${w.name}</div>
                     <div style="font-size:11.5px;color:#fbbf24;">杀伤 +${w.atk}${w.critBonus ? ` · 暴击 +${Math.round(w.critBonus * 100)}%` : ''}</div>
@@ -2843,7 +2975,7 @@ export class UIManager {
             name: '短兵 · 生铁双短匕',
             desc: '零前摇极速双匕连刺 · 绕背必定暴击',
             price: 185,
-            icon: getWeaponArtHtml('daggers', 54, 'daggers_1'),
+            icon: getWeaponArtHtml('daggers', 44, 'daggers_1'),
           },
           {
             id: 'whip_1',
@@ -2851,7 +2983,7 @@ export class UIManager {
             name: '软鞭 · 生铁九节鞭',
             desc: '军中九节铁链鞭 · 八向远距抽击控场',
             price: 220,
-            icon: getWeaponArtHtml('whip', 54, 'whip_1'),
+            icon: getWeaponArtHtml('whip', 44, 'whip_1'),
           },
           {
             id: 'sword_1',
@@ -2859,7 +2991,7 @@ export class UIManager {
             name: '轻剑 · 巡防百炼钢剑',
             desc: '城防百炼精钢佩剑 · 锋利轻捷',
             price: 210,
-            icon: getWeaponArtHtml('sword', 54, 'sword_1'),
+            icon: getWeaponArtHtml('sword', 44, 'sword_1'),
           },
           {
             id: 'iron_lamellar',
@@ -2895,9 +3027,9 @@ export class UIManager {
               (g.kind === 'arm' && s.ownedArmors.includes(g.id));
             return `
               <div class="zx-item-row" data-buy-id="${g.id}" data-buy-kind="${g.kind}" data-buy-price="${g.price}">
-                <div style="display:flex;align-items:center;gap:14px;">
-                  ${g.icon}
-                  <div>
+                <div style="display:flex;align-items:center;gap:12px;min-width:0;">
+                  <div class="zx-shop-icon-slot">${g.icon}</div>
+                  <div style="min-width:0;">
                     <div style="font-size:15px;font-weight:900;color:var(--rice);">${g.name}</div>
                     <div style="font-size:12px;color:var(--ash);">${g.desc}</div>
                   </div>

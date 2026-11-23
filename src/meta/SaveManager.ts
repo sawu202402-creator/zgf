@@ -41,6 +41,7 @@ export function createFreshSaveSlot(slotIndex: number, mode: GameMode = 'story')
     defeatedBosses: [],
     triggeredStories: [],
     readSteles: [],
+    mapPins: [],
     brokenSecretWalls: [],
     playTimeSec: 0,
   };
@@ -53,6 +54,7 @@ class SaveSystem {
     bestExplorationPct: 0,
     bestBossRushSec: null,
     controlStyle: 'joystick',
+    padScale: 1.0,
     sfxMuted: false,
     bgmMuted: false,
   };
