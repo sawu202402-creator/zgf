@@ -41,6 +41,7 @@ import {
   getSubWeaponSvg,
   getWeaponArtHtml,
 } from './Icons';
+import { playOpeningPrologue } from './OpeningPrologue';
 
 type EquipSlotCategory =
   | 'weapon'
@@ -89,6 +90,7 @@ export class UIManager {
   private previewItemId: string | null = null;
   private lastHudWpnKey = '';
   private warpModalCleanup: (() => void) | null = null;
+  private prologueCleanup: (() => void) | null = null;
   private modalClosedAt = 0;
 
   constructor(
@@ -181,11 +183,11 @@ export class UIManager {
         }
         <button class="zx-menu-item" id="btn-new-journey">
           <span>踏入玄城</span>
-          <span class="zx-menu-sub">正篇 · 18岁少年李逸承</span>
+          <span class="zx-menu-sub">正篇 · 镇妖司传人李逸承</span>
         </button>
         <button class="zx-menu-item" id="btn-xiao-mode">
           <span>少统领传</span>
-          <span class="zx-menu-sub">${meta.unlockedXiaoMode ? '已解锁 · 操控21岁萧断水' : '特别篇 · 寒星银枪萧断水'}</span>
+          <span class="zx-menu-sub">${meta.unlockedXiaoMode ? '已解锁 · 少统领萧断水' : '特别篇 · 寒星银枪萧断水'}</span>
         </button>
         <button class="zx-menu-item" id="btn-boss-rush">
           <span>百鬼试炼</span>
@@ -215,14 +217,14 @@ export class UIManager {
       AudioFX.resume();
       const fresh = createFreshSaveSlot(1, 'story');
       SaveManager.saveSlot(fresh);
-      this.launchGame(fresh);
+      this.launchGameWithPrologue(fresh, 'story');
     });
 
     root.querySelector('#btn-xiao-mode')?.addEventListener('click', () => {
       AudioFX.resume();
       const xiaoSlot = createFreshSaveSlot(2, 'xiaoduanshui');
       SaveManager.saveSlot(xiaoSlot);
-      this.launchGame(xiaoSlot);
+      this.launchGameWithPrologue(xiaoSlot, 'xiaoduanshui');
     });
 
     root.querySelector('#btn-boss-rush')?.addEventListener('click', () => {
@@ -296,11 +298,37 @@ export class UIManager {
       .join('');
   }
 
-  private launchGame(slot: ReturnType<typeof createFreshSaveSlot>): void {
+  private launchGame(slot: ReturnType<typeof createFreshSaveSlot>, isPrologueWalkIn = false): void {
     this.clearAllUI();
     this.buildActionGameHud();
-    this.engine.startSession(slot);
+    this.engine.startSession(slot, isPrologueWalkIn);
     this.syncBlockState();
+  }
+
+  private launchGameWithPrologue(
+    slot: ReturnType<typeof createFreshSaveSlot>,
+    mode: 'story' | 'xiaoduanshui'
+  ): void {
+    this.clearAllUI();
+    this.engine.input.uiBlocked = true;
+    this.engine.input.resetAll();
+    let liveStarted = false;
+    this.prologueCleanup = playOpeningPrologue(
+      this.uiLayer,
+      mode,
+      () => {
+        if (liveStarted) return;
+        liveStarted = true;
+        this.buildActionGameHud();
+        this.engine.startSession(slot, true);
+        this.syncBlockState();
+      },
+      () => {
+        this.prologueCleanup = null;
+        this.modalClosedAt = performance.now();
+        this.syncBlockState();
+      }
+    );
   }
 
   private clearDialogueKeyHandler(): void {
@@ -312,10 +340,15 @@ export class UIManager {
 
   private clearAllUI(): void {
     this.stopStageLoop();
+    if (this.prologueCleanup) {
+      this.prologueCleanup();
+      this.prologueCleanup = null;
+    }
     if (this.warpModalCleanup) {
       this.warpModalCleanup();
       this.warpModalCleanup = null;
     }
+    this.engine.storyDialogueActive = false;
     this.clearDialogueKeyHandler();
     this.uiLayer.innerHTML = '';
     this.hudEl = null;
@@ -1875,11 +1908,11 @@ export class UIManager {
       <div class="zx-arsenal-body">
         <div class="zx-stage-col">
           <div style="font-size:15px;font-weight:900;letter-spacing:3px;color:var(--bronze-light);">
-            ${s.heroName} · 18岁 · 境界 ${s.level}
+            ${s.heroName} · 境界 ${s.level}
           </div>
           <canvas id="equip-stage-canvas" width="250" height="256"></canvas>
           <div style="font-size:11.5px;color:var(--ash);text-align:center;">
-            点击兵刃即可实时观摩少年侠客持兵架势与挥斩刀光
+            点击兵刃即可实时观摩持兵架势与挥斩刀光
           </div>
         </div>
 
@@ -2972,7 +3005,10 @@ export class UIManager {
     if (this.dialogueEl) this.dialogueEl.remove();
     let idx = 0;
 
-    // 全屏透明点触层：手机端轻点屏幕任意位置（含右侧【斩】键区域）皆可顺畅推进或结束对话！
+    // 实景剧情对白：绝不黑屏遮挡背景，自动隐藏顶部 HUD 让背后的宫阙火光与人物完整呈现！
+    this.engine.storyDialogueActive = true;
+    if (this.hudEl) this.hudEl.style.opacity = '0';
+
     const backdrop = document.createElement('div');
     backdrop.className = 'cv-dialogue-backdrop';
     const box = document.createElement('div');
@@ -2986,6 +3022,9 @@ export class UIManager {
       this.clearDialogueKeyHandler();
       backdrop.remove();
       this.dialogueEl = null;
+      this.engine.storyDialogueActive = false;
+      if (this.hudEl) this.hudEl.style.opacity = '';
+      this.modalClosedAt = performance.now();
       this.syncBlockState();
       onDone?.();
     };
@@ -3081,7 +3120,7 @@ export class UIManager {
     overlay.innerHTML = `
       <div style="text-align:center;max-width:440px;display:flex;flex-direction:column;gap:16px;">
         <div style="font-size:36px;font-weight:900;letter-spacing:8px;color:#ef4444;">力 竭 剑 折</div>
-        <p style="color:#cbd5e1;line-height:1.7;">少年血染青石，但胸前玄鸟残佩护住了最后一缕心脉。</p>
+        <p style="color:#cbd5e1;line-height:1.7;">剑折青石，幸得胸前玄鸟残佩护住了最后一缕心脉。</p>
         <div style="display:flex;gap:12px;justify-content:center;">
           <button class="zx-seal-btn" id="btn-revive-shrine" style="border-color:var(--bronze-light);color:var(--bronze-light);">重返玄城再战</button>
           <button class="zx-seal-btn" id="btn-gameover-title">退回标题画卷</button>
@@ -3125,7 +3164,7 @@ export class UIManager {
           : '结 局 一 · 折 剑 归 尘';
     const desc =
       kind === 'true'
-        ? `十八岁少年剑破九幽，太古尸仙烛阴伏诛，血月终散！<br/>双城探索度：<strong style="color:#fde047;">${pct}% / 200%+</strong> · 历时：<strong>${timeStr}</strong><br/><span style="color:#2dd4bf;">已永久解锁标题画面【少统领传·萧断水】与【百鬼试炼·镇妖塔】！</span>`
+        ? `孤剑破九幽，太古尸仙烛阴伏诛，血月终散！<br/>双城探索度：<strong style="color:#fde047;">${pct}% / 200%+</strong> · 历时：<strong>${timeStr}</strong><br/><span style="color:#2dd4bf;">已永久解锁标题画面【少统领传·萧断水】与【百鬼试炼·镇妖塔】！</span>`
         : kind === 'boss_rush'
           ? `七大妖王与宿敌尽败于枪剑之下！通关用时：<strong style="color:#fde047;">${timeStr}</strong>`
           : `未能识破恩师眉心的九幽蚀心蛊，里城真凶尚未授首……<br/>提示：自寒潭水脉深处【玄鸟秘宝冢】习得【缩地化雾】并取【玄鸟合璧佩】，再登东垣望月竖塔顶层穿紫瘴入【天机秘阁】寻得【破妄古镜】，重登凌霄祭天坛即可开启 <strong>180° 九幽倒悬里城</strong>！`;

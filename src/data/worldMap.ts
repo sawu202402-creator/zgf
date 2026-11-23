@@ -1253,7 +1253,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       solidBlocks: [
         { x: 735, y: 288, w: 195, h: 32 },
-        { x: 1390, y: 332, w: 155, h: 32 },
+        { x: 1185, y: 302, w: 155, h: 32 },
       ],
       movingPlatforms: [
         { x1: 290, y1: 356, x2: 550, y2: 356, w: 130, speed: 1.05, style: 'bronze_lift' },
@@ -1261,6 +1261,13 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 34, style: 'crypt_vault' }],
       shafts: [],
+      ironGate: {
+        id: 'gate_forge_molten_heavy',
+        x: 1445,
+        topY: 34,
+        bottomY: 408,
+        gateKind: 'heavy_weapon',
+      },
       waterZones: [
         { x1: 255, x2: 705, surfaceY: 416, liquidKind: 'lava' },
         { x1: 955, x2: 1345, surfaceY: 416, liquidKind: 'lava' },
@@ -3329,7 +3336,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 505, y: 384, style: 'marble' },
         { x: 800, y: 384, style: 'marble' },
       ],
-      solidBlocks: [{ x: 395, y: 312, w: 110, h: 40 }],
+      solidBlocks: [{ x: 395, y: 312, w: 110, h: 72 }],
       ceilingSpans: [{ x1: 0, x2: 800, bottomY: 36, style: 'palace_timber' }],
       shafts: [],
       decorProps: [
@@ -3662,7 +3669,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
     {
       id: 'entrance_bamboo_woods',
       name: '苦竹荒冢林道',
-      subtitle: '城郊野径 · 破土阴兵与阴鸦寒林',
+      subtitle: '城郊野径 · 破土阴兵与踏云高崖秘径',
       region: 'gatehouse',
       bgKey: 'bg_bamboo_cliff',
       realm: 'normal',
@@ -3690,9 +3697,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 1600, y: 404, style: 'flagstone' },
       ],
       solidBlocks: [
-        { x: 1320, y: 312, w: 155, h: 30 },
-        { x: 1160, y: 222, w: 155, h: 30 },
-        { x: 1290, y: 134, w: 150, h: 28 },
+        { x: 1290, y: 228, w: 160, h: 30 },
+        { x: 1150, y: 146, w: 155, h: 28 },
       ],
       ceilingSpans: [],
       shafts: [
@@ -4181,12 +4187,12 @@ function createNormalCastleRooms(): BuiltRoom[] {
     // --- 第二幕 · 奉天盘龙殿拓展 (4 座) ---
     {
       id: 'hall_courtyard',
-      name: '奉天丹陛御苑',
-      subtitle: '入殿汉白玉前广场 · 蟠龙御路与铜鹤香炉',
+      name: '奉天丹陛前庑',
+      subtitle: '入殿汉白玉穿堂庑廊 · 上通西配殿下接乾坤阵',
       region: 'main_hall',
-      bgKey: 'bg_city_avenue',
+      bgKey: 'bg_gatehouse_interior',
       realm: 'normal',
-      indoor: false,
+      indoor: true,
       mapX: 15,
       mapY: 4,
       gridW: 2,
@@ -4210,10 +4216,12 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       solidBlocks: [
         { x: 660, y: 276, w: 220, h: 32 },
-        { x: 820, y: 184, w: 190, h: 30 },
-        { x: 860, y: 92, w: 165, h: 26 },
+        { x: 820, y: 176, w: 190, h: 30 },
       ],
-      ceilingSpans: [],
+      ceilingSpans: [
+        { x1: 0, x2: 840, bottomY: 34, style: 'palace_timber' },
+        { x1: 1040, x2: 1600, bottomY: 34, style: 'palace_timber' },
+      ],
       shafts: [
         { x1: 280, x2: 440, dir: 'down', targetRoomId: 'central_warp' },
         { x1: 840, x2: 1040, dir: 'up', targetRoomId: 'hall_west_gallery' },
@@ -4731,9 +4739,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 800, y: 408, style: 'crypt_stone' },
       ],
       solidBlocks: [
-        { x: 290, y: 304, w: 220, h: 32 },
-        { x: 315, y: 192, w: 170, h: 30 },
-        { x: 325, y: 88, w: 150, h: 26 },
+        { x: 290, y: 292, w: 220, h: 32 },
+        { x: 315, y: 176, w: 170, h: 30 },
       ],
       ceilingSpans: [
         { x1: 0, x2: 310, bottomY: 34, style: 'crypt_vault' },
@@ -4755,7 +4762,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       lanterns: [{ x: 400, y: 185 }],
       npcs: [],
       spawns: [
-        { kind: 'bronze_guard', x: 400, y: 438 },
+        { kind: 'bronze_guard', x: 165, y: 408 },
         { kind: 'lantern_ghost', x: 520, y: 215 },
       ],
       pickups: [
@@ -5476,9 +5483,9 @@ function createNormalCastleRooms(): BuiltRoom[] {
       shafts: [{ x1: 310, x2: 490, dir: 'up', targetRoomId: 'colosseum_west_gate' }],
       ironGate: {
         id: 'gate_west_watch_shortcut',
-        x: 210,
-        topY: 640,
-        bottomY: 804,
+        x: 180,
+        topY: 34,
+        bottomY: 356,
         gateKind: 'lever_shortcut',
         leverSide: 'right',
       },
@@ -5964,7 +5971,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         topY: 34,
         bottomY: 408,
         gateKind: 'lever_shortcut',
-        leverSide: 'right',
+        leverSide: 'left',
       },
       decorProps: [
         { kind: 'dragon_brazier', x: 615, y: 408, scale: 0.9 },
@@ -6884,10 +6891,9 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 0, y: 356, w: 250, h: 36 },
         { x: 550, y: 356, w: 250, h: 36 },
         { x: 315, y: 248, w: 170, h: 28 },
-        { x: 320, y: 142, w: 160, h: 26 },
-      ],
-      movingPlatforms: [
-        { x1: 310, y1: 720, x2: 310, y2: 420, w: 180, speed: 1.05, style: 'bronze_lift' },
+        { x: 320, y: 148, w: 160, h: 26 },
+        { x: 440, y: 492, w: 200, h: 32 },
+        { x: 260, y: 626, w: 210, h: 32 },
       ],
       ceilingSpans: [
         { x1: 0, x2: 310, bottomY: 34, style: 'palace_timber' },
@@ -8091,8 +8097,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
       shafts: [{ x1: 310, x2: 490, dir: 'down', targetRoomId: 'outer_wall_lower' }],
       ironGate: {
         id: 'gate_altar_outer_lever',
-        x: 210,
-        topY: 180,
+        x: 195,
+        topY: 36,
         bottomY: 356,
         gateKind: 'lever_shortcut',
         leverSide: 'right',
@@ -9171,11 +9177,13 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       solidBlocks: [
         { x: 1240, y: 356, w: 360, h: 36 },
+        { x: 910, y: 356, w: 220, h: 32 },
+        { x: 560, y: 356, w: 230, h: 32 },
         { x: 860, y: 468, w: 240, h: 32 },
-        { x: 520, y: 578, w: 240, h: 32 },
-        { x: 880, y: 688, w: 240, h: 32 },
+        { x: 520, y: 580, w: 240, h: 32 },
+        { x: 880, y: 694, w: 240, h: 32 },
         { x: 310, y: 248, w: 180, h: 30 },
-        { x: 320, y: 142, w: 165, h: 28 },
+        { x: 320, y: 148, w: 165, h: 28 },
       ],
       ceilingSpans: [
         { x1: 0, x2: 280, bottomY: 34, style: 'crypt_vault' },
@@ -9404,11 +9412,13 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       solidBlocks: [
         { x: 0, y: 356, w: 360, h: 36 },
+        { x: 430, y: 356, w: 210, h: 32 },
+        { x: 740, y: 356, w: 210, h: 32 },
         { x: 520, y: 468, w: 240, h: 32 },
-        { x: 860, y: 578, w: 240, h: 32 },
-        { x: 520, y: 688, w: 240, h: 32 },
+        { x: 860, y: 580, w: 240, h: 32 },
+        { x: 520, y: 694, w: 240, h: 32 },
         { x: 960, y: 248, w: 180, h: 30 },
-        { x: 980, y: 142, w: 165, h: 28 },
+        { x: 980, y: 148, w: 165, h: 28 },
       ],
       ceilingSpans: [
         { x1: 0, x2: 980, bottomY: 34, style: 'crypt_vault' },
@@ -10250,9 +10260,62 @@ function createNormalCastleRooms(): BuiltRoom[] {
 }
 
 function sanitizeRoomDecorAndSpawns(rm: BuiltRoom): BuiltRoom {
-  if (!rm.decorProps || rm.decorProps.length === 0) return rm;
+  const bridge = getArchBridgeGeometry(rm);
+
+  // 1. 清理顶井洞口下方 y < 105 的冗余“堵洞石板”：凡下方已有 y <= 238 跳台可单跳/二段跳直穿顶井，即移除洞口遮挡砖，保证下坠顺畅、井口通透！
+  let cleanSolids = rm.solidBlocks ? [...rm.solidBlocks] : undefined;
+  if (cleanSolids && rm.shafts.some((sh) => sh.dir === 'up')) {
+    cleanSolids = cleanSolids.filter((sb) => {
+      if (sb.blocking || sb.y >= 105) return true;
+      for (const sh of rm.shafts) {
+        if (sh.dir !== 'up') continue;
+        const plugsMouth = sb.x <= sh.x1 + 30 && sb.x + sb.w >= sh.x2 - 30;
+        if (!plugsMouth) continue;
+        const hasLowerStep = cleanSolids!.some(
+          (other) =>
+            other !== sb &&
+            other.y >= 115 &&
+            other.y <= 240 &&
+            other.x + other.w >= sh.x1 - 155 &&
+            other.x <= sh.x2 + 155
+        );
+        if (hasLowerStep) return false;
+      }
+      return true;
+    });
+  }
+
+  const workRm: BuiltRoom = { ...rm, solidBlocks: cleanSolids };
+
+  const isXInsideOpenLiquid = (x: number, surfY: number): boolean => {
+    if (bridge && x >= bridge.drawX && x <= bridge.drawX + bridge.drawW) return false;
+    for (const wz of workRm.waterZones) {
+      if (x >= wz.x1 - 22 && x <= wz.x2 + 22 && surfY >= wz.surfaceY - 8) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const isXNearKeyAnchor = (x: number, padShrine = 86, padStele = 70): boolean => {
+    if (
+      (workRm.special === 'save_shrine' || workRm.special === 'warp_bagua') &&
+      Math.abs(x - workRm.focalX) < padShrine
+    ) {
+      return true;
+    }
+    if (workRm.ironGate && Math.abs(x - workRm.ironGate.x) < 68) return true;
+    if (workRm.steles?.some((st) => Math.abs(x - st.x) < padStele)) return true;
+    if (workRm.npcs?.some((npc) => Math.abs(x - npc.x) < 70)) return true;
+    return false;
+  };
 
   const hasClearanceAt = (kind: CastleDecorKind, x: number, y: number): boolean => {
+    if (x < 90 || x > workRm.pixelW - 90) return false;
+    if (isInsideDownShaft(workRm, x)) return false;
+    if (isXInsideOpenLiquid(x, y)) return false;
+    if (isXNearKeyAnchor(x, 88, 70)) return false;
+
     const estH =
       kind === 'coiled_pillar'
         ? 190
@@ -10263,12 +10326,12 @@ function sanitizeRoomDecorAndSpawns(rm: BuiltRoom): BuiltRoom {
             : kind === 'guardian_statue'
               ? 116
               : 86;
-    for (const pv of rm.pavilions) {
+    for (const pv of workRm.pavilions) {
       if (x >= pv.x - 24 && x <= pv.x + pv.w + 24 && pv.y < y - 8 && y - pv.y < estH + 14) {
         return false;
       }
     }
-    for (const sb of rm.solidBlocks || []) {
+    for (const sb of workRm.solidBlocks || []) {
       if (x >= sb.x - 20 && x <= sb.x + sb.w + 20 && sb.y < y - 8 && y - sb.y < estH + 10) {
         return false;
       }
@@ -10276,29 +10339,37 @@ function sanitizeRoomDecorAndSpawns(rm: BuiltRoom): BuiltRoom {
     return true;
   };
 
+  // 2. 净化落地陈设（火盆、石兽、盘龙柱、书架、兵器架）：严禁落水、悬空于竖井、贴门或叠压残碑/古祠！
   const cleanDecor: CastleDecorProp[] = [];
-  for (const dp of rm.decorProps) {
+  for (const dp of workRm.decorProps || []) {
     if (dp.kind === 'chandelier' || dp.kind === 'silk_banner' || dp.kind === 'giant_bell') {
       cleanDecor.push(dp);
       continue;
     }
-    const baseSurfY = sampleEntitySurfaceY(rm, dp.x, dp.y - 16);
-    if (hasClearanceAt(dp.kind, dp.x, baseSurfY)) {
+    const baseSurfY = sampleEntitySurfaceY(workRm, dp.x, dp.y - 16);
+    const overlapsChosen = (cx: number, cy: number) =>
+      cleanDecor.some(
+        (o) =>
+          o.kind !== 'chandelier' &&
+          o.kind !== 'silk_banner' &&
+          o.kind !== 'giant_bell' &&
+          Math.abs(o.x - cx) < 82 &&
+          Math.abs(o.y - cy) < 60
+      );
+
+    if (hasClearanceAt(dp.kind, dp.x, baseSurfY) && !overlapsChosen(dp.x, baseSurfY)) {
       cleanDecor.push({ ...dp, y: baseSurfY });
       continue;
     }
     let relocated: CastleDecorProp | null = null;
-    for (const off of [-145, 145, -230, 230]) {
+    for (const off of [-115, 115, -195, 195, -285, 285, -380, 380]) {
       const nx = dp.x + off;
-      if (nx < 85 || nx > rm.pixelW - 85) continue;
-      if (isInsideDownShaft(rm, nx)) continue;
-      const ny = sampleEntitySurfaceY(rm, nx, dp.y - 20);
-      if (Math.abs(ny - baseSurfY) <= 36 && hasClearanceAt(dp.kind, nx, ny)) {
-        const tooClose = cleanDecor.some((o) => Math.abs(o.x - nx) < 95 && Math.abs(o.y - ny) < 60);
-        if (!tooClose) {
-          relocated = { ...dp, x: nx, y: ny };
-          break;
-        }
+      if (nx < 90 || nx > workRm.pixelW - 90) continue;
+      const ny = sampleEntitySurfaceY(workRm, nx, dp.y - 24);
+      if (ny > workRm.pixelH) continue;
+      if (Math.abs(ny - baseSurfY) <= 46 && hasClearanceAt(dp.kind, nx, ny) && !overlapsChosen(nx, ny)) {
+        relocated = { ...dp, x: nx, y: ny };
+        break;
       }
     }
     if (relocated) {
@@ -10306,9 +10377,58 @@ function sanitizeRoomDecorAndSpawns(rm: BuiltRoom): BuiltRoom {
     }
   }
 
+  // 3. 净化可破坏青石宫灯柱与青瓷酒瓮 (`torches`)：杜绝悬空于竖井坑洞、泡在水中或与火盆/古祠/残碑重叠！
+  const cleanTorches: { x: number; y: number }[] = [];
+  const validGroundTorchX = (tx: number, ty: number): boolean => {
+    if (tx < 88 || tx > workRm.pixelW - 88) return false;
+    if (isInsideDownShaft(workRm, tx)) return false;
+    const gy = sampleSolidGroundY(workRm, tx);
+    if (isXInsideOpenLiquid(tx, gy)) return false;
+    if (isXNearKeyAnchor(tx, 80, 64)) return false;
+    if (
+      cleanDecor.some(
+        (dp) =>
+          dp.kind !== 'chandelier' &&
+          dp.kind !== 'silk_banner' &&
+          dp.kind !== 'giant_bell' &&
+          Math.abs(dp.x - tx) < 64
+      )
+    ) {
+      return false;
+    }
+    if (cleanTorches.some((o) => Math.abs(o.x - tx) < 76 && Math.abs(o.y - ty) < 80)) {
+      return false;
+    }
+    return true;
+  };
+
+  for (const tc of workRm.torches) {
+    const gy = sampleSolidGroundY(workRm, tc.x);
+    const isHanging = gy - tc.y > 135;
+    if (isHanging) {
+      cleanTorches.push(tc);
+      continue;
+    }
+    if (validGroundTorchX(tc.x, tc.y)) {
+      cleanTorches.push(tc);
+      continue;
+    }
+    for (const off of [-95, 95, -170, 170, -255, 255, -340, 340]) {
+      const nx = tc.x + off;
+      if (nx < 88 || nx > workRm.pixelW - 88) continue;
+      const ngy = sampleSolidGroundY(workRm, nx);
+      const nty = ngy - 74;
+      if (validGroundTorchX(nx, nty)) {
+        cleanTorches.push({ x: nx, y: nty });
+        break;
+      }
+    }
+  }
+
   return {
-    ...rm,
+    ...workRm,
     decorProps: cleanDecor,
+    torches: cleanTorches,
   };
 }
 
@@ -10485,7 +10605,13 @@ function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
     }));
 
     const rowFloorsForMultiH =
-      rm.gridH === 2 ? [356, 804] : rm.gridH >= 4 ? [320, 732, 1140, 1548] : [];
+      rm.gridH === 2
+        ? [356, 804]
+        : rm.gridH === 3
+          ? [356, 796, 1236]
+          : rm.gridH >= 4
+            ? [320, 732, 1140, 1548]
+            : [];
     const flippedSideDoors: SideDoor[] = getRoomSideDoors(rm).map((d) => {
       const invRow = d.rowOffset !== undefined ? rm.gridH - 1 - d.rowOffset : 0;
       const mappedFloorY =
@@ -10500,14 +10626,34 @@ function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
       };
     });
 
+    const flippedWaterZones = rm.waterZones.map((wz) => ({
+      x1: W - wz.x2,
+      x2: W - wz.x1,
+      surfaceY: wz.surfaceY,
+      liquidKind: wz.liquidKind,
+    }));
+    const tempFlippedRoom = {
+      groundNodes: flippedNodes,
+      waterZones: flippedWaterZones,
+    } as BuiltRoom;
+
     const mergedSolidBlocks: SolidBlock[] = rm.solidBlocks
-      ? rm.solidBlocks.map((sb) => ({
-          x: W - sb.x - sb.w,
-          y: sb.y,
-          w: sb.w,
-          h: Math.min(sb.h, 38),
-          blocking: false,
-        }))
+      ? rm.solidBlocks.map((sb) => {
+          const fx = W - sb.x - sb.w;
+          const wasResting = isGroundRestingSolidBlock(rm, sb);
+          const fGround = sampleSolidGroundY(tempFlippedRoom, fx + sb.w * 0.5);
+          const fh =
+            wasResting && fGround - sb.y <= 76
+              ? Math.max(38, Math.round(fGround - sb.y + 6))
+              : Math.min(sb.h, 38);
+          return {
+            x: fx,
+            y: sb.y,
+            w: sb.w,
+            h: fh,
+            blocking: false,
+          };
+        })
       : [];
 
     // 多层竖塔倒悬后，确保每一扇分标高侧门脚下均有承重石门台
@@ -10528,7 +10674,7 @@ function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
 
     for (const sh of flippedShafts) {
       const midShaftX = Math.round((sh.x1 + sh.x2) * 0.5);
-      const shaftFloor = sampleSolidGroundY({ groundNodes: flippedNodes } as BuiltRoom, midShaftX);
+      const shaftFloor = sampleSolidGroundY(tempFlippedRoom, midShaftX);
       if (sh.dir === 'down') {
         // 为倒悬后的下潜井口自动铺设单向安全木栈板
         const hasGrate = flippedPavilions.some(
@@ -10544,14 +10690,36 @@ function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
           });
         }
       } else {
-        // 为倒悬后的上跃天井自动增设两级踏脚石台，确保任意层高皆可丝滑跃出顶井！
-        const midX = midShaftX - 75;
-        const step1Y = Math.max(220, shaftFloor - 125);
-        const step2Y = Math.max(105, step1Y - 125);
-        mergedSolidBlocks.push(
-          { x: midX, y: step1Y, w: 150, h: 30, blocking: false },
-          { x: midX, y: step2Y, w: 150, h: 28, blocking: false }
-        );
+        // 为倒悬后的上跃天井按真实层高自适应递推阶梯石台（直至 y <= 176），确保任意多层巨殿皆可跃出顶井且绝不重叠或堵井口！
+        let curY = shaftFloor;
+        let alt = 0;
+        while (curY > 184) {
+          const nextY = Math.max(168, curY - 112);
+          const nearExisting = mergedSolidBlocks.find(
+            (sb) =>
+              sb.y >= nextY - 46 &&
+              sb.y <= curY - 38 &&
+              sb.x + sb.w >= sh.x1 - 135 &&
+              sb.x <= sh.x2 + 135
+          );
+          if (nearExisting) {
+            curY = nearExisting.y;
+            alt++;
+            continue;
+          }
+          const shift = alt % 2 === 0 ? -36 : 36;
+          const bx = Math.max(44, Math.min(W - 194, midShaftX - 75 + shift));
+          const collides = mergedSolidBlocks.some(
+            (sb) =>
+              Math.min(bx + 150, sb.x + sb.w) - Math.max(bx, sb.x) > 8 &&
+              Math.abs(sb.y - nextY) < 42
+          );
+          if (!collides) {
+            mergedSolidBlocks.push({ x: bx, y: nextY, w: 150, h: 28, blocking: false });
+          }
+          curY = nextY;
+          alt++;
+        }
       }
     }
 
@@ -10578,20 +10746,57 @@ function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
     const isTrueFinalRoom = rm.id === 'gate_1';
     const isEntryAltar = rm.id === 'sky_altar';
 
-    const eliteSpawns: SceneSpawn[] =
-      isTrueFinalRoom ||
-      isEntryAltar ||
-      rm.special === 'save_shrine' ||
-      rm.special === 'warp_bagua' ||
-      (rm.isSecretRoom && rm.id !== 'secret_sword_tomb')
-        ? []
-        : W >= 1500
-          ? [
-              { kind: 'bell_gargoyle', x: Math.round(W * 0.28), y: 210 },
-              { kind: 'bronze_guard', x: Math.round(W * 0.52) },
-              { kind: 'opera_puppet', x: Math.round(W * 0.76) },
-            ]
-          : [{ kind: 'bell_gargoyle', x: Math.round(W * 0.48), y: 200 }];
+    // 确保倒悬后的存档祠或八卦阵眼绝不落在下潜竖井坑口之上
+    let invFocalX = W - rm.focalX;
+    if (rm.special === 'save_shrine' || rm.special === 'warp_bagua') {
+      const inDownHole = flippedShafts.some(
+        (sh) => sh.dir === 'down' && invFocalX > sh.x1 - 58 && invFocalX < sh.x2 + 58
+      );
+      if (inDownHole) {
+        invFocalX = invFocalX > W * 0.5 ? 250 : W - 250;
+      }
+    }
+    const invFocalY = sampleSolidGroundY(tempFlippedRoom, invFocalX);
+
+    const hasBridge = getArchBridgeGeometry(tempFlippedRoom) !== null;
+    const findSafeDrySpawnX = (idealX: number): number | null => {
+      for (const off of [0, -180, 180, -320, 320, -460, 460]) {
+        const cx = Math.round(idealX + off);
+        if (cx < 155 || cx > W - 155) continue;
+        if (flippedShafts.some((sh) => sh.dir === 'down' && cx > sh.x1 - 24 && cx < sh.x2 + 24)) {
+          continue;
+        }
+        if (
+          !hasBridge &&
+          flippedWaterZones.some((wz) => cx >= wz.x1 - 18 && cx <= wz.x2 + 18)
+        ) {
+          continue;
+        }
+        return cx;
+      }
+      return null;
+    };
+
+    const eliteSpawns: SceneSpawn[] = [];
+    if (
+      !isTrueFinalRoom &&
+      !isEntryAltar &&
+      rm.special !== 'save_shrine' &&
+      rm.special !== 'warp_bagua' &&
+      (!rm.isSecretRoom || rm.id === 'secret_sword_tomb')
+    ) {
+      if (W >= 1500) {
+        eliteSpawns.push({ kind: 'bell_gargoyle', x: Math.round(W * 0.28), y: 210 });
+        const gx1 = findSafeDrySpawnX(W * 0.52);
+        if (gx1 !== null) eliteSpawns.push({ kind: 'bronze_guard', x: gx1 });
+        const gx2 = findSafeDrySpawnX(W * 0.78);
+        if (gx2 !== null && (gx1 === null || Math.abs(gx2 - gx1) > 140)) {
+          eliteSpawns.push({ kind: 'opera_puppet', x: gx2 });
+        }
+      } else {
+        eliteSpawns.push({ kind: 'bell_gargoyle', x: Math.round(W * 0.48), y: 200 });
+      }
+    }
 
     return {
       id: rm.id,
@@ -10616,8 +10821,8 @@ function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
       bossKind: isTrueFinalRoom ? 'boss_zhuyin' : undefined,
       storyTriggerId: isTrueFinalRoom ? 'boss_zhuyin_pre' : undefined,
       warpName: rm.warpName ? `里 · ${rm.warpName}` : undefined,
-      focalX: W - rm.focalX,
-      focalY: rm.focalY,
+      focalX: invFocalX,
+      focalY: invFocalY,
       sideDoors: flippedSideDoors,
       groundNodes: flippedNodes,
       solidBlocks: mergedSolidBlocks,
@@ -10647,12 +10852,7 @@ function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
         x: W - cs.x - cs.w,
       })),
       decorProps: rm.decorProps?.map((dp) => ({ ...dp, x: W - dp.x })),
-      waterZones: rm.waterZones.map((wz) => ({
-        x1: W - wz.x2,
-        x2: W - wz.x1,
-        surfaceY: wz.surfaceY,
-        liquidKind: wz.liquidKind,
-      })),
+      waterZones: flippedWaterZones,
       pavilions: flippedPavilions,
       archways: rm.archways.map((ar) => ({ x: W - ar.x, title: ar.title })),
       torches: rm.torches.map((tc) => ({ x: W - tc.x, y: tc.y })),
@@ -10730,7 +10930,7 @@ class CastleWorldRegistry {
         this.normalCellCount += rm.gridW * rm.gridH;
       }
     }
-    for (const irm of createInvertedCastleRooms(normals)) {
+    for (const irm of createInvertedCastleRooms(normals).map(sanitizeRoomDecorAndSpawns)) {
       this.invertedRooms.set(irm.id, irm);
     }
     this.bossRushRoom = createBossRushArena();

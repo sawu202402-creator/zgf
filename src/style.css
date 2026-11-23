@@ -821,7 +821,116 @@ body {
   color: #fff;
 }
 
-/* 《斩妖行 / 胧村正》式无框透明抠图半身大立绘对白卷 + 全屏点触推进层 */
+/* ==================== 首次踏入玄城：60fps 重彩水墨动态序章画卷 ==================== */
+.zx-prologue-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 120;
+  pointer-events: auto;
+  cursor: pointer;
+  overflow: hidden;
+  transition: opacity 0.08s linear;
+}
+.zx-prologue-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.zx-prologue-ui {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: calc(18px + var(--safe-top)) calc(28px + var(--safe-right))
+    calc(20px + var(--safe-bottom)) calc(28px + var(--safe-left));
+  pointer-events: none;
+}
+.zx-prologue-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.zx-prologue-dots {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.zx-pdot {
+  width: 22px;
+  height: 3px;
+  background: rgba(241, 232, 214, 0.24);
+  transition: all 0.25s ease;
+}
+.zx-pdot.done {
+  background: rgba(198, 154, 69, 0.65);
+}
+.zx-pdot.active {
+  width: 38px;
+  background: var(--bronze-light);
+  box-shadow: 0 0 8px rgba(246, 220, 141, 0.55);
+}
+.zx-prologue-skip {
+  pointer-events: auto;
+  border-color: rgba(246, 220, 141, 0.55);
+  color: var(--bronze-light);
+  background: rgba(6, 10, 18, 0.72);
+}
+.zx-prologue-caption-wrap {
+  max-width: 780px;
+  margin: 0 auto;
+  width: 100%;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.zx-prologue-seal-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 2px;
+}
+.zx-prologue-seal {
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  color: #fecaca;
+  background: #7f1d1d;
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  padding: 2px 10px;
+}
+.zx-prologue-title {
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 8px;
+  color: var(--bronze-light);
+  text-shadow: 0 2px 14px #000;
+}
+.zx-prologue-line {
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 1.65;
+  color: #f8fafc;
+  letter-spacing: 1px;
+  text-shadow: 0 2px 10px #000;
+}
+.zx-prologue-line-sub {
+  font-size: 14px;
+  color: #cbd5e1;
+}
+.zx-prologue-hint {
+  margin-top: 4px;
+  font-size: 11.5px;
+  letter-spacing: 2px;
+  color: var(--bronze-light);
+  opacity: 0.86;
+}
+
+/* 《斩妖行 / 胧村正》式无框透明抠图半身大立绘对白卷 + 实景不黑屏电影画幅衬底 */
 .zx-frameless-bust {
   display: block;
   width: auto;
@@ -839,7 +948,14 @@ body {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding: 0 max(16px, calc(24px + var(--safe-right))) max(12px, calc(12px + var(--safe-bottom)))
+  background: linear-gradient(
+    180deg,
+    rgba(3, 5, 10, 0.24) 0%,
+    transparent 16%,
+    transparent 68%,
+    rgba(3, 5, 10, 0.45) 100%
+  );
+  padding: 0 max(16px, calc(24px + var(--safe-right))) max(10px, calc(10px + var(--safe-bottom)))
     max(16px, calc(24px + var(--safe-left)));
 }
 
@@ -851,14 +967,15 @@ body {
   gap: 16px;
   background: linear-gradient(
     90deg,
-    rgba(5, 7, 14, 0.95) 0%,
-    rgba(9, 14, 26, 0.96) 50%,
-    rgba(5, 7, 14, 0.92) 100%
+    rgba(5, 8, 16, 0.78) 0%,
+    rgba(9, 14, 26, 0.84) 50%,
+    rgba(5, 8, 16, 0.76) 100%
   );
+  backdrop-filter: blur(5px);
   border-top: 1.5px solid var(--bronze);
   border-bottom: 1.5px solid var(--bronze);
-  padding: 13px 22px 11px 18px;
-  box-shadow: 0 22px 64px rgba(0, 0, 0, 0.94);
+  padding: 12px 22px 10px 18px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.78);
   overflow: visible;
 }
 .cv-dialogue.npc-right {
@@ -1112,9 +1229,24 @@ body {
     display: none;
   }
 
-  /* 手机横屏紧凑无框对白条 */
+  /* 手机横屏紧凑无框对白条与序章自适应 */
+  .zx-prologue-ui {
+    padding: calc(10px + var(--safe-top)) calc(16px + var(--safe-right))
+      calc(10px + var(--safe-bottom)) calc(16px + var(--safe-left));
+  }
+  .zx-prologue-title {
+    font-size: 17px;
+    letter-spacing: 5px;
+  }
+  .zx-prologue-line {
+    font-size: 13px;
+    line-height: 1.48;
+  }
+  .zx-prologue-line-sub {
+    font-size: 12px;
+  }
   .cv-dialogue {
-    padding: 9px 14px 8px 12px;
+    padding: 8px 14px 7px 12px;
     gap: 10px;
   }
   .cv-dlg-bust-slot {

@@ -382,6 +382,10 @@ export class GameEngine {
     postVy?: number;
   } | null = null;
   public ambushSealed = false;
+  public storyDialogueActive = false;
+  private pendingRoomStory: StoryScene | null = null;
+  private pendingRoomStoryTimer = 0;
+  private introWalkInTimer = 0;
   private hitstopTimer = 0;
   private nextEntityId = 1;
   private lastVisitedRegion = '';
@@ -407,9 +411,13 @@ export class GameEngine {
     private cb: EngineCallbacks
   ) {}
 
-  public startSession(slot: SaveSlotData): void {
+  public startSession(slot: SaveSlotData, isPrologueWalkIn = false): void {
     this.slot = slot;
     this.paused = false;
+    this.storyDialogueActive = false;
+    this.pendingRoomStory = null;
+    this.pendingRoomStoryTimer = 0;
+    this.introWalkInTimer = 0;
     this.bossRushWave = 0;
     this.activeBuffs = { berserk_wine: 0, iron_skin: 0, wind_crit: 0 };
     this.tortoiseShieldReady = true;
@@ -438,8 +446,17 @@ export class GameEngine {
 
     const startRoom = WorldMap.getRoom(slot.currentRealm, slot.currentRoomId);
     const spawnX =
-      startRoom.id === 'gate_1' && startRoom.realm === 'normal' ? 190 : startRoom.focalX;
+      isPrologueWalkIn && startRoom.id === 'bamboo_outpost'
+        ? 78
+        : startRoom.id === 'gate_1' && startRoom.realm === 'normal'
+          ? 190
+          : startRoom.focalX;
     this.loadRoom(startRoom, spawnX, sampleEntitySurfaceY(startRoom, spawnX, startRoom.focalY));
+    if (isPrologueWalkIn && startRoom.id === 'bamboo_outpost') {
+      this.roomFadeTimer = 0;
+      this.player.facing = 1;
+      this.introWalkInTimer = 0.9;
+    }
   }
 
   public stopSession(): void {
@@ -635,6 +652,8 @@ export class GameEngine {
 
     const prevRegion = this.room?.region;
     this.room = nextRoom;
+    this.pendingRoomStory = null;
+    this.pendingRoomStoryTimer = 0;
     if (!this.pendingTransition) {
       this.roomFadeTimer = 0.24;
     }
@@ -762,7 +781,9 @@ export class GameEngine {
       const scene = STORY_SCENES[nextRoom.storyTriggerId];
       if (scene) {
         s.triggeredStories.push(nextRoom.storyTriggerId);
-        this.cb.onStartStory(scene);
+        // 先让过门黑幕完全散去、角色自然踏入实景厅堂后再展开对白，彻底杜绝黑屏出字！
+        this.pendingRoomStory = scene;
+        this.pendingRoomStoryTimer = 0.32;
       }
     }
   }
@@ -1046,11 +1067,85 @@ export class GameEngine {
       return;
     }
 
-    if (!this.slot || !this.room || this.paused || this.landscapePaused || this.input.uiBlocked) {
+    if (!this.slot || !this.room || this.paused || this.landscapePaused) {
       return;
     }
 
     const dt = Math.min(0.033, rawDt);
+
+    // 即使在剧情对白或界面打开时，也必须推进过门揭幕，绝不让黑幕卡死在 100% 遮住实景画面！
+    if (this.roomFadeTimer > 0) {
+      this.roomFadeTimer = Math.max(0, this.roomFadeTimer - dt);
+    }
+    if (this.pendingTransition && this.pendingTransition.phase === 'in') {
+      this.pendingTransition.timer -= dt;
+      if (this.pendingTransition.timer <= 0) {
+        this.pendingTransition = null;
+      }
+    }
+
+    if (this.input.uiBlocked) {
+      // 实景剧情演出态：保持背景宫灯火光、落叶粒子与人物呼吸轻柔律动，并平滑构图同框对视！
+      if (this.storyDialogueActive) {
+        this.player.animTime += dt * 0.85;
+        this.player.vx = 0;
+        const bossFocus = this.enemies.find((e) => e.profile.isBoss);
+        const npcFocus = this.room.npcs[0];
+        const partnerX = bossFocus ? bossFocus.x : npcFocus ? npcFocus.x : this.player.x;
+        if (Math.abs(partnerX - this.player.x) > 18) {
+          this.player.facing = partnerX >= this.player.x ? 1 : -1;
+        }
+        const midX =
+          this.player.x + Math.max(-150, Math.min(150, (partnerX - this.player.x) * 0.42));
+        this.camX += (midX - this.camX) * (1 - Math.pow(0.02, dt));
+        this.updateParticles(dt * 0.6);
+      }
+      return;
+    }
+
+    if (this.introWalkInTimer > 0) {
+      this.introWalkInTimer = Math.max(0, this.introWalkInTimer - dt);
+      this.player.facing = 1;
+      this.player.vx = 148;
+      this.player.runCycle += dt * 10.5;
+      this.player.animTime += dt;
+      this.moveAndCollideTerrain(dt);
+      this.updateActiveFamiliar(dt);
+      this.updateCamera(dt);
+      this.updateParticles(dt);
+      if (this.introWalkInTimer <= 0) {
+        this.player.vx = 0;
+      }
+      return;
+    }
+
+    if (this.pendingRoomStory) {
+      this.pendingRoomStoryTimer -= dt;
+      const bossFocus = this.enemies.find((e) => e.profile.isBoss);
+      const npcFocus = this.room.npcs[0];
+      const partnerX = bossFocus ? bossFocus.x : npcFocus ? npcFocus.x : this.room.focalX;
+      const walkDir: 1 | -1 = partnerX >= this.player.x ? 1 : -1;
+      this.player.facing = walkDir;
+      if (Math.abs(partnerX - this.player.x) > 135) {
+        this.player.vx = walkDir * 135;
+        this.player.runCycle += dt * 9.5;
+        this.moveAndCollideTerrain(dt);
+      } else {
+        this.player.vx = 0;
+      }
+      this.player.animTime += dt;
+      this.updateActiveFamiliar(dt);
+      this.updateCamera(dt);
+      this.updateParticles(dt);
+      if (this.pendingRoomStoryTimer <= 0 && this.getTransitionCurtainAlpha() <= 0.02) {
+        const sc = this.pendingRoomStory;
+        this.pendingRoomStory = null;
+        this.player.vx = 0;
+        this.cb.onStartStory(sc);
+      }
+      return;
+    }
+
     this.slot.playTimeSec += dt;
 
     // 平滑延迟残血烧灼槽 (Sekiro / 斩妖行 打击反馈核心细节)
@@ -1060,11 +1155,10 @@ export class GameEngine {
       this.player.hpTrail = this.player.hp;
     }
 
-    if (this.roomFadeTimer > 0) this.roomFadeTimer = Math.max(0, this.roomFadeTimer - dt);
     if (this.pendingTransition) {
       const tr = this.pendingTransition;
-      tr.timer -= dt;
       if (tr.phase === 'out') {
+        tr.timer -= dt;
         this.player.x += tr.walkVx * dt;
         this.player.y += tr.walkVy * dt;
         if (Math.abs(tr.walkVx) > 10) {
@@ -1083,8 +1177,6 @@ export class GameEngine {
           this.updateParticles(dt);
           return;
         }
-      } else if (tr.timer <= 0) {
-        this.pendingTransition = null;
       }
     }
     if (this.screenShake > 0) this.screenShake = Math.max(0, this.screenShake - dt * 28);
