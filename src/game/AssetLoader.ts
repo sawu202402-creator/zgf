@@ -124,6 +124,14 @@ export type AssetKey =
   | 'h18_slide'
   | 'h18_divekick'
   | 'fam_sword'
+  | 'fam_phoenix'
+  | 'fam_tortoise'
+  | 'fam_kestrel'
+  | 'fam_fox'
+  | 'prop_bronze_lever'
+  | 'prop_ice_barrier'
+  | 'prop_spirit_totem'
+  | 'prop_floor_seal'
   | 'mob_sw_0'
   | 'mob_sw_1'
   | 'mob_sw_2'
@@ -160,7 +168,7 @@ export type AssetKey =
   | 'boss_op_0'
   | 'boss_op_1';
 
-const ASSET_VERSION = 'painted_v18';
+const ASSET_VERSION = 'painted_v20';
 
 const ASSET_FILES: Record<AssetKey, string> = {
   bg_title: './assets/bg_title.webp',
@@ -288,6 +296,14 @@ const ASSET_FILES: Record<AssetKey, string> = {
   h18_slide: './assets/h18_slide.webp',
   h18_divekick: './assets/h18_divekick.webp',
   fam_sword: './assets/fam_sword.webp',
+  fam_phoenix: './assets/fam_phoenix.webp',
+  fam_tortoise: './assets/fam_tortoise.webp',
+  fam_kestrel: './assets/fam_kestrel.webp',
+  fam_fox: './assets/fam_fox.webp',
+  prop_bronze_lever: './assets/prop_bronze_lever.webp',
+  prop_ice_barrier: './assets/prop_ice_barrier.webp',
+  prop_spirit_totem: './assets/prop_spirit_totem.webp',
+  prop_floor_seal: './assets/prop_floor_seal.webp',
   mob_sw_0: './assets/mob_sw_0.webp',
   mob_sw_1: './assets/mob_sw_1.webp',
   mob_sw_2: './assets/mob_sw_2.webp',
@@ -452,4 +468,19 @@ export function resolveWeaponAssetKey(
   if (archetype === 'daggers') return 'wpn_daggers_1';
   if (archetype === 'whip') return 'wpn_whip_1';
   return 'wpn_sword_0';
+}
+
+export function resolveFamiliarAssetKey(
+  famId:
+    | 'familiar_sword'
+    | 'familiar_phoenix'
+    | 'familiar_tortoise'
+    | 'familiar_kestrel'
+    | 'familiar_fox'
+): AssetKey {
+  if (famId === 'familiar_phoenix') return 'fam_phoenix';
+  if (famId === 'familiar_tortoise') return 'fam_tortoise';
+  if (famId === 'familiar_kestrel') return 'fam_kestrel';
+  if (famId === 'familiar_fox') return 'fam_fox';
+  return 'fam_sword';
 }

@@ -1,7 +1,12 @@
-import { WEAPONS } from '../data/itemsAndSkills';
+import { ALL_FAMILIAR_IDS, FAMILIARS, WEAPONS } from '../data/itemsAndSkills';
 import { SceneNpc } from '../data/worldMap';
-import { WeaponArchetype, WeaponDef } from '../types';
-import { AssetKey, Assets, resolveWeaponAssetKey } from './AssetLoader';
+import { FamiliarId, WeaponArchetype, WeaponDef } from '../types';
+import {
+  AssetKey,
+  Assets,
+  resolveFamiliarAssetKey,
+  resolveWeaponAssetKey,
+} from './AssetLoader';
 import { ActiveSkillAnim, ActiveSlash, EnemyEntity, GameEngine, WorldDrop } from './GameEngine';
 import { drawCelShadedWeapon, drawSoftGroundShadow } from './GuofengWorldArt';
 import {
@@ -889,38 +894,67 @@ export function drawHeroCharacter(
 }
 
 /**
- * 渲染致敬《恶魔城：月下夜想曲》剑魔系统的随身使魔 —— 【青冥剑灵 (`fam_sword.webp`)】！
+ * 渲染五大国风护法灵体系（青冥剑灵 / 朱雀丹火 / 玄武镇岳 / 天机木鸢 / 青丘玉狐）与玄武坎水护体灵环！
  */
 export function drawSwordFamiliar(
   ctx: CanvasRenderingContext2D,
   engine: GameEngine,
   t: number
 ): void {
-  if (!engine.hasAbility('familiar_sword')) return;
+  const activeFam = engine.getActiveFamiliar();
+  if (!activeFam) return;
+
+  // 玄武镇岳：护脉水盾就绪时，于少侠身周环绕温润半透明坎水八卦灵环
+  if (activeFam === 'familiar_tortoise' && engine.tortoiseShieldReady) {
+    const p = engine.player;
+    ctx.save();
+    ctx.translate(p.x, p.y - 38);
+    ctx.rotate(t * 0.9);
+    ctx.strokeStyle = 'rgba(34, 211, 238, 0.34)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([12, 8]);
+    ctx.beginPath();
+    ctx.arc(0, 0, 34, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
   const fam = engine.familiar;
-  const img = Assets.get('fam_sword');
+  const fDef = FAMILIARS[activeFam];
+  const img = Assets.get(resolveFamiliarAssetKey(activeFam));
   if (!img) return;
 
   ctx.save();
   ctx.translate(fam.x, fam.y);
 
-  // 剑灵青冥护主光晕
+  // 五灵专属灵韵护主光晕
+  const glowR = activeFam === 'familiar_phoenix' ? 40 : 34;
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  const fg = ctx.createRadialGradient(0, 0, 2, 0, 0, 34);
-  fg.addColorStop(0, 'rgba(125, 211, 252, 0.45)');
-  fg.addColorStop(1, 'rgba(56, 189, 248, 0)');
+  const fg = ctx.createRadialGradient(0, 0, 2, 0, 0, glowR);
+  fg.addColorStop(0, fDef.auraRgba);
+  fg.addColorStop(1, 'rgba(0, 0, 0, 0)');
   ctx.fillStyle = fg;
   ctx.beginPath();
-  ctx.arc(0, 0, 34, 0, Math.PI * 2);
+  ctx.arc(0, 0, glowR, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
   ctx.save();
-  ctx.scale(fam.facing, 1);
-  const tilt = fam.swoopTimer > 0 ? 0.55 : Math.sin(t * 3.8) * 0.1;
+  const flapScaleY =
+    activeFam === 'familiar_phoenix' || activeFam === 'familiar_kestrel'
+      ? 1 + Math.sin(t * 9.2) * 0.055
+      : 1;
+  ctx.scale(fam.facing, flapScaleY);
+  const tilt =
+    fam.swoopTimer > 0
+      ? activeFam === 'familiar_sword'
+        ? 0.55
+        : 0.24
+      : Math.sin(t * 3.8) * 0.08;
   ctx.rotate(tilt);
-  const h = 58;
+  const h = activeFam === 'familiar_sword' ? 58 : 54;
   const w = img.width * (h / img.height);
   ctx.drawImage(img, -w * 0.5, -h * 0.5, w, h);
   ctx.restore();
@@ -930,7 +964,7 @@ export function drawSwordFamiliar(
     ctx.textAlign = 'center';
     ctx.fillStyle = 'rgba(0, 0, 0, 0.88)';
     ctx.fillText(fam.calloutText, 1, -35);
-    ctx.fillStyle = '#7dd3fc';
+    ctx.fillStyle = fDef.color;
     ctx.fillText(fam.calloutText, 0, -36);
   }
 
@@ -1871,15 +1905,29 @@ export function drawWorldDrop(
     ctx.strokeRect(-18, -7, 36, 7);
 
     const bobY = -26 + Math.sin(t * 3.6) * 3.2;
+    const isFamiliarRelic = ALL_FAMILIAR_IDS.includes(d.itemId as FamiliarId);
     let abKey: AssetKey = 'item_drop_scroll';
-    if (d.itemId === 'familiar_sword') abKey = 'fam_sword';
+    if (isFamiliarRelic) abKey = resolveFamiliarAssetKey(d.itemId as FamiliarId);
     else if (d.itemId === 'jade_pendant_full') abKey = 'item_drop_jade';
     else if (d.itemId === 'mirror_truth') abKey = 'item_sub_bagua';
     else if (d.itemId === 'mist_dash') abKey = 'item_talisman_scroll';
     else if (d.itemId === 'ground_slam') abKey = 'item_sub_seal';
+    if (isFamiliarRelic) {
+      const fDef = FAMILIARS[d.itemId as FamiliarId];
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const fg = ctx.createRadialGradient(0, bobY, 2, 0, bobY, 30);
+      fg.addColorStop(0, fDef.auraRgba);
+      fg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = fg;
+      ctx.beginPath();
+      ctx.arc(0, bobY, 30, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
     const abImg = Assets.get(abKey);
     if (abImg) {
-      const h = d.itemId === 'familiar_sword' ? 40 : 36;
+      const h = isFamiliarRelic ? 44 : 36;
       const w = h * (abImg.width / abImg.height);
       ctx.drawImage(abImg, -w * 0.5, bobY - h * 0.5, w, h);
     }

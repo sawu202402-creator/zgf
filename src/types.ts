@@ -17,13 +17,20 @@ export type SkillId =
   | 'taiji_parry' // ↓↙← + 攻: 太极震气诀
   | 'jiuyou_soulsteal'; // ←↙↓↘→ + 攻: 九幽噬魂引
 
+export type FamiliarId =
+  | 'familiar_sword' // 青冥剑灵：御剑飞刺 + 勘破古墙暗格
+  | 'familiar_phoenix' // 朱雀丹火灵：三昧真火追踪灼烧 + 融解寒髓冰障
+  | 'familiar_tortoise' // 玄武镇岳灵：玄冥水幕减伤反震 + 镇压千斤水枢闸
+  | 'familiar_kestrel' // 天机机关鸢：墨家破甲连珠雷矢 & 隔空摄物 + 拨动高墙天机铜锁
+  | 'familiar_fox'; // 青丘玉灵狐：青丘甘霖回春聚气 + 勘破九幽幻障门
+
 export type AbilityKey =
   | 'double_jump' // 踏云步：二段跳 + 凌空下踢(Dive Kick)
   | 'ground_slam' // 千斤坠：空中下砸震碎脆弱青石地砖
   | 'mist_dash' // 缩地化雾符：无敌雾化冲刺穿过铁栅栏与毒障
   | 'grapple_hook' // 飞燕钩锁：勾住高空红灯笼铜环摆荡飞跃
   | 'wall_jump' // 壁虎游墙功：垂直墙面蹬墙连跳
-  | 'familiar_sword' // 青冥剑灵使魔：致敬月下夜想曲剑魔，随主升级自动御剑护主并勘破暗墙！
+  | FamiliarId
   | 'mirror_truth' // 破妄古镜：识破蚀心蛊幻象信物之一
   | 'jade_pendant_full'; // 完整玄鸟玉佩：识破幻象开启倒悬里城信物之二
 
@@ -256,6 +263,8 @@ export interface SaveSlotData {
   bestiaryKills?: Record<string, number>;
   discoveredDrops?: string[];
   familiarExp?: number;
+  equippedFamiliar?: FamiliarId;
+  familiarExps?: Partial<Record<FamiliarId, number>>;
   invertedUnlocked?: boolean;
   visitedRooms: string[]; // 'normal:room_id' | 'inverted:room_id' | 'cell:normal:x,y' | 'cell:inverted:x,y'
   collectedPickups: string[];

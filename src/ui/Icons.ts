@@ -1,7 +1,12 @@
-import { AssetKey, Assets, resolveWeaponAssetKey } from '../game/AssetLoader';
-import { WeaponArchetype } from '../types';
+import { AssetKey, Assets, resolveFamiliarAssetKey, resolveWeaponAssetKey } from '../game/AssetLoader';
+import { FamiliarId, WeaponArchetype } from '../types';
 
-export { resolveWeaponAssetKey };
+export { resolveFamiliarAssetKey, resolveWeaponAssetKey };
+
+export function getFamiliarArtHtml(famId: FamiliarId, size = 34): string {
+  const key = resolveFamiliarAssetKey(famId);
+  return `<img src="${Assets.getUrl(key)}" style="width:${size}px;height:${size}px;object-fit:contain;display:block;filter:drop-shadow(0 2px 5px rgba(0,0,0,0.9));" alt="护法灵" />`;
+}
 
 export function getWeaponArtHtml(archetype: WeaponArchetype, width = 68, weaponId?: string): string {
   const key = resolveWeaponAssetKey(archetype, weaponId);

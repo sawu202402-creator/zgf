@@ -2,8 +2,10 @@ import { AudioFX } from '../audio/GuofengAudio';
 import { ENEMY_PROFILES } from '../data/enemies';
 import {
   ABILITIES_META,
+  ALL_FAMILIAR_IDS,
   ARMORS,
   CONSUMABLES,
+  FAMILIARS,
   SKILLS,
   SUB_WEAPONS,
   WEAPONS,
@@ -18,20 +20,35 @@ import {
   REGION_NAMES,
   WorldMap,
 } from '../data/worldMap';
-import { AssetKey, Assets } from '../game/AssetLoader';
+import { AssetKey, Assets, resolveFamiliarAssetKey } from '../game/AssetLoader';
 import { drawInkSlashRibbon, renderModularLiYichengRig } from '../game/CharacterArt';
 import { ActiveSlash, GameEngine } from '../game/GameEngine';
 import { createFreshSaveSlot, SaveManager } from '../meta/SaveManager';
 import { NativeApp } from '../platform/NativeAppBridge';
-import { CastleRealm, EnemyKind, SkillId, StoryScene, SubWeaponId } from '../types';
 import {
+  CastleRealm,
+  EnemyKind,
+  FamiliarId,
+  SkillId,
+  StoryScene,
+  SubWeaponId,
+} from '../types';
+import {
+  getFamiliarArtHtml,
   getSlotCategorySvg,
   getSpeakerPortraitSvg,
   getSubWeaponSvg,
   getWeaponArtHtml,
 } from './Icons';
 
-type EquipSlotCategory = 'weapon' | 'sub' | 'armor' | 'accessory' | 'core' | 'potion';
+type EquipSlotCategory =
+  | 'weapon'
+  | 'spirit'
+  | 'sub'
+  | 'armor'
+  | 'accessory'
+  | 'core'
+  | 'potion';
 
 export class UIManager {
   private hudEl: HTMLElement | null = null;
@@ -358,6 +375,10 @@ export class UIManager {
     };
 
     hud.querySelector('#hud-wpn-sheath')?.addEventListener('click', () => this.engine.cycleWeapon());
+    hud.querySelector('#hud-res-row')?.addEventListener('click', (ev) => {
+      const target = (ev.target as HTMLElement | null)?.closest?.('[data-cycle-fam]');
+      if (target) this.engine.cycleActiveFamiliar();
+    });
     hud.querySelector('#btn-hud-arsenal')?.addEventListener('click', () => {
       this.pauseTab = 'equip';
       this.togglePauseModal();
@@ -387,8 +408,10 @@ export class UIManager {
     if (this.hudRefs.resRow) {
       const potCnt = Object.values(s.consumables).reduce((a, b) => a + b, 0);
       const potCdTxt = p.potionCooldown > 0.05 ? `(${p.potionCooldown.toFixed(1)}s)` : '';
-      const famTag = s.abilities.includes('familiar_sword')
-        ? `<span style="color:#7dd3fc;">剑灵${1 + Math.min(8, Math.floor((s.familiarExp || 0) / 100))}</span>`
+      const activeFam = this.engine.getActiveFamiliar();
+      const ownedFams = this.engine.getOwnedFamiliars();
+      const famTag = activeFam
+        ? `<span data-cycle-fam="1" title="点击或按 [V] 切换护法灵" style="color:${FAMILIARS[activeFam].color};cursor:${ownedFams.length > 1 ? 'pointer' : 'default'};pointer-events:auto;">${FAMILIARS[activeFam].shortName}${this.engine.getFamiliarLevel(activeFam)}${ownedFams.length > 1 && !isTouch ? '[V]' : ''}</span>`
         : '';
       this.hudRefs.resRow.innerHTML = `<span style="color:#fde68a;">银 ${s.gold}</span><span style="color:#fb923c;">符 ${s.talismanHearts}</span><span style="color:${p.potionCooldown > 0.05 ? '#94a3b8' : '#5eead4'};">药 ${potCnt}${potCdTxt}</span>${famTag}`;
     }
@@ -505,9 +528,15 @@ export class UIManager {
     } else if (this.pauseTab === 'skills') {
       const relicKeys = [
         'familiar_sword',
+        'familiar_phoenix',
+        'familiar_tortoise',
+        'familiar_kestrel',
+        'familiar_fox',
         'double_jump',
         'mist_dash',
         'wall_jump',
+        'grapple_hook',
+        'ground_slam',
         'mirror_truth',
         'jade_pendant_full',
       ] as const;
@@ -515,9 +544,10 @@ export class UIManager {
         .map((key) => {
           const meta = ABILITIES_META[key];
           const owned = s.abilities.includes(key);
+          const isFam = ALL_FAMILIAR_IDS.includes(key as FamiliarId);
           const famLvStr =
-            key === 'familiar_sword' && owned
-              ? ` (当前 Lv.${1 + Math.min(8, Math.floor((s.familiarExp || 0) / 100))})`
+            isFam && owned
+              ? ` (当前 Lv.${this.engine.getFamiliarLevel(key as FamiliarId)})`
               : '';
           return `
           <div class="zx-item-row ${owned ? 'equipped' : ''}" style="opacity:${owned ? 1 : 0.48};cursor:default;">
@@ -585,7 +615,7 @@ export class UIManager {
         </div>
       `;
       footerLeft =
-        '十大剧情关卡垂直立体玄城 · 阳表 77 厅 + 180° 倒悬里城 77 厅（共 154 座手工殿宇与 14 座破壁密室）';
+        '十大剧情关卡立体回环玄城 · 阳表 97 厅 + 180° 倒悬里城 97 厅（共 194 座手工殿宇 · 八重互通捷径与五灵封印）';
     } else if (this.pauseTab === 'bestiary') {
       mainHtml = this.buildBestiaryTabHtml();
       footerLeft = '镇妖司百鬼图鉴：记录妖邪属性、常掉补给、稀世神兵掉宝与本命妖丹';
@@ -1024,8 +1054,11 @@ export class UIManager {
       ctx.stroke();
 
       for (const dsh of downShafts) {
-        if (!isRoomIdVisited(dsh.targetRoomId)) {
-          const gapCx = rx + (((dsh.x1 + dsh.x2) * 0.5) / rm.pixelW) * rw;
+        const gapCx = rx + (((dsh.x1 + dsh.x2) * 0.5) / rm.pixelW) * rw;
+        if (dsh.sealId && !s.brokenSecretWalls.includes(dsh.sealId)) {
+          ctx.fillStyle = '#fbbf24';
+          ctx.fillRect(gapCx - halfG, ry + rh - 1.5, halfG * 2, detailed ? 3.5 : 2.5);
+        } else if (!isRoomIdVisited(dsh.targetRoomId)) {
           ctx.fillStyle = '#38bdf8';
           ctx.fillRect(gapCx - halfG * 0.65, ry + rh - 1, halfG * 1.3, 3);
         }
@@ -1102,15 +1135,29 @@ export class UIManager {
         }
       }
 
-      // 《月下 / 空洞骑士》式堪舆图记忆标记：未破能力锁闸门、未解二段跳高崖、未拾取房间秘宝自动高亮提示！
+      // 《月下 / 空洞骑士》式堪舆图记忆标记：未破五灵机关锁、单向拉杆门、重刃铁闸、二段跳高崖自动色标高亮提示！
       if (rm.ironGate && !s.brokenSecretWalls.includes(rm.ironGate.id)) {
-        const isMist = rm.ironGate.gateKind === 'mist_only';
+        const gk = rm.ironGate.gateKind;
+        const isMist = gk === 'mist_only';
         if (!(isMist && s.abilities.includes('mist_dash'))) {
           const gx = rx + (rm.ironGate.x / Math.max(1, rm.pixelW)) * rw;
           const gyCenter =
             ry + (Math.min(rm.pixelH, rm.ironGate.bottomY - 60) / Math.max(1, rm.pixelH)) * rh;
           const gh = detailed ? 11 : 6;
-          ctx.fillStyle = isMist ? '#c084fc' : '#fb923c';
+          ctx.fillStyle =
+            gk === 'mist_only'
+              ? '#c084fc'
+              : gk === 'ice_phoenix'
+                ? '#fb923c'
+                : gk === 'sluice_tortoise'
+                  ? '#22d3ee'
+                  : gk === 'gear_kestrel'
+                    ? '#facc15'
+                    : gk === 'illusion_fox'
+                      ? '#a7f3d0'
+                      : gk === 'lever_shortcut'
+                        ? '#fbbf24'
+                        : '#f97316';
           ctx.fillRect(gx - (detailed ? 2 : 1.2), gyCenter - gh * 0.5, detailed ? 4 : 2.4, gh);
         }
       }
@@ -1151,11 +1198,11 @@ export class UIManager {
       }
 
       if (detailed && rw >= 44) {
-        ctx.font = 'bold 10px "STKaiti", "KaiTi", serif';
+        ctx.font = 'bold 9.5px "STKaiti", "KaiTi", serif';
         ctx.textAlign = 'center';
         ctx.fillStyle = '#fffbeb';
         const cleanName = rm.name.replace(/^(里 · )/, '').split(' · ')[0];
-        ctx.fillText(cleanName, rx + rw * 0.5, ry + rh * 0.54);
+        ctx.fillText(cleanName, rx + rw * 0.5, ry + rh * 0.54, Math.max(24, rw - 6));
       }
     }
 
@@ -1186,12 +1233,19 @@ export class UIManager {
     const curArm = ARMORS[s.equippedArmor] || ARMORS.cloth_tunic;
     const curAcc = ARMORS[s.equippedAccessory] || ARMORS.broken_jade;
     const curCore = s.equippedYaoCore ? YAO_CORES[s.equippedYaoCore] : null;
+    const activeFam = this.engine.getActiveFamiliar();
+    const ownedFams = this.engine.getOwnedFamiliars();
     const potCnt = Object.values(s.consumables).reduce((a, b) => a + b, 0);
 
     const compact = window.innerHeight < 540 || window.innerWidth < 900;
     const wpnIconSize = compact ? 54 : 80;
     const slots: { key: EquipSlotCategory; cat: string; cur: string }[] = [
       { key: 'weapon', cat: compact ? '主兵' : '主手兵刃', cur: curWpn.name },
+      {
+        key: 'spirit',
+        cat: compact ? '护灵' : '随身护灵',
+        cur: activeFam ? FAMILIARS[activeFam].name : '未契约',
+      },
       { key: 'sub', cat: compact ? '副器' : '奇门副器', cur: curSub.name },
       { key: 'armor', cat: compact ? '衣甲' : '护身衣甲', cur: curArm.name },
       { key: 'accessory', cat: compact ? '佩玉' : '随身佩玉', cur: curAcc.name },
@@ -1257,6 +1311,37 @@ export class UIManager {
           </div>`;
           })
           .join('');
+    } else if (this.selectedEquipSlot === 'spirit') {
+      const focusFamId =
+        (this.previewItemId && FAMILIARS[this.previewItemId as FamiliarId]
+          ? (this.previewItemId as FamiliarId)
+          : activeFam) || 'familiar_sword';
+      const focusFam = FAMILIARS[focusFamId];
+      footerTxt = `【${focusFam.name}】${focusFam.desc}`;
+      const famIconSize = compact ? 44 : 56;
+      rowsHtml =
+        `<div style="font-size:12px;color:#cbd5e1;padding:2px 6px 6px;display:flex;justify-content:space-between;align-items:center;">
+          <span>五灵护法录（局内点左上灵号或按 [V] 键瞬息换灵）</span>
+          <span style="color:#fde68a;font-weight:800;">已缔结 ${ownedFams.length} / ${ALL_FAMILIAR_IDS.length}</span>
+        </div>` +
+        ALL_FAMILIAR_IDS.map((fid) => {
+          const fDef = FAMILIARS[fid];
+          const meta = ABILITIES_META[fid];
+          const owned = ownedFams.includes(fid);
+          const eq = activeFam === fid;
+          const lv = this.engine.getFamiliarLevel(fid);
+          return `
+          <div class="zx-item-row ${eq ? 'equipped' : ''}" ${owned ? `data-pick-id="${fid}"` : ''} style="opacity:${owned ? 1 : 0.45};cursor:${owned ? 'pointer' : 'default'};">
+            <div style="display:flex;align-items:center;gap:12px;min-width:0;">
+              <div style="filter:${owned ? 'none' : 'brightness(0) opacity(0.7)'};">${getFamiliarArtHtml(fid, famIconSize)}</div>
+              <div style="min-width:0;">
+                <div style="font-size:14.5px;font-weight:900;color:${owned ? fDef.color : 'var(--ash)'};">${fDef.name} ${owned ? `<span style="font-size:11px;color:#fde68a;">Lv.${lv}</span>` : '<span style="font-size:11px;color:#64748b;">【尚未寻获】</span>'}</div>
+                <div style="font-size:11.5px;color:var(--ash);">${owned ? `${fDef.traitTag} · ${fDef.sealDesc}` : meta.subtitle}</div>
+              </div>
+            </div>
+            ${eq ? `<span class="zx-eq-seal">随行中</span>` : owned ? `<span class="zx-eq-hint">唤灵</span>` : ''}
+          </div>`;
+        }).join('');
     } else if (this.selectedEquipSlot === 'sub') {
       const focusSub =
         SUB_WEAPONS[(this.previewItemId as SubWeaponId) || s.equippedSubWeapon] || curSub;
@@ -1443,6 +1528,35 @@ export class UIManager {
             ? this.previewItemId
             : s.equippedWeapon;
         const secWpn = s.ownedWeapons.find((id) => id !== shownWpn);
+        const shownFam: FamiliarId | null =
+          this.selectedEquipSlot === 'spirit' &&
+          this.previewItemId &&
+          FAMILIARS[this.previewItemId as FamiliarId] &&
+          s.abilities.includes(this.previewItemId as FamiliarId)
+            ? (this.previewItemId as FamiliarId)
+            : this.engine.getActiveFamiliar();
+
+        if (shownFam) {
+          const fDef = FAMILIARS[shownFam];
+          const fImg = Assets.get(resolveFamiliarAssetKey(shownFam));
+          if (fImg) {
+            const fx = 56;
+            const fy = 104 + Math.sin(animT * 3.6) * 5;
+            sctx.save();
+            sctx.globalCompositeOperation = 'lighter';
+            const fg = sctx.createRadialGradient(fx, fy, 2, fx, fy, 30);
+            fg.addColorStop(0, fDef.auraRgba);
+            fg.addColorStop(1, 'rgba(0,0,0,0)');
+            sctx.fillStyle = fg;
+            sctx.beginPath();
+            sctx.arc(fx, fy, 30, 0, Math.PI * 2);
+            sctx.fill();
+            sctx.restore();
+            const fh = 50;
+            const fw = fImg.width * (fh / fImg.height);
+            sctx.drawImage(fImg, fx - fw * 0.5, fy - fh * 0.5, fw, fh);
+          }
+        }
 
         renderModularLiYichengRig(sctx, {
           x: 102,
@@ -1526,6 +1640,8 @@ export class UIManager {
             color: w.color,
             glowColor: w.glowColor,
           };
+        } else if (this.selectedEquipSlot === 'spirit') {
+          this.engine.equipFamiliar(id as FamiliarId);
         } else if (this.selectedEquipSlot === 'sub') {
           s.equippedSubWeapon = id as SubWeaponId;
           AudioFX.playHit(false);
@@ -1594,6 +1710,10 @@ export class UIManager {
       s.consumables.jiuzhuan_jin_dan = Math.max(1, s.consumables.jiuzhuan_jin_dan || 0);
       for (const ab of [
         'familiar_sword',
+        'familiar_phoenix',
+        'familiar_tortoise',
+        'familiar_kestrel',
+        'familiar_fox',
         'double_jump',
         'mist_dash',
         'wall_jump',

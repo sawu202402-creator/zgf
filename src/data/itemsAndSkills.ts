@@ -2,6 +2,7 @@ import {
   AbilityKey,
   ArmorDef,
   ConsumableDef,
+  FamiliarId,
   SkillDef,
   SkillId,
   SubWeaponDef,
@@ -973,10 +974,34 @@ export const ABILITIES_META: Record<
     color: '#facc15',
   },
   familiar_sword: {
-    name: '本命剑灵 · 青冥剑魄',
-    subtitle: '通灵飞剑：自主御剑诛邪 · 随战晋阶 · 勘破古墙暗格',
-    desc: '前朝名剑孕育而生的通灵剑魄，常伴少侠肩畔自主化虹飞刺妖邪，靠近古墙暗格时更会发剑鸣示警！',
+    name: '护法剑灵 · 青冥剑魄',
+    subtitle: '五方护法灵其一：自主御剑诛邪 · 勘破古墙暗格',
+    desc: '前朝名剑孕育而生的通灵剑魄，常伴肩畔化虹飞刺妖邪，靠近古墙暗格时更会发剑鸣星芒示警！',
     color: '#38bdf8',
+  },
+  familiar_phoenix: {
+    name: '护法火灵 · 朱雀丹火',
+    subtitle: '五方护法灵其二：三昧火羽灼敌 · 融解玄冥冰障',
+    desc: '钦天紫微丹炉凝炼的朱雀灵禽，吐纳三昧真火追袭灼烧群妖，靠近【玄冥寒髓冰障】时可喷吐丹火将其永久融开！',
+    color: '#fb923c',
+  },
+  familiar_tortoise: {
+    name: '护法玄灵 · 玄武镇岳',
+    subtitle: '五方护法灵其三：玄冥水幕减伤反震 · 镇压千斤水枢',
+    desc: '龟蛇合体的上古真武水灵，定期凝结玄冥水幕抵御重创并寒霜反震近敌，更可镇压地宫【千斤水枢重闸】贯通暗河！',
+    color: '#2dd4bf',
+  },
+  familiar_kestrel: {
+    name: '护法机巧 · 天机木鸢',
+    subtitle: '五方护法灵其四：破甲连珠雷矢 & 摄物 · 开启高墙铜锁',
+    desc: '墨家鲁班秘传的机关灵禽，疾射紫电破甲连矢狙杀空敌并自动牵引远方银两灵符，更能飞入高格拨开【天机齿轮铜锁】！',
+    color: '#eab308',
+  },
+  familiar_fox: {
+    name: '护法仙灵 · 青丘玉狐',
+    subtitle: '五方护法灵其五：青丘甘霖回春聚气 · 勘破九幽幻障',
+    desc: '《山海经》青丘三尾白玉灵狐，激战中散落瑶草甘霖持续回补气血真气，双瞳神光更可看破并驱散【九幽鬼打墙幻障】！',
+    color: '#a7f3d0',
   },
   mirror_truth: {
     name: '钦天秘宝 · 破妄古镜',
@@ -989,5 +1014,77 @@ export const ABILITIES_META: Record<
     subtitle: '真相法器其二',
     desc: '两半玄鸟玉佩合二为一！与【破妄古镜】同携登上凌霄祭天坛，方可斩蛊救师、开启倒悬里城！',
     color: '#34d399',
+  },
+};
+
+export interface FamiliarDef {
+  id: FamiliarId;
+  name: string;
+  shortName: string;
+  color: string;
+  auraRgba: string;
+  traitTag: string;
+  sealDesc: string;
+  desc: string;
+}
+
+export const ALL_FAMILIAR_IDS: FamiliarId[] = [
+  'familiar_sword',
+  'familiar_phoenix',
+  'familiar_tortoise',
+  'familiar_kestrel',
+  'familiar_fox',
+];
+
+export const FAMILIARS: Record<FamiliarId, FamiliarDef> = {
+  familiar_sword: {
+    id: 'familiar_sword',
+    name: '青冥剑魄',
+    shortName: '剑灵',
+    color: '#38bdf8',
+    auraRgba: 'rgba(56, 189, 248, 0.45)',
+    traitTag: '御剑飞刺 · 勘破暗壁',
+    sealDesc: '靠近隐藏暗裂砖墙时星芒剑鸣示警',
+    desc: '前朝名剑通灵剑魄，常伴肩畔化虹飞刺近敌，靠近古墙暗格时自动泛起星芒示警。',
+  },
+  familiar_phoenix: {
+    id: 'familiar_phoenix',
+    name: '朱雀丹火',
+    shortName: '火灵',
+    color: '#fb923c',
+    auraRgba: 'rgba(251, 146, 60, 0.48)',
+    traitTag: '三昧灼羽 · 融解冰障',
+    sealDesc: '自动融开城中【玄冥寒髓冰障】',
+    desc: '紫微丹炉凝炼的朱雀灵禽，吐纳三昧真火追袭灼烧群妖，靠近寒髓冰障时喷吐丹火将其永久融解。',
+  },
+  familiar_tortoise: {
+    id: 'familiar_tortoise',
+    name: '玄武镇岳',
+    shortName: '玄武',
+    color: '#2dd4bf',
+    auraRgba: 'rgba(45, 212, 191, 0.45)',
+    traitTag: '玄冥护盾 · 镇压水枢',
+    sealDesc: '自动镇压开启【千斤水枢重闸】',
+    desc: '龟蛇合体的上古真武水灵，定期凝结玄冥水幕抵御 35% 伤害并寒霜反震近敌，可镇压千斤水枢机关贯通暗河。',
+  },
+  familiar_kestrel: {
+    id: 'familiar_kestrel',
+    name: '天机木鸢',
+    shortName: '木鸢',
+    color: '#facc15',
+    auraRgba: 'rgba(250, 204, 21, 0.44)',
+    traitTag: '破甲雷矢 · 高墙拨锁',
+    sealDesc: '飞入高格开启【天机齿轮铜锁】并隔空摄银',
+    desc: '墨家秘传机关灵禽，疾射破甲紫电矢狙击飞敌、自动牵引远方银两灵符，更能飞入高格拨开天机铜锁。',
+  },
+  familiar_fox: {
+    id: 'familiar_fox',
+    name: '青丘玉狐',
+    shortName: '灵狐',
+    color: '#a7f3d0',
+    auraRgba: 'rgba(167, 243, 208, 0.45)',
+    traitTag: '甘霖回春 · 破除幻障',
+    sealDesc: '神光看破并驱散【九幽鬼打墙幻障】',
+    desc: '《山海经》青丘三尾白玉灵狐，激战中散落瑶草甘霖持续回补气血真气，双瞳神光可驱散九幽幻障重门。',
   },
 };

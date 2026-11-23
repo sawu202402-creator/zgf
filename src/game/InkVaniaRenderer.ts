@@ -731,10 +731,13 @@ export class InkVaniaRenderer {
 
     const p = engine.player;
     const flick = Math.sin(this.ambientTime * 9.5) * 8;
-    // 1. 少侠自身护体剑意明光与御剑剑灵微光（保证核心战斗视野始终通透清晰！）
+    // 1. 少侠自身护体剑意明光与随身护法灵灵韵照明（朱雀丹火自带宽域赤金暖光！）
     punchLight(p.x, p.y - 38, 210 + flick * 0.5, 0.96);
-    if (engine.hasAbility('familiar_sword')) {
-      punchLight(engine.familiar.x, engine.familiar.y, 95, 0.65);
+    const activeFam = engine.getActiveFamiliar();
+    if (activeFam) {
+      const famR = activeFam === 'familiar_phoenix' ? 148 + flick * 0.7 : 98;
+      const famStr = activeFam === 'familiar_phoenix' ? 0.88 : 0.65;
+      punchLight(engine.familiar.x, engine.familiar.y, famR, famStr);
     }
 
     // 2. 房间固定火盆、仙鹤香炉、吊灯光源
@@ -894,7 +897,31 @@ export class InkVaniaRenderer {
           ctx.restore();
         }
       } else {
-        if (sh.requireBossClear && !bossCleared) {
+        const sealUnbroken = Boolean(
+          sh.sealId && (!engine.slot || !engine.slot.brokenSecretWalls.includes(sh.sealId))
+        );
+        if (sealUnbroken) {
+          const floorAtSh = sampleSolidGroundY(room, cx);
+          const sealImg = Assets.get('prop_floor_seal');
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          const pulse = 0.24 + Math.sin(this.ambientTime * 3.4 + cx * 0.02) * 0.09;
+          const sg = ctx.createRadialGradient(cx, floorAtSh + 4, 6, cx, floorAtSh + 4, w * 0.65);
+          sg.addColorStop(0, `rgba(251, 191, 36, ${pulse})`);
+          sg.addColorStop(0.6, `rgba(249, 115, 22, ${pulse * 0.45})`);
+          sg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          ctx.fillStyle = sg;
+          ctx.beginPath();
+          ctx.arc(cx, floorAtSh + 4, w * 0.65, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+          if (sealImg) {
+            const hmSeal = getHarmonizedSprite('prop_floor_seal', sealImg, room, 0.34);
+            ctx.drawImage(hmSeal, sh.x1 - 18, floorAtSh - 14, w + 36, 44);
+          } else if (ironGateImg) {
+            ctx.drawImage(ironGateImg, 0, 12, ironGateImg.width, 46, sh.x1, floorAtSh - 14, w, 22);
+          }
+        } else if (sh.requireBossClear && !bossCleared) {
           const floorAtSh = sampleSolidGroundY(room, cx);
           if (ironGateImg) {
             ctx.drawImage(ironGateImg, 0, 12, ironGateImg.width, 46, sh.x1, floorAtSh - 14, w, 22);
@@ -950,40 +977,126 @@ export class InkVaniaRenderer {
       ctx.restore();
     }
 
-    // 2. 100% 纯手绘【饕餮青铜千斤闸 (`prop_iron_gate`)】与【九幽紫瘴封魔栅 (`prop_mist_barrier`)】！
-    if (room.ironGate && engine.slot && !engine.slot.brokenSecretWalls.includes(room.ironGate.id)) {
+    // 2. 纯手绘机关门锁体系：饕餮铁闸 / 青铜拉杆捷径门 / 玄冥冰障 / 幻狐迷障 / 五灵共鸣石柱！
+    if (room.ironGate && engine.slot) {
       const g = room.ironGate;
-      const drawTop = Math.max(28, g.topY);
-      const drawH = Math.max(88, g.bottomY - drawTop);
-      const midY = drawTop + drawH * 0.52;
-      const isMistGate = g.gateKind === 'mist_only';
+      const isOpened = engine.slot.brokenSecretWalls.includes(g.id);
 
-      ctx.save();
-      if (isMistGate) {
-        const mistImg = Assets.get('prop_mist_barrier');
-        ctx.globalCompositeOperation = 'lighter';
-        const mg = ctx.createRadialGradient(g.x, midY, 8, g.x, midY, 84);
-        mg.addColorStop(0, 'rgba(216, 180, 254, 0.42)');
-        mg.addColorStop(0.6, 'rgba(147, 51, 234, 0.16)');
-        mg.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        ctx.fillStyle = mg;
-        ctx.beginPath();
-        ctx.arc(g.x, midY, 84, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.globalCompositeOperation = 'source-over';
-
-        if (mistImg) {
-          const mw = Math.min(108, Math.max(72, drawH * 0.36));
-          ctx.drawImage(mistImg, g.x - mw * 0.5, drawTop, mw, drawH + 4);
+      // 单向青铜龙头枢机拉杆（开启前后皆保留实体，拉动后翻转握柄呈现已开启态！）
+      if (g.gateKind === 'lever_shortcut') {
+        const leverImg = Assets.get('prop_bronze_lever');
+        const leverX = g.x + (g.leverSide === 'left' ? -64 : 64);
+        if (leverImg) {
+          drawSoftGroundShadow(ctx, leverX, g.bottomY + 2, 24, 5.5, 0.55);
+          if (!isOpened) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            const lg = ctx.createRadialGradient(leverX, g.bottomY - 34, 2, leverX, g.bottomY - 34, 34);
+            lg.addColorStop(0, `rgba(251, 191, 36, ${0.26 + Math.sin(this.ambientTime * 4) * 0.08})`);
+            lg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = lg;
+            ctx.beginPath();
+            ctx.arc(leverX, g.bottomY - 34, 34, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          }
+          const lh = 64;
+          const lw = leverImg.width * (lh / leverImg.height);
+          const hmLever = getHarmonizedSprite('prop_bronze_lever', leverImg, room, 0.36);
+          ctx.save();
+          ctx.translate(leverX, g.bottomY + 2);
+          if (isOpened) ctx.scale(-1, 1);
+          ctx.drawImage(hmLever, -lw * 0.5, -lh, lw, lh);
+          ctx.restore();
         }
-      } else if (ironGateImg) {
-        drawSoftGroundShadow(ctx, g.x, g.bottomY + 2, 42, 7.5, 0.62);
-
-        const gw = 72;
-        const hmGate = getHarmonizedSprite('prop_iron_gate', ironGateImg, room, 0.44);
-        ctx.drawImage(hmGate, g.x - gw * 0.5, drawTop, gw, drawH + 4);
       }
-      ctx.restore();
+
+      if (!isOpened) {
+        const drawTop = Math.max(28, g.topY);
+        const drawH = Math.max(88, g.bottomY - drawTop);
+        const midY = drawTop + drawH * 0.52;
+        const gk = g.gateKind;
+        const totemImg = Assets.get('prop_spirit_totem');
+
+        const drawResonanceTotem = (totemX: number, glowRgb: string, highMount = false) => {
+          if (!totemImg) return;
+          const th = highMount ? 62 : 76;
+          const tw = totemImg.width * (th / totemImg.height);
+          const baseY = highMount ? drawTop + th + 12 : g.bottomY + 2;
+          if (!highMount) drawSoftGroundShadow(ctx, totemX, baseY, 22, 5, 0.52);
+          const hmTotem = getHarmonizedSprite('prop_spirit_totem', totemImg, room, 0.34);
+          ctx.drawImage(hmTotem, totemX - tw * 0.5, baseY - th, tw, th);
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          const tg = ctx.createRadialGradient(totemX, baseY - th * 0.56, 2, totemX, baseY - th * 0.56, 30);
+          tg.addColorStop(0, `rgba(${glowRgb}, ${0.42 + Math.sin(this.ambientTime * 4.5) * 0.12})`);
+          tg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          ctx.fillStyle = tg;
+          ctx.beginPath();
+          ctx.arc(totemX, baseY - th * 0.56, 30, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        };
+
+        ctx.save();
+        if (gk === 'mist_only' || gk === 'illusion_fox') {
+          const mistImg = Assets.get('prop_mist_barrier');
+          const auraInner =
+            gk === 'illusion_fox' ? 'rgba(167, 243, 208, 0.44)' : 'rgba(216, 180, 254, 0.42)';
+          const auraMid =
+            gk === 'illusion_fox' ? 'rgba(45, 212, 191, 0.18)' : 'rgba(147, 51, 234, 0.16)';
+          ctx.globalCompositeOperation = 'lighter';
+          const mg = ctx.createRadialGradient(g.x, midY, 8, g.x, midY, 86);
+          mg.addColorStop(0, auraInner);
+          mg.addColorStop(0.6, auraMid);
+          mg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          ctx.fillStyle = mg;
+          ctx.beginPath();
+          ctx.arc(g.x, midY, 86, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalCompositeOperation = 'source-over';
+
+          if (mistImg) {
+            const mw = Math.min(108, Math.max(72, drawH * 0.36));
+            ctx.drawImage(mistImg, g.x - mw * 0.5, drawTop, mw, drawH + 4);
+          }
+          if (gk === 'illusion_fox') {
+            drawResonanceTotem(g.x - 46, '167, 243, 208');
+          }
+        } else if (gk === 'ice_phoenix') {
+          const iceImg = Assets.get('prop_ice_barrier');
+          drawSoftGroundShadow(ctx, g.x, g.bottomY + 2, 46, 8, 0.58);
+          ctx.globalCompositeOperation = 'lighter';
+          const ig = ctx.createRadialGradient(g.x, midY, 8, g.x, midY, 88);
+          ig.addColorStop(0, 'rgba(125, 211, 252, 0.38)');
+          ig.addColorStop(0.6, 'rgba(56, 189, 248, 0.14)');
+          ig.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          ctx.fillStyle = ig;
+          ctx.beginPath();
+          ctx.arc(g.x, midY, 88, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalCompositeOperation = 'source-over';
+
+          if (iceImg) {
+            const iw = Math.min(118, Math.max(78, drawH * 0.44));
+            ctx.drawImage(iceImg, g.x - iw * 0.5, drawTop - 4, iw, drawH + 8);
+          } else if (ironGateImg) {
+            ctx.drawImage(ironGateImg, g.x - 36, drawTop, 72, drawH + 4);
+          }
+          drawResonanceTotem(g.x - 48, '251, 146, 60');
+        } else if (ironGateImg) {
+          drawSoftGroundShadow(ctx, g.x, g.bottomY + 2, 42, 7.5, 0.62);
+          const gw = 72;
+          const hmGate = getHarmonizedSprite('prop_iron_gate', ironGateImg, room, 0.44);
+          ctx.drawImage(hmGate, g.x - gw * 0.5, drawTop, gw, drawH + 4);
+          if (gk === 'sluice_tortoise') {
+            drawResonanceTotem(g.x - 48, '34, 211, 238');
+          } else if (gk === 'gear_kestrel') {
+            drawResonanceTotem(g.x - 46, '250, 204, 21', true);
+          }
+        }
+        ctx.restore();
+      }
     }
 
     // 2B. 恶魔城经典【可击碎隐藏砖墙 / 墙中烤鸡夹层】（截取手绘青石砖并绘出隐秘微光暗裂纹！）

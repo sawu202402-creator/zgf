@@ -43,6 +43,7 @@ export class InputController {
   private interactJustPressed = false;
   private potionJustPressed = false;
   private weaponSwapJustPressed = false;
+  private familiarSwapJustPressed = false;
   private mapJustPressed = false;
   private pauseJustPressed = false;
 
@@ -214,6 +215,7 @@ export class InputController {
     this.interactJustPressed = false;
     this.potionJustPressed = false;
     this.weaponSwapJustPressed = false;
+    this.familiarSwapJustPressed = false;
     this.stickTouchId = null;
     this.stickActive = false;
     this.stickBaseX = this.padLeftHomeX;
@@ -282,8 +284,10 @@ export class InputController {
         this.jumpHeld = true;
       } else if (code === 'KeyL' || code === 'KeyC' || code === 'ShiftLeft' || code === 'ShiftRight') {
         this.dashJustPressed = true;
-      } else if (code === 'KeyU' || code === 'KeyV') {
+      } else if (code === 'KeyU') {
         this.subJustPressed = true;
+      } else if (code === 'KeyV' || code === 'KeyG') {
+        this.familiarSwapJustPressed = true;
       } else if (code === 'KeyO' || code === 'KeyR') {
         this.skillJustPressed = true;
       } else if (code === 'KeyE' || code === 'KeyF') {
@@ -656,6 +660,16 @@ export class InputController {
     const v = this.weaponSwapJustPressed;
     this.weaponSwapJustPressed = false;
     return v;
+  }
+
+  public consumeFamiliarSwap(): boolean {
+    const v = this.familiarSwapJustPressed;
+    this.familiarSwapJustPressed = false;
+    return v;
+  }
+
+  public triggerFamiliarSwapFromUI(): void {
+    this.familiarSwapJustPressed = true;
   }
 
   public consumeMapToggle(): boolean {

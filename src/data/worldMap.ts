@@ -12,7 +12,7 @@ export const TILE_SIZE = 40;
 export const CELL_PIXEL_W = 800;
 export const CELL_PIXEL_H = 440;
 export const MAP_GRID_TOTAL_W = 30;
-export const MAP_GRID_TOTAL_H = 8;
+export const MAP_GRID_TOTAL_H = 9;
 
 export interface GroundNode {
   x: number;
@@ -33,6 +33,8 @@ export interface VerticalShaft {
   dir: 'up' | 'down';
   targetRoomId: string;
   requireBossClear?: boolean;
+  /** 若存在，代表井口覆有【千斤裂地封印石板】，需凭千斤坠震碎（或自下层顶破）后方可贯通！ */
+  sealId?: string;
 }
 
 export interface SideDoor {
@@ -45,12 +47,23 @@ export interface SideDoor {
   secretWallId?: string;
 }
 
+export type GateMechanismKind =
+  | 'heavy_weapon'
+  | 'mist_only'
+  | 'lever_shortcut'
+  | 'ice_phoenix'
+  | 'sluice_tortoise'
+  | 'gear_kestrel'
+  | 'illusion_fox';
+
 export interface BreakableIronGate {
   id: string;
   x: number;
   topY: number;
   bottomY: number;
-  gateKind?: 'heavy_weapon' | 'mist_only';
+  gateKind?: GateMechanismKind;
+  /** 当 gateKind === 'lever_shortcut' 时，青铜龙头拉杆所在侧；绕行至该侧拉动铜杆即可永久升起千斤闸！ */
+  leverSide?: 'left' | 'right';
 }
 
 export interface BreakableSecretWall {
@@ -300,9 +313,16 @@ export function getRoomSideDoors(room: BuiltRoom, side?: 'left' | 'right'): Side
   return list;
 }
 
-export function isInsideDownShaft(room: BuiltRoom, px: number): boolean {
+export function isInsideDownShaft(
+  room: BuiltRoom,
+  px: number,
+  brokenSecretWalls?: string[]
+): boolean {
   for (const sh of room.shafts) {
     if (sh.dir === 'down' && px > sh.x1 + 8 && px < sh.x2 - 8) {
+      if (sh.sealId && brokenSecretWalls && !brokenSecretWalls.includes(sh.sealId)) {
+        continue;
+      }
       return true;
     }
   }
@@ -390,9 +410,18 @@ export function sampleSolidGroundY(room: BuiltRoom, px: number): number {
   return nodes[nodes.length - 1].y;
 }
 
-export function sampleGroundY(room: BuiltRoom, px: number): number {
-  if (isInsideDownShaft(room, px)) {
-    return room.pixelH + 140;
+export function sampleGroundY(
+  room: BuiltRoom,
+  px: number,
+  brokenSecretWalls?: string[]
+): number {
+  for (const sh of room.shafts) {
+    if (sh.dir === 'down' && px > sh.x1 + 8 && px < sh.x2 - 8) {
+      if (sh.sealId && (!brokenSecretWalls || !brokenSecretWalls.includes(sh.sealId))) {
+        return sampleSolidGroundY(room, px);
+      }
+      return room.pixelH + 140;
+    }
   }
   return sampleSolidGroundY(room, px);
 }
@@ -934,6 +963,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
       special: 'relic_pedestal',
       focalX: 380,
       focalY: 320,
+      leftRoomId: 'west_cliff_watchtower',
+      leftDoorFloorY: 384,
       rightRoomId: 'xiao_boss_hall',
       rightDoorFloorY: 384,
       groundNodes: [
@@ -1074,6 +1105,10 @@ function createNormalCastleRooms(): BuiltRoom[] {
       warpName: '中枢八卦传送阵',
       focalX: 400,
       focalY: 372,
+      leftRoomId: 'central_underpass',
+      leftDoorFloorY: 396,
+      rightRoomId: 'imperial_aqueduct_west',
+      rightDoorFloorY: 396,
       groundNodes: [
         { x: 0, y: 396, style: 'marble' },
         { x: 105, y: 396, style: 'stairs' },
@@ -1694,6 +1729,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
       warpName: '九曲寒潭传送阵',
       focalX: 255,
       focalY: 366,
+      leftRoomId: 'imperial_aqueduct_east',
+      leftDoorFloorY: 396,
       rightRoomId: 'east_outer_tower',
       rightDoorFloorY: 396,
       groundNodes: [
@@ -2127,6 +2164,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
       warpName: '书阁梨园传送阵',
       focalX: 400,
       focalY: 356,
+      leftRoomId: 'library_automaton_loft',
+      leftDoorFloorY: 384,
       rightRoomId: 'opera_dressing_room',
       rightDoorFloorY: 384,
       groundNodes: [
@@ -2288,6 +2327,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
       focalY: 356,
       leftRoomId: 'opera_boss_stage',
       leftDoorFloorY: 384,
+      rightRoomId: 'opera_moon_pavilion',
+      rightDoorFloorY: 384,
       groundNodes: [
         { x: 0, y: 384, style: 'marble' },
         { x: 375, y: 384, style: 'stairs' },
@@ -2928,6 +2969,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
       focalY: 344,
       leftRoomId: 'relic_ground_slam',
       leftDoorFloorY: 408,
+      rightRoomId: 'forge_catacomb_tunnel',
+      rightDoorFloorY: 408,
       groundNodes: [
         { x: 0, y: 408, style: 'crypt_stone' },
         { x: 145, y: 408, style: 'stairs' },
@@ -3073,6 +3116,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
       special: 'relic_pedestal',
       focalX: 395,
       focalY: 344,
+      leftRoomId: 'forge_catacomb_tunnel',
+      leftDoorFloorY: 396,
       rightRoomId: 'catacomb_west_crypt',
       rightDoorFloorY: 396,
       groundNodes: [
@@ -3144,7 +3189,15 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 960, y: 336, w: 240, h: 36 },
       ],
       ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 36, style: 'crypt_vault' }],
-      shafts: [],
+      shafts: [
+        {
+          x1: 480,
+          x2: 650,
+          dir: 'down',
+          targetRoomId: 'abyss_dragon_spine',
+          sealId: 'seal_catacomb_abyss',
+        },
+      ],
       decorProps: [
         { kind: 'guardian_statue', x: 160, y: 408, scale: 0.94 },
         { kind: 'dragon_brazier', x: 840, y: 372, scale: 0.92 },
@@ -3199,24 +3252,24 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 530, y: 408, style: 'crypt_stone' },
         { x: 800, y: 408, style: 'crypt_stone' },
       ],
-      solidBlocks: [{ x: 555, y: 368, w: 165, h: 40 }],
+      solidBlocks: [{ x: 535, y: 308, w: 150, h: 32 }],
       ceilingSpans: [{ x1: 0, x2: 800, bottomY: 36, style: 'crypt_vault' }],
-      shafts: [],
+      shafts: [{ x1: 565, x2: 715, dir: 'down', targetRoomId: 'abyss_ascension_shaft' }],
       waterZones: [{ x1: 180, x2: 530, surfaceY: 428 }],
-      decorProps: [{ kind: 'guardian_statue', x: 745, y: 408, scale: 0.92 }],
-      pavilions: [{ x: 245, y: 280, w: 220, hasPillars: false }],
-      archways: [],
-      torches: [{ x: 120, y: 326 }],
-      foregrounds: [],
-      lanterns: [
-        { x: 185, y: 185 },
-        { x: 585, y: 195 },
+      decorProps: [{ kind: 'guardian_statue', x: 115, y: 408, scale: 0.92 }],
+      pavilions: [
+        { x: 245, y: 280, w: 220, hasPillars: false },
+        { x: 558, y: 408, w: 164, hasPillars: false },
       ],
+      archways: [],
+      torches: [{ x: 155, y: 326 }],
+      foregrounds: [],
+      lanterns: [],
       npcs: [],
       spawns: [],
       pickups: [
         { id: 'pk_sec_sword_frost', kind: 'weapon', itemId: 'sword_frost', x: 355, y: 280 },
-        { id: 'pk_sec_jiuzhuan_1', kind: 'consumable', itemId: 'jiuzhuan_jin_dan', x: 635, y: 368 },
+        { id: 'pk_sec_jiuzhuan_1', kind: 'consumable', itemId: 'jiuzhuan_jin_dan', x: 610, y: 308 },
       ],
     },
 
@@ -3239,6 +3292,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
       special: 'relic_pedestal',
       focalX: 265,
       focalY: 254,
+      leftRoomId: 'alchemy_library_bridge',
+      leftDoorFloorY: 352,
       rightRoomId: 'library_shop',
       rightDoorFloorY: 384,
       groundNodes: [
@@ -3387,6 +3442,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
       focalY: 342,
       leftRoomId: 'observatory_pavilion',
       leftDoorFloorY: 396,
+      rightRoomId: 'clock_east_bastion',
+      rightDoorFloorY: 396,
       groundNodes: [
         { x: 0, y: 396, style: 'marble' },
         { x: 135, y: 396, style: 'stairs' },
@@ -3461,13 +3518,13 @@ function createNormalCastleRooms(): BuiltRoom[] {
       solidBlocks: [{ x: 555, y: 344, w: 165, h: 38 }],
       clockGears: [{ x: 335, y: 248, radius: 68, speed: 0.62, hasOrbitPlatforms: true }],
       ceilingSpans: [{ x1: 0, x2: 800, bottomY: 36, style: 'palace_timber' }],
-      shafts: [],
+      shafts: [{ x1: 235, x2: 415, dir: 'down', targetRoomId: 'clock_east_bastion' }],
       decorProps: [
         { kind: 'dragon_brazier', x: 115, y: 408, scale: 0.94 },
         { kind: 'giant_bell', x: 640, y: 215, scale: 0.9 },
       ],
-      waterZones: [{ x1: 195, x2: 475, surfaceY: 426 }],
-      pavilions: [],
+      waterZones: [],
+      pavilions: [{ x: 228, y: 442, w: 194, hasPillars: false }],
       archways: [],
       torches: [{ x: 145, y: 328 }],
       foregrounds: [],
@@ -3573,7 +3630,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
     {
       id: 'entrance_bamboo_woods',
       name: '苦竹荒冢林道',
-      subtitle: '城郊野径 · 破土阴兵与夜蝠寒林',
+      subtitle: '城郊野径 · 破土阴兵与阴鸦寒林',
       region: 'gatehouse',
       bgKey: 'bg_bamboo_cliff',
       realm: 'normal',
@@ -3602,7 +3659,15 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       solidBlocks: [],
       ceilingSpans: [],
-      shafts: [],
+      shafts: [
+        {
+          x1: 560,
+          x2: 740,
+          dir: 'down',
+          targetRoomId: 'bamboo_cliff_grotto',
+          sealId: 'seal_bamboo_grotto',
+        },
+      ],
       decorProps: [
         { kind: 'guardian_statue', x: 205, y: 404, scale: 0.9 },
         { kind: 'dragon_brazier', x: 1035, y: 392, scale: 0.88 },
@@ -3800,11 +3865,15 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 110, y: 276, w: 220, h: 32 },
         { x: 830, y: 268, w: 210, h: 30 },
       ],
+      climbWalls: [
+        { x: 555, topY: 72, bottomY: 408 },
+        { x: 745, topY: 72, bottomY: 408 },
+      ],
       ceilingSpans: [],
-      shafts: [],
+      shafts: [{ x1: 560, x2: 740, dir: 'up', targetRoomId: 'west_cliff_skybridge' }],
       decorProps: [
         { kind: 'weapon_rack', x: 260, y: 372, scale: 0.92 },
-        { kind: 'dragon_brazier', x: 665, y: 408, scale: 0.9 },
+        { kind: 'dragon_brazier', x: 465, y: 408, scale: 0.9 },
         { kind: 'dragon_brazier', x: 1360, y: 396, scale: 0.9 },
       ],
       waterZones: [],
@@ -3846,6 +3915,10 @@ function createNormalCastleRooms(): BuiltRoom[] {
       special: 'none',
       focalX: 800,
       focalY: 408,
+      leftRoomId: 'moat_west_tunnel',
+      leftDoorFloorY: 408,
+      rightRoomId: 'forge_moat_sluice',
+      rightDoorFloorY: 408,
       groundNodes: [
         { x: 0, y: 408, style: 'crypt_stone' },
         { x: 540, y: 408, style: 'stairs' },
@@ -3871,10 +3944,10 @@ function createNormalCastleRooms(): BuiltRoom[] {
       secretWalls: [
         {
           id: 'sec_wall_moat_chicken',
-          x: 1548,
-          y: 308,
+          x: 470,
+          y: 312,
           w: 44,
-          h: 100,
+          h: 96,
           dropKind: 'consumable',
           dropItemId: 'beggar_chicken',
         },
@@ -4310,12 +4383,21 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 1040, y: 424, style: 'marble' },
         { x: 1600, y: 424, style: 'marble' },
       ],
-      solidBlocks: [],
-      ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 34, style: 'palace_timber' }],
-      shafts: [{ x1: 1130, x2: 1370, dir: 'down', targetRoomId: 'gate_2' }],
+      solidBlocks: [
+        { x: 565, y: 236, w: 190, h: 30 },
+        { x: 580, y: 96, w: 160, h: 26 },
+      ],
+      ceilingSpans: [
+        { x1: 0, x2: 560, bottomY: 34, style: 'palace_timber' },
+        { x1: 760, x2: 1600, bottomY: 34, style: 'palace_timber' },
+      ],
+      shafts: [
+        { x1: 560, x2: 760, dir: 'up', targetRoomId: 'alchemy_fire_sanctum' },
+        { x1: 1130, x2: 1370, dir: 'down', targetRoomId: 'gate_2' },
+      ],
       decorProps: [
         { kind: 'dragon_brazier', x: 210, y: 424, scale: 0.92 },
-        { kind: 'incense_burner', x: 650, y: 392, scale: 0.94 },
+        { kind: 'incense_burner', x: 820, y: 392, scale: 0.94 },
         { kind: 'coiled_pillar', x: 1460, y: 424, scale: 0.94 },
       ],
       waterZones: [],
@@ -4354,6 +4436,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
       focalY: 368,
       leftRoomId: 'alchemy_foyer',
       leftDoorFloorY: 396,
+      rightRoomId: 'alchemy_library_bridge',
+      rightDoorFloorY: 396,
       groundNodes: [
         { x: 0, y: 396, style: 'marble' },
         { x: 220, y: 396, style: 'stairs' },
@@ -4408,6 +4492,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
       focalY: 408,
       leftRoomId: 'forge_smithy',
       leftDoorFloorY: 408,
+      rightRoomId: 'central_underpass',
+      rightDoorFloorY: 408,
       groundNodes: [
         { x: 0, y: 408, style: 'crypt_stone' },
         { x: 800, y: 408, style: 'crypt_stone' },
@@ -4469,6 +4555,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
       special: 'none',
       focalX: 400,
       focalY: 408,
+      leftRoomId: 'forge_moat_sluice',
+      leftDoorFloorY: 408,
       rightRoomId: 'forge_molten_hall',
       rightDoorFloorY: 408,
       groundNodes: [
@@ -4596,9 +4684,16 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 610, y: 408, style: 'crypt_stone' },
         { x: 800, y: 408, style: 'crypt_stone' },
       ],
-      solidBlocks: [{ x: 290, y: 304, w: 220, h: 32 }],
-      ceilingSpans: [{ x1: 0, x2: 800, bottomY: 34, style: 'crypt_vault' }],
-      shafts: [],
+      solidBlocks: [
+        { x: 290, y: 304, w: 220, h: 32 },
+        { x: 315, y: 192, w: 170, h: 30 },
+        { x: 325, y: 88, w: 150, h: 26 },
+      ],
+      ceilingSpans: [
+        { x1: 0, x2: 310, bottomY: 34, style: 'crypt_vault' },
+        { x1: 490, x2: 800, bottomY: 34, style: 'crypt_vault' },
+      ],
+      shafts: [{ x1: 310, x2: 490, dir: 'up', targetRoomId: 'imperial_aqueduct_west' }],
       waterZones: [{ x1: 235, x2: 565, surfaceY: 416 }],
       decorProps: [
         { kind: 'dragon_brazier', x: 135, y: 408, scale: 0.9 },
@@ -5248,6 +5343,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
       special: 'none',
       focalX: 800,
       focalY: 404,
+      leftRoomId: 'cloud_star_gallery',
+      leftDoorFloorY: 404,
       rightRoomId: 'altar_save',
       rightDoorFloorY: 404,
       groundNodes: [
@@ -5282,6 +5379,1234 @@ function createNormalCastleRooms(): BuiltRoom[] {
       pickups: [
         { id: 'pk_altar_fore_wine', kind: 'consumable', itemId: 'osmanthus_wine', x: 650, y: 372 },
       ],
+    },
+  ];
+
+  // ==================== 九、30×9 八大环环相扣枢纽回廊、五灵共鸣锁钥殿与九幽地脉龙渊（20 座全新立体互通关卡！） ====================
+  const interlockingRooms: BuiltRoom[] = [
+    // 1. 西垣烽火谯楼 (6,1 1×2)：贯通钦天试剑堂(踏云步秘室)与西郊城墙，设单向青铜枢机拉杆捷径！
+    {
+      id: 'west_cliff_watchtower',
+      name: '西垣烽火谯楼',
+      subtitle: '双层城垣竖阁 · 单向青铜枢机重闸',
+      region: 'alchemy',
+      bgKey: 'bg_tower_interior',
+      realm: 'normal',
+      indoor: true,
+      mapX: 6,
+      mapY: 1,
+      gridW: 1,
+      gridH: 2,
+      pixelW: 800,
+      pixelH: 880,
+      special: 'none',
+      focalX: 400,
+      focalY: 804,
+      sideDoors: [
+        { side: 'right', floorY: 356, targetRoomId: 'relic_double_jump', rowOffset: 0 },
+        { side: 'left', floorY: 804, targetRoomId: 'west_cliff_skybridge', rowOffset: 1 },
+      ],
+      groundNodes: [
+        { x: 0, y: 804, style: 'marble' },
+        { x: 800, y: 804, style: 'marble' },
+      ],
+      solidBlocks: [
+        { x: 520, y: 356, w: 280, h: 36 },
+        { x: 290, y: 448, w: 200, h: 32 },
+        { x: 460, y: 538, w: 200, h: 32 },
+        { x: 290, y: 628, w: 200, h: 32 },
+        { x: 470, y: 716, w: 190, h: 32 },
+      ],
+      ceilingSpans: [{ x1: 0, x2: 800, bottomY: 34, style: 'palace_timber' }],
+      shafts: [],
+      ironGate: {
+        id: 'gate_west_watch_shortcut',
+        x: 210,
+        topY: 640,
+        bottomY: 804,
+        gateKind: 'lever_shortcut',
+        leverSide: 'right',
+      },
+      decorProps: [
+        { kind: 'weapon_rack', x: 685, y: 804, scale: 0.92 },
+        { kind: 'silk_banner', x: 185, y: 210, scale: 0.88 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 640, y: 286 },
+        { x: 620, y: 728 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'paper_swordsman', x: 560, y: 804 },
+        { kind: 'bone_archer', x: 390, y: 448 },
+      ],
+      pickups: [],
+    },
+
+    // 2. 断崖飞栈悬廊 (4,2 2×1)：西接烽火谯楼下潜正阳城楼箭台，形成钦天司回环外城的飞檐大捷径！
+    {
+      id: 'west_cliff_skybridge',
+      name: '断崖飞栈悬廊',
+      subtitle: '西垣悬空栈道 · 下通正阳城楼箭台',
+      region: 'gatehouse',
+      bgKey: 'bg_bamboo_cliff',
+      realm: 'normal',
+      indoor: false,
+      mapX: 4,
+      mapY: 2,
+      gridW: 2,
+      gridH: 1,
+      pixelW: 1600,
+      pixelH: 480,
+      special: 'none',
+      focalX: 800,
+      focalY: 404,
+      rightRoomId: 'west_cliff_watchtower',
+      rightDoorFloorY: 404,
+      groundNodes: [
+        { x: 0, y: 376, style: 'flagstone' },
+        { x: 340, y: 376, style: 'stairs' },
+        { x: 420, y: 404, style: 'flagstone' },
+        { x: 1600, y: 404, style: 'flagstone' },
+      ],
+      solidBlocks: [],
+      ceilingSpans: [],
+      shafts: [{ x1: 560, x2: 740, dir: 'down', targetRoomId: 'entrance_battlement_tower' }],
+      decorProps: [
+        { kind: 'guardian_statue', x: 160, y: 376, scale: 0.92 },
+        { kind: 'dragon_brazier', x: 1180, y: 404, scale: 0.9 },
+      ],
+      waterZones: [],
+      pavilions: [{ x: 554, y: 404, w: 192, hasPillars: false }],
+      archways: [],
+      torches: [{ x: 960, y: 332 }],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'spirit_crow', x: 920, y: 195 },
+        { kind: 'paper_swordsman', x: 1280, y: 404 },
+      ],
+      pickups: [
+        { id: 'pk_skybridge_hp', kind: 'max_up', itemId: 'hp_vessel', x: 220, y: 376 },
+      ],
+    },
+
+    // 3. 苍竹玄武灵潭 (1,5 2×1)：苦竹林道地底寒潭秘窟，既可由护城暗渠融冰西进，亦可凭千斤坠自竹林震碎封印坠入！供奉【玄武镇岳灵】！
+    {
+      id: 'bamboo_cliff_grotto',
+      name: '苍竹玄武灵潭',
+      subtitle: '竹林地底灵窟 · 护法玄武镇岳灵祭坛',
+      region: 'gatehouse',
+      bgKey: 'bg_cavern_waterfall',
+      realm: 'normal',
+      indoor: true,
+      mapX: 1,
+      mapY: 5,
+      gridW: 2,
+      gridH: 1,
+      pixelW: 1600,
+      pixelH: 500,
+      special: 'relic_pedestal',
+      focalX: 310,
+      focalY: 368,
+      rightRoomId: 'moat_west_tunnel',
+      rightDoorFloorY: 416,
+      groundNodes: [
+        { x: 0, y: 404, style: 'crypt_stone' },
+        { x: 140, y: 404, style: 'stairs' },
+        { x: 210, y: 368, style: 'marble' },
+        { x: 430, y: 368, style: 'stairs' },
+        { x: 510, y: 416, style: 'crypt_stone' },
+        { x: 820, y: 416, style: 'stairs' },
+        { x: 890, y: 448, style: 'crypt_stone' },
+        { x: 1320, y: 448, style: 'stairs' },
+        { x: 1390, y: 416, style: 'crypt_stone' },
+        { x: 1600, y: 416, style: 'crypt_stone' },
+      ],
+      solidBlocks: [
+        { x: 520, y: 332, w: 160, h: 30 },
+        { x: 610, y: 248, w: 160, h: 30 },
+        { x: 540, y: 164, w: 160, h: 28 },
+        { x: 575, y: 84, w: 150, h: 26 },
+        { x: 1020, y: 368, w: 190, h: 32 },
+      ],
+      ceilingSpans: [
+        { x1: 0, x2: 560, bottomY: 34, style: 'crypt_vault' },
+        { x1: 740, x2: 1600, bottomY: 34, style: 'crypt_vault' },
+      ],
+      shafts: [{ x1: 560, x2: 740, dir: 'up', targetRoomId: 'entrance_bamboo_woods' }],
+      waterZones: [{ x1: 870, x2: 1340, surfaceY: 420 }],
+      decorProps: [
+        { kind: 'guardian_statue', x: 110, y: 404, scale: 0.94 },
+        { kind: 'dragon_brazier', x: 410, y: 368, scale: 0.9 },
+      ],
+      pavilions: [],
+      archways: [],
+      torches: [{ x: 1450, y: 336 }],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'plague_toad', x: 1110, y: 368 },
+      ],
+      pickups: [
+        { id: 'pk_fam_tortoise', kind: 'ability', itemId: 'familiar_tortoise', x: 310, y: 368 },
+      ],
+    },
+
+    // 4. 护城寒泉暗渠 (3,5 3×1)：串联御河桥下暗渠与苍竹玄武灵潭，东口由【玄冥寒髓冰障】封锁（需朱雀丹火灵融开）！
+    {
+      id: 'moat_west_tunnel',
+      name: '护城寒泉暗渠',
+      subtitle: '三格城底冰渠 · 玄冥寒髓封门冰障',
+      region: 'gatehouse',
+      bgKey: 'bg_moat_sluice',
+      realm: 'normal',
+      indoor: true,
+      mapX: 3,
+      mapY: 5,
+      gridW: 3,
+      gridH: 1,
+      pixelW: 2200,
+      pixelH: 500,
+      special: 'none',
+      focalX: 1100,
+      focalY: 416,
+      leftRoomId: 'bamboo_cliff_grotto',
+      leftDoorFloorY: 416,
+      rightRoomId: 'entrance_moat_cavern',
+      rightDoorFloorY: 416,
+      groundNodes: [
+        { x: 0, y: 416, style: 'crypt_stone' },
+        { x: 420, y: 416, style: 'stairs' },
+        { x: 500, y: 450, style: 'crypt_stone' },
+        { x: 1520, y: 450, style: 'stairs' },
+        { x: 1600, y: 416, style: 'crypt_stone' },
+        { x: 2200, y: 416, style: 'crypt_stone' },
+      ],
+      solidBlocks: [
+        { x: 640, y: 368, w: 210, h: 32 },
+        { x: 1020, y: 348, w: 230, h: 32 },
+        { x: 1360, y: 368, w: 190, h: 32 },
+      ],
+      ceilingSpans: [{ x1: 0, x2: 2200, bottomY: 34, style: 'crypt_vault' }],
+      shafts: [],
+      ironGate: {
+        id: 'gate_moat_ice_phoenix',
+        x: 1840,
+        topY: 34,
+        bottomY: 416,
+        gateKind: 'ice_phoenix',
+      },
+      waterZones: [{ x1: 480, x2: 1540, surfaceY: 420 }],
+      decorProps: [
+        { kind: 'dragon_brazier', x: 260, y: 416, scale: 0.9 },
+        { kind: 'guardian_statue', x: 2020, y: 416, scale: 0.92 },
+      ],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 340, y: 336 },
+        { x: 1710, y: 336 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'corpse_soldier', x: 310, y: 416 },
+        { kind: 'plague_toad', x: 740, y: 368 },
+        { kind: 'bone_archer', x: 1135, y: 348 },
+        { kind: 'spirit_crow', x: 1420, y: 205 },
+      ],
+      pickups: [],
+    },
+
+    // 5. 水火交泰枢闸 (8,5 1×1)：连接第一幕御河暗渠与第四幕赤火铸剑坊，由【玄武镇岳灵】镇压千斤水枢重闸开启！
+    {
+      id: 'forge_moat_sluice',
+      name: '水火交泰枢闸',
+      subtitle: '寒泉入炉枢纽 · 玄武千斤水枢重闸',
+      region: 'forge',
+      bgKey: 'bg_moat_sluice',
+      realm: 'normal',
+      indoor: true,
+      mapX: 8,
+      mapY: 5,
+      gridW: 1,
+      gridH: 1,
+      pixelW: 800,
+      pixelH: 480,
+      special: 'none',
+      focalX: 400,
+      focalY: 408,
+      leftRoomId: 'entrance_moat_cavern',
+      leftDoorFloorY: 408,
+      rightRoomId: 'forge_slag_bridge',
+      rightDoorFloorY: 408,
+      groundNodes: [
+        { x: 0, y: 408, style: 'crypt_stone' },
+        { x: 800, y: 408, style: 'crypt_stone' },
+      ],
+      solidBlocks: [],
+      ceilingSpans: [{ x1: 0, x2: 800, bottomY: 34, style: 'crypt_vault' }],
+      shafts: [],
+      ironGate: {
+        id: 'gate_sluice_tortoise',
+        x: 400,
+        topY: 34,
+        bottomY: 408,
+        gateKind: 'sluice_tortoise',
+      },
+      decorProps: [
+        { kind: 'dragon_brazier', x: 640, y: 408, scale: 0.92 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 165, y: 332 },
+        { x: 635, y: 332 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'bronze_guard', x: 590, y: 408 },
+      ],
+      pickups: [],
+    },
+
+    // 6. 紫微丹火秘殿 (11,1 2×1)：由钦天迎仙前殿凭【踏云步】二段跳纵跃而上，供奉【朱雀丹火灵】！
+    {
+      id: 'alchemy_fire_sanctum',
+      name: '紫微丹火秘殿',
+      subtitle: '太清八卦丹炉 · 护法朱雀丹火灵祭坛',
+      region: 'alchemy',
+      bgKey: 'bg_alchemy_palace',
+      realm: 'normal',
+      indoor: true,
+      mapX: 11,
+      mapY: 1,
+      gridW: 2,
+      gridH: 1,
+      pixelW: 1600,
+      pixelH: 480,
+      special: 'relic_pedestal',
+      focalX: 320,
+      focalY: 368,
+      rightRoomId: 'library_automaton_loft',
+      rightDoorFloorY: 408,
+      groundNodes: [
+        { x: 0, y: 408, style: 'marble' },
+        { x: 150, y: 408, style: 'stairs' },
+        { x: 220, y: 368, style: 'marble' },
+        { x: 440, y: 368, style: 'stairs' },
+        { x: 510, y: 408, style: 'marble' },
+        { x: 1600, y: 408, style: 'marble' },
+      ],
+      solidBlocks: [],
+      ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 34, style: 'palace_timber' }],
+      shafts: [{ x1: 560, x2: 760, dir: 'down', targetRoomId: 'alchemy_foyer' }],
+      decorProps: [
+        { kind: 'dragon_brazier', x: 230, y: 368, scale: 0.94 },
+        { kind: 'dragon_brazier', x: 420, y: 368, scale: 0.94 },
+        { kind: 'incense_burner', x: 1120, y: 408, scale: 0.92 },
+      ],
+      waterZones: [],
+      pavilions: [{ x: 554, y: 408, w: 212, hasPillars: false }],
+      archways: [],
+      torches: [
+        { x: 920, y: 332 },
+        { x: 1380, y: 332 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'scroll_demon', x: 1020, y: 205 },
+        { kind: 'bronze_guard', x: 1260, y: 408 },
+      ],
+      pickups: [
+        { id: 'pk_fam_phoenix', kind: 'ability', itemId: 'familiar_phoenix', x: 320, y: 368 },
+      ],
+    },
+
+    // 7. 天机木鸢秘阁 (13,1 2×1)：东连书阁梨园传送室、西设单向青铜拉杆直通钦天丹火秘殿，供奉墨家【天机木鸢】！
+    {
+      id: 'library_automaton_loft',
+      name: '天机木鸢秘阁',
+      subtitle: '墨家鲁班工坊 · 护法天机木鸢与东西贯通枢杆',
+      region: 'library',
+      bgKey: 'bg_library_opera',
+      realm: 'normal',
+      indoor: true,
+      mapX: 13,
+      mapY: 1,
+      gridW: 2,
+      gridH: 1,
+      pixelW: 1600,
+      pixelH: 480,
+      special: 'relic_pedestal',
+      focalX: 1020,
+      focalY: 372,
+      leftRoomId: 'alchemy_fire_sanctum',
+      leftDoorFloorY: 408,
+      rightRoomId: 'library_warp',
+      rightDoorFloorY: 408,
+      groundNodes: [
+        { x: 0, y: 408, style: 'marble' },
+        { x: 760, y: 408, style: 'stairs' },
+        { x: 840, y: 372, style: 'palace_wood' },
+        { x: 1200, y: 372, style: 'stairs' },
+        { x: 1280, y: 408, style: 'marble' },
+        { x: 1600, y: 408, style: 'marble' },
+      ],
+      solidBlocks: [],
+      ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 34, style: 'palace_timber' }],
+      shafts: [],
+      ironGate: {
+        id: 'gate_loft_lever',
+        x: 420,
+        topY: 34,
+        bottomY: 408,
+        gateKind: 'lever_shortcut',
+        leverSide: 'right',
+      },
+      decorProps: [
+        { kind: 'bookshelf', x: 640, y: 408, scale: 0.94 },
+        { kind: 'chandelier', x: 1020, y: 20, scale: 0.9 },
+        { kind: 'bookshelf', x: 1420, y: 408, scale: 0.94 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 560, y: 332 },
+        { x: 1340, y: 332 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'opera_puppet', x: 680, y: 408 },
+        { kind: 'scroll_demon', x: 1240, y: 205 },
+      ],
+      pickups: [
+        { id: 'pk_fam_kestrel', kind: 'ability', itemId: 'familiar_kestrel', x: 1020, y: 372 },
+      ],
+    },
+
+    // 8. 丹霞飞虹天廊 (14,2 1×1)：架于皇城正殿穹顶之上的飞阁天桥，凭【天机木鸢】拨开高墙铜锁即可横向贯通炼丹司与藏书阁！
+    {
+      id: 'alchemy_library_bridge',
+      name: '丹霞飞虹天廊',
+      subtitle: '东西两翼天桥 · 天机高墙齿轮铜锁',
+      region: 'library',
+      bgKey: 'bg_city_avenue',
+      realm: 'normal',
+      indoor: false,
+      mapX: 14,
+      mapY: 2,
+      gridW: 1,
+      gridH: 1,
+      pixelW: 800,
+      pixelH: 460,
+      special: 'none',
+      focalX: 400,
+      focalY: 396,
+      leftRoomId: 'alchemy_herb_garden',
+      leftDoorFloorY: 396,
+      rightRoomId: 'secret_library_study',
+      rightDoorFloorY: 396,
+      groundNodes: [
+        { x: 0, y: 396, style: 'marble' },
+        { x: 800, y: 396, style: 'marble' },
+      ],
+      solidBlocks: [],
+      ceilingSpans: [],
+      shafts: [],
+      ironGate: {
+        id: 'gate_bridge_kestrel',
+        x: 400,
+        topY: 40,
+        bottomY: 396,
+        gateKind: 'gear_kestrel',
+      },
+      decorProps: [
+        { kind: 'coiled_pillar', x: 165, y: 396, scale: 0.94 },
+        { kind: 'coiled_pillar', x: 635, y: 396, scale: 0.94 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [{ x: 245, y: 320 }],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'bell_gargoyle', x: 560, y: 195 },
+      ],
+      pickups: [],
+    },
+
+    // 9. 皇城龙脉暗甬 (14,5 1×1)：连接中枢八卦传送阵与赤火玄铁竖井厅的单向拉杆捷径！
+    {
+      id: 'central_underpass',
+      name: '皇城龙脉暗甬',
+      subtitle: '中枢地底捷径 · 单向青铜枢机重闸',
+      region: 'main_hall',
+      bgKey: 'bg_moat_sluice',
+      realm: 'normal',
+      indoor: true,
+      mapX: 14,
+      mapY: 5,
+      gridW: 1,
+      gridH: 1,
+      pixelW: 800,
+      pixelH: 480,
+      special: 'none',
+      focalX: 400,
+      focalY: 408,
+      leftRoomId: 'forge_antechamber',
+      leftDoorFloorY: 408,
+      rightRoomId: 'central_warp',
+      rightDoorFloorY: 408,
+      groundNodes: [
+        { x: 0, y: 408, style: 'crypt_stone' },
+        { x: 800, y: 408, style: 'crypt_stone' },
+      ],
+      solidBlocks: [],
+      ceilingSpans: [{ x1: 0, x2: 800, bottomY: 34, style: 'crypt_vault' }],
+      shafts: [],
+      ironGate: {
+        id: 'gate_central_forge_lever',
+        x: 380,
+        topY: 34,
+        bottomY: 408,
+        gateKind: 'lever_shortcut',
+        leverSide: 'right',
+      },
+      decorProps: [
+        { kind: 'dragon_brazier', x: 615, y: 408, scale: 0.9 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 165, y: 332 },
+        { x: 635, y: 332 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [],
+      pickups: [],
+    },
+
+    // 10. 太液涵洞西渠 (16,5 2×1)：中枢传送阵向东暗渠，地板嵌有【千斤裂地封印石板】，震碎可直坠九曲寒潭囚廊！
+    {
+      id: 'imperial_aqueduct_west',
+      name: '太液涵洞西渠',
+      subtitle: '内廷暗河西段 · 千斤裂地封印暗井',
+      region: 'prison',
+      bgKey: 'bg_moat_sluice',
+      realm: 'normal',
+      indoor: true,
+      mapX: 16,
+      mapY: 5,
+      gridW: 2,
+      gridH: 1,
+      pixelW: 1600,
+      pixelH: 480,
+      special: 'none',
+      focalX: 800,
+      focalY: 408,
+      leftRoomId: 'central_warp',
+      leftDoorFloorY: 408,
+      rightRoomId: 'imperial_aqueduct_east',
+      rightDoorFloorY: 408,
+      groundNodes: [
+        { x: 0, y: 408, style: 'crypt_stone' },
+        { x: 340, y: 408, style: 'stairs' },
+        { x: 420, y: 438, style: 'crypt_stone' },
+        { x: 920, y: 438, style: 'stairs' },
+        { x: 1000, y: 408, style: 'crypt_stone' },
+        { x: 1600, y: 408, style: 'crypt_stone' },
+      ],
+      solidBlocks: [
+        { x: 560, y: 344, w: 220, h: 32 },
+      ],
+      ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 34, style: 'crypt_vault' }],
+      shafts: [
+        {
+          x1: 1080,
+          x2: 1260,
+          dir: 'down',
+          targetRoomId: 'prison_cellblock',
+          sealId: 'seal_aqueduct_prison',
+        },
+      ],
+      waterZones: [{ x1: 400, x2: 940, surfaceY: 416 }],
+      decorProps: [
+        { kind: 'guardian_statue', x: 190, y: 408, scale: 0.92 },
+        { kind: 'dragon_brazier', x: 1420, y: 408, scale: 0.9 },
+      ],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 290, y: 332 },
+        { x: 1360, y: 332 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'plague_toad', x: 670, y: 344 },
+        { kind: 'bone_archer', x: 1380, y: 408 },
+      ],
+      pickups: [],
+    },
+
+    // 11. 太液镇水东渠 (18,5 3×1)：横向串联中枢与东塔寒潭传送阵，东段由【玄武千斤水枢闸】把守！
+    {
+      id: 'imperial_aqueduct_east',
+      name: '太液镇水东渠',
+      subtitle: '内廷暗河东段 · 玄武镇压水枢重闸',
+      region: 'prison',
+      bgKey: 'bg_cavern_waterfall',
+      realm: 'normal',
+      indoor: true,
+      mapX: 18,
+      mapY: 5,
+      gridW: 3,
+      gridH: 1,
+      pixelW: 2200,
+      pixelH: 500,
+      special: 'none',
+      focalX: 1100,
+      focalY: 412,
+      leftRoomId: 'imperial_aqueduct_west',
+      leftDoorFloorY: 412,
+      rightRoomId: 'prison_save',
+      rightDoorFloorY: 412,
+      groundNodes: [
+        { x: 0, y: 412, style: 'crypt_stone' },
+        { x: 460, y: 412, style: 'stairs' },
+        { x: 540, y: 446, style: 'crypt_stone' },
+        { x: 1460, y: 446, style: 'stairs' },
+        { x: 1540, y: 412, style: 'crypt_stone' },
+        { x: 2200, y: 412, style: 'crypt_stone' },
+      ],
+      solidBlocks: [
+        { x: 680, y: 360, w: 210, h: 32 },
+        { x: 1080, y: 342, w: 220, h: 32 },
+      ],
+      ceilingSpans: [{ x1: 0, x2: 2200, bottomY: 34, style: 'crypt_vault' }],
+      shafts: [],
+      ironGate: {
+        id: 'gate_aqueduct_tortoise',
+        x: 1760,
+        topY: 34,
+        bottomY: 412,
+        gateKind: 'sluice_tortoise',
+      },
+      waterZones: [{ x1: 520, x2: 1480, surfaceY: 418 }],
+      decorProps: [
+        { kind: 'dragon_brazier', x: 260, y: 412, scale: 0.9 },
+        { kind: 'guardian_statue', x: 2010, y: 412, scale: 0.92 },
+      ],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 380, y: 336 },
+        { x: 1640, y: 336 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'bronze_guard', x: 340, y: 412 },
+        { kind: 'plague_toad', x: 785, y: 360 },
+        { kind: 'scroll_demon', x: 1190, y: 205 },
+      ],
+      pickups: [
+        { id: 'pk_aqueduct_mp', kind: 'max_up', itemId: 'mp_vessel', x: 1190, y: 342 },
+      ],
+    },
+
+    // 12. 地肺火脉冥道 (9,7 2×1)：横向打通赤火藏锋剑冢与九幽摸金古墓宝库，并设深井下潜第 9 层【九幽镇龙地脉渊】！
+    {
+      id: 'forge_catacomb_tunnel',
+      name: '地肺火脉冥道',
+      subtitle: '熔岩交汇古墓 · 下潜九幽地脉龙渊',
+      region: 'catacomb',
+      bgKey: 'bg_molten_forge',
+      realm: 'normal',
+      indoor: true,
+      mapX: 9,
+      mapY: 7,
+      gridW: 2,
+      gridH: 1,
+      pixelW: 1600,
+      pixelH: 480,
+      special: 'none',
+      focalX: 800,
+      focalY: 408,
+      leftRoomId: 'secret_forge_smeltery',
+      leftDoorFloorY: 408,
+      rightRoomId: 'secret_catacomb_treasury',
+      rightDoorFloorY: 408,
+      groundNodes: [
+        { x: 0, y: 408, style: 'crypt_stone' },
+        { x: 260, y: 408, style: 'stairs' },
+        { x: 330, y: 442, style: 'crypt_stone' },
+        { x: 640, y: 442, style: 'stairs' },
+        { x: 710, y: 408, style: 'crypt_stone' },
+        { x: 1600, y: 408, style: 'crypt_stone' },
+      ],
+      solidBlocks: [
+        { x: 410, y: 348, w: 170, h: 30 },
+      ],
+      ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 34, style: 'crypt_vault' }],
+      shafts: [{ x1: 1060, x2: 1240, dir: 'down', targetRoomId: 'abyss_dragon_vein_west' }],
+      ironGate: {
+        id: 'gate_forge_catacomb_mist',
+        x: 780,
+        topY: 34,
+        bottomY: 408,
+        gateKind: 'mist_only',
+      },
+      waterZones: [{ x1: 315, x2: 655, surfaceY: 428, liquidKind: 'lava' }],
+      decorProps: [
+        { kind: 'dragon_brazier', x: 180, y: 408, scale: 0.9 },
+        { kind: 'guardian_statue', x: 1430, y: 408, scale: 0.92 },
+      ],
+      pavilions: [{ x: 1054, y: 408, w: 192, hasPillars: false }],
+      archways: [],
+      torches: [
+        { x: 220, y: 332 },
+        { x: 1350, y: 332 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'demon_wolf', x: 920, y: 408 },
+        { kind: 'corpse_soldier', x: 1360, y: 408 },
+      ],
+      pickups: [],
+    },
+
+    // 13. 九幽地脉西渊 (10,8 4×1)：玄城最底层地脉巨窟西段！
+    {
+      id: 'abyss_dragon_vein_west',
+      name: '九幽地脉西渊',
+      subtitle: '四格极渊冥河 · 盘龙古柱与镇狱群妖',
+      region: 'catacomb',
+      bgKey: 'bg_catacomb_tomb',
+      realm: 'normal',
+      indoor: true,
+      mapX: 10,
+      mapY: 8,
+      gridW: 4,
+      gridH: 1,
+      pixelW: 3000,
+      pixelH: 520,
+      special: 'none',
+      focalX: 1500,
+      focalY: 424,
+      rightRoomId: 'abyss_sanctum_save',
+      rightDoorFloorY: 424,
+      groundNodes: [
+        { x: 0, y: 424, style: 'crypt_stone' },
+        { x: 660, y: 424, style: 'stairs' },
+        { x: 760, y: 458, style: 'crypt_stone' },
+        { x: 1620, y: 458, style: 'stairs' },
+        { x: 1720, y: 396, style: 'marble' },
+        { x: 2380, y: 396, style: 'stairs' },
+        { x: 2480, y: 424, style: 'crypt_stone' },
+        { x: 3000, y: 424, style: 'crypt_stone' },
+      ],
+      solidBlocks: [
+        { x: 180, y: 336, w: 165, h: 30 },
+        { x: 260, y: 250, w: 165, h: 30 },
+        { x: 210, y: 166, w: 165, h: 28 },
+        { x: 245, y: 84, w: 155, h: 26 },
+        { x: 920, y: 368, w: 220, h: 32 },
+        { x: 1280, y: 352, w: 220, h: 32 },
+      ],
+      ceilingSpans: [
+        { x1: 0, x2: 240, bottomY: 34, style: 'crypt_vault' },
+        { x1: 420, x2: 3000, bottomY: 34, style: 'crypt_vault' },
+      ],
+      shafts: [{ x1: 240, x2: 420, dir: 'up', targetRoomId: 'forge_catacomb_tunnel' }],
+      waterZones: [{ x1: 740, x2: 1640, surfaceY: 428 }],
+      decorProps: [
+        { kind: 'coiled_pillar', x: 560, y: 424, scale: 0.96 },
+        { kind: 'dragon_brazier', x: 1840, y: 396, scale: 0.94 },
+        { kind: 'dragon_brazier', x: 2260, y: 396, scale: 0.94 },
+        { kind: 'guardian_statue', x: 2760, y: 424, scale: 0.94 },
+      ],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 610, y: 348 },
+        { x: 2050, y: 320 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'demon_wolf', x: 580, y: 424 },
+        { kind: 'plague_toad', x: 1030, y: 368 },
+        { kind: 'bell_gargoyle', x: 1390, y: 205 },
+        { kind: 'bronze_guard', x: 2050, y: 396 },
+        { kind: 'demon_wolf', x: 2640, y: 424 },
+      ],
+      pickups: [
+        { id: 'pk_abyss_west_hp', kind: 'max_up', itemId: 'hp_vessel', x: 2050, y: 396 },
+      ],
+    },
+
+    // 14. 地脉镇龙古祠 (14,8 1×1)：地底第 9 层核心中继存档祠！
+    {
+      id: 'abyss_sanctum_save',
+      name: '地脉镇龙古祠',
+      subtitle: '九幽龙渊留档祠',
+      region: 'catacomb',
+      bgKey: 'bg_catacomb_tomb',
+      realm: 'normal',
+      indoor: true,
+      mapX: 14,
+      mapY: 8,
+      gridW: 1,
+      gridH: 1,
+      pixelW: 800,
+      pixelH: 460,
+      special: 'save_shrine',
+      focalX: 400,
+      focalY: 368,
+      leftRoomId: 'abyss_dragon_vein_west',
+      leftDoorFloorY: 396,
+      rightRoomId: 'abyss_dragon_spine',
+      rightDoorFloorY: 396,
+      groundNodes: [
+        { x: 0, y: 396, style: 'crypt_stone' },
+        { x: 185, y: 396, style: 'stairs' },
+        { x: 255, y: 368, style: 'marble' },
+        { x: 545, y: 368, style: 'stairs' },
+        { x: 615, y: 396, style: 'crypt_stone' },
+        { x: 800, y: 396, style: 'crypt_stone' },
+      ],
+      solidBlocks: [],
+      ceilingSpans: [{ x1: 0, x2: 800, bottomY: 36, style: 'crypt_vault' }],
+      shafts: [],
+      decorProps: [
+        { kind: 'incense_burner', x: 265, y: 368, scale: 0.9 },
+        { kind: 'incense_burner', x: 535, y: 368, scale: 0.9 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 165, y: 318 },
+        { x: 635, y: 318 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [],
+      pickups: [],
+    },
+
+    // 15. 九幽镇龙骨渊 (15,8 5×1)：五格地脉巨殿，上通守陵玄女帝陵殿，东端设【九幽鬼打墙幻障】（需青丘玉狐勘破）！
+    {
+      id: 'abyss_dragon_spine',
+      name: '九幽镇龙骨渊',
+      subtitle: '五格太古龙脉殿 · 上贯守陵玄宫 · 东锁九幽幻障',
+      region: 'catacomb',
+      bgKey: 'bg_catacomb_tomb',
+      realm: 'normal',
+      indoor: true,
+      mapX: 15,
+      mapY: 8,
+      gridW: 5,
+      gridH: 1,
+      pixelW: 3800,
+      pixelH: 520,
+      special: 'none',
+      focalX: 1900,
+      focalY: 424,
+      leftRoomId: 'abyss_sanctum_save',
+      leftDoorFloorY: 424,
+      rightRoomId: 'abyss_east_corridor',
+      rightDoorFloorY: 424,
+      groundNodes: [
+        { x: 0, y: 424, style: 'crypt_stone' },
+        { x: 520, y: 424, style: 'stairs' },
+        { x: 620, y: 456, style: 'crypt_stone' },
+        { x: 1480, y: 456, style: 'stairs' },
+        { x: 1580, y: 392, style: 'marble' },
+        { x: 2260, y: 392, style: 'stairs' },
+        { x: 2360, y: 424, style: 'crypt_stone' },
+        { x: 3800, y: 424, style: 'crypt_stone' },
+      ],
+      solidBlocks: [
+        { x: 780, y: 364, w: 230, h: 32 },
+        { x: 1160, y: 348, w: 230, h: 32 },
+        { x: 2620, y: 336, w: 170, h: 30 },
+        { x: 2710, y: 250, w: 170, h: 30 },
+        { x: 2640, y: 164, w: 170, h: 28 },
+        { x: 2690, y: 84, w: 155, h: 26 },
+      ],
+      ceilingSpans: [
+        { x1: 0, x2: 2680, bottomY: 34, style: 'crypt_vault' },
+        { x1: 2860, x2: 3800, bottomY: 34, style: 'crypt_vault' },
+      ],
+      shafts: [{ x1: 2680, x2: 2860, dir: 'up', targetRoomId: 'catacomb_shrine' }],
+      ironGate: {
+        id: 'gate_abyss_fox_illusion',
+        x: 3360,
+        topY: 34,
+        bottomY: 424,
+        gateKind: 'illusion_fox',
+      },
+      waterZones: [{ x1: 600, x2: 1500, surfaceY: 428 }],
+      decorProps: [
+        { kind: 'coiled_pillar', x: 380, y: 424, scale: 0.96 },
+        { kind: 'dragon_brazier', x: 1680, y: 392, scale: 0.95 },
+        { kind: 'dragon_brazier', x: 2160, y: 392, scale: 0.95 },
+        { kind: 'coiled_pillar', x: 3120, y: 424, scale: 0.96 },
+      ],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 460, y: 348 },
+        { x: 1920, y: 316 },
+        { x: 3180, y: 348 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'bronze_guard', x: 420, y: 424 },
+        { kind: 'bell_gargoyle', x: 960, y: 205 },
+        { kind: 'opera_puppet', x: 1780, y: 392 },
+        { kind: 'demon_wolf', x: 2060, y: 392 },
+        { kind: 'scroll_demon', x: 2480, y: 210 },
+        { kind: 'bronze_guard', x: 3080, y: 424 },
+      ],
+      pickups: [
+        { id: 'pk_abyss_spine_jz', kind: 'consumable', itemId: 'jiuzhuan_jin_dan', x: 1920, y: 392 },
+      ],
+    },
+
+    // 16. 寒渊玄冰暗河 (20,8 3×1)：九幽极渊东翼寒脉，东端升龙古井直通寒髓冰泉秘洞！
+    {
+      id: 'abyss_east_corridor',
+      name: '寒渊玄冰暗河',
+      subtitle: '三格极寒冥水 · 东通寒渊升龙古井',
+      region: 'prison',
+      bgKey: 'bg_cavern_waterfall',
+      realm: 'normal',
+      indoor: true,
+      mapX: 20,
+      mapY: 8,
+      gridW: 3,
+      gridH: 1,
+      pixelW: 2200,
+      pixelH: 500,
+      special: 'none',
+      focalX: 1100,
+      focalY: 416,
+      leftRoomId: 'abyss_dragon_spine',
+      leftDoorFloorY: 416,
+      groundNodes: [
+        { x: 0, y: 416, style: 'crypt_stone' },
+        { x: 420, y: 416, style: 'stairs' },
+        { x: 500, y: 450, style: 'crypt_stone' },
+        { x: 1440, y: 450, style: 'stairs' },
+        { x: 1520, y: 416, style: 'crypt_stone' },
+        { x: 2200, y: 416, style: 'crypt_stone' },
+      ],
+      solidBlocks: [
+        { x: 660, y: 364, w: 220, h: 32 },
+        { x: 1080, y: 348, w: 220, h: 32 },
+        { x: 1680, y: 332, w: 165, h: 30 },
+        { x: 1780, y: 248, w: 165, h: 30 },
+        { x: 1710, y: 164, w: 165, h: 28 },
+        { x: 1765, y: 84, w: 155, h: 26 },
+      ],
+      ceilingSpans: [
+        { x1: 0, x2: 1760, bottomY: 34, style: 'crypt_vault' },
+        { x1: 1940, x2: 2200, bottomY: 34, style: 'crypt_vault' },
+      ],
+      shafts: [{ x1: 1760, x2: 1940, dir: 'up', targetRoomId: 'abyss_ascension_shaft' }],
+      waterZones: [{ x1: 480, x2: 1460, surfaceY: 420 }],
+      decorProps: [
+        { kind: 'guardian_statue', x: 240, y: 416, scale: 0.92 },
+        { kind: 'dragon_brazier', x: 1610, y: 416, scale: 0.9 },
+      ],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 340, y: 336 },
+        { x: 1580, y: 336 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'plague_toad', x: 770, y: 364 },
+        { kind: 'bell_gargoyle', x: 1190, y: 205 },
+        { kind: 'bronze_guard', x: 1620, y: 416 },
+      ],
+      pickups: [
+        { id: 'pk_abyss_east_mp', kind: 'max_up', itemId: 'mp_vessel', x: 2040, y: 416 },
+      ],
+    },
+
+    // 17. 寒渊升龙古井 (22,7 1×1)：连接九幽地脉渊(22,8)与寒髓冰泉秘洞(22,6)，内设寒髓冰封障闭环东翼地宫！
+    {
+      id: 'abyss_ascension_shaft',
+      name: '寒渊升龙古井',
+      subtitle: '地脉东极竖井 · 上贯寒髓冰泉秘洞',
+      region: 'prison',
+      bgKey: 'bg_cavern_waterfall',
+      realm: 'normal',
+      indoor: true,
+      mapX: 22,
+      mapY: 7,
+      gridW: 1,
+      gridH: 1,
+      pixelW: 800,
+      pixelH: 480,
+      special: 'none',
+      focalX: 400,
+      focalY: 408,
+      groundNodes: [
+        { x: 0, y: 408, style: 'crypt_stone' },
+        { x: 800, y: 408, style: 'crypt_stone' },
+      ],
+      solidBlocks: [
+        { x: 545, y: 326, w: 155, h: 30 },
+        { x: 585, y: 242, w: 155, h: 30 },
+        { x: 545, y: 158, w: 155, h: 28 },
+        { x: 565, y: 82, w: 145, h: 26 },
+      ],
+      ceilingSpans: [
+        { x1: 0, x2: 565, bottomY: 34, style: 'crypt_vault' },
+        { x1: 715, x2: 800, bottomY: 34, style: 'crypt_vault' },
+      ],
+      shafts: [
+        { x1: 260, x2: 440, dir: 'down', targetRoomId: 'abyss_east_corridor' },
+        { x1: 565, x2: 715, dir: 'up', targetRoomId: 'secret_ice_spring' },
+      ],
+      ironGate: {
+        id: 'gate_ascension_ice',
+        x: 495,
+        topY: 34,
+        bottomY: 408,
+        gateKind: 'ice_phoenix',
+      },
+      decorProps: [
+        { kind: 'guardian_statue', x: 140, y: 408, scale: 0.92 },
+      ],
+      waterZones: [],
+      pavilions: [{ x: 254, y: 408, w: 192, hasPillars: false }],
+      archways: [],
+      torches: [{ x: 195, y: 332 }],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [],
+      pickups: [],
+    },
+
+    // 18. 梨园拜月灵狐台 (19,0 2×1)：百戏梨园东顶露天拜月瑶台，供奉山海经【青丘玉狐】！
+    {
+      id: 'opera_moon_pavilion',
+      name: '梨园拜月灵狐台',
+      subtitle: '云顶戏楼瑶台 · 护法青丘玉狐祭坛',
+      region: 'opera',
+      bgKey: 'bg_sky_altar',
+      realm: 'normal',
+      indoor: false,
+      mapX: 19,
+      mapY: 0,
+      gridW: 2,
+      gridH: 1,
+      pixelW: 1600,
+      pixelH: 480,
+      special: 'relic_pedestal',
+      focalX: 960,
+      focalY: 368,
+      leftRoomId: 'opera_save',
+      leftDoorFloorY: 404,
+      rightRoomId: 'cloud_star_gallery',
+      rightDoorFloorY: 404,
+      groundNodes: [
+        { x: 0, y: 404, style: 'marble' },
+        { x: 640, y: 404, style: 'stairs' },
+        { x: 720, y: 368, style: 'marble' },
+        { x: 1180, y: 368, style: 'stairs' },
+        { x: 1260, y: 404, style: 'marble' },
+        { x: 1600, y: 404, style: 'marble' },
+      ],
+      solidBlocks: [],
+      ceilingSpans: [],
+      shafts: [],
+      decorProps: [
+        { kind: 'coiled_pillar', x: 260, y: 404, scale: 0.94 },
+        { kind: 'dragon_brazier', x: 760, y: 368, scale: 0.92 },
+        { kind: 'dragon_brazier', x: 1140, y: 368, scale: 0.92 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 460, y: 332 },
+        { x: 1380, y: 332 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'opera_puppet', x: 440, y: 404 },
+        { kind: 'bell_gargoyle', x: 1320, y: 195 },
+      ],
+      pickups: [
+        { id: 'pk_fam_fox', kind: 'ability', itemId: 'familiar_fox', x: 960, y: 368 },
+      ],
+    },
+
+    // 19. 摘星霓裳云廊 (21,0 3×1)：横跨梨园天顶与凌霄祭天坛前庭的汉白玉云海长廊，凭【青丘玉狐】破除九幽幻障即可直达天坛！
+    {
+      id: 'cloud_star_gallery',
+      name: '摘星霓裳云廊',
+      subtitle: '三格云顶天街 · 青丘破障直通圜丘天坛',
+      region: 'altar',
+      bgKey: 'bg_sky_altar',
+      realm: 'normal',
+      indoor: false,
+      mapX: 21,
+      mapY: 0,
+      gridW: 3,
+      gridH: 1,
+      pixelW: 2200,
+      pixelH: 500,
+      special: 'none',
+      focalX: 1100,
+      focalY: 412,
+      leftRoomId: 'opera_moon_pavilion',
+      leftDoorFloorY: 412,
+      rightRoomId: 'altar_forecourt',
+      rightDoorFloorY: 412,
+      groundNodes: [
+        { x: 0, y: 412, style: 'marble' },
+        { x: 720, y: 412, style: 'stairs' },
+        { x: 820, y: 376, style: 'marble' },
+        { x: 1460, y: 376, style: 'stairs' },
+        { x: 1560, y: 412, style: 'marble' },
+        { x: 2200, y: 412, style: 'marble' },
+      ],
+      solidBlocks: [],
+      ceilingSpans: [],
+      shafts: [],
+      ironGate: {
+        id: 'gate_cloud_fox_illusion',
+        x: 520,
+        topY: 44,
+        bottomY: 412,
+        gateKind: 'illusion_fox',
+      },
+      decorProps: [
+        { kind: 'coiled_pillar', x: 260, y: 412, scale: 0.96 },
+        { kind: 'dragon_brazier', x: 920, y: 376, scale: 0.94 },
+        { kind: 'dragon_brazier', x: 1360, y: 376, scale: 0.94 },
+        { kind: 'coiled_pillar', x: 1940, y: 412, scale: 0.96 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 660, y: 336 },
+        { x: 1640, y: 336 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'bell_gargoyle', x: 980, y: 195 },
+        { kind: 'bronze_guard', x: 1140, y: 376 },
+        { kind: 'bell_gargoyle', x: 1620, y: 195 },
+      ],
+      pickups: [],
+    },
+
+    // 20. 东垣镇海机巧楼 (29,4 1×1)：连接青莲太白剑冢(28,4)与紫电雷池秘殿(29,3)，凭【天机木鸢】开启高格齿轮铜锁贯通上下双秘室！
+    {
+      id: 'clock_east_bastion',
+      name: '东垣镇海机巧楼',
+      subtitle: '东极双秘室枢塔 · 上贯紫电雷池 · 西接太白剑冢',
+      region: 'clock_tower',
+      bgKey: 'bg_tower_interior',
+      realm: 'normal',
+      indoor: true,
+      mapX: 29,
+      mapY: 4,
+      gridW: 1,
+      gridH: 1,
+      pixelW: 800,
+      pixelH: 480,
+      special: 'none',
+      focalX: 400,
+      focalY: 408,
+      leftRoomId: 'secret_sword_tomb',
+      leftDoorFloorY: 408,
+      groundNodes: [
+        { x: 0, y: 408, style: 'marble' },
+        { x: 800, y: 408, style: 'marble' },
+      ],
+      solidBlocks: [
+        { x: 250, y: 326, w: 160, h: 30 },
+        { x: 310, y: 242, w: 160, h: 30 },
+        { x: 250, y: 158, w: 160, h: 28 },
+        { x: 265, y: 82, w: 150, h: 26 },
+      ],
+      ceilingSpans: [
+        { x1: 0, x2: 235, bottomY: 34, style: 'palace_timber' },
+        { x1: 415, x2: 800, bottomY: 34, style: 'palace_timber' },
+      ],
+      shafts: [{ x1: 235, x2: 415, dir: 'up', targetRoomId: 'secret_thunder_vault' }],
+      ironGate: {
+        id: 'gate_bastion_kestrel',
+        x: 195,
+        topY: 34,
+        bottomY: 408,
+        gateKind: 'gear_kestrel',
+      },
+      decorProps: [
+        { kind: 'giant_bell', x: 620, y: 220, scale: 0.92 },
+        { kind: 'dragon_brazier', x: 590, y: 408, scale: 0.9 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [{ x: 660, y: 332 }],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'bell_gargoyle', x: 540, y: 195 },
+      ],
+      pickups: [],
     },
   ];
 
@@ -5383,9 +6708,37 @@ function createNormalCastleRooms(): BuiltRoom[] {
     altar_forecourt: { mapX: 24, mapY: 0 }, // 2×1 (24..25, 0)
     altar_save: { mapX: 26, mapY: 0 },
     sky_altar: { mapX: 27, mapY: 0 }, // 3×1 (27..29, 0)
+
+    // 八大环环相扣枢纽回廊与九幽地脉龙渊 (20 座互通枢纽)
+    west_cliff_watchtower: { mapX: 6, mapY: 1 }, // 1×2 (6, 1..2)
+    west_cliff_skybridge: { mapX: 4, mapY: 2 }, // 2×1 (4..5, 2)
+    bamboo_cliff_grotto: { mapX: 1, mapY: 5 }, // 2×1 (1..2, 5)
+    moat_west_tunnel: { mapX: 3, mapY: 5 }, // 3×1 (3..5, 5)
+    forge_moat_sluice: { mapX: 8, mapY: 5 },
+    alchemy_fire_sanctum: { mapX: 11, mapY: 1 }, // 2×1 (11..12, 1)
+    library_automaton_loft: { mapX: 13, mapY: 1 }, // 2×1 (13..14, 1)
+    alchemy_library_bridge: { mapX: 14, mapY: 2 },
+    central_underpass: { mapX: 14, mapY: 5 },
+    imperial_aqueduct_west: { mapX: 16, mapY: 5 }, // 2×1 (16..17, 5)
+    imperial_aqueduct_east: { mapX: 18, mapY: 5 }, // 3×1 (18..20, 5)
+    forge_catacomb_tunnel: { mapX: 9, mapY: 7 }, // 2×1 (9..10, 7)
+    abyss_dragon_vein_west: { mapX: 10, mapY: 8 }, // 4×1 (10..13, 8)
+    abyss_sanctum_save: { mapX: 14, mapY: 8 },
+    abyss_dragon_spine: { mapX: 15, mapY: 8 }, // 5×1 (15..19, 8)
+    abyss_east_corridor: { mapX: 20, mapY: 8 }, // 3×1 (20..22, 8)
+    abyss_ascension_shaft: { mapX: 22, mapY: 7 },
+    opera_moon_pavilion: { mapX: 19, mapY: 0 }, // 2×1 (19..20, 0)
+    cloud_star_gallery: { mapX: 21, mapY: 0 }, // 3×1 (21..23, 0)
+    clock_east_bastion: { mapX: 29, mapY: 4 },
   };
 
-  return [...coreRooms, ...expandedRooms, ...entranceStageRooms, ...allStagesExpandedRooms]
+  return [
+    ...coreRooms,
+    ...expandedRooms,
+    ...entranceStageRooms,
+    ...allStagesExpandedRooms,
+    ...interlockingRooms,
+  ]
     .map((rm) => {
       const pos = STAGE_GRID_LAYOUT[rm.id];
       const extra = roomHazardLayouts[rm.id];
@@ -5984,7 +7337,7 @@ class CastleWorldRegistry {
     px: number,
     dir: 'up' | 'down',
     bossCleared: boolean
-  ): { nextRoom: BuiltRoom; nextX: number; nextY: number } | null {
+  ): { nextRoom: BuiltRoom; nextX: number; nextY: number; matchSealId?: string } | null {
     const map = cur.realm === 'inverted' ? this.invertedRooms : this.normalRooms;
     for (const sh of cur.shafts) {
       if (sh.dir !== dir) continue;
@@ -6006,7 +7359,7 @@ class CastleWorldRegistry {
         }
         localNextX = Math.max(48, Math.min(nextRoom.pixelW - 48, localNextX));
         const nextY = dir === 'down' ? 28 : nextRoom.pixelH - 26;
-        return { nextRoom, nextX: localNextX, nextY };
+        return { nextRoom, nextX: localNextX, nextY, matchSealId: matchSh?.sealId };
       }
     }
     return null;
