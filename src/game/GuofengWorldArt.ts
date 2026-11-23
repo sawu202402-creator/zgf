@@ -16,14 +16,19 @@ import { AssetKey, Assets } from './AssetLoader';
 export function drawCelShadedWeapon(
   ctx: CanvasRenderingContext2D,
   archetype: WeaponArchetype,
-  weaponId = 'sword_1',
+  weaponId = 'sword_0',
   lengthPx = 88
 ): void {
-  const isTier3 = weaponId.endsWith('_3');
-  const isTier2 = weaponId.endsWith('_2');
+  const isTier4 = weaponId.endsWith('_3') || weaponId === 'sword_phantom' || weaponId === 'spear_thunder' || weaponId === 'daggers_phantom';
+  const isTier3 =
+    weaponId.endsWith('_2') ||
+    weaponId === 'sword_frost' ||
+    weaponId === 'sword_blood' ||
+    weaponId === 'greatsword_sunder' ||
+    weaponId === 'daggers_poison' ||
+    weaponId === 'whip_fire';
 
   if (archetype === 'daggers') {
-    // 背负双刺采用写实单柄弯月刃交叠，摒弃物品栏大图标贴纸感
     const len = lengthPx * 0.48;
     ctx.save();
     ctx.fillStyle = '#3f2e21';
@@ -31,7 +36,7 @@ export function drawCelShadedWeapon(
     ctx.lineWidth = 1.3;
     ctx.fillRect(-10, -2.5, 10, 5);
     ctx.strokeRect(-10, -2.5, 10, 5);
-    ctx.fillStyle = isTier3 ? '#f43f5e' : isTier2 ? '#8b5cf6' : '#94a3b8';
+    ctx.fillStyle = isTier4 ? '#f43f5e' : isTier3 ? '#8b5cf6' : '#94a3b8';
     ctx.beginPath();
     ctx.moveTo(0, -3.5);
     ctx.quadraticCurveTo(len * 0.55, -6.5, len, -4.5);
@@ -60,10 +65,10 @@ export function drawCelShadedWeapon(
   const h = w * (img.height / img.width);
   ctx.drawImage(img, -w * 0.24, -h * 0.5, w, h);
 
-  if (isTier2 || isTier3) {
+  if (isTier3 || isTier4) {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    ctx.strokeStyle = isTier3 ? 'rgba(253, 224, 71, 0.72)' : 'rgba(56, 189, 248, 0.65)';
+    ctx.strokeStyle = isTier4 ? 'rgba(253, 224, 71, 0.72)' : 'rgba(56, 189, 248, 0.65)';
     ctx.lineWidth = archetype === 'greatsword' ? 3 : 1.8;
     ctx.beginPath();
     ctx.moveTo(w * 0.08, 0);

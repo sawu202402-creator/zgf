@@ -16,18 +16,18 @@ export function createFreshSaveSlot(slotIndex: number, mode: GameMode = 'story')
     talismanHearts: isXiao ? 40 : 15,
     maxHpBonus: isXiao ? 80 : 0,
     maxMpBonus: isXiao ? 60 : 0,
-    currentRoomId: mode === 'boss_rush' ? 'boss_rush_arena' : 'gate_1',
+    currentRoomId: mode === 'boss_rush' ? 'boss_rush_arena' : 'bamboo_outpost',
     currentRealm: 'normal',
-    equippedWeapon: isXiao ? 'spear_2' : 'sword_1',
+    equippedWeapon: isXiao ? 'spear_2' : 'sword_0',
     equippedSubWeapon: isXiao ? 'bagua_cross' : 'dagger_throw',
     equippedArmor: isXiao ? 'mingguang_armor' : 'cloth_tunic',
     equippedAccessory: 'broken_jade',
     equippedYaoCore: '',
-    ownedWeapons: isXiao ? ['spear_2', 'sword_2'] : ['sword_1'],
+    ownedWeapons: isXiao ? ['spear_2', 'sword_2'] : ['sword_0'],
     ownedSubWeapons: isXiao ? ['dagger_throw', 'bagua_cross', 'holy_fire'] : ['dagger_throw'],
     ownedArmors: isXiao ? ['mingguang_armor', 'broken_jade'] : ['cloth_tunic', 'broken_jade'],
     ownedYaoCores: [],
-    // 前4式基础秘传武学默认铭刻于心，玩家随时可直接手搓释放！第5式终极禁术也可盲搓或在禁书室习得
+    // 基础武学秘技随身掌握，第5式禁术在禁阁习得
     learnedSkills: ['shuofeng_wave', 'shunying_flash', 'jinghong_rising', 'taiji_parry'],
     abilities: isXiao
       ? ['double_jump', 'ground_slam', 'mist_dash', 'grapple_hook', 'wall_jump']
@@ -36,7 +36,7 @@ export function createFreshSaveSlot(slotIndex: number, mode: GameMode = 'story')
       jinchuang_yao: 2,
       huiqi_dan: 1,
     },
-    visitedRooms: mode === 'boss_rush' ? [] : ['normal:gate_1'],
+    visitedRooms: mode === 'boss_rush' ? [] : ['normal:bamboo_outpost'],
     collectedPickups: [],
     defeatedBosses: [],
     triggeredStories: [],

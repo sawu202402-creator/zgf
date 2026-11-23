@@ -449,7 +449,7 @@ export class GameEngine {
     const accId = overrides?.accessoryId ?? s.equippedAccessory;
     const cId = overrides?.coreId ?? s.equippedYaoCore;
 
-    const weapon = WEAPONS[wId] || WEAPONS.sword_1;
+    const weapon = WEAPONS[wId] || WEAPONS.sword_0;
     const armor = ARMORS[aId] || ARMORS.cloth_tunic;
     const acc = ARMORS[accId] || ARMORS.broken_jade;
     const core = cId ? YAO_CORES[cId] : undefined;
@@ -478,7 +478,7 @@ export class GameEngine {
     const s = this.slot;
     if (!s) return;
 
-    const weapon = WEAPONS[s.equippedWeapon] || WEAPONS.sword_1;
+    const weapon = WEAPONS[s.equippedWeapon] || WEAPONS.sword_0;
     const armor = ARMORS[s.equippedArmor] || ARMORS.cloth_tunic;
     const acc = ARMORS[s.equippedAccessory] || ARMORS.broken_jade;
     const core = s.equippedYaoCore ? YAO_CORES[s.equippedYaoCore] : undefined;
@@ -707,37 +707,20 @@ export class GameEngine {
         this.enemies.length > 0 &&
         !s.brokenSecretWalls.includes(ambushKey)
     );
-    if (this.ambushSealed) {
-      this.floats.push({
-        x: this.player.x,
-        y: this.player.y - 88,
-        vy: -22,
-        text: '✦ 妖雾封门 · 斩尽群邪破阵 ✦',
-        color: '#fb7185',
-        size: 13.5,
-        life: 1.4,
-      });
-    }
 
-    // 踏入全新大关卡时醒目弹出章节幕次名（如「第三幕 · 钦天炼丹司」），首领殿或独立密室弹出专属厅名！
+    // 踏入全新大关卡时弹出章节幕次名，隐藏密室弹出简短厅名
     const enteringNewStage = prevRegion !== nextRoom.region;
-    if (
-      enteringNewStage ||
-      nextRoom.special === 'boss_room' ||
-      nextRoom.isSecretRoom
-    ) {
+    if (enteringNewStage || nextRoom.isSecretRoom) {
       if (visitKey !== this.lastVisitedRegion || enteringNewStage) {
         this.lastVisitedRegion = visitKey;
         if (nextRoom.isSecretRoom) {
-          this.cb.onShowBanner(nextRoom.name, '独立破壁密室 · 洞天秘藏');
-        } else if (enteringNewStage) {
+          this.cb.onShowBanner(nextRoom.name, '');
+        } else {
           const stageTitle =
             nextRoom.realm === 'inverted'
               ? INVERTED_REGION_NAMES[nextRoom.region]
               : REGION_NAMES[nextRoom.region];
           this.cb.onShowBanner(stageTitle, nextRoom.name);
-        } else {
-          this.cb.onShowBanner(nextRoom.name, '');
         }
       }
     }
@@ -777,43 +760,72 @@ export class GameEngine {
   }
 
   /**
-   * 六阶平滑渐进区域难度曲线（彻底消除中后期小怪两刀秒杀与倒悬城断崖式数值膨胀！）：
-   * 瓮城古桥(0.92x) ➔ 正殿/炼丹阶梯(1.12x) ➔ 水牢/藏书阁/外壁竖塔(1.26~1.32x) ➔ 熔窟/百戏勾栏/白骨冥廊(1.42x) ➔ 钟鼓天阙/飞虹桥/祭天坛(1.54x) ➔ 180°倒悬里城(×1.45 HP / ×1.26 ATK)！
+   * 十幕逐阶平滑区域难度曲线（配合凡铁 -> 军械 -> 名器 -> 神兵四阶装备成长）：
+   * 第一幕城门(0.86x) -> 第二幕盘龙殿(1.02x) -> 第三幕炼丹司(1.16x) -> 第四幕铸剑坊(1.30x)
+   * -> 第五幕九曲寒潭(1.44x) -> 第六幕九幽荒冢(1.58x) -> 第七幕藏书阁(1.72x)
+   * -> 第八幕百戏梨园(1.88x) -> 第九幕望月塔(2.08x) -> 终幕祭天坛(2.30x) -> 倒悬里城(×1.40 HP / ×1.25 ATK)
    */
   private getRoomDifficultyScale(room: BuiltRoom): { hpMult: number; atkMult: number; spdMult: number } {
-    let hpMult = 1.0;
-    let atkMult = 0.96;
-    let spdMult = 1.0;
+    let hpMult = 0.86;
+    let atkMult = 0.85;
+    let spdMult = 0.98;
 
-    if (room.id === 'east_outer_tower' || room.id === 'east_warp') {
-      hpMult = 1.42;
-      atkMult = 1.28;
-      spdMult = 1.06;
-    } else if (room.region === 'clock_tower' || room.region === 'altar') {
-      hpMult = 1.72;
-      atkMult = 1.48;
-      spdMult = 1.1;
-    } else if (room.region === 'catacomb' || room.isSecretRoom) {
-      hpMult = 1.52;
-      atkMult = 1.34;
-      spdMult = 1.07;
-    } else if (room.region === 'opera' || room.region === 'forge') {
-      hpMult = 1.56;
-      atkMult = 1.38;
-      spdMult = 1.08;
-    } else if (room.region === 'prison' || room.region === 'library') {
-      hpMult = 1.36;
-      atkMult = 1.22;
-      spdMult = 1.05;
-    } else if (room.region === 'main_hall' || room.region === 'alchemy') {
-      hpMult = 1.18;
-      atkMult = 1.1;
-      spdMult = 1.02;
+    switch (room.region) {
+      case 'gatehouse':
+        hpMult = room.id === 'bamboo_outpost' || room.id === 'entrance_bamboo_woods' ? 0.78 : 0.88;
+        atkMult = 0.85;
+        spdMult = 0.98;
+        break;
+      case 'main_hall':
+        hpMult = 1.04;
+        atkMult = 0.98;
+        spdMult = 1.0;
+        break;
+      case 'alchemy':
+        hpMult = 1.16;
+        atkMult = 1.08;
+        spdMult = 1.02;
+        break;
+      case 'forge':
+        hpMult = 1.3;
+        atkMult = 1.18;
+        spdMult = 1.04;
+        break;
+      case 'prison':
+        hpMult = 1.44;
+        atkMult = 1.26;
+        spdMult = 1.05;
+        break;
+      case 'catacomb':
+        hpMult = 1.58;
+        atkMult = 1.34;
+        spdMult = 1.06;
+        break;
+      case 'library':
+        hpMult = 1.72;
+        atkMult = 1.42;
+        spdMult = 1.07;
+        break;
+      case 'opera':
+        hpMult = 1.88;
+        atkMult = 1.5;
+        spdMult = 1.08;
+        break;
+      case 'clock_tower':
+        hpMult = room.id === 'east_outer_tower' ? 1.65 : 2.08;
+        atkMult = room.id === 'east_outer_tower' ? 1.36 : 1.58;
+        spdMult = 1.09;
+        break;
+      case 'altar':
+        hpMult = 2.3;
+        atkMult = 1.68;
+        spdMult = 1.1;
+        break;
     }
 
     if (room.realm === 'inverted') {
-      hpMult *= 1.38;
-      atkMult *= 1.24;
+      hpMult *= 1.4;
+      atkMult *= 1.25;
       spdMult *= 1.06;
     }
 
@@ -1025,7 +1037,6 @@ export class GameEngine {
       if (!this.slot.brokenSecretWalls.includes(ambushKey)) {
         this.slot.brokenSecretWalls.push(ambushKey);
         AudioFX.playRelicBell();
-        this.cb.onShowBanner('妖氛涤荡 · 封门结界已破', '首破清剿重赏：陈年桂花酿与纹银入囊！');
         this.drops.push({
           id: `ambush_prize_${this.nextEntityId++}`,
           isStaticPickup: false,
@@ -1494,7 +1505,7 @@ export class GameEngine {
   private performWeaponAttack(): void {
     if (!this.slot) return;
     const p = this.player;
-    const w = WEAPONS[this.slot.equippedWeapon] || WEAPONS.sword_1;
+    const w = WEAPONS[this.slot.equippedWeapon] || WEAPONS.sword_0;
     const arch = w.archetype;
 
     const maxSteps = 3;
@@ -1580,7 +1591,7 @@ export class GameEngine {
       reachX: Math.round(Math.max(w.reachX + 20, arch === 'greatsword' ? 128 : 74) * reachMult),
       reachY: Math.round(Math.max(w.reachY + 14, arch === 'greatsword' ? 105 : 48) * (isFinisher ? 1.12 : 1)),
       color: w.color,
-      glowColor: isFinisher ? '#fde047' : w.glowColor,
+      glowColor: isFinisher && w.tier >= 3 ? '#fde047' : w.glowColor,
       slammedGround: false,
     };
 
@@ -1664,42 +1675,14 @@ export class GameEngine {
     const p = this.player;
 
     if (p.skillCooldown > 0) {
-      this.floats.push({
-        x: p.x,
-        y: p.y - 78,
-        vy: -28,
-        text: `调息 ${p.skillCooldown.toFixed(1)}s`,
-        color: '#94a3b8',
-        size: 11.5,
-        life: 0.55,
-      });
       return false;
     }
 
-    // 【瞬影一闪】与【惊鸿升龙破】严格要求地面立足起势，杜绝空中无限升龙或空中闪现越过二段跳/熔岩锁！
     if ((skillId === 'shunying_flash' || skillId === 'jinghong_rising') && !p.onGround) {
-      this.floats.push({
-        x: p.x,
-        y: p.y - 78,
-        vy: -28,
-        text: '需立足施展',
-        color: '#94a3b8',
-        size: 11.5,
-        life: 0.55,
-      });
       return false;
     }
 
     if (p.mp < sk.mpCost) {
-      this.floats.push({
-        x: p.x,
-        y: p.y - 82,
-        vy: -36,
-        text: '真气不足',
-        color: '#94a3b8',
-        size: 13,
-        life: 0.75,
-      });
       return false;
     }
 
@@ -1708,13 +1691,11 @@ export class GameEngine {
     this.activeSlash = null;
     p.skillCooldown =
       skillId === 'jiuyou_soulsteal' ? 4.5 : skillId === 'taiji_parry' ? 2.4 : 1.6;
-    this.skillBanner = { name: sk.name, timer: 0.72, color: sk.color };
     AudioFX.playSkillCast();
     NativeApp.haptic('medium');
 
-    // 平衡化技能伤害曲线：约合普攻 1.25~1.5 倍（不再无条件必暴击秒杀 Boss），定位为武器连招收尾与战术博弈！
     const skillDmg = Math.round((p.atk * 0.85 + p.int * 0.9) * sk.dmgMult);
-    const w = WEAPONS[this.slot.equippedWeapon] || WEAPONS.sword_1;
+    const w = WEAPONS[this.slot.equippedWeapon] || WEAPONS.sword_0;
     const isHeavy = w.archetype === 'greatsword';
 
     if (skillId === 'shuofeng_wave') {
@@ -1854,15 +1835,6 @@ export class GameEngine {
             this.hitstopTimer = 0.085;
             this.screenShake = 7;
             NativeApp.haptic('heavy');
-            this.floats.push({
-              x: e.x,
-              y: e.y - e.profile.h - 24,
-              vy: -36,
-              text: '✦ 弹反破招！✦',
-              color: '#fde047',
-              size: 16,
-              life: 0.95,
-            });
             this.applyDamageToEnemy(
               e,
               Math.round(skillDmg * 1.45),
@@ -1921,12 +1893,12 @@ export class GameEngine {
         p.hp = Math.min(p.maxHp, p.hp + totalHeal);
         this.floats.push({
           x: p.x,
-          y: p.y - 78,
-          vy: -40,
-          text: `噬魂 +${totalHeal}`,
+          y: p.y - 74,
+          vy: -34,
+          text: `+${totalHeal}`,
           color: '#4ade80',
-          size: 14,
-          life: 0.9,
+          size: 12,
+          life: 0.65,
         });
       }
       this.screenShake = 6;
@@ -1941,15 +1913,6 @@ export class GameEngine {
     if (this.player.subWeaponCooldown > 0) return;
     const sub = SUB_WEAPONS[this.slot.equippedSubWeapon] || SUB_WEAPONS.dagger_throw;
     if (this.slot.talismanHearts < sub.talismanCost) {
-      this.floats.push({
-        x: this.player.x,
-        y: this.player.y - 72,
-        vy: -32,
-        text: '灵符不足',
-        color: '#f59e0b',
-        size: 12,
-        life: 0.7,
-      });
       return;
     }
 
@@ -2131,7 +2094,6 @@ export class GameEngine {
             this.screenShake = 9;
             NativeApp.haptic('heavy');
             this.spawnInkBurst(sw.x + sw.w * 0.5, sw.y + sw.h * 0.5, '#fb923c', '#0f172a', 26);
-            this.cb.onShowBanner('暗壁崩裂 · 墙中秘藏显形', '古墙夹层中竟藏着滚烫的荷叶叫花鸡！');
             this.drops.push({
               id: `wall_prize_${sw.id}`,
               isStaticPickup: false,
@@ -2144,22 +2106,12 @@ export class GameEngine {
               color: '#4ade80',
               label: this.getPickupLabel(sw.dropKind, sw.dropItemId),
             });
-          } else {
-            this.floats.push({
-              x: sw.x + sw.w * 0.5,
-              y: sw.y + 18,
-              vy: -28,
-              text: `古砖暗裂 (${next}/3)`,
-              color: '#fde047',
-              size: 12.5,
-              life: 0.75,
-            });
           }
         }
       }
     }
 
-    // 3. 恶魔城月下精髓【破壁洞开独立隐藏密室】：挥兵击碎封门古壁 3 次（重刃 1 刀），永久开启通往独立密室的暗门！
+    // 3. 破壁洞开独立隐藏密室
     for (const sd of getRoomSideDoors(this.room)) {
       if (!sd.secretWallId || this.slot.brokenSecretWalls.includes(sd.secretWallId)) continue;
       const wx = sd.side === 'left' ? 0 : this.room.pixelW - 46;
@@ -2186,17 +2138,6 @@ export class GameEngine {
           this.screenShake = 10;
           NativeApp.haptic('heavy');
           this.spawnInkBurst(fxX, fxY, '#fb923c', '#0f172a', 32);
-          this.cb.onShowBanner('暗壁洞开 · 隐秘洞天现世', '古墙后竟藏有一座独立秘室，步入即可探索！');
-        } else {
-          this.floats.push({
-            x: fxX,
-            y: sd.floorY - 96,
-            vy: -28,
-            text: `封门暗壁松动 (${next}/3)`,
-            color: '#fde047',
-            size: 12.5,
-            life: 0.85,
-          });
         }
       }
     }
@@ -2358,7 +2299,7 @@ export class GameEngine {
         }
       }
 
-      const wDef = WEAPONS[this.slot.equippedWeapon] || WEAPONS.sword_1;
+      const wDef = WEAPONS[this.slot.equippedWeapon] || WEAPONS.sword_0;
       for (const e of [...this.enemies]) {
         if (this.slashHitIds.has(e.id)) continue;
 
@@ -2416,29 +2357,11 @@ export class GameEngine {
                 life: 0.25,
                 maxLife: 0.25,
               });
-              this.floats.push({
-                x: e.x,
-                y: e.y - e.profile.h - 22,
-                vy: -34,
-                text: '破盾崩防！',
-                color: '#fde047',
-                size: 13.5,
-                life: 0.85,
-              });
             } else {
               dmgMult *= 0.25;
               bonusPoiseBreak = -Math.round(wDef.poiseDmg * 0.72);
               AudioFX.playParryClang();
               this.spawnInkBurst(e.x - sl.facing * 14, e.y - 38, '#fde047', '#0f172a', 8);
-              this.floats.push({
-                x: e.x,
-                y: e.y - e.profile.h - 18,
-                vy: -26,
-                text: '铜盾格挡',
-                color: '#cbd5e1',
-                size: 11.5,
-                life: 0.65,
-              });
             }
           } else if (
             e.profile.kind === 'paper_swordsman' &&
@@ -2450,29 +2373,11 @@ export class GameEngine {
               e.guardStanceTimer = 0;
               bonusPoiseBreak = 65;
               AudioFX.playParryClang();
-              this.floats.push({
-                x: e.x,
-                y: e.y - e.profile.h - 20,
-                vy: -32,
-                text: '重斩破架！',
-                color: '#fde047',
-                size: 13,
-                life: 0.78,
-              });
             } else {
               dmgMult *= 0.2;
               bonusPoiseBreak = -Math.round(wDef.poiseDmg * 0.8);
               AudioFX.playParryClang();
               this.spawnInkBurst(e.x - sl.facing * 14, e.y - 36, '#7dd3fc', '#0f172a', 9);
-              this.floats.push({
-                x: e.x,
-                y: e.y - e.profile.h - 18,
-                vy: -28,
-                text: '架刀格挡',
-                color: '#7dd3fc',
-                size: 11.5,
-                life: 0.68,
-              });
             }
           }
 
@@ -2498,20 +2403,8 @@ export class GameEngine {
           // 神兵专属词条异象触发（霜冻迟缓 / 火毒灼烧 / 千影多段剑气 / 紫电链锁奔雷！）
           if (e.hp > 0) {
             if (wDef.specialEffect === 'frost_slow') {
-              const wasChilled = (e.chillTimer || 0) > 0.2;
               e.chillTimer = 2.8;
               this.spawnInkBurst(e.x, e.y - e.profile.h * 0.5, '#38bdf8', '#e0f2fe', 8);
-              if (!wasChilled) {
-                this.floats.push({
-                  x: e.x,
-                  y: e.y - e.profile.h - 20,
-                  vy: -26,
-                  text: '寒魄迟缓',
-                  color: '#7dd3fc',
-                  size: 11.5,
-                  life: 0.7,
-                });
-              }
             }
             if (wDef.specialEffect === 'burn_dot' || eqCore?.poisonOnHit) {
               const isPoison = wDef.id === 'daggers_poison' || (!wDef.specialEffect && Boolean(eqCore?.poisonOnHit));
@@ -3089,15 +2982,6 @@ export class GameEngine {
           e.hp -= tickDmg;
           const dCol = e.dotColor || '#fb923c';
           this.spawnInkBurst(e.x, e.y - e.profile.h * 0.5, dCol, '#090d16', 5);
-          this.floats.push({
-            x: e.x + (Math.random() - 0.5) * 14,
-            y: e.y - e.profile.h - 8,
-            vy: -30,
-            text: `${tickDmg}`,
-            color: dCol,
-            size: 11.5,
-            life: 0.52,
-          });
           if (e.hp <= 0) {
             this.handleEnemyKilled(e);
             continue;
@@ -3340,15 +3224,6 @@ export class GameEngine {
                 AudioFX.playSkillCast();
                 e.stateTimer = 1.5;
               } else {
-                this.floats.push({
-                  x: e.x,
-                  y: e.y - e.profile.h - 18,
-                  vy: -24,
-                  text: '蛮牛狂冲！',
-                  color: '#fb923c',
-                  size: 13,
-                  life: 0.7,
-                });
                 e.aiState = 'windup';
                 e.stateTimer = 0.62;
                 e.stateDuration = 0.62;
@@ -3390,15 +3265,6 @@ export class GameEngine {
                   const sy = sampleSolidGroundY(room, sx);
                   this.spawnEnemy('opera_puppet', sx, sy);
                   this.spawnInkBurst(sx, sy - 36, '#f472b6', '#fde047', 16);
-                  this.floats.push({
-                    x: e.x,
-                    y: e.y - e.profile.h - 20,
-                    vy: -28,
-                    text: '悬丝召偶·登台！',
-                    color: '#f472b6',
-                    size: 13.5,
-                    life: 0.9,
-                  });
                 }
                 for (const off of [-95, 95]) {
                   const tx = Math.max(110, Math.min(room.pixelW - 110, p.x + off));
@@ -3989,15 +3855,6 @@ export class GameEngine {
             this.screenShake = Math.max(this.screenShake, 9);
             AudioFX.playParryClang();
             this.spawnInkBurst(e.x + e.facing * 32, e.y - 42, '#fb923c', '#fde047', 18);
-            this.floats.push({
-              x: e.x,
-              y: e.y - e.profile.h - 22,
-              vy: -30,
-              text: '撞柱失衡！',
-              color: '#fde047',
-              size: 14,
-              life: 0.9,
-            });
             continue;
           }
           e.x = Math.max(50, Math.min(room.pixelW - 50, nextBossX));
@@ -4070,7 +3927,7 @@ export class GameEngine {
     poiseDmg: number
   ): void {
     if (!this.slot) return;
-    const wCur = WEAPONS[this.slot.equippedWeapon] || WEAPONS.sword_1;
+    const wCur = WEAPONS[this.slot.equippedWeapon] || WEAPONS.sword_0;
     const isCrit = forceCrit || Math.random() < this.player.critChance;
     const critMult = isCrit ? 1.52 : 1;
     const effDef = wCur.specialEffect === 'armor_sunder' ? e.profile.def * 0.15 : e.profile.def;
@@ -4098,21 +3955,12 @@ export class GameEngine {
         e.vx = this.player.facing * (e.profile.isBoss ? 95 : 165);
         AudioFX.playParryClang();
         this.screenShake = Math.max(this.screenShake, e.profile.isBoss ? 7 : 4.5);
-        this.floats.push({
-          x: e.x,
-          y: e.y - e.profile.h - 24,
-          vy: -34,
-          text: e.profile.isBoss ? '✦ 破势失衡！✦' : '破势！',
-          color: '#fde047',
-          size: e.profile.isBoss ? 15 : 12.5,
-          life: 0.9,
-        });
       } else if (!e.profile.isBoss && e.aiState === 'stalk') {
         this.stepGroundEnemyX(e, this.player.facing * 8);
       }
     }
 
-    // 守关妖王 / 宿敌半血狂暴二阶段觉醒演出！
+    // 守关妖王 / 宿敌半血狂暴二阶段觉醒演出
     if (e.profile.isBoss && e.hp > 0 && e.hp <= e.maxHp * 0.55 && !e.enragedTriggered) {
       e.enragedTriggered = true;
       this.screenShake = Math.max(this.screenShake, 9);
@@ -4129,15 +3977,6 @@ export class GameEngine {
         ringRadius: 68,
         life: 0.32,
         maxLife: 0.32,
-      });
-      this.floats.push({
-        x: e.x,
-        y: e.y - e.profile.h - 28,
-        vy: -26,
-        text: '真炁暴走',
-        color: '#fca5a5',
-        size: 15,
-        life: 1.15,
       });
     }
 
@@ -4174,13 +4013,13 @@ export class GameEngine {
     );
 
     this.floats.push({
-      x: e.x + (Math.random() - 0.5) * 16,
-      y: e.y - e.profile.h * 1.12,
-      vy: -48,
-      text: isCrit ? `${finalDmg}!` : `${finalDmg}`,
-      color: isCrit ? '#fde047' : '#f8fafc',
-      size: isCrit ? 16 : 13,
-      life: 0.62,
+      x: e.x + (Math.random() - 0.5) * 12,
+      y: e.y - e.profile.h * 1.06,
+      vy: -38,
+      text: `${finalDmg}`,
+      color: isCrit ? '#fde047' : '#e2e8f0',
+      size: isCrit ? 14 : 11.5,
+      life: 0.48,
     });
 
     if (e.hp <= 0) {
@@ -4266,10 +4105,9 @@ export class GameEngine {
         needExp = this.getExpForNextLevel(s.level);
       }
       this.recalcStats(true);
-      this.levelUpPillarTimer = 1.45;
+      this.levelUpPillarTimer = 1.05;
       AudioFX.playRelicBell();
-      this.spawnInkBurst(this.player.x, this.player.y - 40, '#fde047', '#090d16', 28);
-      this.cb.onShowBanner(`境界突破 · 武道第 ${s.level} 境`, '真阳天柱贯顶，气血真气全满！');
+      this.spawnInkBurst(this.player.x, this.player.y - 40, '#fde047', '#090d16', 20);
     }
 
     this.drops.push({
@@ -4357,15 +4195,6 @@ export class GameEngine {
       if (isRare) {
         AudioFX.playRelicBell();
         this.spawnInkBurst(e.x - 16, e.y - 24, '#fde047', '#f472b6', 18);
-        this.floats.push({
-          x: e.x,
-          y: e.y - e.profile.h - 24,
-          vy: -36,
-          text: '✦ 稀世掉宝！✦',
-          color: '#fde047',
-          size: 15,
-          life: 1.05,
-        });
       }
     }
 
@@ -4564,93 +4393,54 @@ export class GameEngine {
     if (d.kind === 'gold') {
       s.gold += d.amount;
       AudioFX.playHit(false);
-      this.floats.push({
-        x: d.x,
-        y: d.y - 24,
-        vy: -38,
-        text: `+${d.amount}`,
-        color: '#fde047',
-        size: 12,
-        life: 0.65,
-      });
+      this.spawnInkBurst(d.x, d.y - 12, '#fde047', '#090d16', 5);
       return;
     }
 
     if (d.kind === 'heart') {
       s.talismanHearts = Math.min(99, s.talismanHearts + d.amount);
-      this.floats.push({
-        x: d.x,
-        y: d.y - 24,
-        vy: -38,
-        text: `+${d.amount}`,
-        color: '#fb923c',
-        size: 12,
-        life: 0.65,
-      });
+      this.spawnInkBurst(d.x, d.y - 12, '#fb923c', '#090d16', 5);
       return;
     }
 
     AudioFX.playRelicBell();
     NativeApp.haptic('medium');
+    this.spawnInkBurst(d.x, d.y - 18, d.color || '#fde047', '#090d16', 14);
 
     if (d.kind === 'yao_core') {
       if (!s.ownedYaoCores.includes(d.itemId)) s.ownedYaoCores.push(d.itemId);
       if (!s.equippedYaoCore) s.equippedYaoCore = d.itemId;
       this.recalcStats(false);
-      this.cb.onShowBanner(`吸纳妖丹 · ${d.label}`, '');
     } else if (d.kind === 'ability') {
       this.grantAbility(d.itemId as AbilityKey);
     } else if (d.kind === 'skill_scroll') {
       const skId = d.itemId as SkillId;
       if (!s.learnedSkills.includes(skId)) s.learnedSkills.push(skId);
-      const sk = SKILLS[skId];
-      this.cb.onShowBanner(`参悟绝学 · ${sk.name}`, sk.commandText);
     } else if (d.kind === 'weapon') {
       if (d.itemId.startsWith('sub:')) {
         const subId = d.itemId.slice(4) as SubWeaponId;
         if (!s.ownedSubWeapons.includes(subId)) s.ownedSubWeapons.push(subId);
         s.equippedSubWeapon = subId;
-        const sub = SUB_WEAPONS[subId];
-        this.cb.onShowBanner(`奇门副器 · ${sub.name}`, '');
       } else {
         if (!s.ownedWeapons.includes(d.itemId)) s.ownedWeapons.push(d.itemId);
-        s.equippedWeapon = d.itemId;
-        this.recalcStats(false);
-        const w = WEAPONS[d.itemId];
-        this.cb.onShowBanner(`神兵入鞘 · ${w.name}`, '');
       }
     } else if (d.kind === 'armor') {
       const arm = ARMORS[d.itemId];
       if (arm) {
         if (!s.ownedArmors.includes(d.itemId)) s.ownedArmors.push(d.itemId);
-        if (arm.slot === 'armor') s.equippedArmor = d.itemId;
-        else s.equippedAccessory = d.itemId;
-        this.recalcStats(false);
-        this.cb.onShowBanner(`披挂宝器 · ${arm.name}`, '');
       }
     } else if (d.kind === 'max_up') {
       if (d.itemId === 'hp_vessel') {
         s.maxHpBonus += 25;
         this.recalcStats(false);
         this.player.hp = Math.min(this.player.maxHp, this.player.hp + 50);
-        this.cb.onShowBanner('千年朱果 · 气血上限 +25', '');
       } else {
         s.maxMpBonus += 20;
         this.recalcStats(false);
         this.player.mp = Math.min(this.player.maxMp, this.player.mp + 40);
-        this.cb.onShowBanner('天山雪莲 · 真气上限 +20', '');
       }
     } else if (d.kind === 'consumable') {
       s.consumables[d.itemId] = (s.consumables[d.itemId] || 0) + 1;
-      this.floats.push({
-        x: d.x,
-        y: d.y - 28,
-        vy: -40,
-        text: `+${d.label}`,
-        color: '#4ade80',
-        size: 13,
-        life: 0.85,
-      });
     }
   }
 
@@ -4660,35 +4450,14 @@ export class GameEngine {
     const idx = s.ownedWeapons.indexOf(s.equippedWeapon);
     s.equippedWeapon = s.ownedWeapons[(idx + 1) % s.ownedWeapons.length];
     this.recalcStats(false);
-    const w = WEAPONS[s.equippedWeapon];
+    const w = WEAPONS[s.equippedWeapon] || WEAPONS.sword_0;
     AudioFX.playParryClang();
     this.spawnInkBurst(this.player.x, this.player.y - 40, w.glowColor, '#090d16', 10);
-    this.floats.push({
-      x: this.player.x,
-      y: this.player.y - 78,
-      vy: -34,
-      text: `易兵 · ${w.name}`,
-      color: '#fde047',
-      size: 14,
-      life: 0.9,
-    });
   }
 
   public useQuickHealPotion(): void {
     const s = this.slot;
-    if (!s) return;
-    if (this.player.potionCooldown > 0) {
-      this.floats.push({
-        x: this.player.x,
-        y: this.player.y - 72,
-        vy: -32,
-        text: `丹药调息 ${this.player.potionCooldown.toFixed(1)}s`,
-        color: '#f59e0b',
-        size: 12,
-        life: 0.72,
-      });
-      return;
-    }
+    if (!s || this.player.potionCooldown > 0) return;
     const needHeal = this.player.hp < this.player.maxHp * 0.85;
     const priority = needHeal
       ? [
@@ -4717,33 +4486,12 @@ export class GameEngine {
         return;
       }
     }
-    this.floats.push({
-      x: this.player.x,
-      y: this.player.y - 72,
-      vy: -32,
-      text: '丹药已尽',
-      color: '#94a3b8',
-      size: 12,
-      life: 0.8,
-    });
   }
 
   public useConsumable(id: string): boolean {
     const s = this.slot;
     const def = CONSUMABLES[id];
-    if (!s || !def || (s.consumables[id] || 0) <= 0) return false;
-    if (this.player.potionCooldown > 0) {
-      this.floats.push({
-        x: this.player.x,
-        y: this.player.y - 72,
-        vy: -32,
-        text: `丹药调息 ${this.player.potionCooldown.toFixed(1)}s`,
-        color: '#f59e0b',
-        size: 12,
-        life: 0.72,
-      });
-      return false;
-    }
+    if (!s || !def || (s.consumables[id] || 0) <= 0 || this.player.potionCooldown > 0) return false;
     s.consumables[id]--;
     this.player.potionCooldown = 3.5;
 
@@ -4756,40 +4504,29 @@ export class GameEngine {
       this.player.mp = Math.min(this.player.maxMp, this.player.mp + def.mpRestore);
     }
 
-    let floatTxt = def.fullRestore
-      ? `${def.name} · 气血真气全满！`
-      : def.hpRestore > 0
-        ? `${def.name} +${def.hpRestore}`
-        : `${def.name} 真气+${def.mpRestore}`;
     let burstCol = '#4ade80';
-
     if (def.buffKind) {
       const sec = def.buffSec || 30;
       this.activeBuffs[def.buffKind] = sec;
       this.recalcStats(false);
-      if (def.buffKind === 'berserk_wine') {
-        burstCol = '#fb923c';
-        floatTxt = `${def.name} · 杀伐+28% (${sec}s)`;
-      } else if (def.buffKind === 'iron_skin') {
-        burstCol = '#fde047';
-        floatTxt = `${def.name} · 金刚减伤 (${sec}s)`;
-      } else if (def.buffKind === 'wind_crit') {
-        burstCol = '#38bdf8';
-        floatTxt = `${def.name} · 暴击疾风 (${sec}s)`;
-      }
+      if (def.buffKind === 'berserk_wine') burstCol = '#fb923c';
+      else if (def.buffKind === 'iron_skin') burstCol = '#fde047';
+      else if (def.buffKind === 'wind_crit') burstCol = '#38bdf8';
     }
 
     AudioFX.playRelicBell();
     this.spawnInkBurst(this.player.x, this.player.y - 36, burstCol, '#090d16', 14);
-    this.floats.push({
-      x: this.player.x,
-      y: this.player.y - 78,
-      vy: -40,
-      text: floatTxt,
-      color: burstCol,
-      size: 14,
-      life: 1.05,
-    });
+    if (def.hpRestore > 0 && !def.fullRestore) {
+      this.floats.push({
+        x: this.player.x,
+        y: this.player.y - 72,
+        vy: -32,
+        text: `+${def.hpRestore}`,
+        color: '#4ade80',
+        size: 12,
+        life: 0.65,
+      });
+    }
     return true;
   }
 
@@ -5446,7 +5183,7 @@ export class GameEngine {
       AudioFX.playRelicBell();
       NativeApp.haptic('medium');
       this.spawnInkBurst(this.player.x, this.player.y - 36, '#fde047', '#090d16', 22);
-      this.cb.onShowBanner('镇魂留档', '气血真气已回满 · 命魂契印已铭刻');
+      this.cb.onShowBanner('已留档', '');
     } else if (kind === 'warp') {
       SaveManager.saveSlot(this.slot);
       AudioFX.playRelicBell();

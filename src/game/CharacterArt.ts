@@ -447,7 +447,7 @@ function drawEquippedWeaponInHeroHands(
   if (wDef.archetype === 'spear') {
     const spImg = Assets.get('part_wpn_spear');
     if (!spImg) return;
-    const spLen = wDef.tier === 3 ? 128 : wDef.tier === 2 ? 118 : 108;
+    const spLen = wDef.tier >= 4 ? 128 : wDef.tier === 3 ? 118 : 108;
     const spH = spLen * (spImg.height / spImg.width);
 
     ctx.save();
@@ -469,7 +469,7 @@ function drawEquippedWeaponInHeroHands(
         ctx.rotate(aimAng);
         ctx.drawImage(spImg, -spLen * 0.24, -spH * 0.5, spLen, spH);
       }
-      if (wDef.tier >= 2) {
+      if (wDef.tier >= 3) {
         ctx.globalCompositeOperation = 'lighter';
         ctx.strokeStyle = wDef.glowColor;
         ctx.lineWidth = 2.1;
@@ -513,7 +513,7 @@ function drawEquippedWeaponInHeroHands(
       ctx.translate(rHand.x + 4, rHand.y - 2);
       ctx.rotate(carryAng);
       ctx.drawImage(spImg, -spLen * 0.34, -spH * 0.5, spLen, spH);
-      if (wDef.tier >= 2) {
+      if (wDef.tier >= 3) {
         ctx.globalCompositeOperation = 'lighter';
         ctx.strokeStyle = wDef.glowColor;
         ctx.lineWidth = 1.8;
@@ -529,24 +529,24 @@ function drawEquippedWeaponInHeroHands(
     return;
   }
 
-  // 3. 乌金九节鞭 / 缚魂赤铜锁链刀 / 赤练火龙软鞭 / 紫电雷音打神鞭：高举抖鞭蓄势 ➔ 振臂甩链！
+  // 3. 生铁九节鞭 / 缚魂赤铜锁链刀 / 赤练火龙软鞭 / 紫电雷音打神鞭：高举抖鞭蓄势 ➔ 振臂甩链！
   if (wDef.archetype === 'whip') {
     const rodCol =
       wDef.id === 'whip_fire'
         ? '#991b1b'
-        : wDef.tier === 3
+        : wDef.tier >= 4
           ? '#581c87'
-          : wDef.tier === 2
+          : wDef.tier === 3
             ? '#7c2d12'
-            : '#1e293b';
+            : '#334155';
     const ringCol =
       wDef.id === 'whip_fire'
         ? '#fb923c'
-        : wDef.tier === 3
+        : wDef.tier >= 4
           ? '#fde047'
-          : wDef.tier === 2
+          : wDef.tier === 3
             ? '#fb923c'
-            : '#eab308';
+            : '#94a3b8';
 
     ctx.save();
     ctx.translate(rHand.x, rHand.y);
@@ -639,10 +639,10 @@ function drawEquippedWeaponInHeroHands(
     return;
   }
 
-  // 4. 轻剑系（青竹寒铁剑 / 墨渊秋水剑 / 七星龙渊剑）：按品阶实时切换剑长、护手与剑脊星芒！
+  // 4. 轻剑系（粗铸铁剑 -> 制式精铁剑 -> 墨渊秋水剑 -> 七星龙渊剑）：按品阶递进剑身质感！
   const swImg = Assets.get('part_wpn_sword');
   if (!swImg) return;
-  const swLen = wDef.tier === 3 ? 80 : wDef.tier === 2 ? 72 : 64;
+  const swLen = wDef.tier >= 4 ? 80 : wDef.tier === 3 ? 72 : wDef.tier === 2 ? 64 : 58;
   const swH = swLen * (swImg.height / swImg.width);
 
   ctx.save();
@@ -651,36 +651,43 @@ function drawEquippedWeaponInHeroHands(
     slash && slash.pogoDown ? 1.18 + rHand.angle : sock.rAngle + rHand.angle;
   if (skillAnim) {
     if (skillAnim.kind === 'jinghong_rising' && skillAnim.progress >= 0.16) {
-      // 惊鸿升龙破：右手擎剑直指九霄！
       swAng = -1.36 + rHand.angle;
     } else if (skillAnim.kind === 'jiuyou_soulsteal' && skillAnim.progress >= 0.28) {
-      // 九幽噬魂引：立剑祭印！
       swAng = -1.55 + rHand.angle;
     }
   }
   ctx.rotate(swAng);
 
-  // 剑柄红绸/翠绸剑穗
-  ctx.strokeStyle = wDef.tier === 3 ? '#f59e0b' : wDef.tier === 2 ? '#0284c7' : '#b91c1c';
-  ctx.lineWidth = 1.8;
-  ctx.beginPath();
-  ctx.moveTo(-swLen * 0.14, 0);
-  ctx.quadraticCurveTo(-swLen * 0.22, 5, -swLen * 0.26, 10);
-  ctx.stroke();
+  // 二阶以上方缀剑穗，初始粗铸铁剑保持素面缠绳铁柄
+  if (wDef.tier >= 2) {
+    ctx.strokeStyle = wDef.tier >= 4 ? '#f59e0b' : wDef.tier === 3 ? '#0284c7' : '#991b1b';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(-swLen * 0.14, 0);
+    ctx.quadraticCurveTo(-swLen * 0.22, 5, -swLen * 0.26, 9);
+    ctx.stroke();
+  }
 
   ctx.drawImage(swImg, -swLen * 0.14, -swH * 0.5, swLen, swH);
 
-  // 二阶/三阶与秘藏神剑异象（寒魄冰芒 / 泣血赤霄 / 七星北斗 / 青莲千影翠星！）
-  if (wDef.tier === 2) {
+  if (wDef.tier === 1) {
+    // 粗铸铁剑：素面灰黑生铁暗哑剑脊，绝无仙侠流光
+    ctx.strokeStyle = 'rgba(71, 85, 105, 0.65)';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(swLen * 0.1, 0);
+    ctx.lineTo(swLen * 0.8, 0);
+    ctx.stroke();
+  } else if (wDef.tier === 3) {
     ctx.globalCompositeOperation = 'lighter';
     ctx.strokeStyle = wDef.glowColor || 'rgba(56, 189, 248, 0.85)';
-    ctx.lineWidth = 2.1;
+    ctx.lineWidth = 2.0;
     ctx.beginPath();
     ctx.moveTo(swLen * 0.14, 0);
     ctx.lineTo(swLen * 0.82, 0);
     ctx.stroke();
     ctx.globalCompositeOperation = 'source-over';
-  } else if (wDef.tier === 3) {
+  } else if (wDef.tier >= 4) {
     ctx.globalCompositeOperation = 'lighter';
     ctx.strokeStyle = wDef.glowColor || 'rgba(253, 224, 71, 0.9)';
     ctx.lineWidth = 2.4;
@@ -724,7 +731,7 @@ export function renderModularLiYichengRig(
   ctx: CanvasRenderingContext2D,
   opts: HeroRenderState
 ): void {
-  const wDef = WEAPONS[opts.equippedWeaponId] || WEAPONS.sword_1;
+  const wDef = WEAPONS[opts.equippedWeaponId] || WEAPONS.sword_0;
   const isHeavy = wDef.archetype === 'greatsword';
   const sc = opts.scale ?? 1;
   const isStagePreview = sc > 1.05;
@@ -827,7 +834,7 @@ export function renderModularLiYichengRig(
     );
   } else if (opts.secondaryWeaponId && opts.secondaryWeaponId !== opts.equippedWeaponId) {
     const secW = WEAPONS[opts.secondaryWeaponId];
-    if (secW) {
+    if (secW && secW.archetype !== wDef.archetype) {
       drawBackCarriedWeapon(
         ctx,
         secW.archetype,
@@ -1842,7 +1849,7 @@ export function drawWorldDrop(
         ctx.drawImage(Assets.get('part_wpn_daggers')!, -17, -6, 34, 12);
       }
     } else {
-      const w = wpnDef || WEAPONS.sword_1;
+      const w = wpnDef || WEAPONS.sword_0;
       // 每把武器按自身真实兵刃外形（轻剑/陌刀/长枪/双刺/九节鞭）与专属品阶光晕独立呈现，空中翻旋、落地斜倚！
       const restTilt = w.archetype === 'whip' ? 0 : -0.66;
       ctx.rotate(inAir ? spin : restTilt);
@@ -2019,16 +2026,6 @@ export function drawWorldDrop(
       ctx.drawImage(talImg, -w * 0.5, -h * 0.5, w, h);
       ctx.restore();
     }
-  }
-
-  // 仅当少年靠近重要器物时浮现清秀题名
-  if ((d.isStaticPickup || d.kind === 'yao_core' || d.kind === 'weapon' || d.kind === 'armor') && Math.abs(playerX - d.x) < 155) {
-    ctx.font = 'bold 12px "STKaiti", "KaiTi", serif';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.92)';
-    ctx.fillText(d.label, 1.1, -43.8);
-    ctx.fillStyle = '#fef08a';
-    ctx.fillText(d.label, 0, -45);
   }
 
   ctx.restore();

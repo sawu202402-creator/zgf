@@ -51,7 +51,7 @@ export interface WeaponDef {
   id: string;
   name: string;
   archetype: WeaponArchetype;
-  tier: 1 | 2 | 3;
+  tier: 1 | 2 | 3 | 4;
   atk: number;
   critBonus: number;
   windupMs: number;

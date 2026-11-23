@@ -259,31 +259,39 @@ export class InkVaniaRenderer {
       const h = room.pixelH - wz.surfaceY;
 
       if (wz.liquidKind === 'lava') {
-        // 赤火古窖熔金铁渠：炽烈橙金岩浆河流 + 热浪辉光！
+        // 赤火古窖熔金铁渠：深沉暗赤玄武岩浆层 + 无接缝椭球热浪辉光
         const lg = ctx.createLinearGradient(0, wz.surfaceY, 0, room.pixelH);
-        lg.addColorStop(0, '#fef08a');
-        lg.addColorStop(0.22, '#f97316');
-        lg.addColorStop(0.65, '#991b1b');
-        lg.addColorStop(1, '#450a0a');
+        lg.addColorStop(0, '#ea580c');
+        lg.addColorStop(0.18, '#c2410c');
+        lg.addColorStop(0.55, '#7c2d12');
+        lg.addColorStop(1, '#1f0707');
         ctx.fillStyle = lg;
         ctx.fillRect(wz.x1, wz.surfaceY, w, h);
 
+        // 表面暗凝火成岩浮渣与金红裂隙（消除刺眼纯黄卡通椭圆）
         ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-        const glow = ctx.createLinearGradient(0, wz.surfaceY - 88, 0, wz.surfaceY + 24);
-        glow.addColorStop(0, 'rgba(249, 115, 22, 0)');
-        glow.addColorStop(1, 'rgba(251, 146, 60, 0.35)');
-        ctx.fillStyle = glow;
-        ctx.fillRect(wz.x1, wz.surfaceY - 88, w, 112);
-
-        for (let i = 0; i < 10; i++) {
-          const rx = wz.x1 + ((i * 97 + this.ambientTime * 28) % Math.max(40, w - 20)) + 10;
-          const ry = wz.surfaceY + 4 + (i % 3) * 6;
-          ctx.fillStyle = 'rgba(254, 249, 195, 0.58)';
+        for (let i = 0; i < 9; i++) {
+          const rx = wz.x1 + ((i * 89 + this.ambientTime * 18) % Math.max(40, w - 36)) + 18;
+          const ry = wz.surfaceY + 5 + (i % 3) * 5;
+          ctx.fillStyle = i % 2 === 0 ? 'rgba(28, 10, 8, 0.62)' : 'rgba(253, 186, 116, 0.42)';
           ctx.beginPath();
-          ctx.ellipse(rx, ry, 15, 1.8, 0, 0, Math.PI * 2);
+          ctx.ellipse(rx, ry, i % 2 === 0 ? 22 : 12, 2.2, 0, 0, Math.PI * 2);
           ctx.fill();
         }
+
+        ctx.globalCompositeOperation = 'lighter';
+        const midX = wz.x1 + w * 0.5;
+        const radX = Math.max(80, w * 0.62);
+        ctx.translate(midX, wz.surfaceY + 6);
+        ctx.scale(radX / 96, 1);
+        const glow = ctx.createRadialGradient(0, 0, 6, 0, 0, 96);
+        glow.addColorStop(0, 'rgba(249, 115, 22, 0.28)');
+        glow.addColorStop(0.55, 'rgba(194, 65, 12, 0.12)');
+        glow.addColorStop(1, 'rgba(154, 52, 18, 0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(0, 0, 96, 0, Math.PI * 2);
+        ctx.fill();
         ctx.restore();
         continue;
       }
@@ -1376,7 +1384,7 @@ export class InkVaniaRenderer {
   private renderAfterImages(ctx: CanvasRenderingContext2D, engine: GameEngine): void {
     const slot = engine.slot;
     const p = engine.player;
-    const wDef = slot ? WEAPONS[slot.equippedWeapon] || WEAPONS.sword_1 : WEAPONS.sword_1;
+    const wDef = slot ? WEAPONS[slot.equippedWeapon] || WEAPONS.sword_0 : WEAPONS.sword_0;
     const frameKey = selectHeroSpriteFrame({
       vx: p.vx,
       vy: p.vy,
@@ -1475,22 +1483,22 @@ export class InkVaniaRenderer {
       ctx.restore();
     }
 
-    // 2. 致敬《恶魔城：月下夜想曲》经典升级演出：真阳通天金光柱 + LEVEL UP！
+    // 2. 极简升级演出：内敛金光气柱 + 二字「破境」微印
     if (engine.levelUpPillarTimer > 0) {
-      const a = Math.min(1, engine.levelUpPillarTimer * 1.1);
+      const a = Math.min(1, engine.levelUpPillarTimer * 1.15);
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      const lg = ctx.createLinearGradient(p.x - 42, 0, p.x + 42, 0);
+      const lg = ctx.createLinearGradient(p.x - 28, 0, p.x + 28, 0);
       lg.addColorStop(0, 'rgba(253, 224, 71, 0)');
-      lg.addColorStop(0.5, `rgba(253, 224, 71, ${0.55 * a})`);
+      lg.addColorStop(0.5, `rgba(253, 224, 71, ${0.42 * a})`);
       lg.addColorStop(1, 'rgba(253, 224, 71, 0)');
       ctx.fillStyle = lg;
-      ctx.fillRect(p.x - 42, p.y - 340, 84, 345);
+      ctx.fillRect(p.x - 28, p.y - 240, 56, 244);
 
-      ctx.font = '900 18px "STKaiti", "KaiTi", serif';
+      ctx.font = 'bold 14px "STKaiti", "KaiTi", serif';
       ctx.textAlign = 'center';
-      ctx.fillStyle = `rgba(254, 249, 195, ${a})`;
-      ctx.fillText('✦ 真阳贯顶 · 武道破境 ✦', p.x, p.y - 102 - (1.45 - engine.levelUpPillarTimer) * 28);
+      ctx.fillStyle = `rgba(254, 249, 195, ${a * 0.92})`;
+      ctx.fillText('破境', p.x, p.y - 92 - (1.05 - engine.levelUpPillarTimer) * 20);
       ctx.restore();
     }
 

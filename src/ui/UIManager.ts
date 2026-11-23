@@ -286,9 +286,8 @@ export class UIManager {
             <div class="zx-mp-fill" id="hud-mp-fill" style="width:100%"></div>
           </div>
           <div class="zx-hud-res-row" id="hud-res-row"></div>
-          <div class="zx-weapon-sheath" id="hud-wpn-sheath" title="点击或按 [Q] 瞬间切换主手神兵">
+          <div class="zx-weapon-sheath" id="hud-wpn-sheath" title="点击或按 [Q] 切换主手兵刃">
             <span id="hud-wpn-icon"></span>
-            <span class="zx-wpn-name" id="hud-wpn-name">青竹寒铁剑</span>
             <span class="zx-swap-hint" id="hud-swap-hint"></span>
           </div>
         </div>
@@ -378,7 +377,7 @@ export class UIManager {
     if (!s || !r || !this.hudEl) return;
 
     const p = this.engine.player;
-    const w = WEAPONS[s.equippedWeapon] || WEAPONS.sword_1;
+    const w = WEAPONS[s.equippedWeapon] || WEAPONS.sword_0;
 
     const isTouch = this.engine.input.usingTouch || NativeApp.isMobileOrTablet();
 
@@ -586,7 +585,7 @@ export class UIManager {
         </div>
       `;
       footerLeft =
-        '十大剧情关卡垂直立体玄城 · 阳表 55 厅 + 180° 倒悬里城 55 厅（含 4×2 朱雀天街与 14 座破壁隐藏密室）';
+        '十大剧情关卡垂直立体玄城 · 阳表 77 厅 + 180° 倒悬里城 77 厅（共 154 座手工殿宇与 14 座破壁密室）';
     } else if (this.pauseTab === 'bestiary') {
       mainHtml = this.buildBestiaryTabHtml();
       footerLeft = '镇妖司百鬼图鉴：记录妖邪属性、常掉补给、稀世神兵掉宝与本命妖丹';
@@ -1182,7 +1181,7 @@ export class UIManager {
   private buildEquipColumnsHtml(): { html: string; footer: string } {
     const s = this.engine.slot!;
     const p = this.engine.player;
-    const curWpn = WEAPONS[s.equippedWeapon] || WEAPONS.sword_1;
+    const curWpn = WEAPONS[s.equippedWeapon] || WEAPONS.sword_0;
     const curSub = SUB_WEAPONS[s.equippedSubWeapon] || SUB_WEAPONS.dagger_throw;
     const curArm = ARMORS[s.equippedArmor] || ARMORS.cloth_tunic;
     const curAcc = ARMORS[s.equippedAccessory] || ARMORS.broken_jade;
@@ -2153,25 +2152,33 @@ export class UIManager {
           {
             id: 'daggers_1',
             kind: 'wpn',
-            name: '短兵 · 分水峨眉双刺',
-            desc: '零前摇极速双月连打 · 绕背必定暴击',
-            price: 110,
+            name: '短兵 · 生铁双短匕',
+            desc: '零前摇极速双匕连刺 · 绕背必定暴击',
+            price: 120,
             icon: getWeaponArtHtml('daggers', 54),
           },
           {
             id: 'whip_1',
             kind: 'wpn',
-            name: '软鞭 · 乌金九节鞭',
-            desc: '奇门九节铁链鞭 · 八向雷音抽击控场',
-            price: 135,
+            name: '软鞭 · 生铁九节鞭',
+            desc: '军中九节铁链鞭 · 八向远距抽击控场',
+            price: 165,
             icon: getWeaponArtHtml('whip', 54),
           },
           {
-            id: 'cloud_brocade',
+            id: 'sword_1',
+            kind: 'wpn',
+            name: '轻剑 · 制式精铁剑',
+            desc: '百炼军中精铁佩剑 · 锋利轻捷',
+            price: 160,
+            icon: getWeaponArtHtml('sword', 54),
+          },
+          {
+            id: 'iron_lamellar',
             kind: 'arm',
-            name: '宝甲 · 云纹蚕丝内甲',
-            desc: '护体 +11 · 气血 +25 · 真气 +15',
-            price: 150,
+            name: '军甲 · 边军铁札甲',
+            desc: '护体 +16 · 气血 +42 · 臂力 +4',
+            price: 420,
             icon: getSlotCategorySvg('armor'),
           },
           {
