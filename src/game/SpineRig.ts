@@ -269,6 +269,8 @@ class HeroSpineController {
     hurtRecoil?: number; // 0..1 恶魔城式受击仰身击退硬直度
     slashProgress: number | null; // 0..1 or null
     slashArchetype?: string;
+    slashComboStep?: number;
+    slashWeaponId?: string;
     skillKind?: string;
     skillProgress?: number | null;
     isStagePreview?: boolean;
@@ -347,26 +349,109 @@ class HeroSpineController {
       }
     } else if (opts.slashProgress !== null) {
       const p = opts.slashProgress;
-      const isHeavy = opts.slashArchetype === 'greatsword';
-      if (p < 0.24) {
-        // 出招前摇：拧腰蓄势后拉，如满弓待发！
-        const w = p / 0.24;
-        targetLean = (isHeavy ? -13 : -8.5) * Math.sin(w * Math.PI * 0.5);
-        chestLift = -2.5 * w;
-        shoulderTwist = -0.09 * w;
-      } else if (p < 0.58) {
-        // 挥刃斩出：全身寸劲向前爆发突刺！
-        const s = (p - 0.24) / 0.34;
-        const punch = Math.sin(s * Math.PI * 0.65);
-        targetLean = (isHeavy ? 17 : 13.5) * punch;
-        chestLift = 2.2 * punch;
-        ribExpand = 1.05;
-        shoulderTwist = 0.11 * punch;
+      const arch = opts.slashArchetype || 'sword';
+      const wId = opts.slashWeaponId || '';
+      const step = opts.slashComboStep ?? 0;
+      const isHeavy = arch === 'greatsword';
+
+      if (wId === 'greatsword_sunder') {
+        if (p < 0.34) {
+          const w = p / 0.34;
+          targetLean = -15.5 * Math.sin(w * Math.PI * 0.5);
+          chestLift = -4.0 * w;
+          shoulderTwist = -0.14 * w;
+        } else if (p < 0.65) {
+          const s = (p - 0.34) / 0.31;
+          const slam = Math.sin(Math.min(1, s * 1.15) * Math.PI * 0.5);
+          targetLean = 18.0 * slam;
+          chestLift = 5.5 * slam;
+          ribExpand = 1.07;
+          shoulderTwist = 0.16 * slam;
+        } else {
+          const r = 1 - (p - 0.65) / 0.35;
+          targetLean = 13 * r * r;
+          chestLift = 4.2 * r;
+        }
+      } else if (arch === 'spear') {
+        const isSweep = wId === 'spear_3' && step === 2;
+        if (p < 0.2) {
+          const w = p / 0.2;
+          targetLean = -10.5 * Math.sin(w * Math.PI * 0.5);
+          chestLift = -1.8 * w;
+          shoulderTwist = isSweep ? -0.16 * w : -0.09 * w;
+        } else if (p < 0.62) {
+          const s = (p - 0.2) / 0.42;
+          const punch = Math.sin(s * Math.PI * 0.72);
+          targetLean = (isSweep ? 18.0 : 16.5) * punch;
+          chestLift = isSweep ? 2.5 * punch : 3.2 * punch;
+          ribExpand = 1.06;
+          shoulderTwist = (isSweep ? 0.22 : 0.1) * punch;
+        } else {
+          const r = 1 - (p - 0.62) / 0.38;
+          targetLean = 10 * r * r;
+          shoulderTwist = 0.05 * r;
+        }
+      } else if (arch === 'daggers') {
+        const alt = step % 2 === 1 ? -1 : 1;
+        const flurry = Math.sin(p * Math.PI);
+        targetLean = 14.5 * flurry;
+        chestLift = 3.8 * flurry;
+        ribExpand = 1.04;
+        shoulderTwist = alt * 0.15 * flurry;
+      } else if (arch === 'whip') {
+        if (p < 0.24) {
+          const w = p / 0.24;
+          targetLean = -11.5 * Math.sin(w * Math.PI * 0.5);
+          chestLift = -2.5 * w;
+          shoulderTwist = -0.14 * w;
+        } else if (p < 0.62) {
+          const s = (p - 0.24) / 0.38;
+          const snap = Math.sin(s * Math.PI * 0.65);
+          targetLean = 14.5 * snap;
+          chestLift = 1.8 * snap;
+          ribExpand = 1.05;
+          shoulderTwist = 0.16 * snap;
+        } else {
+          const r = 1 - (p - 0.62) / 0.38;
+          targetLean = 9 * r * r;
+        }
+      } else if (isHeavy) {
+        const isUp = (wId === 'greatsword_1' || wId === 'greatsword_2') && step === 1;
+        if (p < 0.3) {
+          const w = p / 0.3;
+          targetLean = (isUp ? 8 : -13.5) * Math.sin(w * Math.PI * 0.5);
+          chestLift = (isUp ? 3.2 : -2.6) * w;
+          shoulderTwist = -0.12 * w;
+        } else if (p < 0.64) {
+          const s = (p - 0.3) / 0.34;
+          const punch = Math.sin(s * Math.PI * 0.68);
+          targetLean = (isUp ? -6.5 : 17.5) * punch;
+          chestLift = (isUp ? -3.8 : 2.8) * punch;
+          ribExpand = 1.07;
+          shoulderTwist = (isUp ? -0.14 : 0.15) * punch;
+        } else {
+          const r = 1 - (p - 0.64) / 0.36;
+          targetLean = 12 * r * r;
+        }
       } else {
-        // 收刀回气弹性缓冲
-        const r = 1 - (p - 0.58) / 0.42;
-        targetLean = 11 * r * r;
-        shoulderTwist = 0.06 * r;
+        // 轻剑三式：起手蓄势 -> 寸劲前突（第二式微仰撩挑，第三式猛然贯冲）
+        if (p < 0.22) {
+          const w = p / 0.22;
+          targetLean = -9.5 * Math.sin(w * Math.PI * 0.5);
+          chestLift = -2.2 * w;
+          shoulderTwist = (step === 1 ? 0.08 : -0.1) * w;
+        } else if (p < 0.6) {
+          const s = (p - 0.22) / 0.38;
+          const punch = Math.sin(s * Math.PI * 0.68);
+          targetLean = (step === 2 ? 15.5 : step === 1 ? 9.5 : 13.5) * punch;
+          chestLift = (step === 1 ? -2.8 : 2.2) * punch;
+          ribExpand = 1.05;
+          shoulderTwist = (step === 1 ? -0.12 : step === 2 ? 0.15 : 0.11) * punch;
+        } else {
+          const r = 1 - (p - 0.6) / 0.4;
+          targetLean = 10 * r * r;
+          shoulderTwist = 0.06 * r;
+        }
       }
     } else if ((opts.hurtRecoil || 0) > 0.01) {
       // 《恶魔城》经典受击仰身硬直弧：胸腹受创向后折仰、下盘微沉
@@ -518,11 +603,11 @@ class HeroSpineController {
   }
 
   /**
-   * 在世界空间或试剑台局部空间绘制浓墨勾线侠客束发长带（随风与轻功实时猎猎飞舞！）
+   * 束发赤带已内嵌于纯手绘主角帧内，保留方法签名以兼容调用方并避免叠加扁平矢量红线。
    */
   public drawHeadbandRibbon(
-    ctx: CanvasRenderingContext2D,
-    opts: {
+    _ctx: CanvasRenderingContext2D,
+    _opts: {
       worldX: number;
       worldY: number;
       facing: 1 | -1;
@@ -531,61 +616,7 @@ class HeroSpineController {
       isStagePreview?: boolean;
     }
   ): void {
-    if (opts.isStagePreview) {
-      // 兵匣试剑台局部风动飘带
-      ctx.save();
-      const ax = -8;
-      const ay = -81;
-      ctx.lineCap = 'round';
-      ctx.strokeStyle = '#090d16';
-      ctx.lineWidth = 5.2;
-      ctx.beginPath();
-      ctx.moveTo(ax, ay);
-      for (let i = 1; i <= 5; i++) {
-        const px = ax - i * 6.5;
-        const py = ay + i * 1.8 + Math.sin(opts.animTime * 5.4 - i * 0.75) * (2.2 + i * 0.65);
-        ctx.lineTo(px, py);
-      }
-      ctx.stroke();
-
-      ctx.strokeStyle = opts.isXiaoMode ? '#7c3aed' : '#b91c1c';
-      ctx.lineWidth = 2.8;
-      ctx.stroke();
-      ctx.restore();
-      return;
-    }
-
-    if (this.ribbon.length < 3) return;
-    ctx.save();
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-
-    // 外层浓墨勾线（与手绘角色黑线笔触 100% 融为一体！）
-    for (let i = 0; i < this.ribbon.length - 1; i++) {
-      const p0 = this.ribbon[i];
-      const p1 = this.ribbon[i + 1];
-      const taper = 1 - i / this.ribbon.length;
-      ctx.strokeStyle = '#070a12';
-      ctx.lineWidth = 2.2 + taper * 3.4;
-      ctx.beginPath();
-      ctx.moveTo(p0.x - opts.worldX, p0.y - opts.worldY);
-      ctx.lineTo(p1.x - opts.worldX, p1.y - opts.worldY);
-      ctx.stroke();
-    }
-
-    // 内层朱砂赤绸 / 紫电发带色芯
-    for (let i = 0; i < this.ribbon.length - 1; i++) {
-      const p0 = this.ribbon[i];
-      const p1 = this.ribbon[i + 1];
-      const taper = 1 - i / this.ribbon.length;
-      ctx.strokeStyle = opts.isXiaoMode ? '#a855f7' : '#dc2626';
-      ctx.lineWidth = 1.0 + taper * 2.1;
-      ctx.beginPath();
-      ctx.moveTo(p0.x - opts.worldX, p0.y - opts.worldY);
-      ctx.lineTo(p1.x - opts.worldX, p1.y - opts.worldY);
-      ctx.stroke();
-    }
-    ctx.restore();
+    return;
   }
 }
 

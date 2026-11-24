@@ -606,7 +606,7 @@ export function drawPaintedChainTrack(
  */
 export function drawPaintedVfxDisc(
   ctx: CanvasRenderingContext2D,
-  assetKey: 'vfx_xuanwu_ward' | 'vfx_bagua_formation' | 'vfx_ink_shockwave',
+  assetKey: AssetKey,
   x: number,
   y: number,
   radiusPx: number,
@@ -631,11 +631,63 @@ export function drawPaintedVfxDisc(
   ctx.drawImage(img, -w * 0.5, -h * 0.5, w, h);
 
   if (tintHex) {
-    const tinted = Assets.getTintedSilhouette(assetKey, tintHex);
+    const tinted = Assets.getTintedSilhouette(assetKey, tintHex, false);
     if (tinted) {
       ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = Math.max(0, Math.min(1, alpha * 0.72));
       ctx.drawImage(tinted, -w * 0.5, -h * 0.5, w, h);
+    }
+  }
+  ctx.restore();
+}
+
+export interface PaintedVfxSpriteOpts {
+  rotation?: number;
+  alpha?: number;
+  tintHex?: string;
+  tintAlpha?: number;
+  flipX?: boolean;
+  flipY?: boolean;
+  additive?: boolean;
+  anchorX?: number;
+  anchorY?: number;
+}
+
+/**
+ * 任意尺寸比例与锚点的纯手绘国风水墨特效贴图渲染器（零矢量锯齿、支持镜像、锚点与叠加态染墨光晕）
+ */
+export function drawPaintedVfxSprite(
+  ctx: CanvasRenderingContext2D,
+  assetKey: AssetKey,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  opts: PaintedVfxSpriteOpts = {}
+): void {
+  const img = Assets.get(assetKey);
+  const alpha = opts.alpha ?? 0.92;
+  if (!img || !img.width || !img.height || w <= 0.5 || h <= 0.5 || alpha <= 0.01) return;
+
+  const ax = opts.anchorX ?? 0.5;
+  const ay = opts.anchorY ?? 0.5;
+  const dx = -w * ax;
+  const dy = -h * ay;
+
+  ctx.save();
+  ctx.translate(x, y);
+  if (opts.rotation) ctx.rotate(opts.rotation);
+  if (opts.flipX || opts.flipY) ctx.scale(opts.flipX ? -1 : 1, opts.flipY ? -1 : 1);
+  if (opts.additive) ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+  ctx.drawImage(img, dx, dy, w, h);
+
+  if (opts.tintHex) {
+    const tinted = Assets.getTintedSilhouette(assetKey, opts.tintHex, false);
+    if (tinted) {
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = Math.max(0, Math.min(1, alpha * (opts.tintAlpha ?? 0.65)));
+      ctx.drawImage(tinted, dx, dy, w, h);
     }
   }
   ctx.restore();

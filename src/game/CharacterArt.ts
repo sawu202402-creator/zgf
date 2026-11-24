@@ -13,6 +13,7 @@ import {
   drawPaintedChainTrack,
   drawPaintedThunderBolt,
   drawPaintedVfxDisc,
+  drawPaintedVfxSprite,
   drawSoftGroundShadow,
 } from './GuofengWorldArt';
 import {
@@ -166,6 +167,8 @@ export function selectHeroSpriteFrame(opts: {
   runCycle: number;
   animTime: number;
   isHeavy: boolean;
+  weaponId?: string;
+  archetype?: WeaponArchetype;
   slash: ActiveSlash | null;
   skillAnim?: ActiveSkillAnim | null;
   isXiaoMode?: boolean;
@@ -181,6 +184,7 @@ export function selectHeroSpriteFrame(opts: {
     runCycle,
     animTime,
     isHeavy,
+    weaponId,
     slash,
     skillAnim,
     isXiaoMode,
@@ -199,30 +203,30 @@ export function selectHeroSpriteFrame(opts: {
       : 'boss_xiao_0';
   }
 
-  // 0A. 五大真气绝学与奇门副器专属武道身姿序列帧！
+  // 0A. 五大真气绝学与奇门副器专属无兵手绘武道身姿！
   if (skillAnim) {
     const sp = skillAnim.progress;
     if (skillAnim.kind === 'shuofeng_wave') {
-      if (isHeavy) return sp < 0.28 ? 'h18_modao_windup' : 'h18_modao_cleave';
-      return sp < 0.28 ? 'h18_sword_0' : 'h18_sword_2';
+      if (isHeavy) return sp < 0.28 ? 'h18_heavy_windup' : 'h18_heavy_cleave';
+      return sp < 0.28 ? 'h18_heavy_windup' : 'h18_atk_slash_down';
     }
     if (skillAnim.kind === 'shunying_flash') {
-      if (sp < 0.2) return 'h18_crouch';
-      if (sp < 0.68) return isHeavy ? 'h18_modao_cleave' : 'h18_sword_2';
+      if (sp < 0.2) return 'h18_dagger_cross';
+      if (sp < 0.68) return isHeavy ? 'h18_heavy_cleave' : 'h18_atk_slash_down';
       return 'h18_idle_1';
     }
     if (skillAnim.kind === 'jinghong_rising') {
       if (sp < 0.16) return 'h18_crouch';
-      return isHeavy ? 'h18_modao_windup' : 'h18_sword_1';
+      return 'h18_atk_slash_up';
     }
     if (skillAnim.kind === 'taiji_parry') {
-      return sp < 0.28 ? 'h18_sword_0' : 'h18_idle_1';
+      return sp < 0.28 ? 'h18_heavy_guard' : 'h18_idle_1';
     }
     if (skillAnim.kind === 'jiuyou_soulsteal') {
-      return sp < 0.28 ? 'h18_idle_1' : 'h18_sword_1';
+      return sp < 0.28 ? 'h18_heavy_guard' : 'h18_atk_slash_up';
     }
     if (skillAnim.kind === 'sub_throw') {
-      return sp < 0.24 ? 'h18_sword_0' : 'h18_sword_2';
+      return sp < 0.24 ? 'h18_idle_1' : 'h18_whip_snap';
     }
   }
 
@@ -230,41 +234,48 @@ export function selectHeroSpriteFrame(opts: {
   if (sliding) return 'h18_slide';
   if (diveKicking) return 'h18_divekick';
   if (crouching && onGround) {
-    if (slash && !isHeavy) return slash.progress > 0.35 ? 'h18_sword_2' : 'h18_crouch';
+    if (slash && !isHeavy) return slash.progress > 0.35 ? 'h18_spear_thrust' : 'h18_crouch';
     return 'h18_crouch';
   }
 
-  // 1. 挥兵斩击帧（五系神兵各自匹配抬手蓄势与破空出招身姿！）
+  // 1. 挥兵斩击帧（22把神兵按系别与独门招式套路精准切换无兵武道身法！）
   if (slash) {
     const pr = slash.progress;
+    const wId = slash.weaponId || weaponId || '';
     if (isHeavy) {
-      return pr < 0.34 ? 'h18_modao_windup' : 'h18_modao_cleave';
+      if ((wId === 'greatsword_1' || wId === 'greatsword_2') && slash.comboStep === 1) {
+        return pr < 0.26 ? 'h18_heavy_cleave' : 'h18_atk_slash_up';
+      }
+      return pr < 0.32 ? 'h18_heavy_windup' : 'h18_heavy_cleave';
     }
     if (slash.archetype === 'whip') {
-      // 九节鞭：先高举右臂抖鞭蓄势 (`h18_sword_1`)，再振臂向前破空抽击 (`h18_sword_2`)！
-      return pr < 0.24 ? 'h18_sword_1' : 'h18_sword_2';
+      return pr < 0.24 ? 'h18_atk_slash_up' : 'h18_whip_snap';
     }
     if (slash.archetype === 'spear') {
-      // 长枪：沉腰收枪蓄寸劲 (`h18_sword_0`)，再弓步挺枪怒刺 (`h18_sword_2`)！
-      return pr < 0.24 ? 'h18_sword_0' : 'h18_sword_2';
+      if (wId === 'spear_3') {
+        if (slash.comboStep === 1) return pr < 0.22 ? 'h18_spear_thrust' : 'h18_atk_slash_up';
+        if (slash.comboStep === 2) return pr < 0.26 ? 'h18_heavy_windup' : 'h18_heavy_cleave';
+      }
+      return pr < 0.2 ? 'h18_heavy_guard' : 'h18_spear_thrust';
     }
     if (slash.archetype === 'daggers') {
-      // 双刺：左右手交替反握高举 (`h18_sword_1`) 与贴身双月疾刺 (`h18_sword_2` / `h18_sword_0`)！
-      if (slash.comboStep % 2 === 1) {
-        return pr < 0.32 ? 'h18_sword_1' : 'h18_sword_2';
-      }
-      return pr < 0.32 ? 'h18_sword_0' : 'h18_sword_2';
+      if (slash.comboStep === 1) return pr < 0.25 ? 'h18_dagger_cross' : 'h18_atk_slash_up';
+      if (slash.comboStep === 2) return pr < 0.22 ? 'h18_whip_snap' : 'h18_atk_slash_down';
+      return 'h18_dagger_cross';
     }
     if (slash.pogoDown) {
-      return 'h18_sword_2';
+      return 'h18_atk_slash_down';
+    }
+    if (slash.comboStep === 0) {
+      return pr < 0.24 ? 'h18_heavy_windup' : 'h18_atk_slash_down';
     }
     if (slash.comboStep === 1) {
-      return pr < 0.28 ? 'h18_sword_1' : 'h18_sword_0';
+      return pr < 0.22 ? 'h18_atk_slash_down' : 'h18_atk_slash_up';
     }
-    if (slash.comboStep === 2) {
-      return pr < 0.28 ? 'h18_sword_0' : 'h18_sword_1';
+    if (wId === 'sword_0' || wId === 'sword_phantom') {
+      return pr < 0.2 ? 'h18_heavy_guard' : 'h18_spear_thrust';
     }
-    return pr < 0.24 ? 'h18_sword_0' : 'h18_sword_2';
+    return pr < 0.26 ? 'h18_heavy_windup' : 'h18_heavy_cleave';
   }
 
   // 2. 腾空跃起与凌空下坠帧
@@ -279,9 +290,9 @@ export function selectHeroSpriteFrame(opts: {
     return RUN_CYCLE_FRAMES[idx];
   }
 
-  // 4. 地面站立待机（重剑扛肩豪迈站姿 / 轻剑少年侠客抱剑与剑指呼吸待机）
+  // 4. 地面站立待机（重兵抱刀备战架势 / 轻剑侠客立定与剑指呼吸）
   if (isHeavy) {
-    return 'h18_modao_idle';
+    return 'h18_heavy_guard';
   }
   return animTime % 5.4 > 4.2 ? 'h18_idle_1' : 'h18_idle_0';
 }
@@ -311,6 +322,14 @@ const HERO_HAND_SOCKETS: Partial<Record<AssetKey, HandSocketDef>> = {
   h18_sword_1: { rx: 169, ry: 75, rAngle: -2.64, lx: 117, ly: 145, lAngle: 2.35 },
   h18_sword_2: { rx: 185, ry: 125, rAngle: 0.0, lx: 122, ly: 136, lAngle: 2.55 },
   h18_crouch: { rx: 117, ry: 166, rAngle: 0.05, lx: 109, ly: 166, lAngle: 0.12 },
+  h18_atk_slash_down: { rx: 177, ry: 179, rAngle: 0.72, lx: 67, ly: 146, lAngle: -2.65 },
+  h18_atk_slash_up: { rx: 162, ry: 71, rAngle: -1.18, lx: 116, ly: 154, lAngle: 2.35 },
+  h18_spear_thrust: { rx: 116, ry: 164, rAngle: -0.29, lx: 212, ly: 135, lAngle: -0.29 },
+  h18_whip_snap: { rx: 213, ry: 123, rAngle: 0.0, lx: 105, ly: 100, lAngle: -2.1 },
+  h18_dagger_cross: { rx: 163, ry: 130, rAngle: -0.22, lx: 148, ly: 136, lAngle: 0.35 },
+  h18_heavy_guard: { rx: 165, ry: 114, rAngle: -1.65, lx: 160, ly: 110, lAngle: -1.65 },
+  h18_heavy_windup: { rx: 160, ry: 78, rAngle: -2.42, lx: 136, ly: 66, lAngle: -2.42 },
+  h18_heavy_cleave: { rx: 169, ry: 173, rAngle: 0.56, lx: 161, ly: 175, lAngle: 0.56 },
 };
 
 function drawFistKnuckleClasp(ctx: CanvasRenderingContext2D): void {
@@ -425,6 +444,36 @@ function drawSingleCurvedDagger(
   ctx.restore();
 }
 
+function easeOutCubic(t: number): number {
+  const u = Math.max(0, Math.min(1, t));
+  return 1 - Math.pow(1 - u, 3);
+}
+
+function drawWeaponWithMotionTrail(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  anchorX: number,
+  anchorY: number,
+  pivotFracX: number,
+  w: number,
+  h: number,
+  angles: number[],
+  alphas: number[],
+  extraShift = 0
+): void {
+  for (let i = angles.length - 1; i >= 0; i--) {
+    const a = angles[i];
+    const al = alphas[i];
+    if (al <= 0.02) continue;
+    ctx.save();
+    ctx.translate(anchorX + extraShift * (i === 0 ? 1 : 0.72), anchorY);
+    ctx.rotate(a);
+    ctx.globalAlpha = al;
+    ctx.drawImage(img, -w * pivotFracX, -h * 0.5, w, h);
+    ctx.restore();
+  }
+}
+
 function drawEquippedWeaponInHeroHands(
   ctx: CanvasRenderingContext2D,
   frameKey: AssetKey,
@@ -443,36 +492,6 @@ function drawEquippedWeaponInHeroHands(
     scale: HERO_SPRITE_METRICS.baseScale,
   };
 
-  // 重刃系：跑动/跳跃/下蹲时重刃背负于背；站立/蓄力/劈斩时沿双手握柄方向直接绘出对应重兵真容！
-  if (wDef.archetype === 'greatsword') {
-    if (
-      frameKey === 'h18_modao_idle' ||
-      frameKey === 'h18_modao_windup' ||
-      frameKey === 'h18_modao_cleave'
-    ) {
-      const gsImg = Assets.get(resolveWeaponAssetKey('greatsword', wDef.id));
-      const bladeSeg =
-        frameKey === 'h18_modao_idle'
-          ? { p0: [152, 86], p1: [84, 52] }
-          : frameKey === 'h18_modao_windup'
-            ? { p0: [154, 62], p1: [82, 26] }
-            : { p0: [176, 158], p1: [246, 206] };
-      const a = transformSpinePoint(bladeSeg.p0[0], bladeSeg.p0[1], metrics, joints);
-      const b = transformSpinePoint(bladeSeg.p1[0], bladeSeg.p1[1], metrics, joints);
-      if (gsImg) {
-        const ang = Math.atan2(b.y - a.y, b.x - a.x);
-        const gsLen = wDef.tier >= 4 ? 98 : wDef.tier === 3 ? 92 : 84;
-        const gsH = gsLen * (gsImg.height / gsImg.width);
-        ctx.save();
-        ctx.translate(a.x, a.y);
-        ctx.rotate(ang);
-        ctx.drawImage(gsImg, -gsLen * 0.22, -gsH * 0.5, gsLen, gsH);
-        ctx.restore();
-      }
-    }
-    return;
-  }
-
   const sock = HERO_HAND_SOCKETS[frameKey];
   if (!sock) return;
 
@@ -482,91 +501,258 @@ function drawEquippedWeaponInHeroHands(
       ? transformSpinePoint(sock.lx, sock.ly, metrics, joints)
       : null;
 
-  // 1. 双刺奇门系（生铁双短匕 / 碧蟾曲刃毒刺 / 分水精钢峨眉刺 / 子母鸳鸯追魂钺——全部实装手绘贴图！）
+  // 0. 重刃系：跑动/跳跃/下蹲时重兵背负于背；站立备战、蓄力举刀与劈斩 smashing 全程手握实兵贴图随弧线挥舞！
+  if (wDef.archetype === 'greatsword') {
+    if (
+      frameKey !== 'h18_heavy_guard' &&
+      frameKey !== 'h18_heavy_windup' &&
+      frameKey !== 'h18_heavy_cleave' &&
+      frameKey !== 'h18_atk_slash_up' &&
+      frameKey !== 'h18_atk_slash_down'
+    ) {
+      return;
+    }
+    const gsImg = Assets.get(resolveWeaponAssetKey('greatsword', wDef.id));
+    if (!gsImg || !gsImg.width || !gsImg.height) return;
+    const gsLen = wDef.tier >= 4 ? 98 : wDef.tier === 3 ? 92 : 84;
+    const gsH = gsLen * (gsImg.height / gsImg.width);
+    const gripX = lHand ? (rHand.x + lHand.x) * 0.5 : rHand.x;
+    const gripY = lHand ? (rHand.y + lHand.y) * 0.5 : rHand.y;
+
+    const evalHeavyAngle = (pr: number): number => {
+      const step = slash?.comboStep ?? 0;
+      if (wDef.id === 'greatsword_sunder') {
+        if (pr < 0.34) return -2.42 - easeOutCubic(pr / 0.34) * 0.36;
+        const k = easeOutCubic((pr - 0.34) / 0.42);
+        return -2.78 + k * 3.16; // 垂直高举砸向地面 (+0.38 rad)
+      }
+      if ((wDef.id === 'greatsword_1' || wDef.id === 'greatsword_2') && step === 1) {
+        if (pr < 0.26) return 0.92 + easeOutCubic(pr / 0.26) * 0.28;
+        const k = easeOutCubic((pr - 0.26) / 0.54);
+        return 1.2 - k * 3.15; // 下斜扫撩起 (-1.95 rad)
+      }
+      if (wDef.id === 'greatsword_2') {
+        if (pr < 0.3) return -2.48 - easeOutCubic(pr / 0.3) * 0.22;
+        const k = easeOutCubic((pr - 0.3) / 0.52);
+        return -2.7 + k * 4.35; // 250° 赤炎九环巨轮回旋斩
+      }
+      if (pr < 0.32) return -2.38 - easeOutCubic(pr / 0.32) * 0.3;
+      const k = easeOutCubic((pr - 0.32) / 0.5);
+      return -2.68 + k * 3.45;
+    };
+
+    if (slash) {
+      const pr = slash.progress;
+      const curA = evalHeavyAngle(pr) + rHand.angle;
+      const isSwinging = pr >= 0.28 && pr <= 0.88;
+      if (isSwinging) {
+        const g1 = evalHeavyAngle(Math.max(0.24, pr - 0.055)) + rHand.angle;
+        const g2 = evalHeavyAngle(Math.max(0.24, pr - 0.11)) + rHand.angle;
+        drawWeaponWithMotionTrail(
+          ctx,
+          gsImg,
+          gripX,
+          gripY,
+          0.22,
+          gsLen,
+          gsH,
+          [curA, g1, g2],
+          [1, 0.38, 0.18]
+        );
+      } else {
+        drawWeaponWithMotionTrail(ctx, gsImg, gripX, gripY, 0.22, gsLen, gsH, [curA], [1]);
+      }
+    } else if (skillAnim) {
+      const sp = skillAnim.progress;
+      const skA =
+        skillAnim.kind === 'jinghong_rising'
+          ? -1.65 + sp * 0.4
+          : sp < 0.28
+            ? -2.55
+            : -2.5 + easeOutCubic((sp - 0.28) / 0.55) * 3.2;
+      drawWeaponWithMotionTrail(
+        ctx,
+        gsImg,
+        gripX,
+        gripY,
+        0.22,
+        gsLen,
+        gsH,
+        [skA + rHand.angle],
+        [1]
+      );
+    } else {
+      const idleA = -2.08 + Math.sin(animTime * 2.8) * 0.035 + rHand.angle;
+      drawWeaponWithMotionTrail(ctx, gsImg, gripX, gripY, 0.22, gsLen, gsH, [idleA], [1]);
+    }
+    ctx.save();
+    ctx.translate(rHand.x, rHand.y);
+    drawFistKnuckleClasp(ctx);
+    ctx.restore();
+    return;
+  }
+
+  // 1. 双刺奇门系（生铁双短匕 / 碧蟾曲刃毒刺 / 分水精钢峨眉刺 / 子母鸳鸯追魂钺）
   if (wDef.archetype === 'daggers') {
     const dImg = Assets.get(resolveWeaponAssetKey('daggers', wDef.id));
-    const drawHandDagger = (reverseGrip: boolean) => {
+    const drawHandDagger = (reverseGrip: boolean, extraRot = 0, alpha = 1) => {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      if (extraRot) ctx.rotate(extraRot);
       if (!dImg || !dImg.width || !dImg.height) {
         drawSingleCurvedDagger(ctx, wDef, reverseGrip);
+        ctx.restore();
         return;
       }
       const centered = wDef.id === 'daggers_2' || wDef.id === 'daggers_3';
-      const dLen = wDef.id === 'daggers_2' ? 38 : 34;
-      const maxH = wDef.id === 'daggers_3' ? 16 : 12;
+      const dLen = wDef.id === 'daggers_2' ? 40 : wDef.id === 'daggers_3' ? 38 : 34;
+      const maxH = wDef.id === 'daggers_3' ? 18 : 13;
       let w = dLen;
       let h = w * (dImg.height / dImg.width);
       if (h > maxH) {
         h = maxH;
         w = h * (dImg.width / dImg.height);
       }
-      ctx.save();
       if (reverseGrip) ctx.scale(-1, -1);
       const px = centered ? -w * 0.5 : -w * 0.22;
       ctx.drawImage(dImg, px, -h * 0.5, w, h);
       ctx.restore();
     };
 
+    const isEmeiSpin = wDef.id === 'daggers_2' && Boolean(slash);
+    const isTwinBoomerang = wDef.id === 'daggers_3' && slash?.comboStep === 2;
+    const pr = slash ? slash.progress : 0;
+    const sweepOffset = slash
+      ? pr < 0.2
+        ? -(pr / 0.2) * 0.55
+        : -0.55 + easeOutCubic((pr - 0.2) / 0.65) * 1.95
+      : 0;
+    const spinA = isEmeiSpin ? pr * Math.PI * 6 : isTwinBoomerang ? pr * Math.PI * 5 : 0;
+    const boomDist = isTwinBoomerang ? Math.sin(Math.min(1, pr * 1.05) * Math.PI) * 58 : 0;
+
     if (lHand && sock.lAngle !== undefined) {
       ctx.save();
-      ctx.translate(lHand.x, lHand.y);
-      ctx.rotate(sock.lAngle + lHand.angle);
-      drawHandDagger(frameKey === 'h18_idle_1');
-      drawFistKnuckleClasp(ctx);
+      ctx.translate(
+        lHand.x + boomDist * 0.85,
+        lHand.y - Math.sin(pr * Math.PI) * (isTwinBoomerang ? 12 : 4)
+      );
+      ctx.rotate(sock.lAngle + lHand.angle - sweepOffset * 0.72);
+      if (slash && !isEmeiSpin && !isTwinBoomerang) {
+        drawHandDagger(true, -0.35, 0.3);
+      }
+      drawHandDagger(wDef.id === 'daggers_poison' || slash?.comboStep === 1, -spinA, 1);
+      if (!isTwinBoomerang || boomDist < 8) drawFistKnuckleClasp(ctx);
       ctx.restore();
     }
+
     ctx.save();
-    ctx.translate(rHand.x, rHand.y);
+    ctx.translate(
+      rHand.x + boomDist,
+      rHand.y + Math.sin(pr * Math.PI) * (isTwinBoomerang ? 10 : 0)
+    );
     const rAng =
       slash && slash.pogoDown
         ? 1.22 + rHand.angle
-        : sock.rAngle + rHand.angle + (frameKey === 'h18_sword_1' ? 0.35 : 0);
+        : sock.rAngle + rHand.angle + (slash?.comboStep === 1 ? -sweepOffset : sweepOffset);
     ctx.rotate(rAng);
-    drawHandDagger(frameKey === 'h18_sword_1');
-    drawFistKnuckleClasp(ctx);
+    if (slash && !isEmeiSpin && !isTwinBoomerang) {
+      drawHandDagger(false, -0.38, 0.34);
+    }
+    drawHandDagger(wDef.id === 'daggers_poison' && slash?.comboStep === 1, spinA, 1);
+    if (!isTwinBoomerang || boomDist < 8) drawFistKnuckleClasp(ctx);
     ctx.restore();
     return;
   }
 
-  // 2. 长兵系（白蜡步卒枪 / 寒星龙胆亮银枪 / 紫电惊雷蛇矛 / 破阵紫金方天戟）：每杆长兵皆呈现独立手绘真容！
+  // 2. 长兵系（白蜡步卒枪 / 寒星龙胆亮银枪 / 紫电惊雷蛇矛 / 破阵紫金方天戟）
   if (wDef.archetype === 'spear') {
     const spImg = Assets.get(resolveWeaponAssetKey('spear', wDef.id));
-    if (!spImg) return;
+    if (!spImg || !spImg.width || !spImg.height) return;
     const spLen = wDef.tier >= 4 ? 128 : wDef.tier === 3 ? 118 : 108;
     const spH = spLen * (spImg.height / spImg.width);
+    const gripX = frameKey === 'h18_spear_thrust' ? (rHand.x + (lHand?.x ?? rHand.x)) * 0.5 : rHand.x;
+    const gripY = frameKey === 'h18_spear_thrust' ? (rHand.y + (lHand?.y ?? rHand.y)) * 0.5 : rHand.y;
 
     ctx.save();
     if (slash) {
       const pr = slash.progress;
-      const aimAng =
-        (slash.pogoDown ? 1.15 : slash.aimY < -0.35 ? -0.46 : 0) + rHand.angle;
-      if (pr < 0.24) {
-        const cockBack = (pr / 0.24) * 10;
-        ctx.translate(rHand.x - cockBack + 8, rHand.y + 3);
-        ctx.rotate(aimAng - 0.05);
-        ctx.drawImage(spImg, -spLen * 0.32, -spH * 0.5, spLen, spH);
+      const isHalberdRise = wDef.id === 'spear_3' && slash.comboStep === 1;
+      const isHalberdSweep = wDef.id === 'spear_3' && slash.comboStep === 2;
+      if (isHalberdRise || isHalberdSweep) {
+        const startA = isHalberdRise ? 0.95 : -2.18;
+        const endA = isHalberdRise ? -1.48 : 1.12;
+        const curA =
+          (pr < 0.24
+            ? startA - (pr / 0.24) * 0.22
+            : startA - 0.22 + easeOutCubic((pr - 0.24) / 0.6) * (endA - startA + 0.22)) +
+          rHand.angle;
+        const gA =
+          (pr < 0.24
+            ? startA
+            : startA - 0.22 + easeOutCubic(Math.max(0, pr - 0.08 - 0.24) / 0.6) * (endA - startA + 0.22)) +
+          rHand.angle;
+        drawWeaponWithMotionTrail(
+          ctx,
+          spImg,
+          rHand.x,
+          rHand.y,
+          0.32,
+          spLen,
+          spH,
+          pr >= 0.24 ? [curA, gA] : [curA],
+          [1, 0.34]
+        );
       } else {
-        const p = Math.min(1, (pr - 0.24) / 0.72);
-        const thrust = Math.sin(p * Math.PI) * 26;
-        ctx.translate(rHand.x + thrust, rHand.y);
-        ctx.rotate(aimAng);
-        ctx.drawImage(spImg, -spLen * 0.24, -spH * 0.5, spLen, spH);
+        const aimAng =
+          (slash.pogoDown ? 1.15 : slash.aimY < -0.35 ? -0.46 : -0.14) + rHand.angle * 0.4;
+        if (pr < 0.22) {
+          const cockBack = easeOutCubic(pr / 0.22) * 12;
+          ctx.translate(gripX - cockBack + 4, gripY + 2);
+          ctx.rotate(aimAng - 0.06);
+          ctx.drawImage(spImg, -spLen * 0.36, -spH * 0.5, spLen, spH);
+        } else {
+          const p = Math.min(1, (pr - 0.22) / 0.72);
+          const thrust = Math.sin(Math.min(1, p * 1.15) * Math.PI) * 30;
+          const snakeOsc =
+            wDef.id === 'spear_thunder' ? Math.sin(p * Math.PI * 5) * 0.075 : 0;
+          if (wDef.id === 'spear_2') {
+            for (const fan of [-0.14, 0.14]) {
+              ctx.save();
+              ctx.translate(gripX + thrust * 0.88, gripY);
+              ctx.rotate(aimAng + fan);
+              ctx.globalAlpha = 0.36 * (1 - p * 0.5);
+              ctx.drawImage(spImg, -spLen * 0.26, -spH * 0.5, spLen, spH);
+              ctx.restore();
+            }
+          }
+          ctx.translate(gripX + thrust, gripY);
+          ctx.rotate(aimAng + snakeOsc);
+          ctx.drawImage(spImg, -spLen * 0.26, -spH * 0.5, spLen, spH);
+        }
       }
+      ctx.restore();
+      ctx.save();
+      ctx.translate(rHand.x, rHand.y);
       drawFistKnuckleClasp(ctx);
+      ctx.restore();
+      return;
     } else if (
       skillAnim &&
       (skillAnim.kind === 'jinghong_rising' ||
         skillAnim.kind === 'shuofeng_wave' ||
         skillAnim.kind === 'shunying_flash')
     ) {
-      const skAng =
-        skillAnim.kind === 'jinghong_rising'
-          ? -1.28 + rHand.angle
-          : rHand.angle;
-      const thrust = skillAnim.progress > 0.2 ? 22 * Math.sin(skillAnim.progress * Math.PI) : -6;
-      ctx.translate(rHand.x + thrust * Math.cos(skAng), rHand.y + thrust * Math.sin(skAng));
+      const skAng = skillAnim.kind === 'jinghong_rising' ? -1.28 + rHand.angle : rHand.angle;
+      const thrust = skillAnim.progress > 0.2 ? 24 * Math.sin(skillAnim.progress * Math.PI) : -6;
+      ctx.translate(gripX + thrust * Math.cos(skAng), gripY + thrust * Math.sin(skAng));
       ctx.rotate(skAng);
       ctx.drawImage(spImg, -spLen * 0.26, -spH * 0.5, spLen, spH);
+      ctx.restore();
+      ctx.save();
+      ctx.translate(rHand.x, rHand.y);
       drawFistKnuckleClasp(ctx);
+      ctx.restore();
+      return;
     } else {
       const carryAng =
         frameKey === 'h18_crouch'
@@ -581,12 +767,12 @@ function drawEquippedWeaponInHeroHands(
     return;
   }
 
-  // 3. 软鞭奇门系（生铁九节鞭 / 赤练火龙锁链刀 / 紫电打神雷音鞭——手绘鞭柄 + 铁链贴图节段！）
+  // 3. 软鞭奇门系（生铁九节鞭 / 赤练火龙锁链刀 / 紫电打神雷音鞭）
   if (wDef.archetype === 'whip') {
     const whipImg = Assets.get(resolveWeaponAssetKey('whip', wDef.id));
-    const drawWhipGripSprite = (len = 18) => {
+    const drawWhipGripSprite = (len = 19) => {
       if (whipImg && whipImg.width && whipImg.height) {
-        const srcW = Math.floor(whipImg.width * 0.28);
+        const srcW = Math.floor(whipImg.width * 0.26);
         const h = Math.max(7, len * (whipImg.height / Math.max(1, srcW)));
         ctx.drawImage(whipImg, 0, 0, srcW, whipImg.height, -4, -h * 0.5, len, h);
       }
@@ -598,7 +784,7 @@ function drawEquippedWeaponInHeroHands(
     if (slash) {
       const pr = slash.progress;
       if (pr < 0.24) {
-        const u = pr / 0.24;
+        const u = easeOutCubic(pr / 0.24);
         ctx.rotate(-2.15 + rHand.angle + u * 0.45);
         drawWhipGripSprite(19);
         drawPaintedChainTrack(
@@ -615,18 +801,13 @@ function drawEquippedWeaponInHeroHands(
           u * 2.2
         );
         const endWave = Math.sin(Math.PI * 1.35 - u * 2.2) * 16;
-        drawPaintedVfxDisc(
-          ctx,
-          'vfx_ink_shockwave',
-          58,
-          endWave,
-          9,
-          u * 4,
-          0.75,
-          wDef.glowColor,
-          1,
-          true
-        );
+        if (whipImg && whipImg.width && whipImg.height) {
+          const sx = Math.floor(whipImg.width * 0.72);
+          const sw = whipImg.width - sx;
+          const tipW = 19;
+          const tipH = Math.max(8, tipW * (whipImg.height / Math.max(1, sw)));
+          ctx.drawImage(whipImg, sx, 0, sw, whipImg.height, 52, endWave - tipH * 0.5, tipW, tipH);
+        }
       } else {
         const aimAng =
           (slash.aimY < -0.35 ? -0.62 : slash.aimY > 0.35 ? 0.38 : 0) + rHand.angle;
@@ -648,21 +829,106 @@ function drawEquippedWeaponInHeroHands(
     return;
   }
 
-  // 4. 轻剑系（7把独有佩剑每把皆加载各自独立手绘剑身贴图！）
+  // 4. 轻剑系（7把独有佩剑：60fps 三段顺滑摆臂轨迹 + 武器残影 + 青莲剑阵三影！）
   const swImg = Assets.get(resolveWeaponAssetKey('sword', wDef.id));
-  if (!swImg) return;
+  if (!swImg || !swImg.width || !swImg.height) return;
   const swLen = wDef.tier >= 4 ? 82 : wDef.tier === 3 ? 74 : wDef.tier === 2 ? 66 : 58;
   const swH = swLen * (swImg.height / swImg.width);
 
+  if (slash) {
+    const pr = slash.progress;
+    const isPhantom = wDef.id === 'sword_phantom';
+    const isThrustFinisher =
+      slash.comboStep === 2 && (wDef.id === 'sword_0' || isPhantom);
+
+    if (slash.pogoDown) {
+      const a = 1.05 + Math.sin(pr * Math.PI) * 0.35 + rHand.angle;
+      drawWeaponWithMotionTrail(ctx, swImg, rHand.x, rHand.y, 0.18, swLen, swH, [a, a - 0.35], [1, 0.35]);
+    } else if (isThrustFinisher) {
+      const ext = pr < 0.2 ? -easeOutCubic(pr / 0.2) * 8 : Math.sin(Math.min(1, (pr - 0.2) / 0.72) * Math.PI) * 26;
+      const ang = -0.1 + rHand.angle;
+      if (isPhantom) {
+        for (const fan of [-0.24, 0.24]) {
+          drawWeaponWithMotionTrail(
+            ctx,
+            swImg,
+            rHand.x + ext * 0.78,
+            rHand.y,
+            0.18,
+            swLen * 0.94,
+            swH * 0.94,
+            [ang + fan],
+            [0.42]
+          );
+        }
+      }
+      drawWeaponWithMotionTrail(ctx, swImg, rHand.x + ext, rHand.y, 0.18, swLen, swH, [ang], [1]);
+    } else {
+      const evalSwordAngle = (pVal: number): number => {
+        if (slash.comboStep === 1) {
+          // 第二式反手自下而上撩斩
+          return pVal < 0.2
+            ? 1.05 + easeOutCubic(pVal / 0.2) * 0.25
+            : 1.3 - easeOutCubic((pVal - 0.2) / 0.62) * 2.85;
+        }
+        if (slash.comboStep === 2) {
+          // 第三式暴烈沉腰贯斩
+          return pVal < 0.24
+            ? -2.2 - easeOutCubic(pVal / 0.24) * 0.28
+            : -2.48 + easeOutCubic((pVal - 0.24) / 0.56) * 3.38;
+        }
+        // 第一式利落斜劈
+        return pVal < 0.22
+          ? -2.05 - easeOutCubic(pVal / 0.22) * 0.22
+          : -2.27 + easeOutCubic((pVal - 0.22) / 0.58) * 3.05;
+      };
+      const curA = evalSwordAngle(pr) + rHand.angle;
+      const g1 = evalSwordAngle(Math.max(0.18, pr - 0.06)) + rHand.angle;
+      const g2 = evalSwordAngle(Math.max(0.18, pr - 0.12)) + rHand.angle;
+      if (isPhantom && pr >= 0.2) {
+        for (const fan of [-0.26, 0.26]) {
+          drawWeaponWithMotionTrail(
+            ctx,
+            swImg,
+            rHand.x,
+            rHand.y,
+            0.18,
+            swLen * 0.92,
+            swH * 0.92,
+            [curA + fan],
+            [0.42]
+          );
+        }
+      }
+      drawWeaponWithMotionTrail(
+        ctx,
+        swImg,
+        rHand.x,
+        rHand.y,
+        0.18,
+        swLen,
+        swH,
+        pr >= 0.2 ? [curA, g1, g2] : [curA],
+        [1, 0.36, 0.18]
+      );
+    }
+    ctx.save();
+    ctx.translate(rHand.x, rHand.y);
+    drawFistKnuckleClasp(ctx);
+    ctx.restore();
+    return;
+  }
+
   ctx.save();
   ctx.translate(rHand.x, rHand.y);
-  let swAng =
-    slash && slash.pogoDown ? 1.18 + rHand.angle : sock.rAngle + rHand.angle;
+  let swAng = sock.rAngle + rHand.angle;
   if (skillAnim) {
     if (skillAnim.kind === 'jinghong_rising' && skillAnim.progress >= 0.16) {
       swAng = -1.36 + rHand.angle;
     } else if (skillAnim.kind === 'jiuyou_soulsteal' && skillAnim.progress >= 0.28) {
       swAng = -1.55 + rHand.angle;
+    } else if (skillAnim.kind === 'shuofeng_wave' && skillAnim.progress >= 0.28) {
+      swAng = -2.2 + easeOutCubic((skillAnim.progress - 0.28) / 0.6) * 2.95 + rHand.angle;
     }
   }
   ctx.rotate(swAng);
@@ -737,6 +1003,8 @@ export function renderModularLiYichengRig(
     runCycle: opts.runCycle,
     animTime: opts.animTime,
     isHeavy,
+    weaponId: opts.equippedWeaponId,
+    archetype: wDef.archetype,
     slash: opts.slash,
     skillAnim: opts.skillAnim,
     isXiaoMode: opts.isXiaoMode,
@@ -763,6 +1031,8 @@ export function renderModularLiYichengRig(
     hurtRecoil: opts.hurtRecoil,
     slashProgress: opts.slash ? opts.slash.progress : null,
     slashArchetype: opts.slash?.archetype,
+    slashComboStep: opts.slash?.comboStep,
+    slashWeaponId: opts.slash?.weaponId || opts.equippedWeaponId,
     skillKind: opts.skillAnim?.kind,
     skillProgress: opts.skillAnim ? opts.skillAnim.progress : null,
     isStagePreview,
@@ -884,19 +1154,23 @@ export function renderModularLiYichengRig(
     }
   }
 
-  // 斩马陌刀举刀过顶蓄力阶段：随上身拧腰后仰同步偏移赤金烈焰罡气！
+  // 斩马陌刀/乌金锏举过头顶蓄力阶段：随上身拧腰后仰同步偏移蓄势手绘水墨气漩！
   if (isHeavy && opts.slash && opts.slash.progress < 0.34) {
     const charge = opts.slash.progress / 0.34;
-    const gx = -8 + joints[1].dx;
-    const gy = -96 + joints[1].dy;
-    const glow = ctx.createRadialGradient(gx, gy, 3, gx, gy, 44 * charge + 12);
-    glow.addColorStop(0, `rgba(253, 224, 71, ${0.45 * charge})`);
-    glow.addColorStop(0.55, `rgba(249, 115, 22, ${0.28 * charge})`);
-    glow.addColorStop(1, 'rgba(249, 115, 22, 0)');
-    ctx.fillStyle = glow;
-    ctx.beginPath();
-    ctx.arc(gx, gy, 56, 0, Math.PI * 2);
-    ctx.fill();
+    const gx = -4 + joints[1].dx;
+    const gy = -94 + joints[1].dy;
+    drawPaintedVfxDisc(
+      ctx,
+      'vfx_ink_shockwave',
+      gx,
+      gy,
+      26 * charge + 10,
+      opts.animTime * 8,
+      0.72 * charge,
+      wDef.glowColor || '#f59e0b',
+      1,
+      true
+    );
   }
 
   ctx.restore();
@@ -1042,7 +1316,7 @@ export function drawSwordFamiliar(
 }
 
 /**
- * 流体分段水墨飞白 + 叠加态流光剑气刀罡（0贴图感：尾部渐隐消散、中段发光透景、多缕飞白丝线、刀尖破空星芒！）
+ * 100% 纯手绘国风水墨刀罡弧刃（零矢量多边形/几何线条：全权由手绘重彩贴图与叠光墨韵驱动！）
  */
 export function drawInkSlashRibbon(
   ctx: CanvasRenderingContext2D,
@@ -1057,109 +1331,482 @@ export function drawInkSlashRibbon(
   coreColor: string,
   fadeAlpha: number
 ): void {
-  if (fadeAlpha <= 0.02 || Math.abs(endAng - startAng) < 0.05) return;
-  const segs = 18;
+  const span = Math.abs(endAng - startAng);
+  if (fadeAlpha <= 0.02 || span < 0.05) return;
 
   ctx.save();
   ctx.translate(cx, cy);
   ctx.scale(facing, flipVert ? -1 : 1);
 
-  // 1. 分段渐隐水墨气痕底衬（从尾端0透明度平滑过渡到锋端浓墨，彻底消除死板纯色块！）
-  for (let i = 0; i < segs; i++) {
-    const u0 = i / segs;
-    const u1 = (i + 1) / segs;
-    const a0 = startAng + (endAng - startAng) * u0;
-    const a1 = startAng + (endAng - startAng) * u1;
-    const w0 = Math.sin(u0 * Math.PI);
-    const w1 = Math.sin(u1 * Math.PI);
-    // 沿挥砍方向尾部迅速消散，头部凝聚
-    const segAlpha = fadeAlpha * Math.pow(u1, 1.45) * 0.58;
-    if (segAlpha < 0.015) continue;
-
-    const rOut0 = radius + 5 * w0;
-    const rOut1 = radius + 5 * w1;
-    const rIn0 = radius - (thickness + 8) * Math.pow(w0, 0.72);
-    const rIn1 = radius - (thickness + 8) * Math.pow(w1, 0.72);
-
-    ctx.globalAlpha = segAlpha;
-    ctx.fillStyle = '#050811';
-    ctx.beginPath();
-    ctx.moveTo(Math.cos(a0) * rOut0, Math.sin(a0) * rOut0 * 0.86);
-    ctx.lineTo(Math.cos(a1) * rOut1, Math.sin(a1) * rOut1 * 0.86);
-    ctx.lineTo(Math.cos(a1) * rIn1, Math.sin(a1) * rIn1 * 0.86);
-    ctx.lineTo(Math.cos(a0) * rIn0, Math.sin(a0) * rIn0 * 0.86);
-    ctx.closePath();
-    ctx.fill();
+  if (span < 0.35) {
+    const mid = (startAng + endAng) * 0.5;
+    drawPaintedVfxSprite(ctx, 'vfx_spear_dragon_thrust', 0, 0, radius * 1.45, Math.max(28, thickness * 3.1), {
+      rotation: mid,
+      alpha: fadeAlpha * 0.94,
+      tintHex: coreColor,
+      tintAlpha: 0.78,
+      additive: true,
+      anchorX: 0.2,
+      anchorY: 0.5,
+    });
+    ctx.restore();
+    return;
   }
 
-  // 2. 叠加态（lighter）真气发光刃流：透出背景光影，绝不遮盖成贴纸！
-  ctx.globalCompositeOperation = 'lighter';
-  for (let i = 1; i < segs; i++) {
-    const u0 = i / segs;
-    const u1 = (i + 1) / segs;
-    const a0 = startAng + (endAng - startAng) * u0;
-    const a1 = startAng + (endAng - startAng) * u1;
-    const w0 = Math.sin(u0 * Math.PI);
-    const w1 = Math.sin(u1 * Math.PI);
-    const glowAlpha = fadeAlpha * Math.pow(u1, 1.75) * 0.68;
-    if (glowAlpha < 0.015) continue;
+  const midAng = (startAng + endAng) * 0.5;
+  const isHeavyArc = thickness >= 25 || span >= 2.5;
+  const vfxKey: AssetKey = isHeavyArc ? 'vfx_slash_heavy_cleave' : 'vfx_slash_crescent';
+  const d = Math.max(52, radius * 2.1);
 
-    const rOut0 = radius + 1.5 * w0;
-    const rOut1 = radius + 1.5 * w1;
-    const rIn0 = radius - thickness * 0.82 * w0;
-    const rIn1 = radius - thickness * 0.82 * w1;
-
-    ctx.globalAlpha = glowAlpha;
-    ctx.fillStyle = coreColor;
-    ctx.beginPath();
-    ctx.moveTo(Math.cos(a0) * rOut0, Math.sin(a0) * rOut0 * 0.86);
-    ctx.lineTo(Math.cos(a1) * rOut1, Math.sin(a1) * rOut1 * 0.86);
-    ctx.lineTo(Math.cos(a1) * rIn1, Math.sin(a1) * rIn1 * 0.86);
-    ctx.lineTo(Math.cos(a0) * rIn0, Math.sin(a0) * rIn0 * 0.86);
-    ctx.closePath();
-    ctx.fill();
-  }
-
-  // 3. 多缕书法枯笔飞白剑丝（4道错落弧线营造高速撕裂空气感！）
-  const filaments = [
-    { rMul: 1.03, uStart: 0.28, uEnd: 1.0, width: 2.2, col: '#ffffff', al: 0.92 },
-    { rMul: 0.95, uStart: 0.14, uEnd: 0.96, width: 1.5, col: coreColor, al: 0.78 },
-    { rMul: 0.85, uStart: 0.35, uEnd: 0.92, width: 1.1, col: '#f8fafc', al: 0.55 },
-    { rMul: 0.74, uStart: 0.22, uEnd: 0.82, width: 0.9, col: coreColor, al: 0.42 },
-  ];
-  ctx.lineCap = 'round';
-  for (const fl of filaments) {
-    ctx.globalAlpha = fadeAlpha * fl.al;
-    ctx.strokeStyle = fl.col;
-    ctx.lineWidth = fl.width;
-    ctx.beginPath();
-    const fSteps = 12;
-    for (let j = 0; j <= fSteps; j++) {
-      const u = fl.uStart + (fl.uEnd - fl.uStart) * (j / fSteps);
-      const a = startAng + (endAng - startAng) * u;
-      const r = radius * fl.rMul;
-      const px = Math.cos(a) * r;
-      const py = Math.sin(a) * r * 0.86;
-      if (j === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
-    }
-    ctx.stroke();
-  }
-
-  // 4. 刀尖破空十字寒芒与尾迹碎星
-  const tipX = Math.cos(endAng) * (radius + 1);
-  const tipY = Math.sin(endAng) * (radius + 1) * 0.86;
-  ctx.globalAlpha = fadeAlpha * 0.9;
-  ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = 1.8;
-  ctx.beginPath();
-  ctx.moveTo(tipX - 9, tipY);
-  ctx.lineTo(tipX + 9, tipY);
-  ctx.moveTo(tipX, tipY - 9);
-  ctx.lineTo(tipX, tipY + 9);
-  ctx.stroke();
-
+  drawPaintedVfxSprite(ctx, vfxKey, 0, 0, d, d, {
+    rotation: midAng,
+    alpha: Math.min(1, fadeAlpha * 0.94),
+    tintHex: coreColor,
+    tintAlpha: 0.72,
+    additive: false,
+  });
+  drawPaintedVfxSprite(ctx, vfxKey, 0, 0, d * 1.03, d * 1.03, {
+    rotation: midAng,
+    alpha: Math.min(1, fadeAlpha * 0.58),
+    tintHex: coreColor,
+    tintAlpha: 0.95,
+    additive: true,
+  });
   ctx.restore();
+}
+
+/**
+ * 22把独有神兵全差异化纯手绘刀罡/元素异象渲染器（兼顾局内战斗与兵匣动态试剑台！）
+ */
+export function renderHeroWeaponSlashVfx(
+  ctx: CanvasRenderingContext2D,
+  sl: ActiveSlash,
+  equippedWeaponId: string,
+  ambientTime: number
+): void {
+  const wId = sl.weaponId || equippedWeaponId || 'sword_0';
+  const wDef = WEAPONS[wId] || WEAPONS.sword_0;
+  const glowCol = sl.glowColor || wDef.glowColor || '#2dd4bf';
+
+  if (sl.pogoDown) {
+    const fade = Math.max(0, 1 - sl.progress * 0.55);
+    const d = 136 * (0.78 + easeOutCubic(sl.progress) * 0.34);
+    drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x, sl.y + 8, d, d, {
+      rotation: 1.28 * sl.facing,
+      flipX: sl.facing === -1,
+      alpha: fade,
+      tintHex: glowCol,
+      additive: true,
+    });
+    drawPaintedVfxSprite(ctx, 'vfx_iaido_flash_cut', sl.x, sl.y + 34, 92, 46, {
+      rotation: 1.48 * sl.facing,
+      alpha: fade * 0.85,
+      tintHex: '#f8fafc',
+      additive: true,
+    });
+    return;
+  }
+
+  // ================= 1. 重兵系（朴刀 / 九环火刀 / 盘古碎岳乌金锏 / 饕餮开山巨陌刀） =================
+  if (sl.archetype === 'greatsword') {
+    if (sl.progress < 0.28) return;
+    const p = Math.min(1, (sl.progress - 0.28) / 0.7);
+    const k = easeOutCubic(p);
+    const fade = Math.max(0, 1 - p * 0.65);
+
+    if (wId === 'greatsword_sunder') {
+      const smashRot = sl.facing * (-0.55 + k * 0.92);
+      const d = sl.reachX * (1.76 + k * 0.28);
+      drawPaintedVfxSprite(ctx, 'vfx_slash_heavy_cleave', sl.x + sl.facing * 12, sl.y - 6, d, d, {
+        rotation: smashRot,
+        flipX: sl.facing === -1,
+        alpha: fade * 0.88,
+        tintHex: '#f59e0b',
+        tintAlpha: 0.36,
+        additive: false,
+      });
+      if (p > 0.04) {
+        const ep = Math.min(1, (p - 0.04) / 0.72);
+        const efade = Math.max(0, 1 - ep * 0.7);
+        drawPaintedVfxSprite(
+          ctx,
+          'vfx_earth_sunder_burst',
+          sl.x + sl.facing * 56,
+          sl.y + 42,
+          165 + ep * 75,
+          108 + ep * 50,
+          {
+            alpha: efade,
+            anchorY: 0.95,
+            tintHex: '#fbbf24',
+            tintAlpha: 0.32,
+            additive: false,
+          }
+        );
+      }
+      return;
+    }
+
+    const isRising = (wId === 'greatsword_1' || wId === 'greatsword_2') && sl.comboStep === 1;
+    const d = sl.reachX * (wId === 'greatsword_2' ? 2.12 : 1.92) * (0.85 + k * 0.25);
+    const rot = isRising
+      ? sl.facing * (0.65 - k * 1.45)
+      : sl.facing * (-0.42 + k * 0.85);
+    drawPaintedVfxSprite(ctx, 'vfx_slash_heavy_cleave', sl.x + sl.facing * 10, sl.y + 2, d, d, {
+      rotation: rot,
+      flipX: sl.facing === -1,
+      flipY: isRising,
+      alpha: fade * 0.94,
+      tintHex: wId === 'greatsword_2' ? '#ea580c' : glowCol,
+      tintAlpha: 0.34,
+    });
+    drawPaintedVfxSprite(ctx, 'vfx_slash_heavy_cleave', sl.x + sl.facing * 10, sl.y + 2, d * 1.03, d * 1.03, {
+      rotation: rot,
+      flipX: sl.facing === -1,
+      flipY: isRising,
+      alpha: fade * 0.26,
+      tintHex: wId === 'greatsword_2' ? '#fde047' : glowCol,
+      tintAlpha: 0.5,
+      additive: true,
+    });
+
+    if (wId === 'greatsword_2') {
+      drawPaintedVfxSprite(
+        ctx,
+        'vfx_samadhi_fire_pillar',
+        sl.x + sl.facing * (44 + k * 54),
+        sl.y + 40,
+        46 + k * 18,
+        88 + k * 28,
+        { alpha: fade * 0.84, anchorY: 0.95, additive: true }
+      );
+    } else if (wId === 'greatsword_3' && sl.comboStep === 2 && p > 0.14) {
+      drawPaintedVfxSprite(
+        ctx,
+        'vfx_qi_dragon_wave',
+        sl.x + sl.facing * (48 + k * 66),
+        sl.y - 4,
+        150,
+        125,
+        {
+          flipX: sl.facing === -1,
+          alpha: fade * 0.88,
+          tintHex: '#facc15',
+          additive: true,
+        }
+      );
+    }
+    return;
+  }
+
+  // ================= 2. 长兵系（白蜡枪 / 亮银枪 / 雷鸣蛇矛 / 破阵紫金方天戟） =================
+  if (sl.archetype === 'spear') {
+    if (sl.progress < 0.16) return;
+    const p = Math.min(1, (sl.progress - 0.16) / 0.78);
+    const k = easeOutCubic(p);
+    const fade = Math.max(0, 1 - p * 0.65);
+
+    if (wId === 'spear_3' && sl.comboStep === 1) {
+      const d = sl.reachX * 1.48;
+      drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * 24, sl.y - 12, d, d, {
+        rotation: sl.facing * (0.42 - k * 1.35),
+        flipX: sl.facing === -1,
+        flipY: true,
+        alpha: fade,
+        tintHex: '#a855f7',
+        additive: true,
+      });
+      return;
+    }
+
+    if (wId === 'spear_3' && sl.comboStep === 2) {
+      const d = sl.reachX * 1.72;
+      drawPaintedVfxSprite(ctx, 'vfx_slash_heavy_cleave', sl.x + sl.facing * 22, sl.y - 4, d, d, {
+        rotation: sl.facing * (-0.32 + k * 0.88),
+        flipX: sl.facing === -1,
+        alpha: fade,
+        tintHex: '#c084fc',
+        additive: true,
+      });
+      drawPaintedVfxSprite(ctx, 'vfx_lotus_blood_finisher', sl.x + sl.facing * 78, sl.y - 4, 118, 118, {
+        rotation: p * 1.2,
+        alpha: fade * 0.82,
+        tintHex: '#fde047',
+        additive: true,
+      });
+      return;
+    }
+
+    const thrustExt = Math.sin(Math.min(1, p * 1.15) * Math.PI);
+    const aimAng = sl.aimY < -0.35 ? -0.46 : 0;
+    const len = sl.reachX * (0.85 + thrustExt * 0.5);
+    const thickness = wId === 'spear_3' ? 76 : 62;
+
+    if (wId === 'spear_2') {
+      for (const fan of [-0.14, 0.14]) {
+        drawPaintedVfxSprite(ctx, 'vfx_spear_dragon_thrust', sl.x + sl.facing * 10, sl.y - 4, len * 0.92, thickness * 0.82, {
+          rotation: sl.facing === 1 ? aimAng + fan : Math.PI - (aimAng + fan),
+          alpha: fade * 0.56,
+          tintHex: '#bae6fd',
+          additive: true,
+          anchorX: 0.16,
+        });
+      }
+    }
+
+    drawPaintedVfxSprite(ctx, 'vfx_spear_dragon_thrust', sl.x + sl.facing * 8, sl.y - 4, len, thickness, {
+      rotation: sl.facing === 1 ? aimAng : Math.PI - aimAng,
+      alpha: fade * 0.95,
+      tintHex: glowCol,
+      additive: true,
+      anchorX: 0.14,
+    });
+
+    if (wId === 'spear_thunder') {
+      const tipX = sl.x + sl.facing * Math.cos(aimAng) * (len * 0.88);
+      const tipY = sl.y - 4 + Math.sin(aimAng) * (len * 0.88);
+      drawPaintedThunderBolt(
+        ctx,
+        sl.x + sl.facing * 18,
+        sl.y - 4,
+        tipX,
+        tipY,
+        24 * fade + 8,
+        0.92 * fade,
+        Math.floor(ambientTime * 28) % 2 === 1,
+        '#e879f9'
+      );
+    } else if (wId === 'spear_3') {
+      const tipX = sl.x + sl.facing * Math.cos(aimAng) * (len * 0.72);
+      drawPaintedVfxSprite(ctx, 'vfx_iaido_flash_cut', tipX, sl.y - 4, 108, 48, {
+        rotation: sl.facing === 1 ? aimAng : Math.PI - aimAng,
+        alpha: fade * 0.88,
+        tintHex: '#e9d5ff',
+        additive: true,
+      });
+    }
+    return;
+  }
+
+  // ================= 3. 短兵系（短匕 / 旋转峨眉刺 / 碧蟾毒刺 / 子母鸳鸯追魂钺） =================
+  if (sl.archetype === 'daggers') {
+    const p = sl.progress;
+    const k = easeOutCubic(p);
+    const fade = Math.max(0, 1 - p * 0.55);
+
+    if (wId === 'daggers_2') {
+      // 分水精钢峨眉刺：旋指双轮 + 疾斩星芒
+      drawPaintedVfxDisc(ctx, 'vfx_ink_shockwave', sl.x + sl.facing * 28, sl.y - 2, 34 + k * 24, ambientTime * 22 * sl.facing, fade * 0.9, '#38bdf8', 0.82, true);
+      drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * 22, sl.y - 2, sl.reachX * 1.65, sl.reachX * 1.45, {
+        rotation: sl.facing * (-0.3 + k * 0.9),
+        flipX: sl.facing === -1,
+        alpha: fade * 0.85,
+        tintHex: '#7dd3fc',
+        additive: true,
+      });
+      return;
+    }
+
+    if (wId === 'daggers_poison') {
+      drawPaintedVfxSprite(ctx, 'vfx_lotus_blood_finisher', sl.x + sl.facing * 32, sl.y, 118, 118, {
+        rotation: k * 0.65 * sl.facing,
+        flipX: sl.facing === -1,
+        alpha: fade * 0.94,
+        tintHex: '#84cc16',
+        additive: true,
+      });
+      drawPaintedVfxSprite(ctx, 'vfx_soul_claw_vortex', sl.x + sl.facing * 38, sl.y + 4, 86, 68, {
+        rotation: -k * 2.2,
+        alpha: fade * 0.62,
+        tintHex: '#a3e635',
+        additive: true,
+      });
+      return;
+    }
+
+    if (wId === 'daggers_3') {
+      const dist = sl.comboStep === 2 ? Math.sin(Math.min(1, p * 1.05) * Math.PI) * 56 : 16;
+      drawPaintedVfxSprite(ctx, 'vfx_lotus_blood_finisher', sl.x + sl.facing * (28 + dist), sl.y - 2, 132, 132, {
+        rotation: p * Math.PI * (sl.comboStep === 2 ? 2.8 : 0.7),
+        flipX: sl.facing === -1,
+        alpha: fade * 0.95,
+        tintHex: '#ec4899',
+        additive: true,
+      });
+      if (sl.comboStep === 2) {
+        drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * (28 + dist), sl.y - 2, 92, 92, {
+          rotation: -p * Math.PI * 3.5,
+          alpha: fade * 0.82,
+          tintHex: '#fde047',
+          additive: true,
+        });
+      }
+      return;
+    }
+
+    drawPaintedVfxSprite(ctx, 'vfx_iaido_flash_cut', sl.x + sl.facing * 26, sl.y - 2, 98, 46, {
+      rotation: sl.facing * (sl.comboStep % 2 === 0 ? 0.34 : -0.34),
+      flipX: sl.facing === -1,
+      alpha: fade * 0.94,
+      tintHex: '#f8fafc',
+      additive: true,
+    });
+    drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * 18, sl.y, 102, 102, {
+      rotation: sl.facing * (sl.comboStep % 2 === 0 ? 0.15 : -0.35),
+      flipX: sl.facing === -1,
+      flipY: sl.comboStep % 2 === 1,
+      alpha: fade * 0.82,
+      tintHex: glowCol,
+      additive: true,
+    });
+    return;
+  }
+
+  // ================= 4. 软兵系（九节鞭 / 赤练火龙锁链刀 / 紫电打神雷音鞭） =================
+  if (sl.archetype === 'whip') {
+    if (sl.progress < 0.24) return;
+    const p = Math.min(1, (sl.progress - 0.24) / 0.74);
+    const snap = Math.sin(Math.min(1, p * 1.25) * Math.PI);
+    const aimAng = sl.aimY < -0.35 ? -0.62 : sl.aimY > 0.35 ? 0.38 : 0;
+    const maxLen = sl.reachX * (0.38 + snap * 0.68);
+    const waveAmp = (1 - snap * 0.78) * 14;
+    const tipWave = Math.sin(Math.PI * 2.5 - p * 9) * waveAmp;
+    const tipTangent = Math.cos(Math.PI * 2.5 - p * 9) * (waveAmp * 0.04);
+
+    ctx.save();
+    ctx.translate(sl.x + sl.facing * 28, sl.y - 14);
+    ctx.scale(sl.facing, 1);
+    ctx.rotate(aimAng);
+
+    drawPaintedChainTrack(ctx, 0, 0, maxLen, 0, 11.5, 0.94, undefined, waveAmp, 2.5, p * 9);
+    drawPaintedChainTrack(ctx, 0, 0, maxLen, 0, 9.5, 0.75, glowCol, waveAmp, 2.5, p * 9);
+
+    // 真实手绘鞭梢贴图（截取出 wpn_whip_1 锥镖 / wpn_whip_2 赤焰飞镰 / wpn_whip_3 雷芒金梢跟随波浪甩击！）
+    const whipImg = Assets.get(resolveWeaponAssetKey('whip', wId));
+    if (whipImg && whipImg.width && whipImg.height) {
+      const sx = Math.floor(whipImg.width * 0.68);
+      const sw = whipImg.width - sx;
+      const tipW = wId === 'whip_2' ? 32 : wId === 'whip_3' ? 34 : 26;
+      const tipH = Math.max(12, tipW * (whipImg.height / Math.max(1, sw)));
+      ctx.save();
+      ctx.translate(maxLen, tipWave);
+      ctx.rotate(wId === 'whip_2' && sl.comboStep === 2 ? p * Math.PI * 6 : tipTangent);
+      ctx.drawImage(whipImg, sx, 0, sw, whipImg.height, -tipW * 0.25, -tipH * 0.5, tipW, tipH);
+      ctx.restore();
+    }
+
+    if (wId === 'whip_3') {
+      drawPaintedThunderBolt(ctx, 8, 0, maxLen + 8, tipWave, 20 * snap + 6, 0.9 * (1 - p * 0.35), Math.floor(ambientTime * 30) % 2 === 1, '#a855f7');
+      drawPaintedVfxDisc(ctx, 'vfx_ink_shockwave', maxLen, tipWave, 24 * snap + 8, p * 9, 0.88, '#fde047', 1, true);
+    } else if (wId === 'whip_2') {
+      drawPaintedVfxSprite(ctx, 'vfx_slash_heavy_cleave', maxLen * 0.72, tipWave, 86, 86, {
+        rotation: p * 1.4,
+        alpha: (1 - p * 0.45) * 0.78,
+        tintHex: '#f97316',
+        additive: true,
+      });
+      drawPaintedVfxSprite(ctx, 'vfx_samadhi_fire_pillar', maxLen, tipWave + 18, 36, 62, {
+        alpha: (1 - p * 0.45) * 0.85,
+        anchorY: 0.9,
+        additive: true,
+      });
+    } else {
+      drawPaintedVfxDisc(ctx, 'vfx_ink_shockwave', maxLen, tipWave, 20 * snap + 6, p * 8, 0.85, '#e2e8f0', 1, true);
+    }
+    ctx.restore();
+    return;
+  }
+
+  // ================= 5. 轻剑系（7 把独有神剑各自绽放不同流派手绘剑气！） =================
+  const p = sl.progress;
+  const k = easeOutCubic(p);
+  const fade = Math.max(0, 1 - p * 0.55);
+  const flip = sl.comboStep === 1;
+  const baseD = (sl.comboStep === 2 ? sl.reachX * 2.05 : sl.reachX * 1.82) * (0.86 + k * 0.2);
+
+  if (sl.comboStep === 2 && (wId === 'sword_0' || wId === 'sword_1' || wId === 'sword_2')) {
+    // 直刺/终结剑意
+    drawPaintedVfxSprite(ctx, 'vfx_spear_dragon_thrust', sl.x + sl.facing * 12, sl.y - 2, sl.reachX * 1.38, 60, {
+      flipX: sl.facing === -1,
+      alpha: fade * 0.92,
+      tintHex: glowCol,
+      additive: true,
+      anchorX: 0.16,
+    });
+  }
+
+  const slashRot = sl.facing * (flip ? 0.35 - k * 1.05 : -0.35 + k * 0.95);
+  drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * 10, sl.y, baseD, baseD * 0.96, {
+    rotation: slashRot,
+    flipX: sl.facing === -1,
+    flipY: flip,
+    alpha: fade * 0.94,
+    tintHex: glowCol,
+    tintAlpha: 0.34,
+  });
+  drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * 10, sl.y, baseD * 1.02, baseD * 0.98, {
+    rotation: slashRot,
+    flipX: sl.facing === -1,
+    flipY: flip,
+    alpha: fade * 0.24,
+    tintHex: glowCol,
+    tintAlpha: 0.45,
+    additive: true,
+  });
+
+  if (wId === 'sword_frost') {
+    drawPaintedVfxSprite(ctx, 'vfx_frost_shatter', sl.x + sl.facing * (48 + k * 28), sl.y - 4, 88 + k * 24, 88 + k * 24, {
+      rotation: p * 1.1,
+      alpha: fade * 0.9,
+      tintHex: '#7dd3fc',
+      tintAlpha: 0.36,
+      additive: false,
+    });
+  } else if (wId === 'sword_blood') {
+    drawPaintedVfxSprite(ctx, 'vfx_lotus_blood_finisher', sl.x + sl.facing * (34 + k * 22), sl.y, baseD * 0.72, baseD * 0.72, {
+      rotation: slashRot,
+      flipX: sl.facing === -1,
+      alpha: fade * 0.82,
+      tintHex: '#f43f5e',
+      tintAlpha: 0.48,
+      additive: false,
+    });
+  } else if (wId === 'sword_phantom') {
+    for (const off of [-14, 14]) {
+      drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * 24, sl.y + off, baseD * 0.88, baseD * 0.88, {
+        rotation: slashRot + (off > 0 ? 0.24 : -0.24),
+        flipX: sl.facing === -1,
+        flipY: off < 0 ? !flip : flip,
+        alpha: fade * 0.42,
+        tintHex: off > 0 ? '#a7f3d0' : '#fef08a',
+        tintAlpha: 0.36,
+        additive: false,
+      });
+    }
+    drawPaintedVfxSprite(ctx, 'vfx_lotus_blood_finisher', sl.x + sl.facing * 42, sl.y, 112, 112, {
+      rotation: p * 0.9,
+      alpha: fade * 0.65,
+      tintHex: '#2dd4bf',
+      tintAlpha: 0.42,
+      additive: true,
+    });
+  } else if (wId === 'sword_3' && sl.comboStep === 2) {
+    drawPaintedVfxSprite(ctx, 'vfx_qi_dragon_wave', sl.x + sl.facing * (38 + k * 36), sl.y - 2, 134, 114, {
+      flipX: sl.facing === -1,
+      alpha: fade * 0.9,
+      tintHex: '#facc15',
+      additive: true,
+    });
+  } else if (wId === 'sword_2') {
+    drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * 18, sl.y, baseD * 0.84, baseD * 0.84, {
+      rotation: -slashRot * 0.7,
+      flipX: sl.facing === -1,
+      flipY: !flip,
+      alpha: fade * 0.56,
+      tintHex: '#0284c7',
+      additive: false,
+    });
+  }
 }
 
 export function drawMonsterOrBoss(

@@ -56,6 +56,7 @@ export interface ActiveSlash {
   aimX: number;
   aimY: number;
   archetype: string;
+  weaponId?: string;
   comboStep: number;
   pogoDown: boolean;
   progress: number; // 0..1 (0..0.28 前摇蓄势, 0.28..0.82 刀光挥斩判定, 0.82..1 收刀余韵)
@@ -2272,6 +2273,10 @@ export class GameEngine {
     }
 
     const reachMult = chargedHeavy ? 1.32 : isSpearLunge ? 1.26 : isFinisher ? 1.18 : 1.0;
+    const baseReachY = Math.round(
+      Math.max(w.reachY + 14, arch === 'greatsword' ? 105 : 48) * (isFinisher ? 1.12 : 1)
+    );
+    const finalReachY = w.id === 'spear_3' && isFinisher ? Math.round(baseReachY * 1.65) : baseReachY;
     this.slashHitIds.clear();
     this.activeSlash = {
       x: p.x,
@@ -2280,12 +2285,13 @@ export class GameEngine {
       aimX: this.input.moveX !== 0 ? this.input.moveX : p.facing,
       aimY: this.input.moveY,
       archetype: arch,
+      weaponId: w.id,
       comboStep: p.comboStep,
       pogoDown,
       progress: 0,
       duration,
       reachX: Math.round(Math.max(w.reachX + 20, arch === 'greatsword' ? 128 : 74) * reachMult),
-      reachY: Math.round(Math.max(w.reachY + 14, arch === 'greatsword' ? 105 : 48) * (isFinisher ? 1.12 : 1)),
+      reachY: finalReachY,
       color: chargedHeavy ? '#fde047' : w.color,
       glowColor: chargedHeavy ? '#ef4444' : isFinisher && w.tier >= 3 ? '#fde047' : w.glowColor,
       slammedGround: false,
@@ -3118,6 +3124,9 @@ export class GameEngine {
           if (sl.comboStep === 2) {
             this.hitstopTimer = Math.max(this.hitstopTimer, 0.042);
             this.screenShake = Math.max(this.screenShake, 4.2);
+          }
+          if (sl.weaponId === 'greatsword_sunder') {
+            this.screenShake = Math.max(this.screenShake, sl.comboStep === 2 ? 6.5 : 4.2);
           }
 
           // 以战养气：近战挥砍命中敌人微量回气（抑制无脑连放武技，鼓励节奏攻防！）

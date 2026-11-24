@@ -123,6 +123,14 @@ export type AssetKey =
   | 'h18_modao_idle'
   | 'h18_modao_windup'
   | 'h18_modao_cleave'
+  | 'h18_atk_slash_down'
+  | 'h18_atk_slash_up'
+  | 'h18_spear_thrust'
+  | 'h18_whip_snap'
+  | 'h18_dagger_cross'
+  | 'h18_heavy_guard'
+  | 'h18_heavy_windup'
+  | 'h18_heavy_cleave'
   | 'h18_crouch'
   | 'h18_slide'
   | 'h18_divekick'
@@ -185,9 +193,21 @@ export type AssetKey =
   | 'vfx_xuanwu_ward'
   | 'vfx_bagua_formation'
   | 'vfx_ink_shockwave'
-  | 'vfx_thunder_bolt';
+  | 'vfx_thunder_bolt'
+  | 'vfx_slash_crescent'
+  | 'vfx_slash_heavy_cleave'
+  | 'vfx_spear_dragon_thrust'
+  | 'vfx_lotus_blood_finisher'
+  | 'vfx_qi_dragon_wave'
+  | 'vfx_rising_dragon_pillar'
+  | 'vfx_taiji_gold_bell'
+  | 'vfx_soul_claw_vortex'
+  | 'vfx_samadhi_fire_pillar'
+  | 'vfx_frost_shatter'
+  | 'vfx_earth_sunder_burst'
+  | 'vfx_iaido_flash_cut';
 
-const ASSET_VERSION = 'painted_v23';
+const ASSET_VERSION = 'painted_v24';
 
 const ASSET_FILES: Record<AssetKey, string> = {
   bg_title: './assets/bg_title.webp',
@@ -377,6 +397,26 @@ const ASSET_FILES: Record<AssetKey, string> = {
   vfx_bagua_formation: './assets/vfx_bagua_formation.webp',
   vfx_ink_shockwave: './assets/vfx_ink_shockwave.webp',
   vfx_thunder_bolt: './assets/vfx_thunder_bolt.webp',
+  h18_atk_slash_down: './assets/h18_atk_slash_down.webp',
+  h18_atk_slash_up: './assets/h18_atk_slash_up.webp',
+  h18_spear_thrust: './assets/h18_spear_thrust.webp',
+  h18_whip_snap: './assets/h18_whip_snap.webp',
+  h18_dagger_cross: './assets/h18_dagger_cross.webp',
+  h18_heavy_guard: './assets/h18_heavy_guard.webp',
+  h18_heavy_windup: './assets/h18_heavy_windup.webp',
+  h18_heavy_cleave: './assets/h18_heavy_cleave.webp',
+  vfx_slash_crescent: './assets/vfx_slash_crescent.webp',
+  vfx_slash_heavy_cleave: './assets/vfx_slash_heavy_cleave.webp',
+  vfx_spear_dragon_thrust: './assets/vfx_spear_dragon_thrust.webp',
+  vfx_lotus_blood_finisher: './assets/vfx_lotus_blood_finisher.webp',
+  vfx_qi_dragon_wave: './assets/vfx_qi_dragon_wave.webp',
+  vfx_rising_dragon_pillar: './assets/vfx_rising_dragon_pillar.webp',
+  vfx_taiji_gold_bell: './assets/vfx_taiji_gold_bell.webp',
+  vfx_soul_claw_vortex: './assets/vfx_soul_claw_vortex.webp',
+  vfx_samadhi_fire_pillar: './assets/vfx_samadhi_fire_pillar.webp',
+  vfx_frost_shatter: './assets/vfx_frost_shatter.webp',
+  vfx_earth_sunder_burst: './assets/vfx_earth_sunder_burst.webp',
+  vfx_iaido_flash_cut: './assets/vfx_iaido_flash_cut.webp',
 };
 
 // 首屏秒开关键资源集（仅含标题画卷、开场动态序章、主角骨骼序列与第一幕苦竹外哨核心构件，实现 <1s 极速入画！）
@@ -409,6 +449,18 @@ const BOOT_CRITICAL_ASSETS: AssetKey[] = [
   'vfx_bagua_formation',
   'vfx_ink_shockwave',
   'vfx_thunder_bolt',
+  'vfx_slash_crescent',
+  'vfx_slash_heavy_cleave',
+  'vfx_spear_dragon_thrust',
+  'vfx_lotus_blood_finisher',
+  'vfx_qi_dragon_wave',
+  'vfx_rising_dragon_pillar',
+  'vfx_taiji_gold_bell',
+  'vfx_soul_claw_vortex',
+  'vfx_samadhi_fire_pillar',
+  'vfx_frost_shatter',
+  'vfx_earth_sunder_burst',
+  'vfx_iaido_flash_cut',
   'h18_idle_0',
   'h18_idle_1',
   'h18_jump_up',
@@ -420,6 +472,14 @@ const BOOT_CRITICAL_ASSETS: AssetKey[] = [
   'h18_sword_0',
   'h18_sword_1',
   'h18_sword_2',
+  'h18_atk_slash_down',
+  'h18_atk_slash_up',
+  'h18_spear_thrust',
+  'h18_whip_snap',
+  'h18_dagger_cross',
+  'h18_heavy_guard',
+  'h18_heavy_windup',
+  'h18_heavy_cleave',
   'mob_sw_0',
   'mob_sw_1',
   'mob_crow',

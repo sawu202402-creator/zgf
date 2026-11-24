@@ -15,6 +15,7 @@ import {
   drawSwordFamiliar,
   drawWorldDrop,
   HERO_SPRITE_METRICS,
+  renderHeroWeaponSlashVfx,
   selectHeroSpriteFrame,
 } from './CharacterArt';
 import { GameEngine } from './GameEngine';
@@ -29,6 +30,7 @@ import {
   drawPaintedChainTrack,
   drawPaintedThunderBolt,
   drawPaintedVfxDisc,
+  drawPaintedVfxSprite,
   drawSeamlessParallaxBackdrop,
   drawSeamlessTitlePanorama,
   drawSoftGroundShadow,
@@ -1646,12 +1648,11 @@ export class InkVaniaRenderer {
   private renderOrbitingSwordsAndLevelUp(ctx: CanvasRenderingContext2D, engine: GameEngine): void {
     const p = engine.player;
 
-    // 1. 奇门副器【子母护体灵剑】：三柄青冥飞剑环绕周身旋转斩邪！
+    // 1. 奇门副器【子母护体灵剑】：三柄手绘青冥飞剑配水墨流光弧环绕周身旋转斩邪！
     if (p.orbitSwordTimer > 0) {
-      const swordImg = Assets.get('part_wpn_sword');
+      const swordImg = Assets.get('fam_sword') || Assets.get('part_wpn_sword');
       ctx.save();
       ctx.translate(p.x, p.y - 42);
-      ctx.globalCompositeOperation = 'lighter';
       for (let i = 0; i < 3; i++) {
         const ang = p.orbitAngle + (i * Math.PI * 2) / 3;
         const ox = Math.cos(ang) * 66;
@@ -1659,15 +1660,14 @@ export class InkVaniaRenderer {
         ctx.save();
         ctx.translate(ox, oy);
         ctx.rotate(ang + Math.PI * 0.5);
-        const sg = ctx.createRadialGradient(0, 0, 2, 0, 0, 24);
-        sg.addColorStop(0, 'rgba(96, 165, 250, 0.55)');
-        sg.addColorStop(1, 'rgba(96, 165, 250, 0)');
-        ctx.fillStyle = sg;
-        ctx.beginPath();
-        ctx.ellipse(-6, 0, 28, 8, 0, 0, Math.PI * 2);
-        ctx.fill();
+        drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', -4, 0, 56, 56, {
+          rotation: -0.35,
+          alpha: 0.62,
+          tintHex: '#60a5fa',
+          additive: true,
+        });
         if (swordImg) {
-          ctx.drawImage(swordImg, -26, -6, 52, 12);
+          ctx.drawImage(swordImg, -26, -7, 52, 14);
         }
         ctx.restore();
       }
@@ -1743,203 +1743,12 @@ export class InkVaniaRenderer {
   private renderActiveSlashRibbon(ctx: CanvasRenderingContext2D, engine: GameEngine): void {
     const sl = engine.activeSlash;
     if (!sl) return;
-
-    if (sl.pogoDown) {
-      drawInkSlashRibbon(
-        ctx,
-        sl.x,
-        sl.y,
-        sl.facing,
-        false,
-        66,
-        20,
-        0.55,
-        1.75,
-        sl.glowColor,
-        1 - sl.progress * 0.5
-      );
-      return;
-    }
-
-    if (sl.archetype === 'greatsword') {
-      if (sl.progress < 0.3) return;
-      const p = Math.min(1, (sl.progress - 0.3) / 0.68);
-      const flip = sl.comboStep === 0;
-      const sAng = -2.45 + p * 0.55;
-      const eAng = -2.1 + Math.min(1, p * 1.35) * 3.15;
-      drawInkSlashRibbon(
-        ctx,
-        sl.x,
-        sl.y + 4,
-        sl.facing,
-        flip,
-        sl.reachX * 0.9,
-        36 * (1 - p * 0.35),
-        sAng,
-        eAng,
-        sl.glowColor || '#f97316',
-        1 - p * 0.55
-      );
-    } else if (sl.archetype === 'spear') {
-      // 长枪：凌厉银龙突刺寒芒束 + 破风气环！
-      if (sl.progress < 0.14) return;
-      const p = Math.min(1, (sl.progress - 0.14) / 0.78);
-      const thrustExt = Math.sin(p * Math.PI);
-      const len = sl.reachX * (0.45 + thrustExt * 0.62);
-      const aimAng = sl.aimY < -0.35 ? -0.46 : 0;
-      ctx.save();
-      ctx.translate(sl.x, sl.y - 4);
-      ctx.scale(sl.facing, 1);
-      ctx.rotate(aimAng);
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = (1 - p * 0.55) * 0.92;
-
-      const sg = ctx.createLinearGradient(10, 0, len, 0);
-      sg.addColorStop(0, 'rgba(56, 189, 248, 0)');
-      sg.addColorStop(0.55, sl.glowColor || '#38bdf8');
-      sg.addColorStop(1, '#ffffff');
-      ctx.fillStyle = sg;
-      ctx.beginPath();
-      ctx.moveTo(12, -8);
-      ctx.lineTo(len, 0);
-      ctx.lineTo(12, 8);
-      ctx.closePath();
-      ctx.fill();
-
-      drawPaintedVfxDisc(
-        ctx,
-        'vfx_ink_shockwave',
-        len * 0.58,
-        0,
-        18 * thrustExt,
-        p * 4,
-        0.75,
-        '#e0f2fe',
-        0.34,
-        true
-      );
-      ctx.restore();
-    } else if (sl.archetype === 'daggers') {
-      // 分水双刺：零前摇极速交叉双月刃光！
-      const p = sl.progress;
-      drawInkSlashRibbon(
-        ctx,
-        sl.x + sl.facing * 12,
-        sl.y - 2,
-        sl.facing,
-        false,
-        sl.reachX * 0.92,
-        15,
-        -1.25 + p * 0.3,
-        0.95,
-        sl.glowColor || '#10b981',
-        1 - p * 0.45
-      );
-      drawInkSlashRibbon(
-        ctx,
-        sl.x + sl.facing * 14,
-        sl.y + 4,
-        sl.facing,
-        true,
-        sl.reachX * 0.85,
-        13,
-        -1.15 + p * 0.3,
-        0.85,
-        '#ffffff',
-        (1 - p * 0.5) * 0.78
-      );
-    } else if (sl.archetype === 'whip') {
-      // 【乌金九节鞭 / 缚魂赤铜锁链刀】：手绘玄铁链段铺展 + 鞭梢烈芒！
-      if (sl.progress < 0.24) return;
-      const p = Math.min(1, (sl.progress - 0.24) / 0.74);
-      const snap = Math.sin(Math.min(1, p * 1.25) * Math.PI);
-      const aimAng = sl.aimY < -0.35 ? -0.62 : sl.aimY > 0.35 ? 0.38 : 0;
-      const maxLen = sl.reachX * (0.36 + snap * 0.7);
-      const waveAmp = (1 - snap * 0.78) * 14;
-      const tipWave = Math.sin(Math.PI * 2.5 - p * 9) * waveAmp;
-
-      ctx.save();
-      ctx.translate(sl.x + sl.facing * 26, sl.y - 16);
-      ctx.scale(sl.facing, 1);
-      ctx.rotate(aimAng);
-
-      drawPaintedChainTrack(ctx, 0, 0, maxLen, 0, 12, 0.94, undefined, waveAmp, 2.5, p * 9);
-      drawPaintedChainTrack(
-        ctx,
-        0,
-        0,
-        maxLen,
-        0,
-        10,
-        0.78,
-        sl.glowColor || '#eab308',
-        waveAmp,
-        2.5,
-        p * 9
-      );
-      drawPaintedVfxDisc(
-        ctx,
-        'vfx_ink_shockwave',
-        maxLen,
-        tipWave,
-        15,
-        p * 8,
-        0.92,
-        '#fef08a',
-        1,
-        true
-      );
-      ctx.restore();
-    } else {
-      // 轻剑：三式水墨翡翠弯月剑气绸带（若佩青莲千影剑则绽放三道真空残影剑网！）
-      const p = sl.progress;
-      const flip = sl.comboStep === 2;
-      const radius = sl.comboStep === 0 ? sl.reachX * 1.02 : sl.reachX * 0.88;
-      const sAng = -1.45 + p * 0.45;
-      const eAng = -1.1 + Math.min(1, p * 1.35) * 2.4;
-      drawInkSlashRibbon(
-        ctx,
-        sl.x + sl.facing * (sl.comboStep === 0 ? 14 : 4),
-        sl.y,
-        sl.facing,
-        flip,
-        radius,
-        24 * (1 - p * 0.4),
-        sAng,
-        eAng,
-        sl.glowColor || '#2dd4bf',
-        1 - p * 0.5
-      );
-      const eqW = engine.slot ? WEAPONS[engine.slot.equippedWeapon] : undefined;
-      if (eqW?.specialEffect === 'multi_phantom') {
-        drawInkSlashRibbon(
-          ctx,
-          sl.x + sl.facing * 24,
-          sl.y - 10,
-          sl.facing,
-          !flip,
-          radius * 0.94,
-          16,
-          sAng - 0.25,
-          eAng - 0.15,
-          '#fef08a',
-          (1 - p * 0.45) * 0.82
-        );
-        drawInkSlashRibbon(
-          ctx,
-          sl.x + sl.facing * 18,
-          sl.y + 10,
-          sl.facing,
-          flip,
-          radius * 0.88,
-          15,
-          sAng + 0.22,
-          eAng + 0.2,
-          '#a7f3d0',
-          (1 - p * 0.45) * 0.78
-        );
-      }
-    }
+    renderHeroWeaponSlashVfx(
+      ctx,
+      sl,
+      engine.slot?.equippedWeapon || sl.weaponId || 'sword_0',
+      this.ambientTime
+    );
   }
 
   private renderProjectiles(ctx: CanvasRenderingContext2D, engine: GameEngine): void {
@@ -1948,25 +1757,58 @@ export class InkVaniaRenderer {
       ctx.translate(pr.x, pr.y);
       if (pr.kind === 'qi_wave') {
         const dir = pr.vx >= 0 ? 1 : -1;
-        // 朔风破空斩 / 妖王裂空波：叠加态双层流光风刃 + 3道蜿蜒拖尾气丝（0贴图感！）
-        drawInkSlashRibbon(ctx, 0, 0, dir, false, pr.r * 1.18, 22, -1.08, 1.08, pr.color, 0.95);
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.strokeStyle = pr.color;
-        for (let k = -1; k <= 1; k++) {
-          ctx.globalAlpha = 0.55 - Math.abs(k) * 0.15;
-          ctx.lineWidth = 2.2 - Math.abs(k) * 0.5;
-          ctx.beginPath();
-          ctx.moveTo(dir * 8, k * 14);
-          ctx.quadraticCurveTo(
-            -dir * 32,
-            k * 16 + Math.sin(this.ambientTime * 24 + k) * 8,
-            -dir * 68,
-            k * 10
-          );
-          ctx.stroke();
+        if (pr.fromPlayer) {
+          // 朔风破空斩 / 苍龙剑气波：纯手绘巨型水墨苍龙剑气浪潮 + 裂地烟尘尾浪 + 随身神兵元素异象！
+          const wSize = Math.max(96, pr.r * 5.1);
+          const hSize = Math.max(82, pr.r * 4.3);
+          drawPaintedVfxSprite(ctx, 'vfx_qi_dragon_wave', -dir * 8, 0, wSize, hSize, {
+            flipX: dir === -1,
+            alpha: 0.94,
+            tintHex: pr.color,
+            tintAlpha: 0.72,
+          });
+          drawPaintedVfxSprite(ctx, 'vfx_qi_dragon_wave', -dir * 4, 0, wSize * 1.04, hSize * 1.04, {
+            flipX: dir === -1,
+            alpha: 0.56,
+            tintHex: pr.color,
+            additive: true,
+          });
+          drawPaintedVfxSprite(ctx, 'vfx_earth_sunder_burst', -dir * 26, 36, pr.r * 3.8, pr.r * 2.1, {
+            flipX: dir === -1,
+            alpha: 0.55,
+            anchorY: 0.95,
+            tintHex: pr.color,
+          });
+          const eqW = engine.slot ? WEAPONS[engine.slot.equippedWeapon] : undefined;
+          if (eqW?.specialEffect === 'frost_slow') {
+            drawPaintedVfxSprite(ctx, 'vfx_frost_shatter', dir * 10, 0, pr.r * 2.8, pr.r * 2.8, {
+              rotation: this.ambientTime * 4,
+              alpha: 0.78,
+              tintHex: '#7dd3fc',
+              additive: true,
+            });
+          } else if (eqW?.specialEffect === 'burn_dot') {
+            drawPaintedVfxSprite(ctx, 'vfx_samadhi_fire_pillar', -dir * 12, 24, pr.r * 2.0, pr.r * 3.4, {
+              alpha: 0.78,
+              anchorY: 0.95,
+              additive: true,
+            });
+          } else if (eqW?.specialEffect === 'chain_lightning') {
+            drawPaintedThunderBolt(
+              ctx,
+              -dir * 52,
+              -10,
+              dir * 28,
+              10,
+              26,
+              0.88,
+              Math.floor(this.ambientTime * 26) % 2 === 1,
+              '#e879f9'
+            );
+          }
+        } else {
+          drawInkSlashRibbon(ctx, 0, 0, dir, false, pr.r * 1.25, 26, -1.15, 1.15, pr.color, 0.95);
         }
-        ctx.restore();
       } else if (pr.enemyFx === 'venom_glob') {
         // 毒沼金蟾：鼓动冒泡的碧紫腐蚀毒囊珠 + 飞溅毒液尾珠（彻底告别错画主角酒葫芦！）
         const ang = Math.atan2(pr.vy, pr.vx);
@@ -2306,28 +2148,38 @@ export class InkVaniaRenderer {
         ctx.drawImage(fgImg, -15, -18, 30, 36);
         ctx.restore();
       } else if (pr.kind === 'fire_pillar' || pr.kind === 'holy_fire') {
-        const hMul = pr.kind === 'fire_pillar' ? 1 : 0.42;
-        const sway1 = Math.sin(this.ambientTime * 24 + pr.x * 0.1) * 8 * hMul;
-        const sway2 = Math.cos(this.ambientTime * 31 + pr.x * 0.2) * 5 * hMul;
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.fillStyle = 'rgba(234, 88, 12, 0.65)';
-        ctx.beginPath();
-        ctx.moveTo(-16 * hMul, 2);
-        ctx.quadraticCurveTo(-8 * hMul, -36 * hMul, sway1, -68 * hMul);
-        ctx.quadraticCurveTo(10 * hMul, -34 * hMul, 16 * hMul, 2);
-        ctx.closePath();
-        ctx.fill();
-        ctx.fillStyle = 'rgba(254, 240, 138, 0.85)';
-        ctx.beginPath();
-        ctx.moveTo(-8 * hMul, 2);
-        ctx.quadraticCurveTo(-3 * hMul, -22 * hMul, sway2, -44 * hMul);
-        ctx.quadraticCurveTo(4 * hMul, -22 * hMul, 8 * hMul, 2);
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
+        // 三昧净火符 / 赤焰炎柱：纯手绘重彩火莲升腾真火柱（彻底替代矢量三角火焰！）
+        const hMul = pr.kind === 'fire_pillar' ? 1 : 0.45;
+        const fade = Math.min(1, pr.life / 0.28);
+        const pulse = 1 + Math.sin(this.ambientTime * 18 + pr.x * 0.1) * 0.08;
+        const fw = Math.max(26, 62 * hMul);
+        const fh = Math.max(46, 112 * hMul * pulse);
+        drawPaintedVfxSprite(ctx, 'vfx_samadhi_fire_pillar', 0, 10, fw, fh, {
+          flipX: Math.floor(this.ambientTime * 11 + pr.x) % 2 === 1,
+          alpha: 0.94 * fade,
+          anchorY: 0.96,
+          tintHex: '#fb923c',
+        });
+        drawPaintedVfxSprite(ctx, 'vfx_samadhi_fire_pillar', 0, 8, fw * 0.9, fh * 0.92, {
+          alpha: 0.55 * fade,
+          anchorY: 0.96,
+          tintHex: '#fde047',
+          additive: true,
+        });
       } else if (pr.kind === 'seal') {
-        // 镇岳盘龙金印（纯手绘 `item_sub_seal.webp` 高抛翻转重印 + 金色流光残影）
+        // 镇岳盘龙金印（纯手绘 `item_sub_seal.webp` + 金色裂地震波光环）
+        drawPaintedVfxDisc(
+          ctx,
+          'vfx_ink_shockwave',
+          0,
+          0,
+          28,
+          this.ambientTime * 6,
+          0.62,
+          '#facc15',
+          1,
+          true
+        );
         const sealImg = Assets.get('item_sub_seal');
         ctx.save();
         ctx.rotate(this.ambientTime * 9.5);
@@ -2336,35 +2188,40 @@ export class InkVaniaRenderer {
         }
         ctx.restore();
       } else if (pr.kind === 'bagua') {
-        // 乾坤流光八卦轮（纯手绘 `item_sub_bagua.webp` 疾旋刃轮）
+        // 乾坤流光八卦轮（纯手绘 `item_sub_bagua.webp` + 碧金飞白剑气切割光环）
+        const rot = this.ambientTime * 15;
+        drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', 0, 0, 74, 74, {
+          rotation: rot,
+          alpha: 0.78,
+          tintHex: '#48c9b0',
+          additive: true,
+        });
+        drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', 0, 0, 72, 72, {
+          rotation: rot + Math.PI,
+          alpha: 0.65,
+          tintHex: '#fde047',
+          additive: true,
+        });
         const baguaImg = Assets.get('item_sub_bagua');
         ctx.save();
-        ctx.rotate(this.ambientTime * 15);
+        ctx.rotate(rot);
         if (baguaImg) {
           ctx.drawImage(baguaImg, -22, -22, 44, 44);
         }
         ctx.restore();
       } else {
-        // 少侠柳叶寒铁飞刀（手绘短刃贴图 + 破空银芒尾线）
+        // 少侠柳叶寒铁飞刀（手绘短匕贴图 + 银龙破空尾芒）
         const ang = Math.atan2(pr.vy, pr.vx);
         ctx.rotate(ang);
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-        const tailG = ctx.createLinearGradient(-38, 0, 10, 0);
-        tailG.addColorStop(0, 'rgba(45, 212, 191, 0)');
-        tailG.addColorStop(
-          1,
-          pr.fromPlayer ? 'rgba(226, 232, 240, 0.85)' : 'rgba(244, 114, 182, 0.85)'
-        );
-        ctx.strokeStyle = tailG;
-        ctx.lineWidth = 2.4;
-        ctx.beginPath();
-        ctx.moveTo(-38, 0);
-        ctx.lineTo(6, 0);
-        ctx.stroke();
-        ctx.restore();
+        drawPaintedVfxSprite(ctx, 'vfx_spear_dragon_thrust', 6, 0, 56, 20, {
+          alpha: 0.85,
+          tintHex: pr.fromPlayer ? '#bae6fd' : '#f472b6',
+          additive: true,
+          anchorX: 0.82,
+        });
 
-        const bladeImg = Assets.get('part_wpn_daggers') || Assets.get('part_wpn_sword');
+        const bladeImg =
+          Assets.get('wpn_daggers_1') || Assets.get('part_wpn_daggers') || Assets.get('part_wpn_sword');
         if (bladeImg) {
           ctx.drawImage(bladeImg, -15, -5, 30, 10);
         }
@@ -2420,26 +2277,24 @@ export class InkVaniaRenderer {
         );
       }
 
-      // 锐利菱形斩裂寒芒主线
-      ctx.rotate(si.angle);
-      const len = si.length * (0.7 + prog * 0.45);
-      const th = si.thickness * (1 - prog * 0.72);
-
-      ctx.globalAlpha = alpha * 0.88;
-      ctx.fillStyle = si.color;
-      ctx.beginPath();
-      ctx.moveTo(-len, 0);
-      ctx.quadraticCurveTo(0, -th * 1.6, len, 0);
-      ctx.quadraticCurveTo(0, th * 1.6, -len, 0);
-      ctx.fill();
-
-      ctx.globalAlpha = alpha;
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.moveTo(-len * 0.82, 0);
-      ctx.quadraticCurveTo(0, -th * 0.65, len * 0.82, 0);
-      ctx.quadraticCurveTo(0, th * 0.65, -len * 0.82, 0);
-      ctx.fill();
+      // 纯手绘一闪寒芒裂痕 + 交叉莲瓣暴击爆闪（0矢量菱形/线条！）
+      const len = Math.max(46, si.length * (1.25 + prog * 0.55));
+      const hCut = Math.max(24, si.thickness * 3.8 * (1 - prog * 0.45));
+      drawPaintedVfxSprite(ctx, 'vfx_iaido_flash_cut', 0, 0, len, hCut, {
+        rotation: si.angle,
+        alpha: alpha * 0.95,
+        tintHex: si.color,
+        tintAlpha: 0.85,
+        additive: true,
+      });
+      if (si.ringRadius >= 30) {
+        drawPaintedVfxSprite(ctx, 'vfx_lotus_blood_finisher', 0, 0, si.ringRadius * 2.1, si.ringRadius * 2.1, {
+          rotation: si.angle + prog * 0.6,
+          alpha: alpha * 0.82,
+          tintHex: si.color,
+          additive: true,
+        });
+      }
 
       ctx.restore();
     }
@@ -2575,7 +2430,7 @@ export class InkVaniaRenderer {
     const fade = Math.sin(Math.min(1, pr) * Math.PI);
 
     if (sk.kind === 'taiji_parry') {
-      const r = sk.parrySuccess ? 98 : 74;
+      const r = sk.parrySuccess ? 108 : 82;
       drawPaintedVfxDisc(
         ctx,
         'vfx_bagua_formation',
@@ -2585,7 +2440,7 @@ export class InkVaniaRenderer {
         pr * Math.PI * 1.6,
         fade * 0.94,
         sk.parrySuccess ? '#fde047' : '#2dd4bf',
-        0.34,
+        0.32,
         true
       );
     } else if (sk.kind === 'jiuyou_soulsteal') {
@@ -2594,50 +2449,55 @@ export class InkVaniaRenderer {
         'vfx_bagua_formation',
         p.x,
         p.y - 2,
-        118,
+        126,
         -pr * Math.PI * 2.1,
-        fade * 0.9,
+        fade * 0.92,
         '#f43f5e',
         0.3,
         true
       );
-      drawPaintedVfxDisc(
+      drawPaintedVfxSprite(
         ctx,
-        'vfx_ink_shockwave',
+        'vfx_soul_claw_vortex',
         p.x,
-        p.y - 2,
-        72 * (0.4 + pr * 0.65),
-        pr * Math.PI * 3.1,
-        fade * 0.85,
-        '#c084fc',
-        0.3,
-        true
+        p.y - 4,
+        196 * (0.45 + pr * 0.65),
+        64 * (0.45 + pr * 0.65),
+        {
+          rotation: pr * Math.PI * 1.8,
+          alpha: fade * 0.88,
+          tintHex: '#ef4444',
+          additive: true,
+        }
       );
-    } else if (sk.kind === 'jinghong_rising' && pr < 0.65) {
-      const k = pr / 0.65;
-      drawPaintedVfxDisc(
+    } else if (sk.kind === 'jinghong_rising' && pr < 0.72) {
+      const k = pr / 0.72;
+      drawPaintedVfxSprite(
         ctx,
-        'vfx_ink_shockwave',
+        'vfx_earth_sunder_burst',
         sk.startX,
-        sk.startY - 2,
-        24 + k * 66,
-        k * 4.2,
-        (1 - k) * 0.88,
-        '#38bdf8',
-        0.26,
-        true
+        sk.startY + 4,
+        88 + k * 116,
+        60 + k * 64,
+        {
+          alpha: (1 - k * 0.75) * 0.94,
+          anchorY: 0.94,
+          tintHex: '#38bdf8',
+          additive: true,
+        }
       );
     }
   }
 
   /**
-   * 五大真气绝学与奇门副器世界空间水墨光影演出（100% 重彩手绘贴图与水墨刀罡！）
+   * 五大真气绝学与奇门副器世界空间水墨重彩大招演出（100% 手绘原画序列！）
    */
   private renderActiveSkillWorldVfx(ctx: CanvasRenderingContext2D, engine: GameEngine): void {
     const sk = engine.activeSkillAnim;
     if (!sk) return;
     const p = engine.player;
     const pr = sk.progress;
+    const wGlow = (engine.slot ? WEAPONS[engine.slot.equippedWeapon]?.glowColor : undefined) || sk.color;
 
     if (sk.kind === 'shuofeng_wave') {
       if (pr < 0.28) {
@@ -2645,29 +2505,52 @@ export class InkVaniaRenderer {
         drawPaintedVfxDisc(
           ctx,
           'vfx_ink_shockwave',
-          p.x - sk.facing * 12,
+          p.x - sk.facing * 10,
           p.y - 44,
-          (1 - u) * 44 + 10,
-          this.ambientTime * 9,
-          u * 0.85,
-          sk.color,
+          (1 - u) * 48 + 12,
+          this.ambientTime * 11,
+          u * 0.9,
+          wGlow,
           1,
           true
         );
+        drawPaintedVfxSprite(ctx, 'vfx_iaido_flash_cut', p.x - sk.facing * 6, p.y - 44, 68 * u + 24, 34, {
+          flipX: sk.facing === -1,
+          alpha: u * 0.85,
+          tintHex: '#ffffff',
+          additive: true,
+        });
       } else {
         const u = (pr - 0.28) / 0.72;
-        drawInkSlashRibbon(
+        const fade = Math.max(0, 1 - u * 0.75);
+        drawPaintedVfxSprite(
           ctx,
-          p.x + sk.facing * 14,
+          'vfx_slash_crescent',
+          p.x + sk.facing * 26,
+          p.y - 44,
+          168 + u * 54,
+          162 + u * 48,
+          {
+            rotation: sk.facing * (-0.3 + u * 0.7),
+            flipX: sk.facing === -1,
+            alpha: fade * 0.94,
+            tintHex: wGlow,
+            additive: true,
+          }
+        );
+        drawPaintedVfxSprite(
+          ctx,
+          'vfx_iaido_flash_cut',
+          p.x + sk.facing * (44 + u * 52),
           p.y - 42,
-          sk.facing,
-          false,
-          78 + u * 18,
-          28 * (1 - u * 0.6),
-          -1.28,
-          1.18,
-          sk.color,
-          Math.max(0, 1 - u * 0.9)
+          170,
+          64,
+          {
+            flipX: sk.facing === -1,
+            alpha: fade * 0.88,
+            tintHex: wGlow,
+            additive: true,
+          }
         );
       }
     } else if (sk.kind === 'shunying_flash') {
@@ -2677,60 +2560,93 @@ export class InkVaniaRenderer {
           ctx,
           'vfx_ink_shockwave',
           sk.startX + sk.facing * 10,
-          sk.startY - 34,
-          22 * s,
+          sk.startY - 36,
+          28 * s + 6,
           pr * 10,
-          s * 0.92,
+          s * 0.94,
           '#fef9c3',
           1,
           true
         );
+        drawPaintedVfxSprite(ctx, 'vfx_iaido_flash_cut', sk.startX + sk.facing * 18, sk.startY - 36, 92, 42, {
+          flipX: sk.facing === -1,
+          alpha: s * 0.95,
+          tintHex: '#fde047',
+          additive: true,
+        });
       } else {
         const fade = Math.max(0, 1 - (pr - 0.2) / 0.8);
+        const span = Math.max(120, Math.abs(sk.endX - sk.startX));
+        const midX = (sk.startX + sk.endX) * 0.5;
+        const midY = (sk.startY + sk.endY) * 0.5 - 38;
+
+        // 1. 沿位移轨迹绘制 3 道半透明水墨残影身姿（`h18_spear_thrust` 水墨染影！）
+        const ghostSil = Assets.getTintedSilhouette('h18_spear_thrust', '#38bdf8', false);
+        if (ghostSil) {
+          const gw = HERO_SPRITE_METRICS.canvasW * HERO_SPRITE_METRICS.baseScale;
+          const gh = HERO_SPRITE_METRICS.canvasH * HERO_SPRITE_METRICS.baseScale;
+          const ax = HERO_SPRITE_METRICS.anchorX * HERO_SPRITE_METRICS.baseScale;
+          const fy = HERO_SPRITE_METRICS.footY * HERO_SPRITE_METRICS.baseScale;
+          for (let g = 0; g < 3; g++) {
+            const frac = 0.2 + g * 0.3;
+            const gx = sk.startX + (sk.endX - sk.startX) * frac;
+            const gy = sk.startY + (sk.endY - sk.startY) * frac;
+            ctx.save();
+            ctx.translate(gx, gy);
+            ctx.scale(sk.facing, 1);
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalAlpha = fade * (0.28 + g * 0.14);
+            ctx.drawImage(ghostSil, -ax, -fy, gw, gh);
+            ctx.restore();
+          }
+        }
+
+        // 2. 横贯路径的金白居合拔刀墨闪 + 奔雷残芒
+        drawPaintedVfxSprite(ctx, 'vfx_iaido_flash_cut', midX, midY, span + 110, 76 * fade + 24, {
+          flipX: sk.facing === -1,
+          alpha: 0.95 * fade,
+          tintHex: '#fef08a',
+          additive: true,
+        });
         drawPaintedThunderBolt(
           ctx,
           sk.startX,
           sk.startY - 38,
           sk.endX,
           sk.endY - 38,
-          26 * fade + 8,
-          0.88 * fade,
+          24 * fade + 8,
+          0.78 * fade,
           false,
-          '#fde68a'
+          '#38bdf8'
         );
 
+        // 3. 路径沿线 3 朵交错爆开的莲瓣斩裂寒芒
         for (let k = 0; k < 3; k++) {
-          const trig = 0.22 + k * 0.14;
+          const trig = 0.22 + k * 0.13;
           if (pr < trig) continue;
-          const localP = Math.min(1, (pr - trig) / 0.36);
-          const alpha = (1 - localP) * 0.92;
-          const sx = sk.startX + ((sk.endX - sk.startX) * (k + 0.8)) / 3.4;
-          const sy = sk.endY - 42 + (k % 2 === 0 ? -6 : 6);
-          drawInkSlashRibbon(
-            ctx,
-            sx,
-            sy,
-            sk.facing,
-            k % 2 === 1,
-            38 + localP * 16,
-            10 * (1 - localP * 0.5),
-            -0.65,
-            0.65,
-            '#fef08a',
-            alpha
-          );
+          const localP = Math.min(1, (pr - trig) / 0.38);
+          const alpha = (1 - localP) * 0.94;
+          const sx = sk.startX + ((sk.endX - sk.startX) * (k + 0.85)) / 3.4;
+          const sy = sk.endY - 40 + (k % 2 === 0 ? -8 : 8);
+          drawPaintedVfxSprite(ctx, 'vfx_lotus_blood_finisher', sx, sy, 92 + localP * 38, 92 + localP * 38, {
+            rotation: k * 0.75 + localP * 0.5,
+            flipX: sk.facing === -1,
+            alpha,
+            tintHex: '#fde047',
+            additive: true,
+          });
         }
 
-        if (pr > 0.68) {
-          const sh = Math.sin(((pr - 0.68) / 0.32) * Math.PI);
+        if (pr > 0.66) {
+          const sh = Math.sin(((pr - 0.66) / 0.34) * Math.PI);
           drawPaintedVfxDisc(
             ctx,
             'vfx_ink_shockwave',
-            p.x - sk.facing * 8,
+            p.x - sk.facing * 6,
             p.y - 38,
-            18 * sh,
+            24 * sh + 8,
             -pr * 8,
-            sh * 0.88,
+            sh * 0.9,
             '#38bdf8',
             1,
             true
@@ -2738,64 +2654,106 @@ export class InkVaniaRenderer {
         }
       }
     } else if (sk.kind === 'jinghong_rising') {
-      const fade = Math.max(0, 1 - pr * 0.85);
-      const botY = sk.startY - 10;
-      const topY = p.y - 84;
-      for (let tier = 0; tier < 3; tier++) {
-        const u = tier / 2;
-        const yy = botY + (topY - botY) * u;
+      const fade = Math.max(0, 1 - pr * 0.72);
+      const colH = Math.max(150, Math.abs(sk.startY - (p.y - 108)) + 54);
+      const colW = colH * 0.76;
+      // 惊鸿升龙破：拔地而起的青金水墨盘龙冲天柱 + 升空旋斩剑虹！
+      drawPaintedVfxSprite(ctx, 'vfx_rising_dragon_pillar', p.x, Math.max(p.y + 8, sk.startY + 4), colW, colH, {
+        flipX: sk.facing === -1,
+        alpha: fade * 0.95,
+        anchorY: 0.92,
+        tintHex: '#38bdf8',
+        additive: false,
+      });
+      drawPaintedVfxSprite(ctx, 'vfx_rising_dragon_pillar', p.x, Math.max(p.y + 8, sk.startY + 4), colW * 1.05, colH * 1.04, {
+        flipX: sk.facing === -1,
+        alpha: fade * 0.55,
+        anchorY: 0.92,
+        tintHex: '#7dd3fc',
+        additive: true,
+      });
+      drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', p.x + sk.facing * 8, p.y - 52, 148, 148, {
+        rotation: sk.facing * (0.45 - pr * 1.4),
+        flipX: sk.facing === -1,
+        flipY: true,
+        alpha: fade * 0.92,
+        tintHex: '#e0f2fe',
+        additive: true,
+      });
+    } else if (sk.kind === 'taiji_parry') {
+      const fade = Math.sin(pr * Math.PI);
+      const rad = (sk.parrySuccess ? 92 : 66) * (0.68 + pr * 0.42);
+      drawPaintedVfxDisc(
+        ctx,
+        'vfx_taiji_gold_bell',
+        p.x,
+        p.y - 44,
+        rad,
+        pr * Math.PI * 1.45,
+        fade * 0.95,
+        sk.parrySuccess ? '#fde047' : '#2dd4bf',
+        1,
+        false
+      );
+      drawPaintedVfxDisc(
+        ctx,
+        'vfx_taiji_gold_bell',
+        p.x,
+        p.y - 44,
+        rad * 1.04,
+        pr * Math.PI * 1.45,
+        fade * 0.55,
+        sk.parrySuccess ? '#fef08a' : '#5eead4',
+        1,
+        true
+      );
+      if (sk.parrySuccess) {
+        drawPaintedVfxSprite(ctx, 'vfx_iaido_flash_cut', p.x + sk.facing * 24, p.y - 44, 210, 86, {
+          flipX: sk.facing === -1,
+          alpha: fade * 0.95,
+          tintHex: '#fde047',
+          additive: true,
+        });
         drawPaintedVfxDisc(
           ctx,
           'vfx_ink_shockwave',
           p.x,
-          yy,
-          26 - u * 8,
-          pr * 8 * (tier % 2 === 0 ? 1 : -1),
-          fade * (0.85 - u * 0.2),
-          '#38bdf8',
-          0.32,
+          p.y - 44,
+          75 + pr * 68,
+          -pr * 6,
+          fade * 0.9,
+          '#fef08a',
+          1,
           true
         );
       }
-      drawInkSlashRibbon(
-        ctx,
-        p.x + sk.facing * 8,
-        p.y - 52,
-        sk.facing,
-        false,
-        66,
-        22 * fade,
-        -2.25,
-        -0.45,
-        '#38bdf8',
-        fade
-      );
-    } else if (sk.kind === 'taiji_parry') {
-      const fade = Math.sin(pr * Math.PI);
-      const rad = (sk.parrySuccess ? 86 : 62) * (0.55 + pr * 0.55);
-      drawPaintedVfxDisc(
-        ctx,
-        'vfx_xuanwu_ward',
-        p.x,
-        p.y - 42,
-        rad,
-        pr * Math.PI * 2.2,
-        fade * 0.9,
-        sk.parrySuccess ? '#fde047' : '#2dd4bf',
-        1,
-        true
-      );
     } else if (sk.kind === 'jiuyou_soulsteal') {
       const fade = Math.sin(pr * Math.PI);
       const hx = p.x;
       const hy = p.y - 52;
+      // 主角周身九幽血煞魔漩
+      drawPaintedVfxSprite(ctx, 'vfx_soul_claw_vortex', hx, hy, 128 + pr * 68, 128 + pr * 68, {
+        rotation: -pr * Math.PI * 2.4,
+        alpha: 0.88 * fade,
+        tintHex: '#ef4444',
+        additive: true,
+      });
+
       if (sk.soulTargets && sk.soulTargets.length > 0) {
         const orbImg = Assets.get('item_yao_core');
         for (let i = 0; i < sk.soulTargets.length; i++) {
           const tg = sk.soulTargets[i];
           const sagSign = hx <= tg.x ? -1 : 1;
           const sagAmt = sagSign * (34 + (i % 2) * 16);
-          drawPaintedChainTrack(ctx, hx, hy, tg.x, tg.y, 10, 0.86 * fade, '#f43f5e', 0, 1, 0, sagAmt);
+          drawPaintedChainTrack(ctx, hx, hy, tg.x, tg.y, 10, 0.88 * fade, '#f43f5e', 0, 1, 0, sagAmt);
+
+          // 被锁住的妖邪周身爆发九幽鬼爪血煞漩涡！
+          drawPaintedVfxSprite(ctx, 'vfx_soul_claw_vortex', tg.x, tg.y - 10, 74, 74, {
+            rotation: pr * Math.PI * 3 + i,
+            alpha: fade * 0.9,
+            tintHex: '#f43f5e',
+            additive: true,
+          });
 
           // 沿锁链飞向主角胸口的绯红妖魂光珠
           const dx = tg.x - hx;
@@ -2809,15 +2767,6 @@ export class InkVaniaRenderer {
           ctx.globalAlpha = fade;
           if (orbImg) {
             ctx.drawImage(orbImg, ox - 8, oy - 8, 16, 16);
-          } else {
-            const og = ctx.createRadialGradient(ox, oy, 1, ox, oy, 8);
-            og.addColorStop(0, '#fef08a');
-            og.addColorStop(0.5, 'rgba(244, 63, 94, 0.8)');
-            og.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = og;
-            ctx.beginPath();
-            ctx.arc(ox, oy, 8, 0, Math.PI * 2);
-            ctx.fill();
           }
           ctx.restore();
         }
@@ -2827,10 +2776,10 @@ export class InkVaniaRenderer {
         'vfx_ink_shockwave',
         hx,
         hy,
-        42 + pr * 48,
+        46 + pr * 56,
         -pr * 7,
         0.78 * fade,
-        '#ef4444',
+        '#f43f5e',
         1,
         true
       );

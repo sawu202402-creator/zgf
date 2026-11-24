@@ -23,8 +23,8 @@ import {
 } from '../data/worldMap';
 import { AssetKey, Assets, resolveFamiliarAssetKey } from '../game/AssetLoader';
 import {
-  drawInkSlashRibbon,
   pickSecondaryWeaponId,
+  renderHeroWeaponSlashVfx,
   renderModularLiYichengRig,
 } from '../game/CharacterArt';
 import { drawPaintedChainTrack, drawPaintedVfxDisc } from '../game/GuofengWorldArt';
@@ -65,6 +65,8 @@ export class UIManager {
   private bannerEl: HTMLElement | null = null;
   private stageRafId = 0;
   private stageSlash: ActiveSlash | null = null;
+  private stageComboStep = 0;
+  private stageAutoPlayTimer = 0;
   private installHookBound = false;
   private titleRootEl: HTMLElement | null = null;
 
@@ -2516,6 +2518,34 @@ export class UIManager {
         if (this.stageSlash) {
           this.stageSlash.progress += dt / this.stageSlash.duration;
           if (this.stageSlash.progress >= 1) this.stageSlash = null;
+        } else if (this.selectedEquipSlot === 'weapon') {
+          this.stageAutoPlayTimer += dt;
+          if (this.stageAutoPlayTimer >= 2.2) {
+            this.stageAutoPlayTimer = 0;
+            const shownW = WEAPONS[
+              this.previewItemId && WEAPONS[this.previewItemId] ? this.previewItemId : s.equippedWeapon
+            ];
+            if (shownW) {
+              this.stageComboStep = (this.stageComboStep + 1) % 3;
+              this.stageSlash = {
+                x: 102,
+                y: 170,
+                facing: 1,
+                aimX: 1,
+                aimY: 0,
+                archetype: shownW.archetype,
+                weaponId: shownW.id,
+                comboStep: this.stageComboStep,
+                pogoDown: false,
+                progress: 0,
+                duration: shownW.archetype === 'greatsword' ? 0.48 : shownW.archetype === 'whip' ? 0.36 : 0.3,
+                reachX: Math.min(115, shownW.reachX),
+                reachY: shownW.reachY,
+                color: shownW.color,
+                glowColor: shownW.glowColor,
+              };
+            }
+          }
         }
 
         const shownWpn =
@@ -2572,23 +2602,12 @@ export class UIManager {
         });
 
         if (this.stageSlash) {
-          const isHeavy = this.stageSlash.archetype === 'greatsword';
-          if (!isHeavy || this.stageSlash.progress >= 0.3) {
-            const p = isHeavy ? (this.stageSlash.progress - 0.3) / 0.7 : this.stageSlash.progress;
-            drawInkSlashRibbon(
-              sctx,
-              108,
-              164,
-              1,
-              false,
-              isHeavy ? 96 : 82,
-              isHeavy ? 28 : 20,
-              -1.6,
-              -1.2 + Math.min(1, p * 1.35) * 2.5,
-              isHeavy ? '#f97316' : '#2dd4bf',
-              1 - p * 0.5
-            );
-          }
+          sctx.save();
+          sctx.translate(102, 170);
+          sctx.scale(1.18, 1.18);
+          sctx.translate(-102, -170);
+          renderHeroWeaponSlashVfx(sctx, this.stageSlash, shownWpn, animT);
+          sctx.restore();
         }
 
         this.stageRafId = requestAnimationFrame(loop);
@@ -2618,19 +2637,22 @@ export class UIManager {
           this.engine.recalcStats(false);
           const w = WEAPONS[id];
           AudioFX.playSlash(w.archetype === 'greatsword' ? 'heavy' : 'light');
-          // 换兵瞬间在左侧舞台现场挥出一式帅气试刀斩！
+          // 换兵瞬间在左侧舞台现场轮换三段连招试刀演武！
+          this.stageComboStep = (this.stageComboStep + 1) % 3;
+          this.stageAutoPlayTimer = 0;
           this.stageSlash = {
-            x: 105,
-            y: 146,
+            x: 102,
+            y: 170,
             facing: 1,
             aimX: 1,
             aimY: 0,
             archetype: w.archetype,
-            comboStep: 1,
+            weaponId: w.id,
+            comboStep: this.stageComboStep,
             pogoDown: false,
             progress: 0,
-            duration: w.archetype === 'greatsword' ? 0.45 : 0.28,
-            reachX: w.reachX,
+            duration: w.archetype === 'greatsword' ? 0.48 : w.archetype === 'whip' ? 0.36 : 0.3,
+            reachX: Math.min(115, w.reachX),
             reachY: w.reachY,
             color: w.color,
             glowColor: w.glowColor,
