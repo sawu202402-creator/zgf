@@ -2247,7 +2247,7 @@ export class GameEngine {
       });
     }
 
-    // 传说神兵挥砍瞬间元素粒子流光（霜晶 / 血月 / 赤火 / 紫电 / 幻影）
+    // 传说神兵挥砍瞬间元素音效（纯手绘刀罡负责挥砍视觉，不额外喷射空挥椭圆粒子）
     if (w.specialEffect || w.lifestealBonus) {
       const eff = w.specialEffect || 'blood_leech';
       AudioFX.playElementalSlash(
@@ -2259,17 +2259,6 @@ export class GameEngine {
               ? 'charge'
               : 'blood'
       );
-      const pCol =
-        eff === 'frost_slow'
-          ? '#7dd3fc'
-          : eff === 'chain_lightning'
-            ? '#e879f9'
-            : eff === 'burn_dot'
-              ? '#fb923c'
-              : eff === 'multi_phantom'
-                ? '#38bdf8'
-                : '#f43f5e';
-      this.spawnInkBurst(p.x + p.facing * 36, p.y - 40, pCol, w.glowColor, 6);
     }
 
     const reachMult = chargedHeavy ? 1.32 : isSpearLunge ? 1.26 : isFinisher ? 1.18 : 1.0;
@@ -2437,7 +2426,7 @@ export class GameEngine {
         p.y - 38,
         isHeavy ? '#fb923c' : '#2dd4bf',
         '#090d16',
-        14
+        6
       );
     } else if (skillId === 'shunying_flash') {
       const startX = p.x;
@@ -2445,9 +2434,9 @@ export class GameEngine {
       const dest = this.computeSafeFlashEndX(startX, p.facing, 144);
       const endX = dest.x;
       p.invulnTimer = Math.max(p.invulnTimer, 0.24);
-      for (let i = 1; i <= 5; i++) {
-        const ix = startX + ((endX - startX) * i) / 5;
-        this.afterImages.push({ x: ix, y: p.y, facing: p.facing, color: '#fde68a', alpha: 0.82 });
+      for (let i = 1; i <= 2; i++) {
+        const ix = startX + ((endX - startX) * i) / 3;
+        this.afterImages.push({ x: ix, y: p.y, facing: p.facing, color: '#fde68a', alpha: 0.4 });
       }
       p.x = endX;
       p.y = dest.y;
@@ -2467,11 +2456,11 @@ export class GameEngine {
         y: p.y - 42,
         angle: 0,
         length: Math.max(36, Math.abs(endX - startX) * 0.68),
-        thickness: 8,
+        thickness: 6,
         color: '#fde68a',
-        ringRadius: 42,
-        life: 0.24,
-        maxLife: 0.24,
+        ringRadius: 0,
+        life: 0.22,
+        maxLife: 0.22,
       });
       const minX = Math.min(startX, endX) - 22;
       const maxX = Math.max(startX, endX) + 22;
@@ -2500,15 +2489,15 @@ export class GameEngine {
         x: p.x + p.facing * 18,
         y: p.y - 64,
         angle: -Math.PI * 0.46 * p.facing,
-        length: 88,
-        thickness: 9,
+        length: 76,
+        thickness: 7,
         color: '#38bdf8',
-        ringRadius: 42,
-        life: 0.24,
-        maxLife: 0.24,
+        ringRadius: 0,
+        life: 0.22,
+        maxLife: 0.22,
       });
       this.damageEnemiesInBox(p.x - 56, p.y - 126, 112, 132, skillDmg, false, 35);
-      this.spawnInkBurst(p.x, p.y - 48, '#38bdf8', '#090d16', 18);
+      this.spawnInkBurst(p.x, p.y - 48, '#38bdf8', '#090d16', 7);
       this.screenShake = 4;
     } else if (skillId === 'taiji_parry') {
       // 真正吃时机的弹反绝技：仅当抹除敌方飞弹或抓准敌方出招瞬间(windup/lunge_slash)才触发高伤破招；盲目空放威力减半且不晕 Boss！
@@ -3067,7 +3056,7 @@ export class GameEngine {
           if (sl.archetype === 'whip' && Math.abs(e.x - p.x) >= sl.reachX * 0.55) {
             dmgMult *= 1.22;
             if (!e.profile.isBoss) e.x += sl.facing * 26;
-            this.spawnInkBurst(e.x, e.y - e.profile.h * 0.5, '#fde047', '#090d16', 10);
+            this.spawnInkBurst(e.x, e.y - e.profile.h * 0.5, '#fde047', '#090d16', 4);
           }
 
           if (e.aiState === 'staggered') dmgMult *= 1.35;
@@ -3101,7 +3090,7 @@ export class GameEngine {
               dmgMult *= 0.25;
               bonusPoiseBreak = -Math.round(wDef.poiseDmg * 0.72);
               AudioFX.playParryClang();
-              this.spawnInkBurst(e.x - sl.facing * 14, e.y - 38, '#fde047', '#0f172a', 8);
+              this.spawnInkBurst(e.x - sl.facing * 14, e.y - 38, '#fde047', '#0f172a', 4);
             }
           } else if (
             e.profile.kind === 'paper_swordsman' &&
@@ -3117,7 +3106,7 @@ export class GameEngine {
               dmgMult *= 0.2;
               bonusPoiseBreak = -Math.round(wDef.poiseDmg * 0.8);
               AudioFX.playParryClang();
-              this.spawnInkBurst(e.x - sl.facing * 14, e.y - 36, '#7dd3fc', '#0f172a', 9);
+              this.spawnInkBurst(e.x - sl.facing * 14, e.y - 36, '#7dd3fc', '#0f172a', 4);
             }
           }
 
@@ -3149,14 +3138,14 @@ export class GameEngine {
 
           // 泣血饮魂妖刀专属腥红血珠飞散特效
           if (wDef.lifestealBonus && wDef.lifestealBonus > 0) {
-            this.spawnInkBurst(e.x, e.y - e.profile.h * 0.55, '#ef4444', '#7f1d1d', 9);
+            this.spawnInkBurst(e.x, e.y - e.profile.h * 0.55, '#ef4444', '#7f1d1d', 4);
           }
 
           // 神兵专属词条异象触发（霜冻迟缓 / 火毒灼烧 / 千影多段剑气 / 紫电链锁奔雷！）
           if (e.hp > 0) {
             if (wDef.specialEffect === 'frost_slow') {
               e.chillTimer = 2.8;
-              this.spawnInkBurst(e.x, e.y - e.profile.h * 0.5, '#38bdf8', '#e0f2fe', 8);
+              this.spawnInkBurst(e.x, e.y - e.profile.h * 0.5, '#38bdf8', '#e0f2fe', 4);
             }
             if (wDef.specialEffect === 'burn_dot' || eqCore?.poisonOnHit) {
               const isPoison = wDef.id === 'daggers_poison' || (!wDef.specialEffect && Boolean(eqCore?.poisonOnHit));
@@ -3175,10 +3164,10 @@ export class GameEngine {
                 x: e.x + (ph === 0 ? -14 : 14),
                 y: e.y - e.profile.h * (0.42 + ph * 0.24),
                 angle: (ph === 0 ? -0.55 : 0.52) * sl.facing,
-                length: 56,
-                thickness: 4.5,
+                length: 38,
+                thickness: 3.2,
                 color: wDef.glowColor,
-                ringRadius: 24,
+                ringRadius: 0,
                 life: 0.16 + ph * 0.05,
                 maxLife: 0.21,
               });
@@ -3213,7 +3202,7 @@ export class GameEngine {
                 length: Math.max(48, bestDist * 0.85),
                 thickness: 5.5,
                 color: '#fde047',
-                ringRadius: 32,
+                ringRadius: 0,
                 life: 0.22,
                 maxLife: 0.22,
               });
@@ -3222,7 +3211,7 @@ export class GameEngine {
                 chainTarget.y - chainTarget.profile.h * 0.55,
                 '#c084fc',
                 '#fde047',
-                12
+                5
               );
               this.applyDamageToEnemy(
                 chainTarget,
@@ -5011,19 +5000,19 @@ export class GameEngine {
       x: e.x + (Math.random() - 0.5) * 12,
       y: e.y - e.profile.h * 0.58,
       angle: hitAngle,
-      length: isCrit ? 66 : wCur.archetype === 'greatsword' ? 60 : 44,
-      thickness: isCrit ? 7 : wCur.archetype === 'greatsword' ? 6 : 4.2,
-      color: isCrit ? '#fde047' : wCur.glowColor,
-      ringRadius: isCrit || isHeavyStrike ? 42 : 0,
-      life: 0.18,
-      maxLife: 0.18,
+      length: isCrit ? 52 : wCur.tier === 1 ? 30 : 38,
+      thickness: isCrit ? 5.2 : wCur.tier === 1 ? 3.0 : 3.8,
+      color: wCur.tier <= 2 && !isCrit ? '#e2e8f0' : isCrit ? '#fde047' : wCur.glowColor,
+      ringRadius: 0,
+      life: 0.16,
+      maxLife: 0.16,
     });
     this.spawnInkBurst(
       e.x,
       e.y - e.profile.h * 0.6,
       isCrit ? '#fbbf24' : wCur.glowColor,
       '#060911',
-      isCrit ? 16 : 10
+      isCrit ? 7 : wCur.tier === 1 ? 3 : 5
     );
 
     this.floats.push({
@@ -6410,10 +6399,10 @@ export class GameEngine {
         y,
         vx: Math.cos(ang) * spd,
         vy: Math.sin(ang) * spd - (isInk ? 35 : 55),
-        size: isInk ? 3.5 + Math.random() * 4.5 : 2.2 + Math.random() * 2.8,
+        size: isInk ? 1.6 + Math.random() * 1.8 : 1.4 + Math.random() * 1.4,
         color: isInk ? inkColor : accentColor,
-        life: isInk ? 0.28 + Math.random() * 0.28 : 0.2 + Math.random() * 0.24,
-        maxLife: 0.56,
+        life: isInk ? 0.2 + Math.random() * 0.18 : 0.16 + Math.random() * 0.16,
+        maxLife: 0.38,
         kind: isInk ? 'ink' : 'spark',
       });
     }

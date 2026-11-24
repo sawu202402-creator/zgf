@@ -2604,7 +2604,7 @@ export class UIManager {
         if (this.stageSlash) {
           sctx.save();
           sctx.translate(102, 170);
-          sctx.scale(1.18, 1.18);
+          sctx.scale(1.04, 1.04);
           sctx.translate(-102, -170);
           renderHeroWeaponSlashVfx(sctx, this.stageSlash, shownWpn, animT);
           sctx.restore();

@@ -546,8 +546,7 @@ function drawEquippedWeaponInHeroHands(
       const curA = evalHeavyAngle(pr) + rHand.angle;
       const isSwinging = pr >= 0.28 && pr <= 0.88;
       if (isSwinging) {
-        const g1 = evalHeavyAngle(Math.max(0.24, pr - 0.055)) + rHand.angle;
-        const g2 = evalHeavyAngle(Math.max(0.24, pr - 0.11)) + rHand.angle;
+        const g1 = evalHeavyAngle(Math.max(0.24, pr - 0.06)) + rHand.angle;
         drawWeaponWithMotionTrail(
           ctx,
           gsImg,
@@ -556,8 +555,8 @@ function drawEquippedWeaponInHeroHands(
           0.22,
           gsLen,
           gsH,
-          [curA, g1, g2],
-          [1, 0.38, 0.18]
+          [curA, g1],
+          [1, wDef.tier === 1 ? 0.16 : 0.26]
         );
       } else {
         drawWeaponWithMotionTrail(ctx, gsImg, gripX, gripY, 0.22, gsLen, gsH, [curA], [1]);
@@ -637,8 +636,8 @@ function drawEquippedWeaponInHeroHands(
         lHand.y - Math.sin(pr * Math.PI) * (isTwinBoomerang ? 12 : 4)
       );
       ctx.rotate(sock.lAngle + lHand.angle - sweepOffset * 0.72);
-      if (slash && !isEmeiSpin && !isTwinBoomerang) {
-        drawHandDagger(true, -0.35, 0.3);
+      if (slash && !isEmeiSpin && !isTwinBoomerang && wDef.tier > 1) {
+        drawHandDagger(true, -0.35, 0.26);
       }
       drawHandDagger(wDef.id === 'daggers_poison' || slash?.comboStep === 1, -spinA, 1);
       if (!isTwinBoomerang || boomDist < 8) drawFistKnuckleClasp(ctx);
@@ -655,8 +654,8 @@ function drawEquippedWeaponInHeroHands(
         ? 1.22 + rHand.angle
         : sock.rAngle + rHand.angle + (slash?.comboStep === 1 ? -sweepOffset : sweepOffset);
     ctx.rotate(rAng);
-    if (slash && !isEmeiSpin && !isTwinBoomerang) {
-      drawHandDagger(false, -0.38, 0.34);
+    if (slash && !isEmeiSpin && !isTwinBoomerang && wDef.tier > 1) {
+      drawHandDagger(false, -0.38, 0.26);
     }
     drawHandDagger(wDef.id === 'daggers_poison' && slash?.comboStep === 1, spinA, 1);
     if (!isTwinBoomerang || boomDist < 8) drawFistKnuckleClasp(ctx);
@@ -715,15 +714,13 @@ function drawEquippedWeaponInHeroHands(
           const thrust = Math.sin(Math.min(1, p * 1.15) * Math.PI) * 30;
           const snakeOsc =
             wDef.id === 'spear_thunder' ? Math.sin(p * Math.PI * 5) * 0.075 : 0;
-          if (wDef.id === 'spear_2') {
-            for (const fan of [-0.14, 0.14]) {
-              ctx.save();
-              ctx.translate(gripX + thrust * 0.88, gripY);
-              ctx.rotate(aimAng + fan);
-              ctx.globalAlpha = 0.36 * (1 - p * 0.5);
-              ctx.drawImage(spImg, -spLen * 0.26, -spH * 0.5, spLen, spH);
-              ctx.restore();
-            }
+          if (wDef.id === 'spear_2' && slash.comboStep === 2) {
+            ctx.save();
+            ctx.translate(gripX + thrust * 0.86, gripY - 3);
+            ctx.rotate(aimAng - 0.08);
+            ctx.globalAlpha = 0.26 * (1 - p * 0.45);
+            ctx.drawImage(spImg, -spLen * 0.26, -spH * 0.5, spLen, spH);
+            ctx.restore();
           }
           ctx.translate(gripX + thrust, gripY);
           ctx.rotate(aimAng + snakeOsc);
@@ -848,19 +845,17 @@ function drawEquippedWeaponInHeroHands(
       const ext = pr < 0.2 ? -easeOutCubic(pr / 0.2) * 8 : Math.sin(Math.min(1, (pr - 0.2) / 0.72) * Math.PI) * 26;
       const ang = -0.1 + rHand.angle;
       if (isPhantom) {
-        for (const fan of [-0.24, 0.24]) {
-          drawWeaponWithMotionTrail(
-            ctx,
-            swImg,
-            rHand.x + ext * 0.78,
-            rHand.y,
-            0.18,
-            swLen * 0.94,
-            swH * 0.94,
-            [ang + fan],
-            [0.42]
-          );
-        }
+        drawWeaponWithMotionTrail(
+          ctx,
+          swImg,
+          rHand.x + ext * 0.78,
+          rHand.y,
+          0.18,
+          swLen * 0.94,
+          swH * 0.94,
+          [ang - 0.22],
+          [0.32]
+        );
       }
       drawWeaponWithMotionTrail(ctx, swImg, rHand.x + ext, rHand.y, 0.18, swLen, swH, [ang], [1]);
     } else {
@@ -884,21 +879,18 @@ function drawEquippedWeaponInHeroHands(
       };
       const curA = evalSwordAngle(pr) + rHand.angle;
       const g1 = evalSwordAngle(Math.max(0.18, pr - 0.06)) + rHand.angle;
-      const g2 = evalSwordAngle(Math.max(0.18, pr - 0.12)) + rHand.angle;
       if (isPhantom && pr >= 0.2) {
-        for (const fan of [-0.26, 0.26]) {
-          drawWeaponWithMotionTrail(
-            ctx,
-            swImg,
-            rHand.x,
-            rHand.y,
-            0.18,
-            swLen * 0.92,
-            swH * 0.92,
-            [curA + fan],
-            [0.42]
-          );
-        }
+        drawWeaponWithMotionTrail(
+          ctx,
+          swImg,
+          rHand.x,
+          rHand.y,
+          0.18,
+          swLen * 0.92,
+          swH * 0.92,
+          [curA - 0.22],
+          [0.32]
+        );
       }
       drawWeaponWithMotionTrail(
         ctx,
@@ -908,8 +900,8 @@ function drawEquippedWeaponInHeroHands(
         0.18,
         swLen,
         swH,
-        pr >= 0.2 ? [curA, g1, g2] : [curA],
-        [1, 0.36, 0.18]
+        pr >= 0.2 ? [curA, g1] : [curA],
+        [1, wDef.tier === 1 ? 0.16 : 0.26]
       );
     }
     ctx.save();
@@ -1154,8 +1146,8 @@ export function renderModularLiYichengRig(
     }
   }
 
-  // 斩马陌刀/乌金锏举过头顶蓄力阶段：随上身拧腰后仰同步偏移蓄势手绘水墨气漩！
-  if (isHeavy && opts.slash && opts.slash.progress < 0.34) {
+  // 重刃蓄力提示：仅 Tier 3+ 神兵头顶浮现极淡灵息，初始朴刀保持纯物理蓄势
+  if (isHeavy && wDef.tier >= 3 && opts.slash && opts.slash.progress < 0.34) {
     const charge = opts.slash.progress / 0.34;
     const gx = -4 + joints[1].dx;
     const gy = -94 + joints[1].dy;
@@ -1164,12 +1156,12 @@ export function renderModularLiYichengRig(
       'vfx_ink_shockwave',
       gx,
       gy,
-      26 * charge + 10,
+      12 * charge + 6,
       opts.animTime * 8,
-      0.72 * charge,
+      0.36 * charge,
       wDef.glowColor || '#f59e0b',
       1,
-      true
+      false
     );
   }
 
@@ -1340,12 +1332,12 @@ export function drawInkSlashRibbon(
 
   if (span < 0.35) {
     const mid = (startAng + endAng) * 0.5;
-    drawPaintedVfxSprite(ctx, 'vfx_spear_dragon_thrust', 0, 0, radius * 1.45, Math.max(28, thickness * 3.1), {
+    drawPaintedVfxSprite(ctx, 'vfx_iaido_flash_cut', 0, 0, radius * 1.15, Math.max(16, thickness * 1.8), {
       rotation: mid,
-      alpha: fadeAlpha * 0.94,
+      alpha: fadeAlpha * 0.62,
       tintHex: coreColor,
-      tintAlpha: 0.78,
-      additive: true,
+      tintAlpha: 0.36,
+      additive: false,
       anchorX: 0.2,
       anchorY: 0.5,
     });
@@ -1354,29 +1346,20 @@ export function drawInkSlashRibbon(
   }
 
   const midAng = (startAng + endAng) * 0.5;
-  const isHeavyArc = thickness >= 25 || span >= 2.5;
-  const vfxKey: AssetKey = isHeavyArc ? 'vfx_slash_heavy_cleave' : 'vfx_slash_crescent';
-  const d = Math.max(52, radius * 2.1);
+  const d = Math.max(44, radius * 1.45);
 
-  drawPaintedVfxSprite(ctx, vfxKey, 0, 0, d, d, {
+  drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', 0, 0, d, d, {
     rotation: midAng,
-    alpha: Math.min(1, fadeAlpha * 0.94),
+    alpha: Math.min(1, fadeAlpha * 0.62),
     tintHex: coreColor,
-    tintAlpha: 0.72,
+    tintAlpha: 0.38,
     additive: false,
-  });
-  drawPaintedVfxSprite(ctx, vfxKey, 0, 0, d * 1.03, d * 1.03, {
-    rotation: midAng,
-    alpha: Math.min(1, fadeAlpha * 0.58),
-    tintHex: coreColor,
-    tintAlpha: 0.95,
-    additive: true,
   });
   ctx.restore();
 }
 
 /**
- * 22把独有神兵全差异化纯手绘刀罡/元素异象渲染器（兼顾局内战斗与兵匣动态试剑台！）
+ * 22把独有神兵分阶手绘刀罡/元素异象渲染器（兼顾局内战斗与兵匣动态试剑台！）
  */
 export function renderHeroWeaponSlashVfx(
   ctx: CanvasRenderingContext2D,
@@ -1390,19 +1373,14 @@ export function renderHeroWeaponSlashVfx(
 
   if (sl.pogoDown) {
     const fade = Math.max(0, 1 - sl.progress * 0.55);
-    const d = 136 * (0.78 + easeOutCubic(sl.progress) * 0.34);
+    const d = (wDef.tier === 1 ? 82 : 102) * (0.82 + easeOutCubic(sl.progress) * 0.22);
     drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x, sl.y + 8, d, d, {
       rotation: 1.28 * sl.facing,
       flipX: sl.facing === -1,
-      alpha: fade,
+      alpha: fade * (wDef.tier === 1 ? 0.36 : 0.64),
       tintHex: glowCol,
-      additive: true,
-    });
-    drawPaintedVfxSprite(ctx, 'vfx_iaido_flash_cut', sl.x, sl.y + 34, 92, 46, {
-      rotation: 1.48 * sl.facing,
-      alpha: fade * 0.85,
-      tintHex: '#f8fafc',
-      additive: true,
+      tintAlpha: wDef.tier === 1 ? 0.15 : 0.34,
+      additive: wDef.tier >= 3,
     });
     return;
   }
@@ -1414,32 +1392,45 @@ export function renderHeroWeaponSlashVfx(
     const k = easeOutCubic(p);
     const fade = Math.max(0, 1 - p * 0.65);
 
-    if (wId === 'greatsword_sunder') {
-      const smashRot = sl.facing * (-0.55 + k * 0.92);
-      const d = sl.reachX * (1.76 + k * 0.28);
-      drawPaintedVfxSprite(ctx, 'vfx_slash_heavy_cleave', sl.x + sl.facing * 12, sl.y - 6, d, d, {
-        rotation: smashRot,
+    if (wId === 'greatsword_1') {
+      const d = sl.reachX * 1.28 * (0.88 + k * 0.16);
+      drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * 10, sl.y + 2, d, d, {
+        rotation: sl.facing * (-0.4 + k * 0.8),
         flipX: sl.facing === -1,
-        alpha: fade * 0.88,
-        tintHex: '#f59e0b',
-        tintAlpha: 0.36,
+        alpha: fade * 0.4,
+        tintHex: '#94a3b8',
+        tintAlpha: 0.14,
         additive: false,
       });
-      if (p > 0.04) {
-        const ep = Math.min(1, (p - 0.04) / 0.72);
+      return;
+    }
+
+    if (wId === 'greatsword_sunder') {
+      const smashRot = sl.facing * (-0.52 + k * 0.88);
+      const d = sl.reachX * 1.42 * (0.88 + k * 0.18);
+      drawPaintedVfxSprite(ctx, 'vfx_slash_heavy_cleave', sl.x + sl.facing * 12, sl.y - 4, d, d, {
+        rotation: smashRot,
+        flipX: sl.facing === -1,
+        alpha: fade * 0.72,
+        tintHex: '#d97706',
+        tintAlpha: 0.4,
+        additive: false,
+      });
+      if (sl.comboStep === 2 && p > 0.1) {
+        const ep = Math.min(1, (p - 0.1) / 0.72);
         const efade = Math.max(0, 1 - ep * 0.7);
         drawPaintedVfxSprite(
           ctx,
           'vfx_earth_sunder_burst',
-          sl.x + sl.facing * 56,
+          sl.x + sl.facing * 52,
           sl.y + 42,
-          165 + ep * 75,
-          108 + ep * 50,
+          102 + ep * 32,
+          62 + ep * 20,
           {
-            alpha: efade,
+            alpha: efade * 0.68,
             anchorY: 0.95,
             tintHex: '#fbbf24',
-            tintAlpha: 0.32,
+            tintAlpha: 0.28,
             additive: false,
           }
         );
@@ -1447,50 +1438,44 @@ export function renderHeroWeaponSlashVfx(
       return;
     }
 
-    const isRising = (wId === 'greatsword_1' || wId === 'greatsword_2') && sl.comboStep === 1;
-    const d = sl.reachX * (wId === 'greatsword_2' ? 2.12 : 1.92) * (0.85 + k * 0.25);
+    const isRising = (wId === 'greatsword_2') && sl.comboStep === 1;
+    const scaleMult = wId === 'greatsword_3' ? 1.54 : 1.46;
+    const growMult = wId === 'greatsword_3' ? 0.2 : 0.18;
+    const d = sl.reachX * scaleMult * (0.88 + k * growMult);
     const rot = isRising
-      ? sl.facing * (0.65 - k * 1.45)
+      ? sl.facing * (0.62 - k * 1.38)
       : sl.facing * (-0.42 + k * 0.85);
     drawPaintedVfxSprite(ctx, 'vfx_slash_heavy_cleave', sl.x + sl.facing * 10, sl.y + 2, d, d, {
       rotation: rot,
       flipX: sl.facing === -1,
       flipY: isRising,
-      alpha: fade * 0.94,
-      tintHex: wId === 'greatsword_2' ? '#ea580c' : glowCol,
-      tintAlpha: 0.34,
-    });
-    drawPaintedVfxSprite(ctx, 'vfx_slash_heavy_cleave', sl.x + sl.facing * 10, sl.y + 2, d * 1.03, d * 1.03, {
-      rotation: rot,
-      flipX: sl.facing === -1,
-      flipY: isRising,
-      alpha: fade * 0.26,
-      tintHex: wId === 'greatsword_2' ? '#fde047' : glowCol,
-      tintAlpha: 0.5,
-      additive: true,
+      alpha: fade * (wId === 'greatsword_3' ? 0.78 : 0.72),
+      tintHex: wId === 'greatsword_2' ? '#ea580c' : wId === 'greatsword_3' ? '#dc2626' : glowCol,
+      tintAlpha: wId === 'greatsword_3' ? 0.45 : 0.42,
+      additive: false,
     });
 
-    if (wId === 'greatsword_2') {
+    if (wId === 'greatsword_2' && sl.comboStep === 2) {
       drawPaintedVfxSprite(
         ctx,
         'vfx_samadhi_fire_pillar',
-        sl.x + sl.facing * (44 + k * 54),
+        sl.x + sl.facing * (40 + k * 42),
         sl.y + 40,
-        46 + k * 18,
-        88 + k * 28,
-        { alpha: fade * 0.84, anchorY: 0.95, additive: true }
+        34 + k * 10,
+        58 + k * 16,
+        { alpha: fade * 0.58, anchorY: 0.95, additive: true }
       );
     } else if (wId === 'greatsword_3' && sl.comboStep === 2 && p > 0.14) {
       drawPaintedVfxSprite(
         ctx,
         'vfx_qi_dragon_wave',
-        sl.x + sl.facing * (48 + k * 66),
-        sl.y - 4,
-        150,
-        125,
+        sl.x + sl.facing * (44 + k * 48),
+        sl.y - 2,
+        98,
+        80,
         {
           flipX: sl.facing === -1,
-          alpha: fade * 0.88,
+          alpha: fade * 0.68,
           tintHex: '#facc15',
           additive: true,
         }
@@ -1507,32 +1492,28 @@ export function renderHeroWeaponSlashVfx(
     const fade = Math.max(0, 1 - p * 0.65);
 
     if (wId === 'spear_3' && sl.comboStep === 1) {
-      const d = sl.reachX * 1.48;
-      drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * 24, sl.y - 12, d, d, {
+      const d = sl.reachX * 1.12;
+      drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * 24, sl.y - 10, d, d, {
         rotation: sl.facing * (0.42 - k * 1.35),
         flipX: sl.facing === -1,
         flipY: true,
-        alpha: fade,
+        alpha: fade * 0.7,
         tintHex: '#a855f7',
-        additive: true,
+        tintAlpha: 0.38,
+        additive: false,
       });
       return;
     }
 
     if (wId === 'spear_3' && sl.comboStep === 2) {
-      const d = sl.reachX * 1.72;
-      drawPaintedVfxSprite(ctx, 'vfx_slash_heavy_cleave', sl.x + sl.facing * 22, sl.y - 4, d, d, {
+      const d = sl.reachX * 1.3;
+      drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * 22, sl.y - 4, d, d, {
         rotation: sl.facing * (-0.32 + k * 0.88),
         flipX: sl.facing === -1,
-        alpha: fade,
+        alpha: fade * 0.76,
         tintHex: '#c084fc',
-        additive: true,
-      });
-      drawPaintedVfxSprite(ctx, 'vfx_lotus_blood_finisher', sl.x + sl.facing * 78, sl.y - 4, 118, 118, {
-        rotation: p * 1.2,
-        alpha: fade * 0.82,
-        tintHex: '#fde047',
-        additive: true,
+        tintAlpha: 0.48,
+        additive: false,
       });
       return;
     }
@@ -1540,51 +1521,72 @@ export function renderHeroWeaponSlashVfx(
     const thrustExt = Math.sin(Math.min(1, p * 1.15) * Math.PI);
     const aimAng = sl.aimY < -0.35 ? -0.46 : 0;
     const len = sl.reachX * (0.85 + thrustExt * 0.5);
-    const thickness = wId === 'spear_3' ? 76 : 62;
+
+    if (wId === 'spear_1') {
+      drawPaintedVfxSprite(ctx, 'vfx_iaido_flash_cut', sl.x + sl.facing * 12, sl.y - 4, len * 0.74, 18, {
+        rotation: sl.facing === 1 ? aimAng : Math.PI - aimAng,
+        alpha: fade * 0.38,
+        tintHex: '#cbd5e1',
+        tintAlpha: 0.14,
+        additive: false,
+        anchorX: 0.2,
+      });
+      return;
+    }
 
     if (wId === 'spear_2') {
-      for (const fan of [-0.14, 0.14]) {
-        drawPaintedVfxSprite(ctx, 'vfx_spear_dragon_thrust', sl.x + sl.facing * 10, sl.y - 4, len * 0.92, thickness * 0.82, {
-          rotation: sl.facing === 1 ? aimAng + fan : Math.PI - (aimAng + fan),
-          alpha: fade * 0.56,
-          tintHex: '#bae6fd',
+      if (sl.comboStep === 2) {
+        drawPaintedVfxSprite(ctx, 'vfx_spear_dragon_thrust', sl.x + sl.facing * 10, sl.y - 4, len * 0.92, 44, {
+          rotation: sl.facing === 1 ? aimAng : Math.PI - aimAng,
+          alpha: fade * 0.74,
+          tintHex: '#7dd3fc',
           additive: true,
           anchorX: 0.16,
         });
+      } else {
+        drawPaintedVfxSprite(ctx, 'vfx_iaido_flash_cut', sl.x + sl.facing * 10, sl.y - 4, len * 0.86, 24, {
+          rotation: sl.facing === 1 ? aimAng : Math.PI - aimAng,
+          alpha: fade * 0.68,
+          tintHex: '#38bdf8',
+          tintAlpha: 0.36,
+          additive: true,
+          anchorX: 0.2,
+        });
       }
+      return;
     }
 
-    drawPaintedVfxSprite(ctx, 'vfx_spear_dragon_thrust', sl.x + sl.facing * 8, sl.y - 4, len, thickness, {
-      rotation: sl.facing === 1 ? aimAng : Math.PI - aimAng,
-      alpha: fade * 0.95,
-      tintHex: glowCol,
-      additive: true,
-      anchorX: 0.14,
-    });
-
     if (wId === 'spear_thunder') {
-      const tipX = sl.x + sl.facing * Math.cos(aimAng) * (len * 0.88);
-      const tipY = sl.y - 4 + Math.sin(aimAng) * (len * 0.88);
+      drawPaintedVfxSprite(ctx, 'vfx_iaido_flash_cut', sl.x + sl.facing * 10, sl.y - 4, len * 0.88, 24, {
+        rotation: sl.facing === 1 ? aimAng : Math.PI - aimAng,
+        alpha: fade * 0.68,
+        tintHex: '#a855f7',
+        additive: true,
+        anchorX: 0.2,
+      });
+      const tipX = sl.x + sl.facing * Math.cos(aimAng) * (len * 0.84);
+      const tipY = sl.y - 4 + Math.sin(aimAng) * (len * 0.84);
       drawPaintedThunderBolt(
         ctx,
         sl.x + sl.facing * 18,
         sl.y - 4,
         tipX,
         tipY,
-        24 * fade + 8,
-        0.92 * fade,
+        12 * fade + 4,
+        0.65 * fade,
         Math.floor(ambientTime * 28) % 2 === 1,
         '#e879f9'
       );
-    } else if (wId === 'spear_3') {
-      const tipX = sl.x + sl.facing * Math.cos(aimAng) * (len * 0.72);
-      drawPaintedVfxSprite(ctx, 'vfx_iaido_flash_cut', tipX, sl.y - 4, 108, 48, {
-        rotation: sl.facing === 1 ? aimAng : Math.PI - aimAng,
-        alpha: fade * 0.88,
-        tintHex: '#e9d5ff',
-        additive: true,
-      });
+      return;
     }
+
+    drawPaintedVfxSprite(ctx, 'vfx_spear_dragon_thrust', sl.x + sl.facing * 10, sl.y - 4, len * 0.9, 46, {
+      rotation: sl.facing === 1 ? aimAng : Math.PI - aimAng,
+      alpha: fade * 0.74,
+      tintHex: '#c084fc',
+      additive: true,
+      anchorX: 0.16,
+    });
     return;
   }
 
@@ -1594,71 +1596,66 @@ export function renderHeroWeaponSlashVfx(
     const k = easeOutCubic(p);
     const fade = Math.max(0, 1 - p * 0.55);
 
+    if (wId === 'daggers_1') {
+      drawPaintedVfxSprite(ctx, 'vfx_iaido_flash_cut', sl.x + sl.facing * 20, sl.y - 2, 56, 15, {
+        rotation: sl.facing * (sl.comboStep % 2 === 0 ? 0.3 : -0.3),
+        flipX: sl.facing === -1,
+        alpha: fade * 0.38,
+        tintHex: '#cbd5e1',
+        tintAlpha: 0.14,
+        additive: false,
+      });
+      return;
+    }
+
     if (wId === 'daggers_2') {
-      // 分水精钢峨眉刺：旋指双轮 + 疾斩星芒
-      drawPaintedVfxDisc(ctx, 'vfx_ink_shockwave', sl.x + sl.facing * 28, sl.y - 2, 34 + k * 24, ambientTime * 22 * sl.facing, fade * 0.9, '#38bdf8', 0.82, true);
-      drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * 22, sl.y - 2, sl.reachX * 1.65, sl.reachX * 1.45, {
+      drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * 20, sl.y - 2, 76, 72, {
         rotation: sl.facing * (-0.3 + k * 0.9),
         flipX: sl.facing === -1,
-        alpha: fade * 0.85,
-        tintHex: '#7dd3fc',
-        additive: true,
+        alpha: fade * 0.64,
+        tintHex: '#38bdf8',
+        tintAlpha: 0.36,
+        additive: false,
       });
       return;
     }
 
     if (wId === 'daggers_poison') {
-      drawPaintedVfxSprite(ctx, 'vfx_lotus_blood_finisher', sl.x + sl.facing * 32, sl.y, 118, 118, {
-        rotation: k * 0.65 * sl.facing,
+      drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * 22, sl.y, 78, 74, {
+        rotation: sl.facing * (sl.comboStep % 2 === 0 ? -0.2 + k * 0.8 : 0.3 - k * 0.8),
         flipX: sl.facing === -1,
-        alpha: fade * 0.94,
+        flipY: sl.comboStep % 2 === 1,
+        alpha: fade * 0.66,
         tintHex: '#84cc16',
-        additive: true,
-      });
-      drawPaintedVfxSprite(ctx, 'vfx_soul_claw_vortex', sl.x + sl.facing * 38, sl.y + 4, 86, 68, {
-        rotation: -k * 2.2,
-        alpha: fade * 0.62,
-        tintHex: '#a3e635',
-        additive: true,
+        tintAlpha: 0.44,
+        additive: false,
       });
       return;
     }
 
     if (wId === 'daggers_3') {
-      const dist = sl.comboStep === 2 ? Math.sin(Math.min(1, p * 1.05) * Math.PI) * 56 : 16;
-      drawPaintedVfxSprite(ctx, 'vfx_lotus_blood_finisher', sl.x + sl.facing * (28 + dist), sl.y - 2, 132, 132, {
-        rotation: p * Math.PI * (sl.comboStep === 2 ? 2.8 : 0.7),
-        flipX: sl.facing === -1,
-        alpha: fade * 0.95,
-        tintHex: '#ec4899',
-        additive: true,
-      });
       if (sl.comboStep === 2) {
-        drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * (28 + dist), sl.y - 2, 92, 92, {
-          rotation: -p * Math.PI * 3.5,
-          alpha: fade * 0.82,
+        const dist = Math.sin(Math.min(1, p * 1.05) * Math.PI) * 56;
+        drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * (28 + dist), sl.y - 2, 76, 76, {
+          rotation: -p * Math.PI * 3.2,
+          alpha: fade * 0.74,
           tintHex: '#fde047',
           additive: true,
+        });
+      } else {
+        drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * 24, sl.y - 2, 82, 78, {
+          rotation: sl.facing * (sl.comboStep === 1 ? 0.35 - k * 0.9 : -0.25 + k * 0.9),
+          flipX: sl.facing === -1,
+          flipY: sl.comboStep === 1,
+          alpha: fade * 0.7,
+          tintHex: '#ec4899',
+          tintAlpha: 0.42,
+          additive: false,
         });
       }
       return;
     }
 
-    drawPaintedVfxSprite(ctx, 'vfx_iaido_flash_cut', sl.x + sl.facing * 26, sl.y - 2, 98, 46, {
-      rotation: sl.facing * (sl.comboStep % 2 === 0 ? 0.34 : -0.34),
-      flipX: sl.facing === -1,
-      alpha: fade * 0.94,
-      tintHex: '#f8fafc',
-      additive: true,
-    });
-    drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * 18, sl.y, 102, 102, {
-      rotation: sl.facing * (sl.comboStep % 2 === 0 ? 0.15 : -0.35),
-      flipX: sl.facing === -1,
-      flipY: sl.comboStep % 2 === 1,
-      alpha: fade * 0.82,
-      tintHex: glowCol,
-      additive: true,
-    });
     return;
   }
 
@@ -1678,8 +1675,13 @@ export function renderHeroWeaponSlashVfx(
     ctx.scale(sl.facing, 1);
     ctx.rotate(aimAng);
 
-    drawPaintedChainTrack(ctx, 0, 0, maxLen, 0, 11.5, 0.94, undefined, waveAmp, 2.5, p * 9);
-    drawPaintedChainTrack(ctx, 0, 0, maxLen, 0, 9.5, 0.75, glowCol, waveAmp, 2.5, p * 9);
+    if (wId === 'whip_1') {
+      drawPaintedChainTrack(ctx, 0, 0, maxLen, 0, 9.5, 0.9, undefined, waveAmp, 2.5, p * 9);
+    } else if (wId === 'whip_2') {
+      drawPaintedChainTrack(ctx, 0, 0, maxLen, 0, 10, 0.92, '#fb923c', waveAmp, 2.5, p * 9);
+    } else {
+      drawPaintedChainTrack(ctx, 0, 0, maxLen, 0, 10, 0.92, '#fde047', waveAmp, 2.5, p * 9);
+    }
 
     // 真实手绘鞭梢贴图（截取出 wpn_whip_1 锥镖 / wpn_whip_2 赤焰飞镰 / wpn_whip_3 雷芒金梢跟随波浪甩击！）
     const whipImg = Assets.get(resolveWeaponAssetKey('whip', wId));
@@ -1696,115 +1698,207 @@ export function renderHeroWeaponSlashVfx(
     }
 
     if (wId === 'whip_3') {
-      drawPaintedThunderBolt(ctx, 8, 0, maxLen + 8, tipWave, 20 * snap + 6, 0.9 * (1 - p * 0.35), Math.floor(ambientTime * 30) % 2 === 1, '#a855f7');
-      drawPaintedVfxDisc(ctx, 'vfx_ink_shockwave', maxLen, tipWave, 24 * snap + 8, p * 9, 0.88, '#fde047', 1, true);
-    } else if (wId === 'whip_2') {
-      drawPaintedVfxSprite(ctx, 'vfx_slash_heavy_cleave', maxLen * 0.72, tipWave, 86, 86, {
+      drawPaintedThunderBolt(
+        ctx,
+        8,
+        0,
+        maxLen + 8,
+        tipWave,
+        12 * snap + 4,
+        0.65 * (1 - p * 0.4),
+        Math.floor(ambientTime * 30) % 2 === 1,
+        '#a855f7'
+      );
+    } else if (wId === 'whip_2' && p > 0.15) {
+      drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', maxLen, tipWave, 56, 56, {
         rotation: p * 1.4,
-        alpha: (1 - p * 0.45) * 0.78,
+        alpha: (1 - p * 0.5) * 0.62,
         tintHex: '#f97316',
         additive: true,
       });
-      drawPaintedVfxSprite(ctx, 'vfx_samadhi_fire_pillar', maxLen, tipWave + 18, 36, 62, {
-        alpha: (1 - p * 0.45) * 0.85,
-        anchorY: 0.9,
-        additive: true,
-      });
-    } else {
-      drawPaintedVfxDisc(ctx, 'vfx_ink_shockwave', maxLen, tipWave, 20 * snap + 6, p * 8, 0.85, '#e2e8f0', 1, true);
     }
     ctx.restore();
     return;
   }
 
-  // ================= 5. 轻剑系（7 把独有神剑各自绽放不同流派手绘剑气！） =================
+  // ================= 5. 轻剑系（7 把独有神剑按阶位递进绽放简约手绘剑气！） =================
   const p = sl.progress;
   const k = easeOutCubic(p);
   const fade = Math.max(0, 1 - p * 0.55);
   const flip = sl.comboStep === 1;
-  const baseD = (sl.comboStep === 2 ? sl.reachX * 2.05 : sl.reachX * 1.82) * (0.86 + k * 0.2);
+  const slashRot = sl.facing * (flip ? 0.35 - k * 1.05 : -0.35 + k * 0.95);
 
-  if (sl.comboStep === 2 && (wId === 'sword_0' || wId === 'sword_1' || wId === 'sword_2')) {
-    // 直刺/终结剑意
-    drawPaintedVfxSprite(ctx, 'vfx_spear_dragon_thrust', sl.x + sl.facing * 12, sl.y - 2, sl.reachX * 1.38, 60, {
+  if (wId === 'sword_0') {
+    if (sl.comboStep === 2) {
+      drawPaintedVfxSprite(ctx, 'vfx_iaido_flash_cut', sl.x + sl.facing * 18, sl.y - 2, 64, 16, {
+        flipX: sl.facing === -1,
+        alpha: fade * 0.38,
+        tintHex: '#cbd5e1',
+        tintAlpha: 0.14,
+        additive: false,
+        anchorX: 0.2,
+      });
+      return;
+    }
+    const d0 = sl.reachX * 1.18 * (0.9 + k * 0.12);
+    drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * 10, sl.y, d0, d0 * 0.94, {
+      rotation: slashRot,
       flipX: sl.facing === -1,
-      alpha: fade * 0.92,
-      tintHex: glowCol,
-      additive: true,
-      anchorX: 0.16,
+      flipY: flip,
+      alpha: fade * 0.32,
+      tintHex: '#cbd5e1',
+      tintAlpha: 0.14,
+      additive: false,
     });
+    return;
   }
 
-  const slashRot = sl.facing * (flip ? 0.35 - k * 1.05 : -0.35 + k * 0.95);
-  drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * 10, sl.y, baseD, baseD * 0.96, {
-    rotation: slashRot,
-    flipX: sl.facing === -1,
-    flipY: flip,
-    alpha: fade * 0.94,
-    tintHex: glowCol,
-    tintAlpha: 0.34,
-  });
-  drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * 10, sl.y, baseD * 1.02, baseD * 0.98, {
-    rotation: slashRot,
-    flipX: sl.facing === -1,
-    flipY: flip,
-    alpha: fade * 0.24,
-    tintHex: glowCol,
-    tintAlpha: 0.45,
-    additive: true,
-  });
+  if (wId === 'sword_1') {
+    if (sl.comboStep === 2) {
+      drawPaintedVfxSprite(ctx, 'vfx_iaido_flash_cut', sl.x + sl.facing * 16, sl.y - 2, 76, 20, {
+        flipX: sl.facing === -1,
+        alpha: fade * 0.54,
+        tintHex: '#f1f5f9',
+        tintAlpha: 0.24,
+        additive: false,
+        anchorX: 0.18,
+      });
+      return;
+    }
+    const d1 = sl.reachX * 1.26 * (0.9 + k * 0.14);
+    drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * 10, sl.y, d1, d1 * 0.95, {
+      rotation: slashRot,
+      flipX: sl.facing === -1,
+      flipY: flip,
+      alpha: fade * 0.48,
+      tintHex: '#e2e8f0',
+      tintAlpha: 0.22,
+      additive: false,
+    });
+    return;
+  }
+
+  if (wId === 'sword_2') {
+    if (sl.comboStep === 2) {
+      drawPaintedVfxSprite(ctx, 'vfx_iaido_flash_cut', sl.x + sl.facing * 14, sl.y - 2, 92, 26, {
+        flipX: sl.facing === -1,
+        alpha: fade * 0.7,
+        tintHex: '#38bdf8',
+        additive: true,
+        anchorX: 0.16,
+      });
+      return;
+    }
+    const d2 = sl.reachX * 1.36 * (0.88 + k * 0.16);
+    drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * 10, sl.y, d2, d2 * 0.96, {
+      rotation: slashRot,
+      flipX: sl.facing === -1,
+      flipY: flip,
+      alpha: fade * 0.66,
+      tintHex: '#38bdf8',
+      tintAlpha: 0.32,
+      additive: false,
+    });
+    return;
+  }
 
   if (wId === 'sword_frost') {
-    drawPaintedVfxSprite(ctx, 'vfx_frost_shatter', sl.x + sl.facing * (48 + k * 28), sl.y - 4, 88 + k * 24, 88 + k * 24, {
-      rotation: p * 1.1,
-      alpha: fade * 0.9,
+    const df = sl.reachX * 1.38 * (0.88 + k * 0.16);
+    drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * 10, sl.y, df, df * 0.96, {
+      rotation: slashRot,
+      flipX: sl.facing === -1,
+      flipY: flip,
+      alpha: fade * 0.68,
       tintHex: '#7dd3fc',
       tintAlpha: 0.36,
       additive: false,
     });
-  } else if (wId === 'sword_blood') {
-    drawPaintedVfxSprite(ctx, 'vfx_lotus_blood_finisher', sl.x + sl.facing * (34 + k * 22), sl.y, baseD * 0.72, baseD * 0.72, {
-      rotation: slashRot,
-      flipX: sl.facing === -1,
-      alpha: fade * 0.82,
-      tintHex: '#f43f5e',
-      tintAlpha: 0.48,
-      additive: false,
-    });
-  } else if (wId === 'sword_phantom') {
-    for (const off of [-14, 14]) {
-      drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * 24, sl.y + off, baseD * 0.88, baseD * 0.88, {
-        rotation: slashRot + (off > 0 ? 0.24 : -0.24),
-        flipX: sl.facing === -1,
-        flipY: off < 0 ? !flip : flip,
-        alpha: fade * 0.42,
-        tintHex: off > 0 ? '#a7f3d0' : '#fef08a',
-        tintAlpha: 0.36,
+    if (sl.comboStep === 2) {
+      drawPaintedVfxSprite(ctx, 'vfx_frost_shatter', sl.x + sl.facing * (44 + k * 20), sl.y - 4, 56, 56, {
+        rotation: p * 1.1,
+        alpha: fade * 0.66,
+        tintHex: '#bae6fd',
+        tintAlpha: 0.3,
         additive: false,
       });
     }
-    drawPaintedVfxSprite(ctx, 'vfx_lotus_blood_finisher', sl.x + sl.facing * 42, sl.y, 112, 112, {
-      rotation: p * 0.9,
-      alpha: fade * 0.65,
-      tintHex: '#2dd4bf',
-      tintAlpha: 0.42,
-      additive: true,
-    });
-  } else if (wId === 'sword_3' && sl.comboStep === 2) {
-    drawPaintedVfxSprite(ctx, 'vfx_qi_dragon_wave', sl.x + sl.facing * (38 + k * 36), sl.y - 2, 134, 114, {
+    return;
+  }
+
+  if (wId === 'sword_blood') {
+    const db = sl.reachX * 1.38 * (0.88 + k * 0.16);
+    drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * 10, sl.y, db, db * 0.96, {
+      rotation: slashRot,
       flipX: sl.facing === -1,
-      alpha: fade * 0.9,
-      tintHex: '#facc15',
-      additive: true,
+      flipY: flip,
+      alpha: fade * 0.7,
+      tintHex: '#e11d48',
+      tintAlpha: 0.42,
+      additive: false,
     });
-  } else if (wId === 'sword_2') {
-    drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * 18, sl.y, baseD * 0.84, baseD * 0.84, {
-      rotation: -slashRot * 0.7,
+    if (sl.comboStep === 2) {
+      drawPaintedVfxSprite(ctx, 'vfx_lotus_blood_finisher', sl.x + sl.facing * (36 + k * 18), sl.y, 66, 66, {
+        rotation: slashRot,
+        flipX: sl.facing === -1,
+        alpha: fade * 0.58,
+        tintHex: '#f43f5e',
+        tintAlpha: 0.42,
+        additive: false,
+      });
+    }
+    return;
+  }
+
+  if (wId === 'sword_phantom') {
+    if (sl.comboStep === 2) {
+      drawPaintedVfxSprite(ctx, 'vfx_iaido_flash_cut', sl.x + sl.facing * 14, sl.y - 2, 102, 26, {
+        flipX: sl.facing === -1,
+        alpha: fade * 0.72,
+        tintHex: '#2dd4bf',
+        additive: true,
+        anchorX: 0.16,
+      });
+      return;
+    }
+    const dp = sl.reachX * 1.34 * (0.88 + k * 0.16);
+    drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * 10, sl.y, dp, dp * 0.96, {
+      rotation: slashRot,
+      flipX: sl.facing === -1,
+      flipY: flip,
+      alpha: fade * 0.66,
+      tintHex: '#2dd4bf',
+      tintAlpha: 0.34,
+      additive: false,
+    });
+    drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * 16, sl.y - 10, dp * 0.82, dp * 0.82, {
+      rotation: slashRot - 0.22 * sl.facing,
       flipX: sl.facing === -1,
       flipY: !flip,
-      alpha: fade * 0.56,
-      tintHex: '#0284c7',
+      alpha: fade * 0.32,
+      tintHex: '#a7f3d0',
+      tintAlpha: 0.3,
       additive: false,
+    });
+    return;
+  }
+
+  // sword_3（七星龙渊剑）及兜底高阶剑意
+  const d3 = sl.reachX * 1.44 * (0.88 + k * 0.16);
+  drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * 10, sl.y, d3, d3 * 0.96, {
+    rotation: slashRot,
+    flipX: sl.facing === -1,
+    flipY: flip,
+    alpha: fade * 0.74,
+    tintHex: '#f59e0b',
+    tintAlpha: 0.4,
+    additive: false,
+  });
+  if (sl.comboStep === 2) {
+    drawPaintedVfxSprite(ctx, 'vfx_qi_dragon_wave', sl.x + sl.facing * (36 + k * 28), sl.y - 2, 92, 76, {
+      flipX: sl.facing === -1,
+      alpha: fade * 0.72,
+      tintHex: '#facc15',
+      additive: true,
     });
   }
 }
@@ -1905,185 +1999,63 @@ export function drawMonsterOrBoss(
     const castProg =
       e.castAnimTimer && e.castAnimTimer > 0 ? Math.min(1, e.castAnimTimer / 0.36) : 0;
 
-    // 怪物专属器物常驻与施法/蓄势特效：全部实装手绘水墨贴图/刀罡，绝不使用空心矢量几何框/圆环！
+    // 怪物专属极简常驻/施法微兆（克制不喧宾夺主，零空心几何环/繁琐浮游物）
     if (e.profile.shieldedFront) {
-      if (e.aiState === 'stalk' && castProg <= 0) {
-        const sAng = e.facing === 1 ? -0.68 : Math.PI - 0.68;
-        drawInkSlashRibbon(
-          ctx,
-          0,
-          -h * 0.52,
-          1,
-          false,
-          w * 0.54,
-          10,
-          sAng,
-          sAng + 1.36,
-          '#fbbf24',
-          0.38 + Math.sin(t * 5 + e.id) * 0.1
-        );
-      } else if (e.aiState === 'windup') {
-        // 玄甲重盾傀儡高举重铜战戟过顶蓄势琥珀罡气
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-        const gx = -e.facing * 12;
-        const gy = -h * 0.96;
-        const rg = ctx.createRadialGradient(gx, gy, 2, gx, gy, 34);
-        rg.addColorStop(0, 'rgba(254, 240, 138, 0.72)');
-        rg.addColorStop(0.55, 'rgba(245, 158, 11, 0.35)');
-        rg.addColorStop(1, 'rgba(245, 158, 11, 0)');
-        ctx.fillStyle = rg;
-        ctx.beginPath();
-        ctx.arc(gx, gy, 34, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      } else if (castProg > 0) {
-        // 掷出回旋重铜战斧脱手水墨震波
+      if (castProg > 0) {
         drawPaintedVfxDisc(
           ctx,
           'vfx_ink_shockwave',
-          e.facing * 22,
-          -54,
-          18 * (1.25 - castProg * 0.4),
+          e.facing * 20,
+          -52,
+          12 * (1.2 - castProg * 0.3),
           t * 5,
-          castProg * 0.85,
+          castProg * 0.45,
           '#fbbf24',
           1,
-          true
+          false
         );
       }
-    } else if (kind === 'paper_swordsman' && e.aiState === 'windup') {
-      // 剪纸刀客：按柄压身居合蓄势冰青水墨震芒 + 飞旋白纸符片
-      const gx = -e.facing * 14;
-      const gy = -h * 0.46;
-      drawPaintedVfxDisc(
-        ctx,
-        'vfx_ink_shockwave',
-        gx,
-        gy,
-        16 + Math.sin(t * 16) * 3,
-        t * 6,
-        0.72,
-        '#bae6fd',
-        0.65,
-        true
-      );
-      const talImg = Assets.get('item_talisman_scroll');
-      ctx.save();
-      for (let pIdx = 0; pIdx < 2; pIdx++) {
-        const pa = t * 8 + pIdx * Math.PI + e.id;
-        const px = gx + Math.cos(pa) * 16;
-        const py = gy + Math.sin(pa) * 9;
-        if (talImg) {
-          ctx.save();
-          ctx.translate(px, py);
-          ctx.rotate(pa);
-          ctx.globalAlpha = 0.85;
-          ctx.drawImage(talImg, -4, -6, 8, 12);
-          ctx.restore();
-        }
-      }
-      ctx.restore();
     } else if (kind === 'opera_puppet') {
-      // 梨园提线木偶：悬丝傀儡赤绸丝线（出招/掷针瞬间赤金丝芒流动！）
+      // 梨园提线木偶：极淡悬丝傀儡细丝
       const taut = e.aiState === 'windup' || e.aiState === 'lunge_slash' || castProg > 0;
-      for (const ox of [-12, 0, 12]) {
+      for (const ox of [-10, 0, 10]) {
         drawPaintedChainTrack(
           ctx,
           ox,
           -h * 0.76,
-          ox + (taut ? 0 : Math.sin(t * 2.5 + ox) * 4),
-          -h - 82,
-          3.2,
-          taut ? 0.58 : 0.24,
+          ox + (taut ? 0 : Math.sin(t * 2.5 + ox) * 3),
+          -h - 76,
+          2.0,
+          taut ? 0.36 : 0.15,
           '#fb7185'
         );
       }
-      if (castProg > 0) {
-        drawInkSlashRibbon(
-          ctx,
-          e.facing * 18,
-          -38,
-          1,
-          false,
-          16 * (1.2 - castProg * 0.35),
-          8,
-          -0.9,
-          0.9,
-          '#f472b6',
-          castProg * 0.88
-        );
-      }
     } else if (kind === 'scroll_demon') {
-      // 飞天书妖：环绕书页的朱砂灵符咒页（手绘符箓贴图）+ 吐符古八卦敕令
-      const talImg = Assets.get('item_talisman_scroll');
-      if (talImg) {
+      if (castProg > 0) {
         ctx.save();
-        for (let sIdx = 0; sIdx < 2; sIdx++) {
-          const sa = t * 3.6 + sIdx * Math.PI + e.id;
-          const sx = Math.cos(sa) * 24;
-          const sy = -30 + Math.sin(sa * 1.4) * 9;
-          ctx.save();
-          ctx.translate(sx, sy);
-          ctx.rotate(sa * 0.6);
-          ctx.drawImage(talImg, -5, -8, 10, 16);
-          ctx.restore();
-        }
+        ctx.globalCompositeOperation = 'lighter';
+        const sx = e.facing * 18;
+        const sy = -28;
+        const cg = ctx.createRadialGradient(sx, sy, 1, sx, sy, 12);
+        cg.addColorStop(0, `rgba(239, 68, 68, ${castProg * 0.48})`);
+        cg.addColorStop(1, 'rgba(239, 68, 68, 0)');
+        ctx.fillStyle = cg;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 12, 0, Math.PI * 2);
+        ctx.fill();
         ctx.restore();
       }
-      if (castProg > 0) {
-        drawPaintedVfxDisc(
-          ctx,
-          'vfx_bagua_formation',
-          e.facing * 20,
-          -26,
-          18 * (1.3 - castProg * 0.4),
-          t * 3,
-          castProg * 0.9,
-          '#ef4444',
-          1,
-          true
-        );
-      }
-    } else if (kind === 'bell_gargoyle') {
-      // 飞天夜叉：双翼与钢叉跃动手绘九霄雷电 + 掷叉雷音水墨震波
-      if (castProg > 0 || e.aiState === 'windup') {
-        drawPaintedVfxDisc(
-          ctx,
-          'vfx_ink_shockwave',
-          e.facing * 20,
-          -30,
-          20 * (1.2 - castProg * 0.3),
-          t * 6,
-          0.8,
-          '#fde047',
-          1,
-          true
-        );
-      }
-      const la = t * 18 + e.id;
-      drawPaintedThunderBolt(
-        ctx,
-        e.facing * 6,
-        -38,
-        e.facing * 26,
-        -30 + Math.cos(la) * 4,
-        14,
-        0.78,
-        Math.sin(la) > 0,
-        '#facc15'
-      );
     } else if (kind === 'plague_toad' && (Math.abs(e.vy) > 25 || castProg > 0)) {
-      // 毒沼金蟾：腾跃扑击与喷毒瞬间咽喉鼓荡碧紫毒雾泡
+      // 毒沼金蟾：腾跃扑击与喷毒瞬间咽喉微弱紫绿毒雾
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      const pg = ctx.createRadialGradient(e.facing * 14, -20, 2, e.facing * 14, -20, 26);
-      pg.addColorStop(0, 'rgba(74, 222, 128, 0.72)');
-      pg.addColorStop(0.58, 'rgba(168, 85, 247, 0.45)');
+      const pg = ctx.createRadialGradient(e.facing * 14, -20, 2, e.facing * 14, -20, 16);
+      pg.addColorStop(0, 'rgba(74, 222, 128, 0.42)');
+      pg.addColorStop(0.58, 'rgba(168, 85, 247, 0.26)');
       pg.addColorStop(1, 'rgba(88, 28, 135, 0)');
       ctx.fillStyle = pg;
       ctx.beginPath();
-      ctx.arc(e.facing * 14, -20, 26, 0, Math.PI * 2);
+      ctx.arc(e.facing * 14, -20, 16, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
     }
@@ -2152,7 +2124,7 @@ export function drawMonsterOrBoss(
     ctx.restore();
   }
 
-  // 摒弃容易出戏的UI矢量【危】字弹窗：改为贴合怪物兵刃/凶眸的自然蓄势寒光微闪（配合 Spine 后仰蓄力姿态传达前摇！）
+  // 贴合怪物兵刃/凶眸的自然蓄势微闪（克制提示前摇，不刺眼）
   if (e.aiState === 'windup') {
     const isBeast = e.profile.kind === 'demon_wolf' || e.profile.kind === 'spirit_crow';
     const gx = isBeast ? e.facing * (w * 0.38) : -e.facing * (w * 0.28);
@@ -2160,193 +2132,86 @@ export function drawMonsterOrBoss(
     const glintCol = isBeast ? 'rgba(251, 146, 60,' : 'rgba(254, 240, 138,';
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    const rg = ctx.createRadialGradient(gx, gy, 1, gx, gy, 18);
-    rg.addColorStop(0, `${glintCol} 0.78)`);
-    rg.addColorStop(0.5, `${glintCol} 0.25)`);
+    const rg = ctx.createRadialGradient(gx, gy, 1, gx, gy, 12);
+    rg.addColorStop(0, `${glintCol} 0.52)`);
+    rg.addColorStop(0.5, `${glintCol} 0.16)`);
     rg.addColorStop(1, `${glintCol} 0)`);
     ctx.fillStyle = rg;
     ctx.beginPath();
-    ctx.arc(gx, gy, 18, 0, Math.PI * 2);
+    ctx.arc(gx, gy, 12, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
 
-  // 怪物近战出招差异化动态武器/元素特效（按挥击进度实时推进，彻底淘汰千篇一律静态红弧！）
+  // 怪物近战出招极简水墨劈斩/突刺：杂兵克制一笔，妖王洗练单弧，让位主角高阶招式辨识度！
   if (e.aiState === 'lunge_slash') {
     const dur = Math.max(0.12, e.stateDuration || 0.24);
     const p = Math.max(0, Math.min(1, 1 - e.stateTimer / dur));
     const fade = Math.max(0.18, 1 - Math.max(0, p - 0.55) * 1.6);
     const kind = e.profile.kind;
 
-    if (kind === 'demon_wolf') {
-      // 玄甲镇狱苍狼：飞扑撕裂三道水墨赤金狼爪剑弧！
-      for (let c = -1; c <= 1; c++) {
-        drawInkSlashRibbon(
-          ctx,
-          e.facing * 4,
-          -h * 0.52 + c * 8,
-          e.facing,
-          false,
-          64,
-          c === 0 ? 11 : 7,
-          -0.42 + p * 0.25,
-          0.35 + p * 0.45,
-          c === 0 ? '#fef08a' : '#f97316',
-          fade * (c === 0 ? 0.95 : 0.78)
-        );
+    if (!e.profile.isBoss) {
+      if (kind === 'paper_swordsman' || kind === 'demon_wolf' || kind === 'spirit_crow') {
+        const tint =
+          kind === 'demon_wolf' ? '#fdba74' : kind === 'spirit_crow' ? '#6ee7b7' : '#cbd5e1';
+        drawPaintedVfxSprite(ctx, 'vfx_iaido_flash_cut', e.facing * 8, -h * 0.54, 68, 18, {
+          rotation: e.facing * (-0.1 + p * 0.28),
+          flipX: e.facing === -1,
+          alpha: fade * 0.48,
+          tintHex: tint,
+          tintAlpha: 0.25,
+          additive: false,
+        });
+      } else {
+        const tint =
+          kind === 'bronze_guard'
+            ? '#d97706'
+            : kind === 'lantern_ghost'
+              ? '#5eead4'
+              : kind === 'opera_puppet'
+                ? '#fb7185'
+                : kind === 'bell_gargoyle'
+                  ? '#fde047'
+                  : '#94a3b8';
+        drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', e.facing * 6, -h * 0.54, 74, 72, {
+          rotation: e.facing * (-0.32 + p * 0.82),
+          flipX: e.facing === -1,
+          alpha: fade * 0.44,
+          tintHex: tint,
+          tintAlpha: 0.26,
+          additive: false,
+        });
       }
-    } else if (kind === 'corpse_soldier') {
-      // 破土荒冢阴兵：锈蚀残戟沉重暗红劈斩！
-      const sAng = -1.55 + p * 0.35;
-      const eAng = -1.15 + Math.min(1, p * 1.4) * 2.25;
-      drawInkSlashRibbon(ctx, e.facing * 6, -h * 0.54, e.facing, false, 74, 18, sAng, eAng, '#b91c1c', fade);
-    } else if (kind === 'spirit_crow') {
-      // 玄冥三足阴鸦：振翼俯冲掠袭幽冥碧火鸦爪残弧
-      const sAng = -0.95 + p * 0.28;
-      const eAng = -0.62 + Math.min(1, p * 1.45) * 1.65;
-      drawInkSlashRibbon(ctx, e.facing * 6, -h * 0.5, e.facing, false, 60, 13, sAng, eAng, '#10b981', fade);
-    } else if (kind === 'paper_swordsman') {
-      // 剪纸刀客：极速冰青居合一字拔刀闪 + 飞舞飘零符片
-      const sAng = -0.52 + p * 0.18;
-      const eAng = -0.36 + Math.min(1, p * 1.45) * 1.12;
-      drawInkSlashRibbon(ctx, e.facing * 8, -h * 0.54, e.facing, false, 84, 15, sAng, eAng, '#38bdf8', fade);
-      drawInkSlashRibbon(
-        ctx,
-        e.facing * 10,
-        -h * 0.52,
-        e.facing,
-        false,
-        90 * Math.min(1, p * 1.5),
-        8,
-        -0.12,
-        0.1,
-        '#bae6fd',
-        fade * 0.9
-      );
-      const talImg = Assets.get('item_talisman_scroll');
-      if (talImg) {
-        for (let k = 0; k < 3; k++) {
-          const px = e.facing * (18 + k * 22 + p * 18);
-          const py = -h * 0.52 + Math.sin(t * 20 + k * 2.1) * 10;
-          ctx.save();
-          ctx.translate(px, py);
-          ctx.rotate(p * 3 + k);
-          ctx.globalAlpha = fade * 0.84;
-          ctx.drawImage(talImg, -4.5, -6, 9, 12);
-          ctx.restore();
-        }
-      }
-    } else if (kind === 'bronze_guard') {
-      // 玄甲重盾傀儡：千钧重铜战戟自头顶轰然砸地（动态琥珀金铁巨弧 + 水墨裂地冲击震波！）
-      const sAng = -1.78 + p * 0.35;
-      const eAng = -1.42 + Math.min(1, p * 1.38) * 2.48;
-      drawInkSlashRibbon(ctx, 0, -h * 0.58, e.facing, false, 84, 24, sAng, eAng, '#f59e0b', fade);
-      if (p > 0.4) {
-        const slamP = (p - 0.4) / 0.6;
-        drawPaintedVfxDisc(
-          ctx,
-          'vfx_ink_shockwave',
-          e.facing * 52,
-          -2,
-          20 + slamP * 34,
-          slamP * 2.5,
-          (1 - slamP) * 0.88,
-          '#fbbf24',
-          0.28,
-          true
-        );
-      }
-    } else if (kind === 'lantern_ghost') {
-      // 提灯冥火鬼：引魂灯迸发幽青冥火旋涡 + 4团游魂鬼火球（彻底告别违和红刀光！）
-      const sAng = -1.65 + p * 0.55;
-      const eAng = -1.2 + Math.min(1, p * 1.4) * 2.75;
-      drawInkSlashRibbon(ctx, e.facing * 10, -h * 0.58, e.facing, false, 72, 20, sAng, eAng, '#2dd4bf', fade);
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      for (let wIdx = 0; wIdx < 4; wIdx++) {
-        const wa = t * 14 + wIdx * (Math.PI * 0.5) + p * 2.4;
-        const wr = 28 + p * 38;
-        const wx = e.facing * 12 + Math.cos(wa) * wr;
-        const wy = -h * 0.58 + Math.sin(wa) * (wr * 0.62);
-        const wg = ctx.createRadialGradient(wx, wy, 1, wx, wy, 11);
-        wg.addColorStop(0, `rgba(204, 251, 241, ${fade * 0.95})`);
-        wg.addColorStop(0.55, wIdx % 2 === 0 ? `rgba(45, 212, 191, ${fade * 0.72})` : `rgba(168, 85, 247, ${fade * 0.68})`);
-        wg.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        ctx.fillStyle = wg;
-        ctx.beginPath();
-        ctx.arc(wx, wy, 11, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.restore();
-    } else if (kind === 'opera_puppet') {
-      // 梨园提线木偶：双袖红绸金芒十字交叉刃舞！
-      const sAng = -1.35 + p * 0.35;
-      const eAng = -0.95 + Math.min(1, p * 1.42) * 2.15;
-      drawInkSlashRibbon(ctx, e.facing * 6, -h * 0.6, e.facing, false, 74, 16, sAng, eAng, '#f43f5e', fade);
-      drawInkSlashRibbon(ctx, e.facing * 10, -h * 0.56, e.facing, true, 68, 13, sAng - 0.15, eAng - 0.1, '#fbbf24', fade * 0.86);
-    } else if (kind === 'bell_gargoyle') {
-      // 飞天夜叉：雷音钢叉电芒俯冲刺击
-      const sAng = -1.25 + p * 0.32;
-      const eAng = -0.88 + Math.min(1, p * 1.4) * 1.95;
-      drawInkSlashRibbon(ctx, e.facing * 8, -h * 0.58, e.facing, false, 78, 18, sAng, eAng, '#facc15', fade);
-    } else if (kind === 'boss_xiao_duanshui') {
-      // 镇妖少统领·萧断水：破军龙胆银紫枪芒贯空突刺 + 护身枪花
-      const sAng = -0.85 + p * 0.25;
-      const eAng = -0.55 + Math.min(1, p * 1.4) * 1.45;
-      drawInkSlashRibbon(ctx, e.facing * 10, -h * 0.58, e.facing, false, 106, 22, sAng, eAng, '#38bdf8', fade);
-      drawInkSlashRibbon(
-        ctx,
-        -8 * e.facing,
-        -h * 0.56,
-        e.facing,
-        false,
-        118 * Math.min(1, p * 1.5),
-        10,
-        -0.08,
-        0.08,
-        '#e0f2fe',
-        fade * 0.92
-      );
     } else {
-      // 各区域守关妖王：按自身本命妖气色彩实时挥展霸道水墨刀罡！
-      const sAng = -1.45 + p * 0.38;
-      const eAng = -1.05 + Math.min(1, p * 1.38) * 2.28;
-      const bossCol = e.profile.accentColor || '#dc2626';
-      drawInkSlashRibbon(
-        ctx,
-        0,
-        -h * 0.62,
-        e.facing,
-        false,
-        e.profile.isBoss ? 106 : 76,
-        e.profile.isBoss ? 27 : 18,
-        sAng,
-        eAng,
-        bossCol,
-        fade
-      );
+      const heavyBoss =
+        kind === 'boss_furnace_titan' ||
+        kind === 'boss_colosseum_general';
+      const vfxKey: AssetKey = heavyBoss ? 'vfx_slash_heavy_cleave' : 'vfx_slash_crescent';
+      const bossCol =
+        kind === 'boss_xiao_duanshui' ? '#38bdf8' : e.profile.accentColor || '#dc2626';
+      drawPaintedVfxSprite(ctx, vfxKey, e.facing * 10, -h * 0.58, 116, 112, {
+        rotation: e.facing * (-0.36 + p * 0.9),
+        flipX: e.facing === -1,
+        alpha: fade * 0.7,
+        tintHex: bossCol,
+        tintAlpha: 0.42,
+        additive: false,
+      });
     }
   }
 
-  // 纸人剑客横刀架挡姿态视觉提示：水墨青冥刀罡护盾弧（替代矢量空心圆弧！）
+  // 纸人剑客横刀架挡姿态视觉提示：极简冰青竖锋微闪
   if (
     e.profile.kind === 'paper_swordsman' &&
     (e.guardStanceTimer || 0) > 0 &&
     e.aiState !== 'staggered'
   ) {
-    drawInkSlashRibbon(
-      ctx,
-      e.facing * 10,
-      -h * 0.56,
-      1,
-      false,
-      28,
-      9,
-      e.facing === 1 ? -0.95 : Math.PI - 0.95,
-      e.facing === 1 ? 0.95 : Math.PI + 0.95,
-      '#7dd3fc',
-      0.92
-    );
+    drawPaintedVfxSprite(ctx, 'vfx_iaido_flash_cut', e.facing * 12, -h * 0.54, 44, 14, {
+      rotation: Math.PI * 0.42 * e.facing,
+      alpha: 0.45,
+      tintHex: '#bae6fd',
+      additive: false,
+    });
   }
 
   // 小怪极简水墨残血细条 + 下方琥珀金架势韧性细槽！
