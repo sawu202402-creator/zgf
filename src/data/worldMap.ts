@@ -10667,7 +10667,7 @@ function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
     west_armory: [{ id: 'inv_pk_gs3', kind: 'weapon', itemId: 'greatsword_3', x: 520 }],
     secret_archive: [{ id: 'inv_pk_sw3', kind: 'weapon', itemId: 'sword_3', x: 390 }],
     relic_double_jump: [{ id: 'inv_pk_dj_hp', kind: 'max_up', itemId: 'hp_vessel', x: 420 }],
-    relic_mist_vault: [{ id: 'inv_pk_dg3', kind: 'weapon', itemId: 'daggers_3', x: 480 }],
+    relic_mist_vault: [{ id: 'inv_pk_dg3', kind: 'weapon', itemId: 'daggers_3', x: 470, y: 372 }],
     relic_grapple_vault: [{ id: 'inv_pk_gp_mp', kind: 'max_up', itemId: 'mp_vessel', x: 440 }],
     relic_wall_vault: [
       { id: 'inv_pk_robe_xn', kind: 'armor', itemId: 'xuanniao_robe', x: 210 },
@@ -10696,8 +10696,8 @@ function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
       { id: 'inv_pk_cat_jz', kind: 'consumable', itemId: 'jiuzhuan_jin_dan', x: 510 },
     ],
     secret_ice_spring: [
-      { id: 'inv_pk_ice_hp', kind: 'max_up', itemId: 'hp_vessel', x: 340 },
-      { id: 'inv_pk_ice_wine', kind: 'consumable', itemId: 'tiger_bone_wine', x: 430 },
+      { id: 'inv_pk_ice_hp', kind: 'max_up', itemId: 'hp_vessel', x: 395, y: 280 },
+      { id: 'inv_pk_ice_wine', kind: 'consumable', itemId: 'tiger_bone_wine', x: 495, y: 280 },
     ],
     secret_library_study: [
       { id: 'inv_pk_study_jz', kind: 'consumable', itemId: 'jiuzhuan_jin_dan', x: 420 },

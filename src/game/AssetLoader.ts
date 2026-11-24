@@ -1,3 +1,5 @@
+import type { EnemyKind } from '../types';
+
 export type AssetKey =
   | 'bg_title'
   | 'bg_gatehouse'
@@ -561,7 +563,16 @@ class GameAssetRegistry {
   }
 
   public async preloadRemainingInBackground(): Promise<void> {
-    const remaining = ALL_ASSET_KEYS.filter((k) => !this.images.has(k));
+    // 移动端显存优化：后台仅预热常规共性贴图与前几幕背景，大型妖王序列帧及远处区域画卷按邻房 1-hop 按需预加载
+    const remaining = ALL_ASSET_KEYS.filter(
+      (k) =>
+        !this.images.has(k) &&
+        !k.startsWith('boss_') &&
+        (!k.startsWith('bg_') ||
+          k === 'bg_gatehouse_interior' ||
+          k === 'bg_main_hall' ||
+          k === 'bg_alchemy_palace')
+    );
     const BATCH = 10;
     for (let i = 0; i < remaining.length; i += BATCH) {
       const slice = remaining.slice(i, i + BATCH);
@@ -667,4 +678,63 @@ export function resolveFamiliarAssetKey(
   if (famId === 'familiar_kestrel') return 'fam_kestrel';
   if (famId === 'familiar_fox') return 'fam_fox';
   return 'fam_sword';
+}
+
+export function resolveEnemyAssetKeys(kind: EnemyKind): AssetKey[] {
+  switch (kind) {
+    case 'boss_colosseum_general':
+      return ['boss_gen_0', 'boss_gen_1'];
+    case 'boss_shipyard_leviathan':
+      return ['boss_lev_0', 'boss_lev_1'];
+    case 'boss_dragon_warden':
+      return ['boss_wdn_0', 'boss_wdn_1'];
+    case 'boss_scroll_king':
+      return ['boss_ik_0', 'boss_ik_1', 'boss_ik_2'];
+    case 'boss_furnace_titan':
+      return ['boss_ft_0', 'boss_ft_1'];
+    case 'boss_xiao_duanshui':
+      return ['boss_xiao_0', 'boss_xiao_1', 'boss_xiao_2'];
+    case 'boss_opera_god':
+      return ['boss_op_0', 'boss_op_1'];
+    case 'boss_thunder_yaksha':
+      return ['boss_yk_0', 'boss_yk_1', 'boss_yk_2'];
+    case 'boss_pei_wuji':
+    case 'boss_zhuyin':
+      return ['boss_pei_0', 'boss_pei_1', 'boss_pei_2'];
+    case 'bronze_guard':
+      return ['mob_gd_0', 'mob_gd_1', 'mob_gd_2', 'mob_gd_3'];
+    case 'lantern_ghost':
+      return ['mob_wr_0', 'mob_wr_1', 'mob_wr_2'];
+    case 'wuchang_reaper':
+      return ['mob_wuchang', 'mob_wr_0', 'mob_wr_1', 'mob_wr_2'];
+    case 'scroll_demon':
+      return ['mob_book'];
+    case 'plague_toad':
+      return ['mob_toad'];
+    case 'opera_puppet':
+      return ['mob_puppet'];
+    case 'bell_gargoyle':
+      return ['mob_gargoyle'];
+    case 'corpse_soldier':
+      return ['mob_zombie'];
+    case 'demon_wolf':
+      return ['mob_warg'];
+    case 'spirit_crow':
+      return ['mob_crow'];
+    case 'bone_archer':
+      return ['mob_bone_archer'];
+    case 'shenji_musketeer':
+      return ['mob_musketeer'];
+    case 'jinwu_mace_guard':
+      return ['mob_mace_guard'];
+    case 'guixu_water_fiend':
+      return ['mob_water_fiend'];
+    case 'armored_tortoise':
+      return ['mob_tortoise'];
+    case 'bixie_stone_beast':
+      return ['mob_bixie'];
+    case 'paper_swordsman':
+    default:
+      return ['mob_sw_0', 'mob_sw_1', 'mob_sw_2', 'mob_sw_3'];
+  }
 }

@@ -93,6 +93,45 @@ export function drawSeamlessTitlePanorama(
   ctx.restore();
 }
 
+const tonedBackdropCache = new Map<string, HTMLCanvasElement>();
+
+function getTonedBackdropCanvas(
+  bgKey: AssetKey,
+  bg: HTMLImageElement,
+  indoor: boolean
+): HTMLImageElement | HTMLCanvasElement {
+  if (typeof document === 'undefined' || bg.width < 4 || bg.height < 4) return bg;
+  const key = `${bgKey}:${indoor ? 1 : 0}:${bg.width}x${bg.height}`;
+  const hit = tonedBackdropCache.get(key);
+  if (hit) {
+    tonedBackdropCache.delete(key);
+    tonedBackdropCache.set(key, hit);
+    return hit;
+  }
+
+  const c = document.createElement('canvas');
+  c.width = bg.width;
+  c.height = bg.height;
+  const bctx = c.getContext('2d');
+  if (!bctx) return bg;
+  try {
+    bctx.filter = indoor
+      ? 'saturate(0.68) contrast(0.9) brightness(0.74)'
+      : 'saturate(0.76) contrast(0.92) brightness(0.82)';
+  } catch {
+    // Ignore if canvas filter is unsupported
+  }
+  bctx.drawImage(bg, 0, 0);
+  bctx.filter = 'none';
+
+  if (tonedBackdropCache.size >= 6) {
+    const oldest = tonedBackdropCache.keys().next().value;
+    if (oldest !== undefined) tonedBackdropCache.delete(oldest);
+  }
+  tonedBackdropCache.set(key, c);
+  return c;
+}
+
 /**
  * 局内远景：八大主题 16:9 手绘大画卷 + 自然通透景深暗角（零程序化黑线/色块干扰！）
  */
@@ -135,7 +174,8 @@ export function drawSeamlessParallaxBackdrop(
   ctx.clip();
 
   if (bg) {
-    const aspect = bg.width / bg.height;
+    const tonedBg = getTonedBackdropCanvas(bgKey, bg, Boolean(room.indoor));
+    const aspect = tonedBg.width / tonedBg.height;
     const parallaxX = 0.11;
     const parallaxY = room.gridH > 1 ? 0.06 : 0.025;
     const maxCamX = Math.max(0, room.pixelW - vW);
@@ -151,23 +191,16 @@ export function drawSeamlessParallaxBackdrop(
     const px = Math.max(vW - drawW, Math.min(0, -extraW * 0.5 - camLeft * parallaxX));
     const py = Math.max(vH - drawH, Math.min(0, -extraH * 0.45 - camTop * parallaxY));
 
-    // 景深三级分离：适度收束远景画卷饱和度与明度，让远景退为深邃大气底衬，凸显 1.0x 可踩建筑与角色！
-    ctx.save();
-    try {
-      ctx.filter = room.indoor
-        ? 'saturate(0.68) contrast(0.9) brightness(0.74)'
-        : 'saturate(0.76) contrast(0.92) brightness(0.82)';
-    } catch {
-      // Ignore if browser canvas filter unsupported
-    }
+    // 使用离屏预烘焙调色远景，消除移动端每帧全屏 ctx.filter 着色器开销
     if (room.realm === 'inverted') {
+      ctx.save();
       ctx.translate(0, vH);
       ctx.scale(1, -1);
-      ctx.drawImage(bg, px, py, drawW, drawH);
+      ctx.drawImage(tonedBg, px, py, drawW, drawH);
+      ctx.restore();
     } else {
-      ctx.drawImage(bg, px, py, drawW, drawH);
+      ctx.drawImage(tonedBg, px, py, drawW, drawH);
     }
-    ctx.restore();
 
     if (room.realm === 'inverted') {
       const invGrad = ctx.createLinearGradient(0, 0, 0, vH);
@@ -370,6 +403,10 @@ export function getHarmonizedSprite(
     cctx.fillRect(0, aoTop, c.width, c.height - aoTop);
   }
 
+  if (harmonizedPropCache.size >= 72) {
+    const oldest = harmonizedPropCache.keys().next().value;
+    if (oldest !== undefined) harmonizedPropCache.delete(oldest);
+  }
   harmonizedPropCache.set(cacheKey, c);
   return c;
 }
@@ -691,6 +728,47 @@ export function drawPaintedVfxSprite(
     }
   }
   ctx.restore();
+}
+
+let softLightCutoutStamp: HTMLCanvasElement | null = null;
+let softDotStamp: HTMLCanvasElement | null = null;
+
+/** 复用 128×128 柔边径向光孔印章，避免每帧每个火把重建 RadialGradient */
+export function getSoftLightCutoutStamp(): HTMLCanvasElement {
+  if (softLightCutoutStamp) return softLightCutoutStamp;
+  const c = document.createElement('canvas');
+  c.width = 128;
+  c.height = 128;
+  const sctx = c.getContext('2d');
+  if (sctx) {
+    const g = sctx.createRadialGradient(64, 64, 5, 64, 64, 64);
+    g.addColorStop(0, 'rgba(0, 0, 0, 1)');
+    g.addColorStop(0.55, 'rgba(0, 0, 0, 0.58)');
+    g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    sctx.fillStyle = g;
+    sctx.fillRect(0, 0, 128, 128);
+  }
+  softLightCutoutStamp = c;
+  return c;
+}
+
+/** 复用 32×32 柔边白光微粒印章 */
+export function getSoftDotStamp(): HTMLCanvasElement {
+  if (softDotStamp) return softDotStamp;
+  const c = document.createElement('canvas');
+  c.width = 32;
+  c.height = 32;
+  const sctx = c.getContext('2d');
+  if (sctx) {
+    const g = sctx.createRadialGradient(16, 16, 1, 16, 16, 16);
+    g.addColorStop(0, 'rgba(255, 255, 255, 1)');
+    g.addColorStop(0.55, 'rgba(255, 255, 255, 0.72)');
+    g.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    sctx.fillStyle = g;
+    sctx.fillRect(0, 0, 32, 32);
+  }
+  softDotStamp = c;
+  return c;
 }
 
 /**

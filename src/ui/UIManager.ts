@@ -100,6 +100,13 @@ export class UIManager {
   private selectedEquipSlot: EquipSlotCategory = 'weapon';
   private previewItemId: string | null = null;
   private lastHudWpnKey = '';
+  private lastHudLv = -1;
+  private lastHudResKey = '';
+  private lastHudHpKey = '';
+  private lastHudMinimapKey = '';
+  private lastHudLabelKey = '';
+  private lastHudBossKey = '';
+  private lastHudInteractKey = '';
   private warpModalCleanup: (() => void) | null = null;
   private prologueCleanup: (() => void) | null = null;
   private modalClosedAt = 0;
@@ -778,6 +785,13 @@ export class UIManager {
     this.bannerEl = null;
     this.hudRefs = {};
     this.lastHudWpnKey = '';
+    this.lastHudLv = -1;
+    this.lastHudResKey = '';
+    this.lastHudHpKey = '';
+    this.lastHudMinimapKey = '';
+    this.lastHudLabelKey = '';
+    this.lastHudBossKey = '';
+    this.lastHudInteractKey = '';
   }
 
   // ==================== 《斩妖行 / 只狼》无圆框主机级国风左上角 HUD ====================
@@ -914,7 +928,8 @@ export class UIManager {
 
     const isTouch = this.engine.input.usingTouch || NativeApp.isMobileOrTablet();
 
-    if (this.hudRefs.lvSeal) {
+    if (this.hudRefs.lvSeal && s.level !== this.lastHudLv) {
+      this.lastHudLv = s.level;
       this.hudRefs.lvSeal.innerHTML = `<span>境</span><span>${s.level}</span>`;
     }
     if (this.hudRefs.resRow) {
@@ -922,19 +937,27 @@ export class UIManager {
       const potCdTxt = p.potionCooldown > 0.05 ? `(${p.potionCooldown.toFixed(1)}s)` : '';
       const activeFam = this.engine.getActiveFamiliar();
       const ownedFams = this.engine.getOwnedFamiliars();
-      const famTag = activeFam
-        ? `<span data-cycle-fam="1" title="点击或按 [V] 切换护法灵" style="color:${FAMILIARS[activeFam].color};cursor:${ownedFams.length > 1 ? 'pointer' : 'default'};pointer-events:auto;">${FAMILIARS[activeFam].shortName}${this.engine.getFamiliarLevel(activeFam)}${ownedFams.length > 1 && !isTouch ? '[V]' : ''}</span>`
-        : '';
-      this.hudRefs.resRow.innerHTML = `<span style="color:#fde68a;">银 ${s.gold}</span><span style="color:#fb923c;">符 ${s.talismanHearts}</span><span style="color:${p.potionCooldown > 0.05 ? '#94a3b8' : '#5eead4'};">药 ${potCnt}${potCdTxt}</span>${famTag}`;
+      const famLv = activeFam ? this.engine.getFamiliarLevel(activeFam) : 0;
+      const resKey = `${s.gold}:${s.talismanHearts}:${potCnt}:${potCdTxt}:${activeFam || ''}:${famLv}:${ownedFams.length}:${isTouch ? 1 : 0}`;
+      if (resKey !== this.lastHudResKey) {
+        this.lastHudResKey = resKey;
+        const famTag = activeFam
+          ? `<span data-cycle-fam="1" title="点击或按 [V] 切换护法灵" style="color:${FAMILIARS[activeFam].color};cursor:${ownedFams.length > 1 ? 'pointer' : 'default'};pointer-events:auto;">${FAMILIARS[activeFam].shortName}${famLv}${ownedFams.length > 1 && !isTouch ? '[V]' : ''}</span>`
+          : '';
+        this.hudRefs.resRow.innerHTML = `<span style="color:#fde68a;">银 ${s.gold}</span><span style="color:#fb923c;">符 ${s.talismanHearts}</span><span style="color:${p.potionCooldown > 0.05 ? '#94a3b8' : '#5eead4'};">药 ${potCnt}${potCdTxt}</span>${famTag}`;
+      }
     }
 
-    const hpPct = Math.max(0, Math.min(100, (p.hp / Math.max(1, p.maxHp)) * 100));
-    const trailPct = Math.max(0, Math.min(100, (p.hpTrail / Math.max(1, p.maxHp)) * 100));
-    const mpPct = Math.max(0, Math.min(100, (p.mp / Math.max(1, p.maxMp)) * 100));
-
-    if (this.hudRefs.hpFill) this.hudRefs.hpFill.style.width = `${hpPct}%`;
-    if (this.hudRefs.hpTrail) this.hudRefs.hpTrail.style.width = `${trailPct}%`;
-    if (this.hudRefs.mpFill) this.hudRefs.mpFill.style.width = `${mpPct}%`;
+    const hpPct = Math.round(Math.max(0, Math.min(100, (p.hp / Math.max(1, p.maxHp)) * 100)) * 10) / 10;
+    const trailPct = Math.round(Math.max(0, Math.min(100, (p.hpTrail / Math.max(1, p.maxHp)) * 100)) * 10) / 10;
+    const mpPct = Math.round(Math.max(0, Math.min(100, (p.mp / Math.max(1, p.maxMp)) * 100)) * 10) / 10;
+    const hpKey = `${hpPct}:${trailPct}:${mpPct}`;
+    if (hpKey !== this.lastHudHpKey) {
+      this.lastHudHpKey = hpKey;
+      if (this.hudRefs.hpFill) this.hudRefs.hpFill.style.width = `${hpPct}%`;
+      if (this.hudRefs.hpTrail) this.hudRefs.hpTrail.style.width = `${trailPct}%`;
+      if (this.hudRefs.mpFill) this.hudRefs.mpFill.style.width = `${mpPct}%`;
+    }
 
     const wKey = `${w.id}:${s.ownedWeapons.length}:${isTouch ? 1 : 0}`;
     if (wKey !== this.lastHudWpnKey) {
@@ -950,51 +973,73 @@ export class UIManager {
     }
 
     if (this.hudRefs.minimapCanvas) {
-      const mctx = this.hudRefs.minimapCanvas.getContext('2d');
-      if (mctx) {
-        this.drawCastlevaniaBlueprint(
-          mctx,
-          this.hudRefs.minimapCanvas.width,
-          this.hudRefs.minimapCanvas.height,
-          false
-        );
+      const qgx = Math.round((r.mapX + (p.x / Math.max(1, r.pixelW)) * r.gridW) * 4);
+      const qgy = Math.round((r.mapY + (p.y / Math.max(1, r.pixelH)) * r.gridH) * 4);
+      const minimapKey = `${r.realm}:${r.id}:${qgx}:${qgy}:${s.visitedRooms.length}:${s.brokenSecretWalls.length}`;
+      if (minimapKey !== this.lastHudMinimapKey) {
+        this.lastHudMinimapKey = minimapKey;
+        const mctx = this.hudRefs.minimapCanvas.getContext('2d');
+        if (mctx) {
+          this.drawCastlevaniaBlueprint(
+            mctx,
+            this.hudRefs.minimapCanvas.width,
+            this.hudRefs.minimapCanvas.height,
+            false
+          );
+        }
       }
     }
     if (this.hudRefs.minimapLabel) {
-      const pct = WorldMap.calcExplorationPct(s.visitedRooms);
-      this.hudRefs.minimapLabel.textContent = `${r.name} · ${pct}%`;
+      const labelKey = `${r.realm}:${r.id}:${s.visitedRooms.length}`;
+      if (labelKey !== this.lastHudLabelKey) {
+        this.lastHudLabelKey = labelKey;
+        const pct = WorldMap.calcExplorationPct(s.visitedRooms);
+        this.hudRefs.minimapLabel.textContent = `${r.name} · ${pct}%`;
+      }
     }
 
     const boss = this.engine.enemies.find((e) => e.profile.isBoss);
     if (this.hudRefs.bossWrap) {
-      if (boss) {
-        this.hudRefs.bossWrap.style.display = 'block';
-        if (this.hudRefs.bossName) this.hudRefs.bossName.textContent = boss.profile.name;
-        if (this.hudRefs.bossFill) {
-          this.hudRefs.bossFill.style.width = `${Math.max(0, (boss.hp / boss.maxHp) * 100)}%`;
+      const bossKey = boss
+        ? `1:${boss.profile.name}:${Math.round((boss.hp / Math.max(1, boss.maxHp)) * 200)}:${Math.round((boss.hpTrail / Math.max(1, boss.maxHp)) * 200)}:${boss.aiState === 'staggered' ? -1 : Math.round((boss.poise / Math.max(1, boss.maxPoise)) * 200)}`
+        : '0';
+      if (bossKey !== this.lastHudBossKey) {
+        this.lastHudBossKey = bossKey;
+        if (boss) {
+          this.hudRefs.bossWrap.style.display = 'block';
+          if (this.hudRefs.bossName) this.hudRefs.bossName.textContent = boss.profile.name;
+          if (this.hudRefs.bossFill) {
+            this.hudRefs.bossFill.style.width = `${Math.max(0, (boss.hp / boss.maxHp) * 100)}%`;
+          }
+          if (this.hudRefs.bossTrail) {
+            this.hudRefs.bossTrail.style.width = `${Math.max(0, (boss.hpTrail / boss.maxHp) * 100)}%`;
+          }
+          if (this.hudRefs.bossPoise) {
+            const pRatio =
+              boss.aiState === 'staggered'
+                ? 0
+                : Math.max(0, Math.min(100, (boss.poise / Math.max(1, boss.maxPoise)) * 100));
+            this.hudRefs.bossPoise.style.width = `${pRatio}%`;
+          }
+        } else {
+          this.hudRefs.bossWrap.style.display = 'none';
         }
-        if (this.hudRefs.bossTrail) {
-          this.hudRefs.bossTrail.style.width = `${Math.max(0, (boss.hpTrail / boss.maxHp) * 100)}%`;
-        }
-        if (this.hudRefs.bossPoise) {
-          const pRatio =
-            boss.aiState === 'staggered'
-              ? 0
-              : Math.max(0, Math.min(100, (boss.poise / Math.max(1, boss.maxPoise)) * 100));
-          this.hudRefs.bossPoise.style.width = `${pRatio}%`;
-        }
-      } else {
-        this.hudRefs.bossWrap.style.display = 'none';
       }
     }
 
     if (this.hudRefs.interactBtn) {
-      if (this.engine.nearbyInteract && !this.isAnyOverlayOpen()) {
-        // 触屏端右侧【X 谈/香/阵】手柄键已实时鎏金变字，底部仅保留极简短语防遮挡画面
-        this.hudRefs.interactBtn.style.display = 'block';
-        this.hudRefs.interactBtn.textContent = this.engine.nearbyInteract.label;
-      } else {
-        this.hudRefs.interactBtn.style.display = 'none';
+      const activePrompt = this.engine.nearbyInteract && !this.isAnyOverlayOpen()
+        ? this.engine.nearbyInteract.label
+        : '';
+      if (activePrompt !== this.lastHudInteractKey) {
+        this.lastHudInteractKey = activePrompt;
+        if (activePrompt) {
+          // 触屏端右侧【X 谈/香/阵】手柄键已实时鎏金变字，底部仅保留极简短语防遮挡画面
+          this.hudRefs.interactBtn.style.display = 'block';
+          this.hudRefs.interactBtn.textContent = activePrompt;
+        } else {
+          this.hudRefs.interactBtn.style.display = 'none';
+        }
       }
     }
   }

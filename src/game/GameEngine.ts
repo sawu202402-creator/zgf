@@ -2,6 +2,7 @@ import { AudioFX } from '../audio/GuofengAudio';
 import {
   AssetKey,
   Assets,
+  resolveEnemyAssetKeys,
   resolveFamiliarAssetKey,
   resolveWeaponAssetKey,
 } from './AssetLoader';
@@ -411,6 +412,7 @@ export class GameEngine {
   private hitstopTimer = 0;
   private nextEntityId = 1;
   private lastVisitedRegion = '';
+  private lastSealHintMs = 0;
   public nearbyInteract: {
     kind:
       | 'save'
@@ -738,22 +740,34 @@ export class GameEngine {
     this.familiar.swoopTimer = 0;
     this.secretWallHits.clear();
 
-    // 优先预热当前房间的背景画卷、神兵护法灵与驻场妖邪贴图，确保流式加载零等待！
+    // 优先预热当前房间及 1-hop 相邻房间的背景画卷、神兵护法灵与驻场妖邪贴图，确保流式加载零等待同时节省移动端显存！
     const curWpn = WEAPONS[s.equippedWeapon] || WEAPONS.sword_0;
-    const prioKeys: (AssetKey | undefined)[] = [
-      nextRoom.bgKey as AssetKey,
-      resolveWeaponAssetKey(curWpn.archetype, curWpn.id),
-      s.equippedFamiliar ? resolveFamiliarAssetKey(s.equippedFamiliar) : undefined,
-    ];
-    if (nextRoom.bossKind === 'boss_colosseum_general') prioKeys.push('boss_gen_0', 'boss_gen_1');
-    else if (nextRoom.bossKind === 'boss_shipyard_leviathan') prioKeys.push('boss_lev_0', 'boss_lev_1');
-    else if (nextRoom.bossKind === 'boss_dragon_warden') prioKeys.push('boss_wdn_0', 'boss_wdn_1');
-    else if (nextRoom.bossKind === 'boss_xiao_duanshui') prioKeys.push('boss_xiao_0', 'boss_xiao_1', 'boss_xiao_2');
-    else if (nextRoom.bossKind === 'boss_furnace_titan') prioKeys.push('boss_ft_0', 'boss_ft_1');
-    else if (nextRoom.bossKind === 'boss_scroll_king') prioKeys.push('boss_ik_0', 'boss_ik_1', 'boss_ik_2');
-    else if (nextRoom.bossKind === 'boss_opera_god') prioKeys.push('boss_op_0', 'boss_op_1');
-    else if (nextRoom.bossKind === 'boss_thunder_yaksha') prioKeys.push('boss_yk_0', 'boss_yk_1', 'boss_yk_2');
-    Assets.ensurePriorityKeys(prioKeys);
+    const prioSet = new Set<AssetKey>();
+    const addKey = (k?: AssetKey) => {
+      if (k) prioSet.add(k);
+    };
+    const queueRoomAssets = (rm: BuiltRoom) => {
+      addKey(rm.bgKey as AssetKey);
+      if (rm.bossKind) {
+        for (const bk of resolveEnemyAssetKeys(rm.bossKind)) addKey(bk);
+      }
+      for (const sp of rm.spawns) {
+        for (const mk of resolveEnemyAssetKeys(sp.kind)) addKey(mk);
+      }
+    };
+    addKey(resolveWeaponAssetKey(curWpn.archetype, curWpn.id));
+    if (s.equippedFamiliar) addKey(resolveFamiliarAssetKey(s.equippedFamiliar));
+    queueRoomAssets(nextRoom);
+    const neighborIds = new Set<string>([
+      ...getRoomSideDoors(nextRoom).map((d) => d.targetRoomId),
+      ...nextRoom.shafts.map((sh) => sh.targetRoomId),
+    ]);
+    for (const nid of neighborIds) {
+      if (nid) {
+        queueRoomAssets(WorldMap.getRoom(nextRoom.realm, nid));
+      }
+    }
+    Assets.ensurePriorityKeys([...prioSet]);
 
     // 恶魔城经典机制：每个房间的红绸宫灯皆可挥兵击碎爆出灵符/纹银，并在跨房重进时自动复燃！
     this.liveLanterns = nextRoom.torches.map((tc, idx) => ({
@@ -6104,7 +6118,7 @@ export class GameEngine {
       p.onGround = true;
     }
 
-    // 3. 向上纵跃冲出天井竖井直登二楼飞阁！（动态适配任意挑高厅堂地面标高，若上方井口盖有裂地石板且已习得千斤坠方能自下顶开！）
+    // 3. 向上纵跃冲出天井竖井直登二楼飞阁！（若上方井口盖有千斤坠裂地石板封印，禁止自下逆向顶破，必须自上层以千斤坠震开！）
     if (p.y - p.h < 8 && p.vy < 0) {
       const upTr = WorldMap.resolveVerticalShaft(
         room,
@@ -6112,13 +6126,9 @@ export class GameEngine {
         'up',
         bossCleared,
         this.slot.brokenSecretWalls,
-        this.hasAbility('ground_slam')
+        false
       );
       if (upTr) {
-        if (upTr.matchSealId && !this.slot.brokenSecretWalls.includes(upTr.matchSealId)) {
-          this.slot.brokenSecretWalls.push(upTr.matchSealId);
-          AudioFX.playParryClang();
-        }
         p.dropThroughTimer = 0;
         const targetFloor = sampleSolidGroundY(upTr.nextRoom, upTr.nextX);
         this.beginSmoothRoomTransition(
@@ -6130,6 +6140,26 @@ export class GameEngine {
           -560
         );
       } else if (room.shafts.some((sh) => sh.dir === 'up' && p.x >= sh.x1 - 6 && p.x <= sh.x2 + 6)) {
+        const blockedSeal = WorldMap.resolveVerticalShaft(
+          room,
+          p.x,
+          'up',
+          bossCleared,
+          this.slot.brokenSecretWalls,
+          true
+        );
+        if (blockedSeal?.matchSealId && performance.now() - this.lastSealHintMs > 1800) {
+          this.lastSealHintMs = performance.now();
+          this.floats.push({
+            x: p.x,
+            y: Math.max(48, p.y - p.h - 12),
+            vy: -20,
+            text: '上方石板封印 · 须自上层千斤坠震开',
+            color: '#fcd34d',
+            size: 12,
+            life: 1.1,
+          });
+        }
         p.y = p.h + 8;
         p.vy = 0;
       }

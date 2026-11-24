@@ -36,6 +36,8 @@ import {
   drawSoftGroundShadow,
   drawSuspensionChain,
   getHarmonizedSprite,
+  getSoftDotStamp,
+  getSoftLightCutoutStamp,
 } from './GuofengWorldArt';
 import { InputController } from './MotionInput';
 
@@ -742,19 +744,14 @@ export class InkVaniaRenderer {
     lctx.fillRect(0, 0, lw, lh);
 
     lctx.globalCompositeOperation = 'destination-out';
+    const lightStamp = getSoftLightCutoutStamp();
     const punchLight = (wx: number, wy: number, radius: number, strength = 1) => {
       const sx = (wx - camLeft) * scaleDown;
       const sy = (wy - camTop) * scaleDown;
       const sr = radius * scaleDown;
       if (sx + sr < 0 || sx - sr > lw || sy + sr < 0 || sy - sr > lh) return;
-      const g = lctx.createRadialGradient(sx, sy, sr * 0.08, sx, sy, sr);
-      g.addColorStop(0, `rgba(0, 0, 0, ${Math.min(1, strength)})`);
-      g.addColorStop(0.55, `rgba(0, 0, 0, ${0.58 * strength})`);
-      g.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      lctx.fillStyle = g;
-      lctx.beginPath();
-      lctx.arc(sx, sy, sr, 0, Math.PI * 2);
-      lctx.fill();
+      lctx.globalAlpha = Math.max(0, Math.min(1, strength));
+      lctx.drawImage(lightStamp, sx - sr, sy - sr, sr * 2, sr * 2);
     };
 
     const p = engine.player;
@@ -803,6 +800,8 @@ export class InkVaniaRenderer {
       punchLight(room.focalX, room.focalY - 54, 215, 0.96);
     }
 
+    lctx.globalAlpha = 1;
+    lctx.globalCompositeOperation = 'source-over';
     ctx.drawImage(this.lightCanvas, 0, 0, lw, lh, 0, 0, vW, vH);
   }
 
@@ -1157,30 +1156,39 @@ export class InkVaniaRenderer {
       }
     }
 
-    // 2B. 恶魔城经典【可击碎隐藏砖墙 / 墙中烤鸡夹层】（截取手绘青石砖并绘出隐秘微光暗裂纹！）
+    // 2B. 恶魔城经典【可击碎隐藏砖墙 / 墙中烤鸡夹层】（截取手绘青石砖并以手绘刀痕微光提示暗格，零矢量折线！）
     if (room.secretWalls && engine.slot) {
       const slabImg = Assets.get('env_ground_slab');
       for (const sw of room.secretWalls) {
         if (engine.slot.brokenSecretWalls.includes(sw.id)) continue;
         ctx.save();
+        ctx.beginPath();
+        ctx.rect(sw.x, sw.y, sw.w, sw.h);
+        ctx.clip();
         if (slabImg) {
           ctx.drawImage(slabImg, 18, 28, sw.w, 84, sw.x, sw.y, sw.w, sw.h);
         }
-        const shimmer = 0.38 + 0.2 * Math.sin(this.ambientTime * 3.4 + sw.x);
-        ctx.strokeStyle = `rgba(253, 224, 71, ${shimmer})`;
-        ctx.lineWidth = 1.4;
-        ctx.beginPath();
-        ctx.moveTo(sw.x + sw.w * 0.28, sw.y + sw.h * 0.22);
-        ctx.lineTo(sw.x + sw.w * 0.55, sw.y + sw.h * 0.48);
-        ctx.lineTo(sw.x + sw.w * 0.36, sw.y + sw.h * 0.76);
-        ctx.moveTo(sw.x + sw.w * 0.55, sw.y + sw.h * 0.48);
-        ctx.lineTo(sw.x + sw.w * 0.78, sw.y + sw.h * 0.64);
-        ctx.stroke();
+        const shimmer = 0.28 + 0.16 * Math.sin(this.ambientTime * 3.4 + sw.x);
+        drawPaintedVfxSprite(
+          ctx,
+          'vfx_iaido_flash_cut',
+          sw.x + sw.w * 0.5,
+          sw.y + sw.h * 0.5,
+          Math.max(28, sw.w * 1.15),
+          Math.max(24, sw.h * 0.85),
+          {
+            rotation: 1.05,
+            alpha: shimmer,
+            tintHex: '#fde047',
+            tintAlpha: 0.52,
+            additive: true,
+          }
+        );
         ctx.restore();
       }
     }
 
-    // 2B-2. 独立隐藏密室封门古壁（未击碎时呈手绘青石封门与暗金裂隙；击碎后显现纯手绘幽邃古墓暗门 `prop_secret_arch`！）
+    // 2B-2. 独立隐藏密室封门古壁（未击碎时呈手绘青石封门与手绘微光裂隙；击碎后显现纯手绘幽邃古墓暗门 `prop_secret_arch`！）
     if (engine.slot) {
       const slabImg = Assets.get('env_ground_slab');
       const secArchImg = Assets.get('prop_secret_arch');
@@ -1194,21 +1202,28 @@ export class InkVaniaRenderer {
 
         ctx.save();
         if (!isBroken) {
+          ctx.beginPath();
+          ctx.rect(wx, wy, ww, wh);
+          ctx.clip();
           if (slabImg) {
             ctx.drawImage(slabImg, 8, 22, 56, 92, wx, wy, ww, wh);
           }
-          const shimmer = 0.4 + 0.22 * Math.sin(this.ambientTime * 3.2 + sd.floorY);
-          ctx.strokeStyle = `rgba(253, 224, 71, ${shimmer})`;
-          ctx.lineWidth = 1.5;
-          ctx.beginPath();
-          const cx = wx + ww * 0.5;
-          ctx.moveTo(cx - 5, wy + 22);
-          ctx.lineTo(cx + 4, wy + 52);
-          ctx.lineTo(cx - 4, wy + 84);
-          ctx.lineTo(cx + 3, wy + 108);
-          ctx.moveTo(cx + 4, wy + 52);
-          ctx.lineTo(cx + (sd.side === 'left' ? 11 : -11), wy + 68);
-          ctx.stroke();
+          const shimmer = 0.3 + 0.18 * Math.sin(this.ambientTime * 3.2 + sd.floorY);
+          drawPaintedVfxSprite(
+            ctx,
+            'vfx_iaido_flash_cut',
+            wx + ww * 0.5,
+            wy + wh * 0.5,
+            Math.max(36, ww * 1.25),
+            Math.max(32, wh * 0.88),
+            {
+              rotation: sd.side === 'left' ? 1.28 : 1.86,
+              alpha: shimmer,
+              tintHex: '#fde047',
+              tintAlpha: 0.56,
+              additive: true,
+            }
+          );
         } else if (secArchImg) {
           const ah = 148;
           const aw = secArchImg.width * (ah / secArchImg.height);
@@ -2108,20 +2123,30 @@ export class InkVaniaRenderer {
       ctx.globalAlpha = alpha;
 
       if (pt.kind === 'spark') {
-        // 刀锋金铁火星：沿速度方向拉长的发光流火细针！
-        ctx.globalCompositeOperation = 'lighter';
-        const slen = Math.min(18, Math.max(4, spd * 0.055));
-        ctx.strokeStyle = pt.color;
-        ctx.lineWidth = pt.size * 0.9;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(-slen, 0);
-        ctx.lineTo(slen * 0.45, 0);
-        ctx.stroke();
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath();
-        ctx.arc(slen * 0.3, 0, pt.size * 0.45, 0, Math.PI * 2);
-        ctx.fill();
+        // 刀锋金铁火星：改用手绘瞬闪锋芒贴图，彻底告别矢量线段与圆点！
+        const slen = Math.min(20, Math.max(6, spd * 0.06));
+        if (Assets.get('vfx_iaido_flash_cut')) {
+          drawPaintedVfxSprite(
+            ctx,
+            'vfx_iaido_flash_cut',
+            0,
+            0,
+            Math.max(10, slen * 1.9),
+            Math.max(5, pt.size * 2.6),
+            {
+              alpha,
+              tintHex: pt.color,
+              tintAlpha: 0.65,
+              additive: true,
+            }
+          );
+        } else {
+          ctx.globalCompositeOperation = 'lighter';
+          const stamp = getSoftDotStamp();
+          const dw = Math.max(10, slen * 1.4);
+          const dh = Math.max(4, pt.size * 2);
+          ctx.drawImage(stamp, -dw * 0.5, -dh * 0.5, dw, dh);
+        }
       } else {
         // 细碎飞白墨点：沿飞溅方向微弱拉伸，绝不拉成粗大胶囊色块
         const stretch = 1 + Math.min(1.1, spd * 0.005);
