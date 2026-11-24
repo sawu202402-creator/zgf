@@ -183,7 +183,7 @@ export function playOpeningPrologue(
   const openedAt = performance.now();
   let actEnteredAt = openedAt;
   let lastTapAt = 0;
-  let lastBlockedInputAt = 0;
+  let lastTouchAt = 0;
 
   const advanceAct = () => {
     if (dissolvingOut || destroyed) return;
@@ -198,80 +198,165 @@ export function playOpeningPrologue(
     }
   };
 
-  const tryAdvanceAct = () => {
+  const tryAdvanceAct = (expectedActIdx: number) => {
+    if (dissolvingOut || destroyed || actIdx !== expectedActIdx) return;
     const now = performance.now();
-    if (now - openedAt < 500 || now - lastBlockedInputAt < 440) {
-      lastBlockedInputAt = now;
-      return;
-    }
-    if (now - actEnteredAt < 440 || now - lastTapAt < 440) return;
+    if (now - openedAt < 500 || now - actEnteredAt < 440 || now - lastTapAt < 440) return;
     lastTapAt = now;
     advanceAct();
   };
 
   const safeSkip = () => {
     const now = performance.now();
-    if (now - openedAt < 450 || now - lastTapAt < 280) return;
+    if (now - openedAt < 420 || now - lastTapAt < 360) return;
     lastTapAt = now;
     beginLiveCrossDissolve();
   };
+
+  let activeTouchId: number | null = null;
+  let touchDownX = 0;
+  let touchDownY = 0;
+  let touchDownActIdx = -1;
+  root.addEventListener(
+    'touchstart',
+    (ev) => {
+      lastTouchAt = performance.now();
+      if ((ev.target as HTMLElement | null)?.closest('#btn-prologue-skip')) return;
+      if (activeTouchId !== null || ev.changedTouches.length === 0) return;
+      const t = ev.changedTouches[0];
+      activeTouchId = t.identifier;
+      touchDownX = t.clientX;
+      touchDownY = t.clientY;
+      touchDownActIdx = actIdx;
+    },
+    { passive: true }
+  );
+  root.addEventListener(
+    'touchend',
+    (ev) => {
+      lastTouchAt = performance.now();
+      if (ev.cancelable) ev.preventDefault();
+      let matched: Touch | null = null;
+      for (let i = 0; i < ev.changedTouches.length; i++) {
+        if (ev.changedTouches[i].identifier === activeTouchId) {
+          matched = ev.changedTouches[i];
+          break;
+        }
+      }
+      if (!matched) return;
+      const targetActIdx = touchDownActIdx;
+      activeTouchId = null;
+      touchDownActIdx = -1;
+      if ((ev.target as HTMLElement | null)?.closest('#btn-prologue-skip')) return;
+      if (Math.hypot(matched.clientX - touchDownX, matched.clientY - touchDownY) <= 28) {
+        tryAdvanceAct(targetActIdx);
+      }
+    },
+    { passive: false }
+  );
+  root.addEventListener('touchcancel', () => {
+    activeTouchId = null;
+    touchDownActIdx = -1;
+  });
+
+  let skipTouchId: number | null = null;
+  skipBtn.addEventListener(
+    'touchstart',
+    (ev) => {
+      ev.stopPropagation();
+      lastTouchAt = performance.now();
+      if (skipTouchId === null && ev.changedTouches.length > 0) {
+        skipTouchId = ev.changedTouches[0].identifier;
+      }
+    },
+    { passive: true }
+  );
+  skipBtn.addEventListener(
+    'touchend',
+    (ev) => {
+      ev.stopPropagation();
+      lastTouchAt = performance.now();
+      if (ev.cancelable) ev.preventDefault();
+      let matched = false;
+      for (let i = 0; i < ev.changedTouches.length; i++) {
+        if (ev.changedTouches[i].identifier === skipTouchId) {
+          matched = true;
+          break;
+        }
+      }
+      skipTouchId = null;
+      if (matched) safeSkip();
+    },
+    { passive: false }
+  );
+  skipBtn.addEventListener('touchcancel', () => {
+    skipTouchId = null;
+  });
 
   if (typeof window.PointerEvent !== 'undefined') {
     let skipPointerId: number | null = null;
     skipBtn.addEventListener('pointerdown', (ev) => {
       ev.stopPropagation();
-      if (ev.isTrusted && skipPointerId === null) skipPointerId = ev.pointerId;
+      if (!ev.isTrusted || ev.pointerType === 'touch') return;
+      if (performance.now() - lastTouchAt < 2500) return;
+      if (skipPointerId === null) skipPointerId = ev.pointerId;
     });
     skipBtn.addEventListener('pointerup', (ev) => {
       ev.stopPropagation();
       if (ev.pointerId !== skipPointerId) return;
       skipPointerId = null;
-      if (ev.isTrusted) safeSkip();
+      if (!ev.isTrusted || ev.pointerType === 'touch') return;
+      if (performance.now() - lastTouchAt < 2500) return;
+      safeSkip();
     });
     skipBtn.addEventListener('pointercancel', (ev) => {
       if (ev.pointerId === skipPointerId) skipPointerId = null;
     });
 
-    let activePointerId: number | null = null;
+    let mousePointerId: number | null = null;
     let downX = 0;
     let downY = 0;
+    let mouseDownActIdx = -1;
     root.addEventListener('pointerdown', (ev) => {
       if ((ev.target as HTMLElement | null)?.closest('#btn-prologue-skip')) return;
-      if (!ev.isTrusted || activePointerId !== null) return;
-      activePointerId = ev.pointerId;
+      if (!ev.isTrusted || ev.pointerType === 'touch') return;
+      if (performance.now() - lastTouchAt < 2500) return;
+      if (mousePointerId !== null) return;
+      mousePointerId = ev.pointerId;
       downX = ev.clientX;
       downY = ev.clientY;
+      mouseDownActIdx = actIdx;
     });
     root.addEventListener('pointerup', (ev) => {
-      if (ev.pointerId !== activePointerId) return;
-      activePointerId = null;
+      if (ev.pointerId !== mousePointerId) return;
+      const targetActIdx = mouseDownActIdx;
+      mousePointerId = null;
+      mouseDownActIdx = -1;
       if ((ev.target as HTMLElement | null)?.closest('#btn-prologue-skip')) return;
-      if (ev.isTrusted && Math.hypot(ev.clientX - downX, ev.clientY - downY) <= 28) {
-        tryAdvanceAct();
+      if (!ev.isTrusted || ev.pointerType === 'touch') return;
+      if (performance.now() - lastTouchAt < 2500) return;
+      if (Math.hypot(ev.clientX - downX, ev.clientY - downY) <= 28) {
+        tryAdvanceAct(targetActIdx);
       }
     });
     root.addEventListener('pointercancel', (ev) => {
-      if (ev.pointerId === activePointerId) {
-        activePointerId = null;
+      if (ev.pointerId === mousePointerId) {
+        mousePointerId = null;
+        mouseDownActIdx = -1;
       }
     });
   } else {
     skipBtn.addEventListener('click', (ev) => {
       ev.stopPropagation();
+      if (performance.now() - lastTouchAt < 2500) return;
       safeSkip();
     });
     root.addEventListener('click', (ev) => {
       if ((ev.target as HTMLElement | null)?.closest('#btn-prologue-skip')) return;
-      tryAdvanceAct();
+      if (performance.now() - lastTouchAt < 2500) return;
+      tryAdvanceAct(actIdx);
     });
   }
-  root.addEventListener(
-    'touchend',
-    (ev) => {
-      if (ev.cancelable) ev.preventDefault();
-    },
-    { passive: false }
-  );
 
   const heldCodes = new Set<string>();
   const onKeyDown = (ev: KeyboardEvent) => {
@@ -279,6 +364,7 @@ export function playOpeningPrologue(
     heldCodes.add(ev.code);
     if (ev.code === 'Escape') {
       ev.preventDefault();
+      if (performance.now() - lastTouchAt < 1500) return;
       if (performance.now() - openedAt >= 450) beginLiveCrossDissolve();
     } else if (
       ev.code === 'Space' ||
@@ -288,7 +374,8 @@ export function playOpeningPrologue(
       ev.code === 'KeyK'
     ) {
       ev.preventDefault();
-      if (performance.now() - openedAt >= 500) tryAdvanceAct();
+      if (performance.now() - lastTouchAt < 1500) return;
+      if (performance.now() - openedAt >= 500) tryAdvanceAct(actIdx);
     }
   };
   const onKeyUp = (ev: KeyboardEvent) => {

@@ -1010,7 +1010,7 @@ html.is-standalone-webapp #game-root {
 .cv-dialogue {
   width: 100%;
   max-width: 820px;
-  cursor: default;
+  cursor: pointer;
   touch-action: manipulation;
   display: flex;
   align-items: flex-end;
