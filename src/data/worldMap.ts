@@ -662,8 +662,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
 
     {
       id: 'gate_save',
-      name: '端门镇魂祠',
-      subtitle: '入殿前留档室',
+      name: '端门丹陛前廊',
+      subtitle: '穿过端门步入奉天前庭的御道石廊',
       region: 'gatehouse',
       bgKey: 'bg_gatehouse_interior',
       realm: 'normal',
@@ -674,7 +674,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       gridH: 1,
       pixelW: 800,
       pixelH: 440,
-      special: 'save_shrine',
+      special: 'none',
       focalX: 400,
       focalY: 356,
       leftRoomId: 'gate_2',
@@ -967,10 +967,10 @@ function createNormalCastleRooms(): BuiltRoom[] {
       pixelW: 800,
       pixelH: 440,
       special: 'relic_pedestal',
-      focalX: 380,
-      focalY: 320,
+      focalX: 400,
+      focalY: 348,
       leftRoomId: 'west_cliff_watchtower',
-      leftDoorFloorY: 384,
+      leftDoorFloorY: 196,
       rightRoomId: 'xiao_boss_hall',
       rightDoorFloorY: 384,
       groundNodes: [
@@ -982,12 +982,13 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 800, y: 384, style: 'marble' },
       ],
       solidBlocks: [
-        { x: 270, y: 320, w: 220, h: 36 },
+        { x: 0, y: 196, w: 185, h: 188, blocking: true },
+        { x: 290, y: 348, w: 220, h: 36 },
       ],
       ceilingSpans: [{ x1: 0, x2: 800, bottomY: 36, style: 'palace_timber' }],
       shafts: [],
       decorProps: [
-        { kind: 'dragon_brazier', x: 135, y: 384, scale: 0.9 },
+        { kind: 'dragon_brazier', x: 220, y: 384, scale: 0.9 },
         { kind: 'dragon_brazier', x: 635, y: 384, scale: 0.9 },
       ],
       waterZones: [],
@@ -1001,7 +1002,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       lanterns: [],
       npcs: [],
       spawns: [],
-      pickups: [{ id: 'pk_relic_djump', kind: 'ability', itemId: 'double_jump', x: 380, y: 320 }],
+      pickups: [{ id: 'pk_relic_djump', kind: 'ability', itemId: 'double_jump', x: 400, y: 348 }],
     },
 
     // ==================== 三、奉天盘龙正殿（3×2 双层皇家金銮宝殿 + 丹陛御苑 + 朝房飞阁 + 中枢八卦室） ====================
@@ -1176,20 +1177,18 @@ function createNormalCastleRooms(): BuiltRoom[] {
       focalX: 305,
       focalY: 382,
       leftRoomId: 'forge_molten_hall',
-      leftDoorFloorY: 408,
+      leftDoorFloorY: 224,
       rightRoomId: 'forge_antechamber',
       rightDoorFloorY: 408,
       groundNodes: [
         { x: 0, y: 408, style: 'marble' },
-        { x: 75, y: 408, style: 'stairs' },
-        { x: 115, y: 428, style: 'crypt_stone' },
-        { x: 185, y: 428, style: 'stairs' },
-        { x: 255, y: 382, style: 'marble' },
+        { x: 245, y: 408, style: 'stairs' },
+        { x: 305, y: 382, style: 'marble' },
         { x: 540, y: 382, style: 'stairs' },
         { x: 608, y: 408, style: 'marble' },
         { x: 800, y: 408, style: 'marble' },
       ],
-      solidBlocks: [],
+      solidBlocks: [{ x: 0, y: 224, w: 165, h: 184, blocking: true }],
       ceilingSpans: [{ x1: 0, x2: 800, bottomY: 34, style: 'crypt_vault' }],
       shafts: [],
       decorProps: [
@@ -1200,7 +1199,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       pavilions: [],
       archways: [],
       torches: [
-        { x: 85, y: 340 },
+        { x: 215, y: 340 },
         { x: 685, y: 340 },
       ],
       foregrounds: [],
@@ -1264,7 +1263,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ironGate: {
         id: 'gate_forge_molten_heavy',
         x: 1445,
-        topY: 34,
+        topY: 0,
         bottomY: 408,
         gateKind: 'heavy_weapon',
       },
@@ -1473,6 +1472,13 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x1: 490, x2: 800, bottomY: 32, style: 'crypt_vault' },
       ],
       shafts: [{ x1: 310, x2: 490, dir: 'up', targetRoomId: 'forge_boss_arena' }],
+      ironGate: {
+        id: 'gate_slam_mine_tortoise',
+        x: 110,
+        topY: 0,
+        bottomY: 408,
+        gateKind: 'sluice_tortoise',
+      },
       decorProps: [{ kind: 'guardian_statue', x: 65, y: 408, scale: 0.92 }],
       waterZones: [{ x1: 135, x2: 260, surfaceY: 420 }],
       pavilions: [],
@@ -1732,8 +1738,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
 
     {
       id: 'prison_save',
-      name: '寒潭地脉传送室',
-      subtitle: '东塔底层龙脉传送阵',
+      name: '寒潭地脉暗枢',
+      subtitle: '连通水牢秘窟与东垣塔底 · 单向铜杆捷径',
       region: 'prison',
       bgKey: 'bg_cavern_waterfall',
       realm: 'normal',
@@ -1744,8 +1750,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       gridH: 1,
       pixelW: 800,
       pixelH: 460,
-      special: 'warp_bagua',
-      warpName: '九曲寒潭传送阵',
+      special: 'none',
       focalX: 255,
       focalY: 366,
       leftRoomId: 'imperial_aqueduct_east',
@@ -1763,6 +1768,14 @@ function createNormalCastleRooms(): BuiltRoom[] {
       solidBlocks: [],
       ceilingSpans: [{ x1: 0, x2: 800, bottomY: 36, style: 'crypt_vault' }],
       shafts: [{ x1: 500, x2: 700, dir: 'down', targetRoomId: 'relic_mist_vault' }],
+      ironGate: {
+        id: 'gate_prison_tower_lever',
+        x: 715,
+        topY: 0,
+        bottomY: 396,
+        gateKind: 'lever_shortcut',
+        leverSide: 'left',
+      },
       decorProps: [{ kind: 'incense_burner', x: 145, y: 366, scale: 0.9 }],
       waterZones: [],
       pavilions: [{ x: 494, y: 396, w: 212, hasPillars: false }],
@@ -1826,16 +1839,13 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 0, y: 732, w: 300, h: 36 }, // 左门台(连 upper_library)
         { x: 500, y: 732, w: 300, h: 36 }, // 右门台(连 clock_gear_hall)
 
-        // 第2层(732) -> 第1层(320)
-        { x: 460, y: 634, w: 240, h: 32 },
-        { x: 160, y: 532, w: 240, h: 32 },
-        { x: 380, y: 428, w: 240, h: 32 },
+        // 第2层(732) -> 第1层(320)（二段跳高台）
+        { x: 200, y: 536, w: 240, h: 32 },
         { x: 460, y: 320, w: 340, h: 36 }, // 右门台(紫瘴栅后连 secret_archive)
-
-        // 第1层(320) -> 塔顶天井(84 -> 跃上观星登坛古祠！)
-        { x: 160, y: 236, w: 220, h: 30 },
-        { x: 300, y: 156, w: 200, h: 28 },
-        { x: 315, y: 84, w: 170, h: 26 },
+      ],
+      climbWalls: [
+        { x: 285, topY: 36, bottomY: 240 },
+        { x: 530, topY: 36, bottomY: 240 },
       ],
       clockGears: [
         { x: 400, y: 1295, radius: 66, speed: 0.48, hasOrbitPlatforms: false },
@@ -1887,7 +1897,6 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 155, y: 940 },
         { x: 645, y: 855 },
         { x: 320, y: 585 },
-        { x: 400, y: 265 },
       ],
       npcs: [],
       spawns: [
@@ -2170,8 +2179,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
     // ==================== 六之二、子夜百戏鬼市 & 天机钟鼓楼（致敬月下：恶魔城礼拜堂/斗技场 & 时计塔） ====================
     {
       id: 'library_warp',
-      name: '书阁梨园传送室',
-      subtitle: '西楼乾坤龙脉阵',
+      name: '书阁梨园过廊',
+      subtitle: '连通天机木鸢阁与百戏后台的雕花步廊',
       region: 'opera',
       bgKey: 'bg_library_opera',
       realm: 'normal',
@@ -2182,8 +2191,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       gridH: 1,
       pixelW: 800,
       pixelH: 440,
-      special: 'warp_bagua',
-      warpName: '书阁梨园传送阵',
+      special: 'none',
       focalX: 400,
       focalY: 356,
       leftRoomId: 'library_automaton_loft',
@@ -3164,8 +3172,15 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       ceilingSpans: [{ x1: 0, x2: 800, bottomY: 36, style: 'crypt_vault' }],
       shafts: [],
+      ironGate: {
+        id: 'gate_mojin_treasury_mist',
+        x: 135,
+        topY: 0,
+        bottomY: 396,
+        gateKind: 'mist_only',
+      },
       decorProps: [
-        { kind: 'guardian_statue', x: 105, y: 396, scale: 0.94 },
+        { kind: 'guardian_statue', x: 75, y: 396, scale: 0.94 },
         { kind: 'incense_burner', x: 685, y: 396, scale: 0.92 },
       ],
       waterZones: [],
@@ -3230,6 +3245,13 @@ function createNormalCastleRooms(): BuiltRoom[] {
           sealId: 'seal_catacomb_abyss',
         },
       ],
+      ironGate: {
+        id: 'gate_catacomb_abyss_mist',
+        x: 340,
+        topY: 0,
+        bottomY: 408,
+        gateKind: 'mist_only',
+      },
       decorProps: [
         { kind: 'guardian_statue', x: 160, y: 408, scale: 0.94 },
         { kind: 'dragon_brazier', x: 840, y: 372, scale: 0.92 },
@@ -3289,6 +3311,13 @@ function createNormalCastleRooms(): BuiltRoom[] {
       solidBlocks: [{ x: 535, y: 308, w: 150, h: 32 }],
       ceilingSpans: [{ x1: 0, x2: 800, bottomY: 36, style: 'crypt_vault' }],
       shafts: [{ x1: 565, x2: 715, dir: 'down', targetRoomId: 'abyss_ascension_shaft' }],
+      ironGate: {
+        id: 'gate_ice_spring_mist',
+        x: 505,
+        topY: 0,
+        bottomY: 408,
+        gateKind: 'mist_only',
+      },
       waterZones: [{ x1: 180, x2: 530, surfaceY: 428 }],
       decorProps: [{ kind: 'guardian_statue', x: 115, y: 408, scale: 0.92 }],
       pavilions: [
@@ -3367,7 +3396,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
     {
       id: 'observatory_bridge',
       name: '东垣观星飞虹桥',
-      subtitle: '三格星汉长桥 · 天罡聚气扳指与飞燕宫灯',
+      subtitle: '三格星汉长桥 · 飞燕钩锁高台与天罡聚气扳指',
       region: 'clock_tower',
       bgKey: 'bg_chapel_spire',
       realm: 'normal',
@@ -3390,48 +3419,27 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 265, y: 388, style: 'marble' },
         { x: 520, y: 388, style: 'stairs' },
         { x: 600, y: 412, style: 'marble' },
-        { x: 760, y: 412, style: 'stairs' },
-        { x: 860, y: 372, style: 'marble' },
-        { x: 1340, y: 372, style: 'stairs' },
-        { x: 1440, y: 412, style: 'marble' },
         { x: 1620, y: 412, style: 'stairs' },
         { x: 1700, y: 388, style: 'marble' },
         { x: 1960, y: 388, style: 'stairs' },
         { x: 2040, y: 412, style: 'marble' },
         { x: 2200, y: 412, style: 'marble' },
       ],
-      movingPlatforms: [
-        {
-          x1: 560,
-          y1: 288,
-          x2: 740,
-          y2: 248,
-          w: 120,
-          speed: 0.76,
-          style: 'wood_ferry',
-        },
-        {
-          x1: 1340,
-          y1: 248,
-          x2: 1520,
-          y2: 288,
-          w: 120,
-          speed: 0.76,
-          phase: 3.14,
-          style: 'wood_ferry',
-        },
+      solidBlocks: [
+        { x: 880, y: 144, w: 440, h: 268, blocking: true },
       ],
+      movingPlatforms: [],
       ceilingSpans: [],
       shafts: [],
       decorProps: [
         { kind: 'dragon_brazier', x: 310, y: 388, scale: 0.92 },
-        { kind: 'coiled_pillar', x: 920, y: 372, scale: 0.94 },
-        { kind: 'coiled_pillar', x: 1280, y: 372, scale: 0.94 },
+        { kind: 'coiled_pillar', x: 960, y: 144, scale: 0.88 },
+        { kind: 'coiled_pillar', x: 1240, y: 144, scale: 0.88 },
         { kind: 'dragon_brazier', x: 1890, y: 388, scale: 0.92 },
       ],
       steles: [{ id: 'stele_observatory_mirror', x: 420 }],
       waterZones: [],
-      pavilions: [{ x: 965, y: 224, w: 270, hasPillars: false }],
+      pavilions: [],
       archways: [],
       torches: [
         { x: 495, y: 312 },
@@ -3439,19 +3447,17 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       foregrounds: [],
       lanterns: [
-        { x: 480, y: 195 },
-        { x: 860, y: 165 },
-        { x: 1340, y: 165 },
-        { x: 1720, y: 195 },
+        { x: 750, y: 160 },
+        { x: 1450, y: 160 },
       ],
       npcs: [],
       spawns: [
         { kind: 'bell_gargoyle', x: 760, y: 235 },
-        { kind: 'opera_puppet', x: 1100, y: 372 },
+        { kind: 'opera_puppet', x: 1100, y: 144 },
         { kind: 'bell_gargoyle', x: 1620, y: 235 },
       ],
       pickups: [
-        { id: 'pk_obs_qi_ring', kind: 'armor', itemId: 'celestial_qi_ring', x: 1100, y: 224 },
+        { id: 'pk_obs_qi_ring', kind: 'armor', itemId: 'celestial_qi_ring', x: 1100, y: 144 },
       ],
     },
 
@@ -3555,6 +3561,14 @@ function createNormalCastleRooms(): BuiltRoom[] {
       clockGears: [{ x: 335, y: 248, radius: 68, speed: 0.62, hasOrbitPlatforms: true }],
       ceilingSpans: [{ x1: 0, x2: 800, bottomY: 36, style: 'palace_timber' }],
       shafts: [{ x1: 235, x2: 415, dir: 'down', targetRoomId: 'clock_east_bastion' }],
+      ironGate: {
+        id: 'gate_thunder_outer_lever',
+        x: 120,
+        topY: 0,
+        bottomY: 408,
+        gateKind: 'lever_shortcut',
+        leverSide: 'left',
+      },
       decorProps: [
         { kind: 'dragon_brazier', x: 115, y: 408, scale: 0.94 },
         { kind: 'giant_bell', x: 640, y: 215, scale: 0.9 },
@@ -3653,13 +3667,10 @@ function createNormalCastleRooms(): BuiltRoom[] {
     'secret_thunder_vault',
   ]);
   const ambushRoomIds = new Set([
-    'west_armory',
-    'forge_molten_hall',
-    'prison_waterway',
-    'opera_gallery',
-    'catacomb_hall',
-    'clock_gear_hall',
+    'entrance_guard_pavilion',
+    'library_grand_hall',
     'outer_wall_battlement',
+    'celestial_bell_sanctum',
     'nether_trial_colosseum',
   ]);
 
@@ -3912,14 +3923,18 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       solidBlocks: [
         { x: 110, y: 276, w: 220, h: 32 },
-        { x: 830, y: 298, w: 210, h: 30 },
-      ],
-      climbWalls: [
-        { x: 555, topY: 48, bottomY: 292 },
-        { x: 745, topY: 48, bottomY: 292 },
+        { x: 760, y: 248, w: 200, h: 30 },
       ],
       ceilingSpans: [],
       shafts: [{ x1: 560, x2: 740, dir: 'up', targetRoomId: 'west_cliff_skybridge' }],
+      ironGate: {
+        id: 'gate_battlement_pagoda_lever',
+        x: 350,
+        topY: 34,
+        bottomY: 372,
+        gateKind: 'lever_shortcut',
+        leverSide: 'left',
+      },
       decorProps: [
         { kind: 'weapon_rack', x: 260, y: 372, scale: 0.92 },
         { kind: 'dragon_brazier', x: 465, y: 408, scale: 0.9 },
@@ -3936,14 +3951,14 @@ function createNormalCastleRooms(): BuiltRoom[] {
       lanterns: [],
       npcs: [],
       spawns: [
-        { kind: 'bone_archer', x: 910, y: 298 },
+        { kind: 'bone_archer', x: 860, y: 248 },
         { kind: 'spirit_crow', x: 520, y: 185 },
         { kind: 'bone_archer', x: 220, y: 276 },
         { kind: 'paper_swordsman', x: 760, y: 408 },
       ],
       pickups: [
         { id: 'pk_battlement_spear', kind: 'weapon', itemId: 'spear_1', x: 195, y: 276 },
-        { id: 'pk_battlement_mp', kind: 'consumable', itemId: 'huiqi_dan', x: 925, y: 298 },
+        { id: 'pk_battlement_mp', kind: 'consumable', itemId: 'huiqi_dan', x: 880, y: 248 },
       ],
     },
 
@@ -4085,8 +4100,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
 
     {
       id: 'entrance_mid_save',
-      name: '朱雀街镇魂祠',
-      subtitle: '外城中段留档室',
+      name: '朱雀御街华表亭',
+      subtitle: '天街东段汉白玉华表 · 端门前哨',
       region: 'gatehouse',
       bgKey: 'bg_gatehouse_interior',
       realm: 'normal',
@@ -4097,7 +4112,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       gridH: 1,
       pixelW: 800,
       pixelH: 440,
-      special: 'save_shrine',
+      special: 'none',
       focalX: 400,
       focalY: 356,
       leftRoomId: 'entrance_imperial_plaza',
@@ -4134,8 +4149,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
 
     {
       id: 'outer_city_warp',
-      name: '朱雀外城乾坤室',
-      subtitle: '外城龙脉传送阵',
+      name: '端门东翼箭楼',
+      subtitle: '朱雀内城巡防角楼 · 凭栏远眺端门飞檐',
       region: 'gatehouse',
       bgKey: 'bg_gatehouse_interior',
       realm: 'normal',
@@ -4146,8 +4161,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       gridH: 1,
       pixelW: 800,
       pixelH: 440,
-      special: 'warp_bagua',
-      warpName: '朱雀外城乾坤阵',
+      special: 'none',
       focalX: 400,
       focalY: 356,
       leftRoomId: 'gate_2',
@@ -4214,8 +4228,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 1600, y: 404, style: 'marble' },
       ],
       solidBlocks: [
-        { x: 660, y: 276, w: 220, h: 32 },
-        { x: 820, y: 176, w: 190, h: 30 },
+        { x: 840, y: 212, w: 200, h: 30 },
       ],
       ceilingSpans: [
         { x1: 0, x2: 840, bottomY: 34, style: 'palace_timber' },
@@ -4243,7 +4256,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       npcs: [],
       spawns: [
         { kind: 'paper_swordsman', x: 640, y: 372 },
-        { kind: 'bone_archer', x: 770, y: 276 },
+        { kind: 'bone_archer', x: 940, y: 212 },
         { kind: 'bronze_guard', x: 1280, y: 404 },
       ],
       pickups: [],
@@ -4307,8 +4320,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
     },
     {
       id: 'hall_save',
-      name: '文华殿镇魂祠',
-      subtitle: '正殿东侧留档室',
+      name: '文华殿东配阁',
+      subtitle: '盘龙殿东翼偏殿 · 雕梁画栋藏礼器',
       region: 'main_hall',
       bgKey: 'bg_main_hall',
       realm: 'normal',
@@ -4319,7 +4332,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       gridH: 1,
       pixelW: 800,
       pixelH: 440,
-      special: 'save_shrine',
+      special: 'none',
       focalX: 400,
       focalY: 356,
       leftRoomId: 'hall_corridor',
@@ -4550,9 +4563,9 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 800, y: 408, style: 'crypt_stone' },
       ],
       solidBlocks: [
-        { x: 110, y: 324, w: 150, h: 32 },
-        { x: 200, y: 240, w: 150, h: 32 },
-        { x: 295, y: 156, w: 155, h: 30 },
+        { x: 300, y: 324, w: 140, h: 32 },
+        { x: 355, y: 240, w: 140, h: 32 },
+        { x: 405, y: 156, w: 150, h: 30 },
         { x: 405, y: 82, w: 145, h: 26 },
       ],
       ceilingSpans: [
@@ -4561,11 +4574,17 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       shafts: [
         { x1: 396, x2: 564, dir: 'up', targetRoomId: 'gate_2' },
-        { x1: 595, x2: 740, dir: 'down', targetRoomId: 'prison_sluice_entry' },
+        {
+          x1: 595,
+          x2: 740,
+          dir: 'down',
+          targetRoomId: 'prison_sluice_entry',
+          sealId: 'seal_forge_prison_shaft',
+        },
       ],
       ironGate: {
         id: 'gate_forge_entry',
-        x: 572,
+        x: 250,
         topY: 0,
         bottomY: 408,
         gateKind: 'heavy_weapon',
@@ -4575,7 +4594,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'dragon_brazier', x: 365, y: 408, scale: 0.92 },
       ],
       waterZones: [],
-      pavilions: [{ x: 590, y: 408, w: 156, hasPillars: false }],
+      pavilions: [],
       archways: [],
       torches: [
         { x: 165, y: 332 },
@@ -4686,14 +4705,20 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       shafts: [
         { x1: 1110, x2: 1310, dir: 'up', targetRoomId: 'forge_antechamber' },
-        { x1: 1340, x2: 1500, dir: 'down', targetRoomId: 'catacomb_entry' },
+        {
+          x1: 1340,
+          x2: 1500,
+          dir: 'down',
+          targetRoomId: 'catacomb_entry',
+          sealId: 'seal_prison_catacomb',
+        },
       ],
       waterZones: [{ x1: 320, x2: 870, surfaceY: 404 }],
       decorProps: [
         { kind: 'guardian_statue', x: 145, y: 416, scale: 0.92 },
         { kind: 'dragon_brazier', x: 960, y: 416, scale: 0.9 },
       ],
-      pavilions: [{ x: 1334, y: 416, w: 172, hasPillars: false }],
+      pavilions: [],
       archways: [],
       torches: [
         { x: 250, y: 336 },
@@ -4881,8 +4906,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
     },
     {
       id: 'catacomb_save',
-      name: '九幽镇魂古祠',
-      subtitle: '帝陵中段留档室',
+      name: '九幽冥灯石室',
+      subtitle: '荒冢长明石灯甬道 · 寒气森然',
       region: 'catacomb',
       bgKey: 'bg_catacomb_tomb',
       realm: 'normal',
@@ -4893,7 +4918,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       gridH: 1,
       pixelW: 800,
       pixelH: 460,
-      special: 'save_shrine',
+      special: 'none',
       focalX: 400,
       focalY: 368,
       leftRoomId: 'catacomb_entry',
@@ -4931,8 +4956,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
     // --- 第七幕 · 万卷藏书阁拓展 (2 座) ---
     {
       id: 'library_save',
-      name: '翰林镇魂书祠',
-      subtitle: '万宝斋旁留档室',
+      name: '翰林校书偏厅',
+      subtitle: '万卷阁西侧丹青校勘静室',
       region: 'library',
       bgKey: 'bg_library_opera',
       realm: 'normal',
@@ -4943,7 +4968,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       gridH: 1,
       pixelW: 800,
       pixelH: 440,
-      special: 'save_shrine',
+      special: 'none',
       focalX: 400,
       focalY: 356,
       leftRoomId: 'library_shop',
@@ -5154,7 +5179,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
     {
       id: 'clock_bell_gallery',
       name: '晨钟暮鼓悬廊',
-      subtitle: '双格悬钟高阁 · 唐制明光山文铠',
+      subtitle: '双格悬钟高阁 · 紫瘴封门与飞燕绝壁 · 唐制明光山文铠',
       region: 'clock_tower',
       bgKey: 'bg_tower_interior',
       realm: 'normal',
@@ -5171,49 +5196,54 @@ function createNormalCastleRooms(): BuiltRoom[] {
       leftRoomId: 'clock_gear_hall',
       leftDoorFloorY: 408,
       rightRoomId: 'clock_save',
-      rightDoorFloorY: 408,
+      rightDoorFloorY: 148,
       groundNodes: [
         { x: 0, y: 408, style: 'marble' },
         { x: 340, y: 408, style: 'stairs' },
         { x: 420, y: 376, style: 'marble' },
-        { x: 1180, y: 376, style: 'stairs' },
-        { x: 1260, y: 408, style: 'marble' },
+        { x: 820, y: 376, style: 'stairs' },
+        { x: 900, y: 408, style: 'marble' },
         { x: 1600, y: 408, style: 'marble' },
       ],
       solidBlocks: [
-        { x: 640, y: 264, w: 320, h: 32 },
+        { x: 1120, y: 148, w: 480, h: 260, blocking: true },
       ],
       clockGears: [
-        { x: 320, y: 224, radius: 64, speed: 0.56, hasOrbitPlatforms: true },
-        { x: 1280, y: 224, radius: 64, speed: -0.56, hasOrbitPlatforms: true },
+        { x: 420, y: 244, radius: 60, speed: 0.56, hasOrbitPlatforms: false },
       ],
       ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 34, style: 'palace_timber' }],
       shafts: [],
+      ironGate: {
+        id: 'gate_clock_bell_mist',
+        x: 240,
+        topY: 0,
+        bottomY: 408,
+        gateKind: 'mist_only',
+      },
       decorProps: [
         { kind: 'giant_bell', x: 520, y: 215, scale: 0.92 },
-        { kind: 'dragon_brazier', x: 800, y: 376, scale: 0.92 },
-        { kind: 'giant_bell', x: 1080, y: 215, scale: 0.92 },
+        { kind: 'dragon_brazier', x: 640, y: 376, scale: 0.92 },
+        { kind: 'giant_bell', x: 1360, y: 80, scale: 0.86 },
       ],
       waterZones: [],
       pavilions: [],
       archways: [],
       torches: [
-        { x: 220, y: 332 },
-        { x: 1380, y: 332 },
+        { x: 120, y: 332 },
+        { x: 1380, y: 110 },
       ],
       foregrounds: [],
       lanterns: [
-        { x: 480, y: 185 },
-        { x: 1120, y: 185 },
+        { x: 980, y: 162 },
       ],
       npcs: [],
       spawns: [
         { kind: 'bronze_guard', x: 560, y: 376 },
         { kind: 'bell_gargoyle', x: 800, y: 190 },
-        { kind: 'bronze_guard', x: 1040, y: 376 },
+        { kind: 'bronze_guard', x: 1020, y: 408 },
       ],
       pickups: [
-        { id: 'pk_clock_mingguang', kind: 'armor', itemId: 'mingguang_armor', x: 800, y: 264 },
+        { id: 'pk_clock_mingguang', kind: 'armor', itemId: 'mingguang_armor', x: 760, y: 376 },
       ],
     },
     {
@@ -5412,6 +5442,13 @@ function createNormalCastleRooms(): BuiltRoom[] {
       solidBlocks: [],
       ceilingSpans: [],
       shafts: [{ x1: 1150, x2: 1330, dir: 'down', targetRoomId: 'altar_vestibule' }],
+      ironGate: {
+        id: 'gate_altar_forecourt_fox',
+        x: 1460,
+        topY: 44,
+        bottomY: 404,
+        gateKind: 'illusion_fox',
+      },
       decorProps: [
         { kind: 'coiled_pillar', x: 160, y: 404, scale: 0.96 },
         { kind: 'dragon_brazier', x: 420, y: 372, scale: 0.94 },
@@ -5468,12 +5505,9 @@ function createNormalCastleRooms(): BuiltRoom[] {
       solidBlocks: [
         { x: 0, y: 356, w: 250, h: 36 },
         { x: 520, y: 356, w: 280, h: 36 },
-        { x: 315, y: 248, w: 170, h: 28 },
-        { x: 320, y: 142, w: 160, h: 26 },
-        { x: 290, y: 448, w: 200, h: 32 },
-        { x: 460, y: 538, w: 200, h: 32 },
-        { x: 290, y: 628, w: 200, h: 32 },
-        { x: 470, y: 716, w: 190, h: 32 },
+        { x: 315, y: 196, w: 170, h: 28 },
+        { x: 290, y: 496, w: 200, h: 32 },
+        { x: 450, y: 648, w: 200, h: 32 },
       ],
       ceilingSpans: [
         { x1: 0, x2: 310, bottomY: 34, style: 'palace_timber' },
@@ -5483,10 +5517,10 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ironGate: {
         id: 'gate_west_watch_shortcut',
         x: 180,
-        topY: 34,
+        topY: 0,
         bottomY: 356,
         gateKind: 'lever_shortcut',
-        leverSide: 'right',
+        leverSide: 'left',
       },
       decorProps: [
         { kind: 'weapon_rack', x: 685, y: 804, scale: 0.92 },
@@ -5504,7 +5538,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       npcs: [],
       spawns: [
         { kind: 'paper_swordsman', x: 560, y: 804 },
-        { kind: 'bone_archer', x: 390, y: 448 },
+        { kind: 'bone_archer', x: 390, y: 496 },
       ],
       pickups: [],
     },
@@ -5595,10 +5629,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 1600, y: 416, style: 'crypt_stone' },
       ],
       solidBlocks: [
-        { x: 520, y: 332, w: 160, h: 30 },
-        { x: 610, y: 248, w: 160, h: 30 },
-        { x: 540, y: 164, w: 160, h: 28 },
-        { x: 575, y: 84, w: 150, h: 26 },
+        { x: 560, y: 204, w: 170, h: 28 },
         { x: 1020, y: 368, w: 190, h: 32 },
       ],
       ceilingSpans: [
@@ -5606,6 +5637,13 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x1: 740, x2: 1600, bottomY: 34, style: 'crypt_vault' },
       ],
       shafts: [{ x1: 560, x2: 740, dir: 'up', targetRoomId: 'entrance_bamboo_woods' }],
+      ironGate: {
+        id: 'gate_grotto_tortoise_out',
+        x: 960,
+        topY: 0,
+        bottomY: 448,
+        gateKind: 'sluice_tortoise',
+      },
       waterZones: [{ x1: 870, x2: 1340, surfaceY: 420 }],
       decorProps: [
         { kind: 'guardian_statue', x: 110, y: 404, scale: 0.94 },
@@ -5673,7 +5711,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ironGate: {
         id: 'gate_moat_ice_phoenix',
         x: 1840,
-        topY: 34,
+        topY: 0,
         bottomY: 416,
         gateKind: 'ice_phoenix',
       },
@@ -5732,7 +5770,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ironGate: {
         id: 'gate_sluice_tortoise',
         x: 400,
-        topY: 34,
+        topY: 0,
         bottomY: 408,
         gateKind: 'sluice_tortoise',
       },
@@ -5853,7 +5891,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ironGate: {
         id: 'gate_loft_lever',
         x: 420,
-        topY: 34,
+        topY: 0,
         bottomY: 408,
         gateKind: 'lever_shortcut',
         leverSide: 'right',
@@ -5967,7 +6005,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ironGate: {
         id: 'gate_central_forge_lever',
         x: 380,
-        topY: 34,
+        topY: 0,
         bottomY: 408,
         gateKind: 'lever_shortcut',
         leverSide: 'left',
@@ -6092,7 +6130,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ironGate: {
         id: 'gate_aqueduct_tortoise',
         x: 1760,
-        topY: 34,
+        topY: 0,
         bottomY: 412,
         gateKind: 'sluice_tortoise',
       },
@@ -6154,11 +6192,19 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 410, y: 348, w: 170, h: 30 },
       ],
       ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 34, style: 'crypt_vault' }],
-      shafts: [{ x1: 1060, x2: 1240, dir: 'down', targetRoomId: 'abyss_dragon_vein_west' }],
+      shafts: [
+        {
+          x1: 1060,
+          x2: 1240,
+          dir: 'down',
+          targetRoomId: 'abyss_dragon_vein_west',
+          sealId: 'seal_forge_dragon_vein',
+        },
+      ],
       ironGate: {
         id: 'gate_forge_catacomb_mist',
         x: 780,
-        topY: 34,
+        topY: 0,
         bottomY: 408,
         gateKind: 'mist_only',
       },
@@ -6167,7 +6213,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'dragon_brazier', x: 180, y: 408, scale: 0.9 },
         { kind: 'guardian_statue', x: 1430, y: 408, scale: 0.92 },
       ],
-      pavilions: [{ x: 1054, y: 408, w: 192, hasPillars: false }],
+      pavilions: [],
       archways: [],
       torches: [
         { x: 220, y: 332 },
@@ -6228,6 +6274,13 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x1: 420, x2: 3000, bottomY: 34, style: 'crypt_vault' },
       ],
       shafts: [{ x1: 240, x2: 420, dir: 'up', targetRoomId: 'forge_catacomb_tunnel' }],
+      ironGate: {
+        id: 'gate_dragon_vein_mist',
+        x: 560,
+        topY: 0,
+        bottomY: 424,
+        gateKind: 'mist_only',
+      },
       waterZones: [{ x1: 740, x2: 1640, surfaceY: 428 }],
       decorProps: [
         { kind: 'coiled_pillar', x: 560, y: 424, scale: 0.96 },
@@ -6259,8 +6312,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
     // 14. 地脉镇龙古祠 (14,8 1×1)：地底第 9 层核心中继存档祠！
     {
       id: 'abyss_sanctum_save',
-      name: '地脉镇龙古祠',
-      subtitle: '九幽龙渊留档祠',
+      name: '地脉镇龙石阙',
+      subtitle: '深渊龙脉交汇石阙 · 镇压地肺阴煞',
       region: 'catacomb',
       bgKey: 'bg_catacomb_tomb',
       realm: 'normal',
@@ -6271,7 +6324,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       gridH: 1,
       pixelW: 800,
       pixelH: 460,
-      special: 'save_shrine',
+      special: 'none',
       focalX: 400,
       focalY: 368,
       leftRoomId: 'abyss_dragon_vein_west',
@@ -6364,7 +6417,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ironGate: {
         id: 'gate_abyss_fox_illusion',
         x: 3360,
-        topY: 34,
+        topY: 0,
         bottomY: 424,
         gateKind: 'illusion_fox',
       },
@@ -6442,7 +6495,13 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       shafts: [
         { x1: 1760, x2: 1940, dir: 'up', targetRoomId: 'abyss_ascension_shaft' },
-        { x1: 180, x2: 350, dir: 'down', targetRoomId: 'nether_east_descent' },
+        {
+          x1: 180,
+          x2: 350,
+          dir: 'down',
+          targetRoomId: 'nether_east_descent',
+          sealId: 'seal_abyss_nether_east',
+        },
       ],
       waterZones: [{ x1: 480, x2: 1460, surfaceY: 420 }],
       decorProps: [
@@ -6511,7 +6570,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ironGate: {
         id: 'gate_ascension_ice',
         x: 495,
-        topY: 34,
+        topY: 0,
         bottomY: 408,
         gateKind: 'ice_phoenix',
       },
@@ -6533,7 +6592,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
     {
       id: 'opera_moon_pavilion',
       name: '梨园拜月灵狐台',
-      subtitle: '云顶戏楼瑶台 · 护法青丘玉狐祭坛',
+      subtitle: '云顶戏楼瑶台 · 飞燕钩锁绝壁与护法青丘玉狐祭坛',
       region: 'opera',
       bgKey: 'bg_sky_altar',
       realm: 'normal',
@@ -6545,52 +6604,52 @@ function createNormalCastleRooms(): BuiltRoom[] {
       pixelW: 1600,
       pixelH: 480,
       special: 'relic_pedestal',
-      focalX: 960,
-      focalY: 368,
+      focalX: 1080,
+      focalY: 148,
       leftRoomId: 'opera_save',
       leftDoorFloorY: 404,
       rightRoomId: 'cloud_star_gallery',
-      rightDoorFloorY: 404,
+      rightDoorFloorY: 148,
       groundNodes: [
         { x: 0, y: 404, style: 'marble' },
-        { x: 640, y: 404, style: 'stairs' },
-        { x: 720, y: 368, style: 'marble' },
-        { x: 1180, y: 368, style: 'stairs' },
-        { x: 1260, y: 404, style: 'marble' },
         { x: 1600, y: 404, style: 'marble' },
       ],
-      solidBlocks: [],
+      solidBlocks: [
+        { x: 820, y: 148, w: 780, h: 256, blocking: true },
+      ],
       ceilingSpans: [],
       shafts: [],
       decorProps: [
         { kind: 'coiled_pillar', x: 260, y: 404, scale: 0.94 },
-        { kind: 'dragon_brazier', x: 760, y: 368, scale: 0.92 },
-        { kind: 'dragon_brazier', x: 1140, y: 368, scale: 0.92 },
+        { kind: 'dragon_brazier', x: 900, y: 148, scale: 0.92 },
+        { kind: 'dragon_brazier', x: 1260, y: 148, scale: 0.92 },
       ],
       waterZones: [],
       pavilions: [],
       archways: [],
       torches: [
         { x: 460, y: 332 },
-        { x: 1380, y: 332 },
+        { x: 1380, y: 112 },
       ],
       foregrounds: [],
-      lanterns: [],
+      lanterns: [
+        { x: 690, y: 162 },
+      ],
       npcs: [],
       spawns: [
         { kind: 'opera_puppet', x: 440, y: 404 },
-        { kind: 'bell_gargoyle', x: 1320, y: 195 },
+        { kind: 'bell_gargoyle', x: 1320, y: 148 },
       ],
       pickups: [
-        { id: 'pk_fam_fox', kind: 'ability', itemId: 'familiar_fox', x: 960, y: 368 },
+        { id: 'pk_fam_fox', kind: 'ability', itemId: 'familiar_fox', x: 1080, y: 148 },
       ],
     },
 
-    // 19. 摘星霓裳云廊 (21,0 3×1)：横跨梨园天顶与凌霄祭天坛前庭的汉白玉云海长廊，凭【青丘玉狐】破除九幽幻障即可直达天坛！
+    // 19. 摘星霓裳云廊 (21,0 3×1)：横跨梨园天顶与凌霄祭天坛前庭的汉白玉云海长廊，凭【青丘玉狐】破除九幽幻障 + 【壁虎游墙】翻越高崖直达天坛！
     {
       id: 'cloud_star_gallery',
       name: '摘星霓裳云廊',
-      subtitle: '三格云顶天街 · 青丘破障直通圜丘天坛',
+      subtitle: '三格云顶天街 · 青丘破障与飞檐登壁直通圜丘天坛',
       region: 'altar',
       bgKey: 'bg_sky_altar',
       realm: 'normal',
@@ -6605,18 +6664,23 @@ function createNormalCastleRooms(): BuiltRoom[] {
       focalX: 1100,
       focalY: 412,
       leftRoomId: 'opera_moon_pavilion',
-      leftDoorFloorY: 412,
+      leftDoorFloorY: 148,
       rightRoomId: 'altar_forecourt',
-      rightDoorFloorY: 412,
+      rightDoorFloorY: 100,
       groundNodes: [
         { x: 0, y: 412, style: 'marble' },
         { x: 720, y: 412, style: 'stairs' },
         { x: 820, y: 376, style: 'marble' },
-        { x: 1460, y: 376, style: 'stairs' },
-        { x: 1560, y: 412, style: 'marble' },
+        { x: 1280, y: 376, style: 'stairs' },
+        { x: 1380, y: 412, style: 'marble' },
         { x: 2200, y: 412, style: 'marble' },
       ],
-      solidBlocks: [],
+      solidBlocks: [
+        { x: 1680, y: 100, w: 520, h: 312, blocking: true },
+      ],
+      climbWalls: [
+        { x: 1490, topY: 100, bottomY: 310 },
+      ],
       ceilingSpans: [],
       shafts: [],
       ironGate: {
@@ -6629,15 +6693,15 @@ function createNormalCastleRooms(): BuiltRoom[] {
       decorProps: [
         { kind: 'coiled_pillar', x: 260, y: 412, scale: 0.96 },
         { kind: 'dragon_brazier', x: 920, y: 376, scale: 0.94 },
-        { kind: 'dragon_brazier', x: 1360, y: 376, scale: 0.94 },
-        { kind: 'coiled_pillar', x: 1940, y: 412, scale: 0.96 },
+        { kind: 'dragon_brazier', x: 1220, y: 376, scale: 0.94 },
+        { kind: 'coiled_pillar', x: 1940, y: 100, scale: 0.92 },
       ],
       waterZones: [],
       pavilions: [],
       archways: [],
       torches: [
         { x: 660, y: 336 },
-        { x: 1640, y: 336 },
+        { x: 1380, y: 336 },
       ],
       foregrounds: [],
       lanterns: [],
@@ -6690,7 +6754,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ironGate: {
         id: 'gate_bastion_kestrel',
         x: 195,
-        topY: 34,
+        topY: 0,
         bottomY: 408,
         gateKind: 'gear_kestrel',
       },
@@ -6773,8 +6837,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
     },
     {
       id: 'cliff_hermit_shrine',
-      name: '断崖听涛古祠',
-      subtitle: '西岭松风留档祠',
+      name: '断崖听涛松亭',
+      subtitle: '西郊千仞绝壁孤亭 · 夜听松涛万壑',
       region: 'gatehouse',
       bgKey: 'bg_bamboo_cliff',
       realm: 'normal',
@@ -6785,7 +6849,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       gridH: 1,
       pixelW: 1600,
       pixelH: 480,
-      special: 'save_shrine',
+      special: 'none',
       focalX: 520,
       focalY: 372,
       rightRoomId: 'cliff_wind_pavilion',
@@ -6889,8 +6953,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       solidBlocks: [
         { x: 0, y: 356, w: 250, h: 36 },
         { x: 550, y: 356, w: 250, h: 36 },
-        { x: 315, y: 248, w: 170, h: 28 },
-        { x: 320, y: 148, w: 160, h: 26 },
+        { x: 315, y: 196, w: 170, h: 28 },
         { x: 440, y: 492, w: 200, h: 32 },
         { x: 260, y: 626, w: 210, h: 32 },
       ],
@@ -7022,7 +7085,6 @@ function createNormalCastleRooms(): BuiltRoom[] {
           x2: 490,
           dir: 'down',
           targetRoomId: 'west_cliff_watchtower',
-          sealId: 'seal_colosseum_watchtower',
         },
       ],
       decorProps: [
@@ -7031,7 +7093,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'dragon_brazier', x: 1120, y: 376, scale: 0.94 },
       ],
       waterZones: [],
-      pavilions: [],
+      pavilions: [{ x: 304, y: 408, w: 192, hasPillars: false }],
       archways: [],
       torches: [{ x: 1380, y: 332 }],
       foregrounds: [],
@@ -7110,8 +7172,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
     },
     {
       id: 'colosseum_save',
-      name: '校场旌旗古祠',
-      subtitle: '神武演武场东侧留档祠',
+      name: '神武旌旗东阙',
+      subtitle: '演武大校场东侧点将石阙',
       region: 'colosseum',
       bgKey: 'bg_martial_colosseum',
       realm: 'normal',
@@ -7122,7 +7184,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       gridH: 1,
       pixelW: 800,
       pixelH: 460,
-      special: 'save_shrine',
+      special: 'none',
       focalX: 400,
       focalY: 368,
       leftRoomId: 'colosseum_grand_arena',
@@ -7192,7 +7254,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ironGate: {
         id: 'gate_colosseum_armory_kestrel',
         x: 420,
-        topY: 34,
+        topY: 0,
         bottomY: 408,
         gateKind: 'gear_kestrel',
       },
@@ -7394,8 +7456,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
     },
     {
       id: 'sunken_water_shrine',
-      name: '沉渊镇水古祠',
-      subtitle: '地下古渡留档祠',
+      name: '沉渊古渡石亭',
+      subtitle: '芦苇暗河与沉船水闸交汇石亭',
       region: 'shipyard',
       bgKey: 'bg_sunken_shipyard',
       realm: 'normal',
@@ -7406,7 +7468,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       gridH: 1,
       pixelW: 800,
       pixelH: 460,
-      special: 'save_shrine',
+      special: 'none',
       focalX: 400,
       focalY: 368,
       leftRoomId: 'sunken_reed_wharf',
@@ -7471,10 +7533,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 1600, y: 408, style: 'crypt_stone' },
       ],
       solidBlocks: [
-        { x: 260, y: 324, w: 165, h: 30 },
-        { x: 330, y: 238, w: 165, h: 30 },
-        { x: 270, y: 154, w: 160, h: 28 },
-        { x: 295, y: 80, w: 150, h: 26 },
+        { x: 275, y: 204, w: 165, h: 28 },
         { x: 740, y: 360, w: 210, h: 32 },
       ],
       ceilingSpans: [
@@ -7485,10 +7544,10 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ironGate: {
         id: 'gate_sunken_forge_lever',
         x: 1320,
-        topY: 34,
+        topY: 0,
         bottomY: 408,
         gateKind: 'lever_shortcut',
-        leverSide: 'right',
+        leverSide: 'left',
       },
       waterZones: [{ x1: 580, x2: 1100, surfaceY: 414 }],
       decorProps: [
@@ -7706,7 +7765,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ironGate: {
         id: 'gate_mine_crystal_phoenix',
         x: 1240,
-        topY: 34,
+        topY: 0,
         bottomY: 408,
         gateKind: 'ice_phoenix',
       },
@@ -7861,16 +7920,31 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 2200, y: 416, style: 'crypt_stone' },
       ],
       movingPlatforms: [
-        { x1: 480, y1: 376, x2: 860, y2: 376, w: 175, speed: 1.0, style: 'bronze_lift' },
+        { x1: 480, y1: 376, x2: 815, y2: 376, w: 175, speed: 1.0, style: 'bronze_lift' },
       ],
       ceilingSpans: [{ x1: 0, x2: 2200, bottomY: 34, style: 'crypt_vault' }],
-      shafts: [{ x1: 1080, x2: 1260, dir: 'down', targetRoomId: 'nether_west_descent' }],
+      shafts: [
+        {
+          x1: 1080,
+          x2: 1260,
+          dir: 'down',
+          targetRoomId: 'nether_west_descent',
+          sealId: 'seal_mine_nether',
+        },
+      ],
+      ironGate: {
+        id: 'gate_lava_bridge_mist',
+        x: 1010,
+        topY: 0,
+        bottomY: 458,
+        gateKind: 'mist_only',
+      },
       waterZones: [{ x1: 430, x2: 970, surfaceY: 432, liquidKind: 'lava' }],
       decorProps: [
         { kind: 'dragon_brazier', x: 220, y: 416, scale: 0.92 },
         { kind: 'guardian_statue', x: 1860, y: 416, scale: 0.94 },
       ],
-      pavilions: [{ x: 1074, y: 416, w: 192, hasPillars: false }],
+      pavilions: [],
       archways: [],
       torches: [{ x: 1580, y: 336 }],
       foregrounds: [],
@@ -7926,7 +8000,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ironGate: {
         id: 'gate_clock_aqueduct_lever',
         x: 2660,
-        topY: 36,
+        topY: 0,
         bottomY: 404,
         gateKind: 'lever_shortcut',
         leverSide: 'right',
@@ -8077,25 +8151,26 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 800, y: 1236, style: 'marble' },
       ],
       solidBlocks: [
-        { x: 0, y: 356, w: 280, h: 36 },
+        { x: 0, y: 356, w: 280, h: 110, blocking: true },
         { x: 340, y: 468, w: 220, h: 32 },
-        { x: 160, y: 578, w: 220, h: 32 },
+        { x: 260, y: 578, w: 220, h: 32 },
         { x: 360, y: 688, w: 220, h: 32 },
         { x: 0, y: 796, w: 260, h: 36 },
         { x: 540, y: 796, w: 260, h: 36 },
-        { x: 290, y: 908, w: 220, h: 32 },
-        { x: 460, y: 1018, w: 220, h: 32 },
-        { x: 180, y: 1128, w: 220, h: 32 },
+      ],
+      climbWalls: [
+        { x: 305, topY: 796, bottomY: 1130 },
+        { x: 495, topY: 796, bottomY: 1130 },
       ],
       ceilingSpans: [{ x1: 0, x2: 800, bottomY: 36, style: 'palace_timber' }],
       shafts: [{ x1: 310, x2: 490, dir: 'down', targetRoomId: 'outer_wall_lower' }],
       ironGate: {
         id: 'gate_altar_outer_lever',
         x: 195,
-        topY: 36,
+        topY: 0,
         bottomY: 356,
         gateKind: 'lever_shortcut',
-        leverSide: 'right',
+        leverSide: 'left',
       },
       decorProps: [
         { kind: 'giant_bell', x: 600, y: 220, scale: 0.94 },
@@ -8265,12 +8340,14 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       solidBlocks: [
         { x: 0, y: 356, w: 260, h: 36 },
-        { x: 315, y: 248, w: 170, h: 28 },
-        { x: 320, y: 142, w: 160, h: 26 },
         { x: 0, y: 796, w: 260, h: 36 },
         { x: 540, y: 796, w: 260, h: 36 },
         { x: 180, y: 940, w: 210, h: 32 },
         { x: 420, y: 1088, w: 210, h: 32 },
+      ],
+      climbWalls: [
+        { x: 305, topY: 36, bottomY: 270 },
+        { x: 495, topY: 36, bottomY: 270 },
       ],
       movingPlatforms: [
         { x1: 310, y1: 750, x2: 310, y2: 408, w: 180, speed: 1.0, style: 'bronze_lift' },
@@ -8356,8 +8433,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
     },
     {
       id: 'outer_wall_save',
-      name: '望海戍楼古祠',
-      subtitle: '东垣外壁留档祠',
+      name: '望海戍楼箭室',
+      subtitle: '东垣海防戍楼前哨 · 紧邻镇海瓮城',
       region: 'clock_tower',
       bgKey: 'bg_chapel_spire',
       realm: 'normal',
@@ -8368,7 +8445,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       gridH: 1,
       pixelW: 800,
       pixelH: 460,
-      special: 'save_shrine',
+      special: 'none',
       focalX: 400,
       focalY: 368,
       leftRoomId: 'outer_wall_telescope',
@@ -8497,6 +8574,13 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       ceilingSpans: [{ x1: 0, x2: 2200, bottomY: 34, style: 'crypt_vault' }],
       shafts: [],
+      ironGate: {
+        id: 'gate_dock_sluice_tortoise',
+        x: 380,
+        topY: 0,
+        bottomY: 416,
+        gateKind: 'sluice_tortoise',
+      },
       waterZones: [{ x1: 580, x2: 1600, surfaceY: 420 }],
       decorProps: [
         { kind: 'dragon_brazier', x: 280, y: 416, scale: 0.9 },
@@ -8566,6 +8650,14 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       ceilingSpans: [{ x1: 0, x2: 3200, bottomY: 34, style: 'crypt_vault' }],
       shafts: [{ x1: 280, x2: 460, dir: 'down', targetRoomId: 'dock_underwater_tunnel' }],
+      ironGate: {
+        id: 'gate_shipyard_east_lever',
+        x: 2800,
+        topY: 0,
+        bottomY: 804,
+        gateKind: 'lever_shortcut',
+        leverSide: 'left',
+      },
       waterZones: [{ x1: 720, x2: 2480, surfaceY: 810 }],
       decorProps: [
         { kind: 'dragon_brazier', x: 560, y: 804, scale: 0.94 },
@@ -8631,7 +8723,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ironGate: {
         id: 'gate_dock_beacon_tortoise',
         x: 560,
-        topY: 34,
+        topY: 0,
         bottomY: 408,
         gateKind: 'sluice_tortoise',
       },
@@ -9063,7 +9155,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ironGate: {
         id: 'gate_forge_prison_lever',
         x: 340,
-        topY: 34,
+        topY: 0,
         bottomY: 408,
         gateKind: 'lever_shortcut',
         leverSide: 'right',
@@ -9116,7 +9208,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ironGate: {
         id: 'gate_catacomb_prison_mist',
         x: 1180,
-        topY: 34,
+        topY: 0,
         bottomY: 408,
         gateKind: 'mist_only',
       },
@@ -9263,8 +9355,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
     },
     {
       id: 'nether_ferry_save',
-      name: '忘川渡口古祠',
-      subtitle: '九幽忘川中枢留档祠',
+      name: '忘川奈何渡亭',
+      subtitle: '横跨黄泉冥河的青石古渡亭',
       region: 'nether',
       bgKey: 'bg_nether_abyss',
       realm: 'normal',
@@ -9275,7 +9367,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       gridH: 1,
       pixelW: 800,
       pixelH: 460,
-      special: 'save_shrine',
+      special: 'none',
       focalX: 400,
       focalY: 368,
       leftRoomId: 'nether_soul_bridge',
@@ -9350,6 +9442,13 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x1: 1260, x2: 3000, bottomY: 34, style: 'crypt_vault' },
       ],
       shafts: [{ x1: 1080, x2: 1260, dir: 'up', targetRoomId: 'abyss_dragon_spine' }],
+      ironGate: {
+        id: 'gate_nether_avenue_fox',
+        x: 2560,
+        topY: 0,
+        bottomY: 416,
+        gateKind: 'illusion_fox',
+      },
       decorProps: [
         { kind: 'coiled_pillar', x: 460, y: 416, scale: 0.96 },
         { kind: 'dragon_brazier', x: 1500, y: 384, scale: 0.94 },
@@ -9589,7 +9688,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ironGate: {
         id: 'gate_nether_mirror_fox',
         x: 560,
-        topY: 34,
+        topY: 0,
         bottomY: 416,
         gateKind: 'illusion_fox',
       },
@@ -9992,7 +10091,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ironGate: {
         id: 'gate_dragon_sanctuary_phoenix',
         x: 1380,
-        topY: 34,
+        topY: 0,
         bottomY: 416,
         gateKind: 'ice_phoenix',
       },
@@ -11012,12 +11111,22 @@ class CastleWorldRegistry {
     cur: BuiltRoom,
     px: number,
     dir: 'up' | 'down',
-    bossCleared: boolean
+    bossCleared: boolean,
+    brokenSecretWalls?: string[],
+    canBreakSealFromBelow = false
   ): { nextRoom: BuiltRoom; nextX: number; nextY: number; matchSealId?: string } | null {
     const map = cur.realm === 'inverted' ? this.invertedRooms : this.normalRooms;
     for (const sh of cur.shafts) {
       if (sh.dir !== dir) continue;
       if (sh.requireBossClear && !bossCleared) continue;
+      if (
+        dir === 'down' &&
+        sh.sealId &&
+        brokenSecretWalls &&
+        !brokenSecretWalls.includes(sh.sealId)
+      ) {
+        continue;
+      }
       if (px >= sh.x1 - 6 && px <= sh.x2 + 6) {
         const nextRoom = map.get(sh.targetRoomId);
         if (!nextRoom) return null;
@@ -11025,6 +11134,15 @@ class CastleWorldRegistry {
         const matchSh = nextRoom.shafts.find(
           (ns) => ns.dir === oppDir && ns.targetRoomId === cur.id
         );
+        if (
+          dir === 'up' &&
+          matchSh?.sealId &&
+          brokenSecretWalls &&
+          !brokenSecretWalls.includes(matchSh.sealId) &&
+          !canBreakSealFromBelow
+        ) {
+          continue;
+        }
         let localNextX: number;
         if (matchSh) {
           const curRel = (px - sh.x1) / Math.max(1, sh.x2 - sh.x1);

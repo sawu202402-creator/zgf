@@ -6087,7 +6087,13 @@ export class GameEngine {
 
     // 2. 向下坠入地宫暗井 / 天井竖井（贯通上下层房间！）
     if (p.y > room.pixelH - 8 && p.vy > 0) {
-      const downTr = WorldMap.resolveVerticalShaft(room, p.x, 'down', bossCleared);
+      const downTr = WorldMap.resolveVerticalShaft(
+        room,
+        p.x,
+        'down',
+        bossCleared,
+        this.slot.brokenSecretWalls
+      );
       if (downTr) {
         this.beginSmoothRoomTransition(downTr.nextRoom, downTr.nextX, downTr.nextY, 0, 260);
         return;
@@ -6098,9 +6104,16 @@ export class GameEngine {
       p.onGround = true;
     }
 
-    // 3. 向上纵跃冲出天井竖井直登二楼飞阁！（动态适配任意挑高厅堂地面标高，若上方井口盖有裂地石板亦一并顶开！）
+    // 3. 向上纵跃冲出天井竖井直登二楼飞阁！（动态适配任意挑高厅堂地面标高，若上方井口盖有裂地石板且已习得千斤坠方能自下顶开！）
     if (p.y - p.h < 8 && p.vy < 0) {
-      const upTr = WorldMap.resolveVerticalShaft(room, p.x, 'up', bossCleared);
+      const upTr = WorldMap.resolveVerticalShaft(
+        room,
+        p.x,
+        'up',
+        bossCleared,
+        this.slot.brokenSecretWalls,
+        this.hasAbility('ground_slam')
+      );
       if (upTr) {
         if (upTr.matchSealId && !this.slot.brokenSecretWalls.includes(upTr.matchSealId)) {
           this.slot.brokenSecretWalls.push(upTr.matchSealId);
@@ -6116,6 +6129,9 @@ export class GameEngine {
           -240,
           -560
         );
+      } else if (room.shafts.some((sh) => sh.dir === 'up' && p.x >= sh.x1 - 6 && p.x <= sh.x2 + 6)) {
+        p.y = p.h + 8;
+        p.vy = 0;
       }
     }
   }

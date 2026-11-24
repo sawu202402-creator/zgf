@@ -457,28 +457,14 @@ export class InkVaniaRenderer {
           } else {
             const eProg = Math.sin(((norm - 0.68) / 0.24) * Math.PI);
             const curH = hz.span * (0.45 + 0.55 * eProg);
-            const sway = Math.sin(t * 28 + hz.x) * 4;
-            const fg = ctx.createLinearGradient(0, hz.y, 0, hz.y - curH);
-            fg.addColorStop(0, 'rgba(254, 249, 195, 0.95)');
-            fg.addColorStop(0.35, 'rgba(251, 146, 60, 0.85)');
-            fg.addColorStop(0.78, 'rgba(220, 38, 38, 0.46)');
-            fg.addColorStop(1, 'rgba(127, 29, 29, 0)');
-            ctx.fillStyle = fg;
-            ctx.beginPath();
-            ctx.moveTo(hz.x - 20, hz.y);
-            ctx.quadraticCurveTo(hz.x - 16 + sway, hz.y - curH * 0.55, hz.x + sway * 0.6, hz.y - curH);
-            ctx.quadraticCurveTo(hz.x + 16 + sway, hz.y - curH * 0.55, hz.x + 20, hz.y);
-            ctx.closePath();
-            ctx.fill();
-
-            // 内芯炽白火舌
-            ctx.fillStyle = 'rgba(254, 252, 232, 0.85)';
-            ctx.beginPath();
-            ctx.moveTo(hz.x - 9, hz.y);
-            ctx.quadraticCurveTo(hz.x + sway * 0.5, hz.y - curH * 0.6, hz.x + sway * 0.3, hz.y - curH * 0.82);
-            ctx.quadraticCurveTo(hz.x + 9, hz.y - curH * 0.4, hz.x + 9, hz.y);
-            ctx.closePath();
-            ctx.fill();
+            drawPaintedVfxSprite(ctx, 'vfx_samadhi_fire_pillar', hz.x, hz.y + 8, 56, curH + 16, {
+              anchorY: 0.96,
+              alpha: 0.9,
+              flipX: Math.floor(t * 12 + hz.x) % 2 === 1,
+              tintHex: '#fb923c',
+              tintAlpha: 0.25,
+              additive: false,
+            });
           }
           ctx.restore();
         }
@@ -1001,37 +987,52 @@ export class InkVaniaRenderer {
       }
     }
 
-    // 1B. 困兽血战厅【赤金镇妖封门结界】（手绘锁链与灵雾封门阵，零虚线！）
-    if (engine.ambushSealed) {
-      const mistRed = Assets.getTintedSilhouette('prop_mist_barrier', '#ef4444');
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      for (const bx of [18, room.pixelW - 18]) {
-        const bg = ctx.createLinearGradient(bx - 16, 0, bx + 16, 0);
-        bg.addColorStop(0, 'rgba(239, 68, 68, 0)');
-        bg.addColorStop(0.5, `rgba(248, 113, 113, ${0.42 + Math.sin(this.ambientTime * 7) * 0.1})`);
-        bg.addColorStop(1, 'rgba(239, 68, 68, 0)');
-        ctx.fillStyle = bg;
-        ctx.fillRect(bx - 16, 0, 32, room.pixelH);
-        if (mistRed) {
-          ctx.globalAlpha = 0.42 + Math.sin(this.ambientTime * 5) * 0.1;
-          ctx.drawImage(mistRed, bx - 18, 0, 36, room.pixelH);
+    // 1B. 困兽血战厅与首领殿堂【门廊镇妖玄铁重闸 + 镇邪朱砂道符】（100% 纯手绘玄铁闸门与道符，零矢量矩形/折线/锁链！）
+    if (engine.ambushSealed || engine.enemies.some((e) => e.profile.isBoss)) {
+      const mistImg = Assets.get('prop_mist_barrier');
+      const talismanImg = Assets.get('item_talisman_scroll');
+      const sides: ('left' | 'right')[] = ['left', 'right'];
+      for (const side of sides) {
+        const doors = getRoomSideDoors(room, side).filter((d) => engine.isSideDoorOpen(d));
+        for (const d of doors) {
+          const doorTop = Math.max(24, d.floorY - 168);
+          const doorH = Math.max(96, d.floorY - doorTop);
+          const gx = side === 'left' ? 22 : room.pixelW - 22;
+
+          drawSoftGroundShadow(ctx, gx, d.floorY + 2, 34, 6.5, 0.58);
+          if (ironGateImg) {
+            const hmGate = getHarmonizedSprite('prop_iron_gate', ironGateImg, room, 0.38);
+            ctx.drawImage(hmGate, gx - 30, doorTop, 60, doorH + 4);
+          }
+          if (mistImg) {
+            ctx.save();
+            ctx.globalAlpha = 0.38 + Math.sin(this.ambientTime * 4 + d.floorY) * 0.08;
+            ctx.drawImage(mistImg, gx - 26, doorTop + 6, 52, doorH - 6);
+            ctx.restore();
+          }
+
+          const ty = doorTop + doorH * 0.48;
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          const tg = ctx.createRadialGradient(gx, ty, 2, gx, ty, 26);
+          tg.addColorStop(0, `rgba(251, 146, 60, ${0.34 + Math.sin(this.ambientTime * 5) * 0.08})`);
+          tg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          ctx.fillStyle = tg;
+          ctx.beginPath();
+          ctx.arc(gx, ty, 26, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+
+          if (talismanImg) {
+            const sway = Math.sin(this.ambientTime * 3.4 + gx * 0.05) * 0.08;
+            ctx.save();
+            ctx.translate(gx, ty);
+            ctx.rotate(sway);
+            ctx.drawImage(talismanImg, -11, -16, 22, 32);
+            ctx.restore();
+          }
         }
-        drawPaintedChainTrack(
-          ctx,
-          bx,
-          0,
-          bx,
-          room.pixelH,
-          12,
-          0.74,
-          '#fde047',
-          4,
-          3.2,
-          this.ambientTime * 5
-        );
       }
-      ctx.restore();
     }
 
     // 2. 纯手绘机关门锁体系：饕餮铁闸 / 青铜拉杆捷径门 / 玄冥冰障 / 幻狐迷障 / 五灵共鸣石柱！
@@ -1838,106 +1839,44 @@ export class InkVaniaRenderer {
         }
         ctx.restore();
       } else if (pr.enemyFx === 'magma_bomb') {
-        // 赤铜镇火巨灵：龟裂炽白熔核火陨石 + 黑烟火星尾迹
-        ctx.save();
+        // 赤铜镇火巨灵：手绘妖核火陨弹 + 炎波水墨气环
         const rot = this.ambientTime * 7 + pr.x * 0.02;
-        ctx.rotate(rot);
-        ctx.fillStyle = '#1c1917';
-        ctx.strokeStyle = '#fb923c';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        for (let v = 0; v < 7; v++) {
-          const a = (v / 7) * Math.PI * 2;
-          const rr = 12 + (v % 2 === 0 ? 2.8 : -1.8);
-          if (v === 0) ctx.moveTo(Math.cos(a) * rr, Math.sin(a) * rr);
-          else ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+        drawPaintedVfxDisc(ctx, 'vfx_ink_shockwave', 0, 0, 16, rot, 0.55, '#fb923c', 1, true);
+        const coreImg = Assets.get('item_yao_core');
+        if (coreImg) {
+          ctx.save();
+          ctx.rotate(rot);
+          ctx.drawImage(coreImg, -14, -14, 28, 28);
+          ctx.restore();
         }
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.globalCompositeOperation = 'lighter';
-        const mg = ctx.createRadialGradient(0, 0, 1.5, 0, 0, 17);
-        mg.addColorStop(0, 'rgba(254, 249, 195, 0.95)');
-        mg.addColorStop(0.5, 'rgba(249, 115, 22, 0.78)');
-        mg.addColorStop(1, 'rgba(234, 88, 12, 0)');
-        ctx.fillStyle = mg;
-        ctx.beginPath();
-        ctx.arc(0, 0, 17, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
       } else if (pr.enemyFx === 'lava_wave') {
-        // 赤铜镇火巨灵 / 烛阴：贴地狂飙的【赤金裂地熔浪】（少侠需起跳或化雾跃过！）
+        // 赤铜镇火巨灵 / 烛阴：手绘赤焰裂地熔浪
         const dir = pr.vx >= 0 ? 1 : -1;
-        ctx.save();
-        ctx.scale(dir, 1);
-        ctx.fillStyle = 'rgba(28, 12, 6, 0.85)';
-        ctx.beginPath();
-        ctx.ellipse(-4, 15, 24, 5.5, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.globalCompositeOperation = 'lighter';
-        const wg = ctx.createLinearGradient(-22, 16, 18, -22);
-        wg.addColorStop(0, 'rgba(185, 28, 28, 0.25)');
-        wg.addColorStop(0.55, 'rgba(249, 115, 22, 0.92)');
-        wg.addColorStop(1, 'rgba(254, 249, 195, 0.98)');
-        ctx.fillStyle = wg;
-        const flicker = Math.sin(this.ambientTime * 34 + pr.x * 0.08) * 4;
-        ctx.beginPath();
-        ctx.moveTo(-24, 16);
-        ctx.quadraticCurveTo(-10, -4, -2, -16 + flicker);
-        ctx.lineTo(4, -6);
-        ctx.quadraticCurveTo(14, -22 - flicker * 0.6, 18, -24 + flicker * 0.5);
-        ctx.quadraticCurveTo(22, 2, 16, 16);
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
+        drawPaintedVfxSprite(ctx, 'vfx_samadhi_fire_pillar', 0, 14, 44, 42, {
+          anchorY: 0.95,
+          flipX: dir === -1,
+          alpha: 0.9,
+          tintHex: '#f97316',
+          tintAlpha: 0.3,
+          additive: false,
+        });
       } else if (pr.enemyFx === 'bronze_axe') {
-        // 玄甲重盾傀儡：高速疾旋【双刃重铸青铜战斧】+ 极淡手绘水墨风旋
+        // 玄甲重盾傀儡：手绘疾旋重兵器 + 淡金水墨风旋
         const dir = pr.vx >= 0 ? 1 : -1;
         const spin = this.ambientTime * 19 * dir;
-        drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', 0, 0, 36, 36, {
+        drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', 0, 0, 38, 38, {
           rotation: spin,
-          alpha: 0.26,
+          alpha: 0.38,
           tintHex: '#fbbf24',
           additive: false,
         });
-        ctx.save();
-        ctx.rotate(spin);
-        // 乌木包铜短斧柄
-        ctx.fillStyle = '#451a03';
-        ctx.strokeStyle = '#090d16';
-        ctx.lineWidth = 1.4;
-        ctx.fillRect(-3, -15, 6, 30);
-        ctx.strokeRect(-3, -15, 6, 30);
-
-        // 左右对称双月重铜斧刃
-        for (const side of [-1, 1] as const) {
+        const axeImg = Assets.get('wpn_greatsword_2') || Assets.get('wpn_greatsword_1');
+        if (axeImg) {
           ctx.save();
-          ctx.scale(side, 1);
-          const ag = ctx.createLinearGradient(3, 0, 19, 0);
-          ag.addColorStop(0, '#78350f');
-          ag.addColorStop(0.62, '#d97706');
-          ag.addColorStop(1, '#fef08a');
-          ctx.fillStyle = ag;
-          ctx.strokeStyle = '#090d16';
-          ctx.lineWidth = 1.4;
-          ctx.beginPath();
-          ctx.moveTo(2.5, -5.5);
-          ctx.quadraticCurveTo(13, -13, 18.5, -11.5);
-          ctx.quadraticCurveTo(21.5, 0, 18.5, 11.5);
-          ctx.quadraticCurveTo(13, 13, 2.5, 5.5);
-          ctx.closePath();
-          ctx.fill();
-          ctx.stroke();
+          ctx.rotate(spin);
+          ctx.drawImage(axeImg, -19, -8, 38, 16);
           ctx.restore();
         }
-        // 斧心朱砂兽首铜铆钉
-        ctx.fillStyle = '#dc2626';
-        ctx.beginPath();
-        ctx.arc(0, 0, 3.6, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
       } else if (pr.enemyFx === 'cursed_talisman') {
         // 飞天书妖：翻飞【朱砂敕令咒符 (`item_talisman_scroll`)】+ 微弱绯红灵光
         const ang = Math.atan2(pr.vy, pr.vx);
@@ -1959,12 +1898,6 @@ export class InkVaniaRenderer {
         ctx.rotate(Math.PI * 0.5 + flutter);
         if (talImg) {
           ctx.drawImage(talImg, -10, -14, 20, 28);
-        } else {
-          ctx.fillStyle = '#fef08a';
-          ctx.strokeStyle = '#dc2626';
-          ctx.lineWidth = 1.5;
-          ctx.fillRect(-6, -11, 12, 22);
-          ctx.strokeRect(-6, -11, 12, 22);
         }
         ctx.restore();
       } else if (pr.enemyFx === 'thunder_lance') {
@@ -1989,83 +1922,36 @@ export class InkVaniaRenderer {
         );
         ctx.restore();
       } else if (pr.enemyFx === 'bone_bolt') {
-        // 白骨神臂弩卒：高速破风【青铜簇白骨弩矢】+ 赤羽尾翎！
+        // 白骨神臂弩卒：手绘破甲长矢 + 破空金芒
         const ang = Math.atan2(pr.vy, pr.vx);
         ctx.save();
         ctx.rotate(ang);
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-        const bg = ctx.createLinearGradient(-34, 0, 14, 0);
-        bg.addColorStop(0, 'rgba(245, 158, 11, 0)');
-        bg.addColorStop(1, 'rgba(254, 240, 138, 0.85)');
-        ctx.strokeStyle = bg;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(-34, 0);
-        ctx.lineTo(10, 0);
-        ctx.stroke();
-        ctx.restore();
-
-        // 惨白骨质箭杆
-        ctx.fillStyle = '#e7e5e4';
-        ctx.strokeStyle = '#090d16';
-        ctx.lineWidth = 1.2;
-        ctx.fillRect(-14, -1.6, 24, 3.2);
-        ctx.strokeRect(-14, -1.6, 24, 3.2);
-        // 赤红雕翎箭羽
-        ctx.fillStyle = '#b91c1c';
-        ctx.beginPath();
-        ctx.moveTo(-15, 0);
-        ctx.lineTo(-20, -4);
-        ctx.lineTo(-11, -1.6);
-        ctx.lineTo(-11, 1.6);
-        ctx.lineTo(-20, 4);
-        ctx.closePath();
-        ctx.fill();
-        // 三棱青铜破甲箭簇
-        ctx.fillStyle = '#fbbf24';
-        ctx.beginPath();
-        ctx.moveTo(10, -3.5);
-        ctx.lineTo(19, 0);
-        ctx.lineTo(10, 3.5);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
+        drawPaintedVfxSprite(ctx, 'vfx_iaido_flash_cut', -4, 0, 38, 10, {
+          alpha: 0.5,
+          tintHex: '#fde047',
+          additive: false,
+          anchorX: 0.75,
+        });
+        const boltImg = Assets.get('part_wpn_spear') || Assets.get('wpn_daggers_1');
+        if (boltImg) {
+          ctx.drawImage(boltImg, -19, -4.5, 38, 9);
+        }
         ctx.restore();
       } else if (pr.enemyFx === 'opera_needle') {
-        // 梨园提线木偶 / 惊梦百戏傩神：短红丝短尾绣花针
+        // 梨园提线木偶 / 惊梦百戏傩神：手绘柳叶银针 + 赤粉破空光痕
         const ang = Math.atan2(pr.vy, pr.vx);
         ctx.save();
         ctx.rotate(ang);
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-        const rg = ctx.createLinearGradient(-26, 0, -2, 0);
-        rg.addColorStop(0, 'rgba(244, 63, 94, 0)');
-        rg.addColorStop(0.6, 'rgba(244, 114, 182, 0.42)');
-        rg.addColorStop(1, 'rgba(253, 224, 71, 0.42)');
-        ctx.strokeStyle = rg;
-        ctx.lineWidth = 1.8;
-        ctx.beginPath();
-        ctx.moveTo(-4, 0);
-        const w1 = Math.sin(this.ambientTime * 28 + pr.x * 0.06) * 4;
-        const w2 = Math.cos(this.ambientTime * 24 + pr.y * 0.06) * 4.5;
-        ctx.bezierCurveTo(-11, w1, -19, w2, -26, w1 * 0.6);
-        ctx.stroke();
-
-        // 纤细锐利的赤金长针主体
-        ctx.fillStyle = '#fef08a';
-        ctx.beginPath();
-        ctx.moveTo(-8, -1.8);
-        ctx.lineTo(15, 0);
-        ctx.lineTo(-8, 1.8);
-        ctx.closePath();
-        ctx.fill();
-
-        ctx.fillStyle = '#f43f5e';
-        ctx.beginPath();
-        ctx.arc(-7, 0, 2.4, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
+        drawPaintedVfxSprite(ctx, 'vfx_iaido_flash_cut', -4, 0, 34, 9, {
+          alpha: 0.52,
+          tintHex: '#f43f5e',
+          additive: false,
+          anchorX: 0.78,
+        });
+        const needleImg = Assets.get('wpn_daggers_1') || Assets.get('part_wpn_daggers');
+        if (needleImg) {
+          ctx.drawImage(needleImg, -14, -4, 28, 8);
+        }
         ctx.restore();
       } else if (pr.fromPlayer && pr.kind === 'holy_fire' && Assets.get('item_sub_fire_gourd')) {
         const fgImg = Assets.get('item_sub_fire_gourd')!;
