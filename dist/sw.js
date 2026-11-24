@@ -1,4 +1,4 @@
-const CACHE_NAME = 'xuancheng-pwa-v6';
+const CACHE_NAME = 'xuancheng-pwa-v7';
 const PRECACHE_URLS = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
@@ -47,15 +47,31 @@ self.addEventListener('fetch', (event) => {
     url.pathname.endsWith('.html') ||
     url.pathname.endsWith('manifest.webmanifest');
 
+  if (isDocumentOrManifest) {
+    event.respondWith(
+      fetch(req, { cache: 'no-store' })
+        .then((res) => {
+          if (res && res.ok && res.type === 'basic') {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(req, clone)).catch(() => {});
+          }
+          return res;
+        })
+        .catch(() => caches.match(req))
+    );
+    return;
+  }
+
   event.respondWith(
-    (isDocumentOrManifest ? fetch(req, { cache: 'no-store' }) : fetch(req))
-      .then((res) => {
+    caches.match(req).then((cached) => {
+      if (cached) return cached;
+      return fetch(req).then((res) => {
         if (res && res.ok && res.type === 'basic') {
           const clone = res.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(req, clone)).catch(() => {});
         }
         return res;
-      })
-      .catch(() => caches.match(req))
+      });
+    })
   );
 });

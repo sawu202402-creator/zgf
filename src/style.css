@@ -870,10 +870,6 @@ html.is-standalone-webapp #game-root {
   cursor: pointer;
   overflow: hidden;
   transition: opacity 0.08s linear;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-  user-select: none;
-  -webkit-user-select: none;
 }
 .zx-prologue-canvas {
   position: absolute;
@@ -988,14 +984,10 @@ html.is-standalone-webapp #game-root {
   inset: 0;
   z-index: 90;
   pointer-events: auto;
-  cursor: default;
+  cursor: pointer;
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-  user-select: none;
-  -webkit-user-select: none;
   background: linear-gradient(
     180deg,
     rgba(3, 5, 10, 0.24) 0%,
@@ -1010,8 +1002,6 @@ html.is-standalone-webapp #game-root {
 .cv-dialogue {
   width: 100%;
   max-width: 820px;
-  cursor: pointer;
-  touch-action: manipulation;
   display: flex;
   align-items: flex-end;
   gap: 16px;
@@ -1033,12 +1023,20 @@ html.is-standalone-webapp #game-root {
 }
 .cv-dlg-bust-slot {
   position: relative;
+  z-index: 1;
   margin-top: -108px;
   margin-bottom: -11px;
   line-height: 0;
   flex-shrink: 0;
+  pointer-events: none;
+}
+.cv-dlg-bust-slot canvas.zx-frameless-bust {
+  position: absolute;
+  bottom: 0;
 }
 .cv-dlg-content {
+  position: relative;
+  z-index: 2;
   flex: 1;
   min-width: 0;
 }
@@ -1073,27 +1071,10 @@ html.is-standalone-webapp #game-root {
   color: var(--rice);
 }
 .dialogue-next {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 6px;
-}
-.zx-dlg-next-btn {
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 12.5px;
-  font-weight: 800;
-  letter-spacing: 1.5px;
-  color: #fef08a;
-  background: linear-gradient(180deg, rgba(198, 154, 69, 0.26), rgba(120, 83, 24, 0.34));
-  border: 1px solid rgba(246, 220, 141, 0.68);
-  border-radius: 99px;
-  padding: 5px 16px;
-  min-height: 32px;
-  touch-action: manipulation;
-}
-.zx-dlg-next-btn:active {
-  transform: scale(0.96);
-  background: rgba(198, 154, 69, 0.42);
+  text-align: right;
+  font-size: 11px;
+  color: var(--bronze-light);
+  margin-top: 4px;
 }
 
 .center-banner {
@@ -1332,13 +1313,6 @@ html.is-standalone-webapp #game-root {
   }
 }
 
-@media (min-width: 660px) and (max-height: 540px), (min-width: 660px) and (pointer: coarse) {
-  .cv-dialogue {
-    max-width: clamp(320px, calc(100% - 380px), 560px);
-    margin: 0 auto;
-  }
-}
-
 @media (max-height: 520px), (pointer: coarse) {
   .zx-hud {
     top: calc(8px + var(--safe-top));
@@ -1377,13 +1351,12 @@ html.is-standalone-webapp #game-root {
     height: 44px;
   }
   .interact-prompt {
-    bottom: calc(132px + var(--safe-bottom));
+    bottom: calc(18px + var(--safe-bottom));
     padding: 4px 16px;
     font-size: 12px;
     border-radius: 99px;
     background: rgba(8, 12, 22, 0.86);
     border: 1px solid var(--bronze);
-    touch-action: manipulation;
   }
   .center-banner {
     top: 13%;

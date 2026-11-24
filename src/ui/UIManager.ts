@@ -45,6 +45,8 @@ import {
   getSpeakerPortraitSvg,
   getSubWeaponSvg,
   getWeaponArtHtml,
+  renderSpeakerPortraitCanvas,
+  resolveSpeakerPortraitKey,
 } from './Icons';
 import { playOpeningPrologue } from './OpeningPrologue';
 
@@ -62,7 +64,6 @@ export class UIManager {
   private modalEl: HTMLElement | null = null;
   private dialogueEl: HTMLElement | null = null;
   private dialogueKeyHandler: ((e: KeyboardEvent) => void) | null = null;
-  private dialogueKeyUpHandler: ((e: KeyboardEvent) => void) | null = null;
   private bannerEl: HTMLElement | null = null;
   private stageRafId = 0;
   private stageSlash: ActiveSlash | null = null;
@@ -102,20 +103,11 @@ export class UIManager {
   private warpModalCleanup: (() => void) | null = null;
   private prologueCleanup: (() => void) | null = null;
   private modalClosedAt = 0;
-  private lastTouchInputAt = 0;
 
   constructor(
     private uiLayer: HTMLElement,
     private engine: GameEngine
-  ) {
-    if (typeof window !== 'undefined') {
-      const markTouch = () => {
-        this.lastTouchInputAt = performance.now();
-      };
-      window.addEventListener('touchstart', markTouch, { capture: true, passive: true });
-      window.addEventListener('touchend', markTouch, { capture: true, passive: true });
-    }
-  }
+  ) {}
 
   public isAnyOverlayOpen(): boolean {
     return Boolean(this.modalEl || this.dialogueEl || !this.engine.slot);
@@ -132,58 +124,16 @@ export class UIManager {
     let lastFire = 0;
     const fire = (ev: Event) => {
       const now = performance.now();
-      if (now - lastFire < 420) return;
+      if (now - lastFire < 280) return;
       lastFire = now;
       ev.stopPropagation();
       fn();
     };
-    let touchId: number | null = null;
-    let touchDownX = 0;
-    let touchDownY = 0;
-    el.addEventListener(
-      'touchstart',
-      (e) => {
-        this.lastTouchInputAt = performance.now();
-        const te = e as TouchEvent;
-        if (touchId !== null || te.changedTouches.length === 0) return;
-        const t = te.changedTouches[0];
-        touchId = t.identifier;
-        touchDownX = t.clientX;
-        touchDownY = t.clientY;
-      },
-      { passive: true }
-    );
-    el.addEventListener(
-      'touchend',
-      (e) => {
-        this.lastTouchInputAt = performance.now();
-        if (e.cancelable) e.preventDefault();
-        const te = e as TouchEvent;
-        let matched: Touch | null = null;
-        for (let i = 0; i < te.changedTouches.length; i++) {
-          if (te.changedTouches[i].identifier === touchId) {
-            matched = te.changedTouches[i];
-            break;
-          }
-        }
-        touchId = null;
-        if (!matched) return;
-        if (Math.hypot(matched.clientX - touchDownX, matched.clientY - touchDownY) <= 26) {
-          fire(e);
-        }
-      },
-      { passive: false }
-    );
-    el.addEventListener('touchcancel', () => {
-      touchId = null;
-    });
-
     let downX = 0;
     let downY = 0;
     let active = false;
     el.addEventListener('pointerdown', (e) => {
       const pe = e as PointerEvent;
-      if (pe.pointerType === 'touch' || performance.now() - this.lastTouchInputAt < 2500) return;
       downX = pe.clientX;
       downY = pe.clientY;
       active = true;
@@ -192,20 +142,19 @@ export class UIManager {
       if (!active) return;
       active = false;
       const pe = e as PointerEvent;
-      if (pe.pointerType === 'touch' || performance.now() - this.lastTouchInputAt < 2500) return;
       if (Math.hypot(pe.clientX - downX, pe.clientY - downY) <= 26) {
         fire(e);
       }
     });
-    el.addEventListener('pointercancel', () => {
-      active = false;
-    });
-    el.addEventListener('click', (e) => {
-      const me = e as MouseEvent;
-      if (me.detail !== 0 && typeof window.PointerEvent !== 'undefined') return;
-      if (performance.now() - this.lastTouchInputAt < 2500) return;
-      fire(e);
-    });
+    // 阻断移动端弹层销毁后的幽灵穿透 click 落到底层 HUD 按钮上导致关而复开！
+    el.addEventListener(
+      'touchend',
+      (e) => {
+        if (e.cancelable) e.preventDefault();
+      },
+      { passive: false }
+    );
+    el.addEventListener('click', (e) => fire(e));
   }
 
   private stopStageLoop(): void {
@@ -808,10 +757,6 @@ export class UIManager {
       window.removeEventListener('keydown', this.dialogueKeyHandler);
       this.dialogueKeyHandler = null;
     }
-    if (this.dialogueKeyUpHandler) {
-      window.removeEventListener('keyup', this.dialogueKeyUpHandler);
-      this.dialogueKeyUpHandler = null;
-    }
   }
 
   private clearAllUI(): void {
@@ -925,7 +870,7 @@ export class UIManager {
       interactBtn,
     };
 
-    const guardGhostClick = () => performance.now() - this.modalClosedAt < 480;
+    const guardGhostClick = () => performance.now() - this.modalClosedAt < 180;
     hud.querySelector('#hud-wpn-sheath')?.addEventListener('click', () => {
       if (guardGhostClick()) return;
       this.engine.cycleWeapon();
@@ -953,7 +898,7 @@ export class UIManager {
       this.pauseTab = 'skills';
       this.togglePauseModal();
     });
-    this.bindFastTap(interactBtn, () => {
+    interactBtn.addEventListener('click', () => {
       if (guardGhostClick()) return;
       this.engine.input.triggerInteractFromUI();
     });
@@ -3631,13 +3576,11 @@ export class UIManager {
 
   public startStoryDialogue(scene: StoryScene, onDone?: () => void): void {
     this.clearDialogueKeyHandler();
-    this.uiLayer.querySelectorAll('.cv-dialogue-backdrop').forEach((el) => el.remove());
-    this.dialogueEl = null;
+    if (this.dialogueEl) this.dialogueEl.remove();
     let idx = 0;
-    let finished = false;
-    const openedAt = performance.now();
-    let lineShownAt = openedAt;
-    let lastAdvanceAt = 0;
+
+    // 提前预热整段对话的全部登场人物立绘，防止换页时临时拉图/解码！
+    Assets.ensurePriorityKeys(scene.lines.map((l) => resolveSpeakerPortraitKey(l.speaker)));
 
     // 实景剧情对白：绝不黑屏遮挡背景，自动隐藏顶部 HUD 让背后的宫阙火光与人物完整呈现！
     this.engine.storyDialogueActive = true;
@@ -3648,7 +3591,7 @@ export class UIManager {
     const box = document.createElement('div');
     box.className = 'cv-dialogue';
     box.innerHTML = `
-      <div class="cv-dlg-bust-slot"></div>
+      <div class="cv-dlg-bust-slot"><canvas class="zx-frameless-bust"></canvas></div>
       <div class="cv-dlg-content">
         <div class="dialogue-speaker-row">
           <div>
@@ -3657,13 +3600,11 @@ export class UIManager {
           </div>
           <div class="dialogue-top-actions" style="display:flex;align-items:center;gap:8px;">
             <span class="dialogue-step-count" style="font-size:11px;color:var(--ash);"></span>
-            <button type="button" tabindex="-1" class="zx-dlg-skip" id="btn-dlg-skip">跳过</button>
+            <button type="button" class="zx-dlg-skip" id="btn-dlg-skip">跳过</button>
           </div>
         </div>
         <div class="dialogue-text"></div>
-        <div class="dialogue-next">
-          <button type="button" tabindex="-1" class="zx-dlg-next-btn" id="btn-dlg-next"></button>
-        </div>
+        <div class="dialogue-next">轻触或按【斩】继续 ▸</div>
       </div>
     `;
     backdrop.appendChild(box);
@@ -3672,272 +3613,81 @@ export class UIManager {
     this.syncBlockState();
 
     const bustSlotEl = box.querySelector('.cv-dlg-bust-slot') as HTMLElement;
+    const bustCanvasEl = box.querySelector('canvas.zx-frameless-bust') as HTMLCanvasElement;
     const speakerEl = box.querySelector('.dialogue-speaker') as HTMLElement;
     const roleEl = box.querySelector('.dialogue-role') as HTMLElement;
     const topActionsEl = box.querySelector('.dialogue-top-actions') as HTMLElement;
     const countEl = box.querySelector('.dialogue-step-count') as HTMLElement;
-    const skipBtn = box.querySelector('#btn-dlg-skip') as HTMLButtonElement;
     const textEl = box.querySelector('.dialogue-text') as HTMLElement;
-    const nextBtn = box.querySelector('#btn-dlg-next') as HTMLButtonElement;
 
     const finishDialogue = () => {
-      if (finished) return;
-      finished = true;
       this.clearDialogueKeyHandler();
+      backdrop.remove();
       this.dialogueEl = null;
       this.engine.storyDialogueActive = false;
       if (this.hudEl) this.hudEl.style.opacity = '';
       this.modalClosedAt = performance.now();
       this.syncBlockState();
-      backdrop.dataset.closing = '1';
-      backdrop.style.pointerEvents = 'auto';
-      backdrop.style.opacity = '0';
-      window.setTimeout(() => {
-        backdrop.remove();
-      }, 90);
       onDone?.();
     };
 
     const advanceLine = () => {
-      if (finished) return;
       AudioFX.playHit(false);
       idx++;
       if (idx < scene.lines.length) {
-        lineShownAt = performance.now();
         renderLine();
       } else {
         finishDialogue();
       }
     };
 
-    const tryAdvanceFromLine = (expectedIdx: number) => {
-      if (finished || idx !== expectedIdx) return;
-      const now = performance.now();
-      if (now - openedAt < 480 || now - lineShownAt < 480 || now - lastAdvanceAt < 480) {
-        return;
-      }
-      lastAdvanceAt = now;
-      advanceLine();
-    };
-
     const renderLine = () => {
       const ln = scene.lines[idx];
       const isHero = ln.speaker.includes('李逸承');
-      const portraitH = window.innerHeight < 540 ? 138 : 210;
-      const hasNextLine = idx + 1 < scene.lines.length;
+      const compact = window.innerHeight < 540;
+      const portraitH = compact ? 138 : 210;
+      const slotW = compact ? 114 : 172;
       box.classList.toggle('npc-right', !isHero);
-      bustSlotEl.innerHTML = getSpeakerPortraitSvg(ln.speaker, portraitH);
+      bustSlotEl.style.width = `${slotW}px`;
+      bustSlotEl.style.height = `${portraitH}px`;
+      bustSlotEl.style.flexBasis = `${slotW}px`;
+      renderSpeakerPortraitCanvas(bustCanvasEl, ln.speaker, portraitH, isHero ? 'right' : 'left');
       speakerEl.textContent = ln.speaker;
       speakerEl.style.color = ln.portraitColor;
       roleEl.textContent = ln.role;
       topActionsEl.style.display = scene.lines.length > 1 ? 'flex' : 'none';
       countEl.textContent = `${idx + 1}/${scene.lines.length}`;
       textEl.textContent = ln.text;
-      nextBtn.textContent = hasNextLine ? '下一段 ▸' : '结束对话 ▸';
     };
+
+    box.querySelector('#btn-dlg-skip')?.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      AudioFX.playHit(false);
+      finishDialogue();
+    });
 
     renderLine();
 
-    // 保持对白节点常驻不重建，并在遮罩层统一拦截浏览器为触控补发的兼容鼠标/click事件！
-    backdrop.addEventListener(
-      'touchend',
-      (ev) => {
-        this.lastTouchInputAt = performance.now();
-        if (ev.cancelable) ev.preventDefault();
-      },
-      { passive: false }
-    );
+    backdrop.addEventListener('click', () => advanceLine());
 
-    // 通道1：纯原生触屏手势（按下锁定当前页索引 touchDownLineIdx，确保一次轻触绝不可能翻过两页）
-    let activeTouchId: number | null = null;
-    let touchDownX = 0;
-    let touchDownY = 0;
-    let touchDownLineIdx = -1;
-    box.addEventListener(
-      'touchstart',
-      (ev) => {
-        this.lastTouchInputAt = performance.now();
-        if ((ev.target as HTMLElement | null)?.closest('#btn-dlg-skip')) return;
-        if (activeTouchId !== null || ev.changedTouches.length === 0) return;
-        const t = ev.changedTouches[0];
-        activeTouchId = t.identifier;
-        touchDownX = t.clientX;
-        touchDownY = t.clientY;
-        touchDownLineIdx = idx;
-      },
-      { passive: true }
-    );
-    box.addEventListener(
-      'touchend',
-      (ev) => {
-        this.lastTouchInputAt = performance.now();
-        if (ev.cancelable) ev.preventDefault();
-        let matched: Touch | null = null;
-        for (let i = 0; i < ev.changedTouches.length; i++) {
-          if (ev.changedTouches[i].identifier === activeTouchId) {
-            matched = ev.changedTouches[i];
-            break;
-          }
-        }
-        if (!matched) return;
-        const targetIdx = touchDownLineIdx;
-        activeTouchId = null;
-        touchDownLineIdx = -1;
-        if ((ev.target as HTMLElement | null)?.closest('#btn-dlg-skip')) return;
-        if (Math.hypot(matched.clientX - touchDownX, matched.clientY - touchDownY) <= 28) {
-          tryAdvanceFromLine(targetIdx);
-        }
-      },
-      { passive: false }
-    );
-    box.addEventListener('touchcancel', () => {
-      activeTouchId = null;
-      touchDownLineIdx = -1;
-    });
-
-    let skipTouchId: number | null = null;
-    skipBtn.addEventListener(
-      'touchstart',
-      (ev) => {
-        ev.stopPropagation();
-        this.lastTouchInputAt = performance.now();
-        if (skipTouchId === null && ev.changedTouches.length > 0) {
-          skipTouchId = ev.changedTouches[0].identifier;
-        }
-      },
-      { passive: true }
-    );
-    skipBtn.addEventListener(
-      'touchend',
-      (ev) => {
-        ev.stopPropagation();
-        this.lastTouchInputAt = performance.now();
-        if (ev.cancelable) ev.preventDefault();
-        let matched = false;
-        for (let i = 0; i < ev.changedTouches.length; i++) {
-          if (ev.changedTouches[i].identifier === skipTouchId) {
-            matched = true;
-            break;
-          }
-        }
-        skipTouchId = null;
-        if (matched && !finished && performance.now() - openedAt >= 420) {
-          AudioFX.playHit(false);
-          finishDialogue();
-        }
-      },
-      { passive: false }
-    );
-    skipBtn.addEventListener('touchcancel', () => {
-      skipTouchId = null;
-    });
-
-    // 通道2：桌面真实鼠标 / 触控笔（触屏后 2500ms 内完全封锁 mouse 事件，彻底免疫安卓延迟兼容鼠标连跳）
-    if (typeof window.PointerEvent !== 'undefined') {
-      let mousePointerId: number | null = null;
-      let mouseDownX = 0;
-      let mouseDownY = 0;
-      let mouseDownLineIdx = -1;
-      box.addEventListener('pointerdown', (ev) => {
-        if ((ev.target as HTMLElement | null)?.closest('#btn-dlg-skip')) return;
-        if (!ev.isTrusted || ev.pointerType === 'touch') return;
-        if (performance.now() - this.lastTouchInputAt < 2500) return;
-        if (mousePointerId !== null) return;
-        mousePointerId = ev.pointerId;
-        mouseDownX = ev.clientX;
-        mouseDownY = ev.clientY;
-        mouseDownLineIdx = idx;
-      });
-      box.addEventListener('pointerup', (ev) => {
-        if (ev.pointerId !== mousePointerId) return;
-        const targetIdx = mouseDownLineIdx;
-        mousePointerId = null;
-        mouseDownLineIdx = -1;
-        if ((ev.target as HTMLElement | null)?.closest('#btn-dlg-skip')) return;
-        if (!ev.isTrusted || ev.pointerType === 'touch') return;
-        if (performance.now() - this.lastTouchInputAt < 2500) return;
-        if (Math.hypot(ev.clientX - mouseDownX, ev.clientY - mouseDownY) <= 24) {
-          tryAdvanceFromLine(targetIdx);
-        }
-      });
-      box.addEventListener('pointercancel', (ev) => {
-        if (ev.pointerId === mousePointerId) {
-          mousePointerId = null;
-          mouseDownLineIdx = -1;
-        }
-      });
-
-      let skipPointerId: number | null = null;
-      let skipDownX = 0;
-      let skipDownY = 0;
-      skipBtn.addEventListener('pointerdown', (ev) => {
-        ev.stopPropagation();
-        if (!ev.isTrusted || ev.pointerType === 'touch') return;
-        if (performance.now() - this.lastTouchInputAt < 2500) return;
-        if (skipPointerId !== null) return;
-        skipPointerId = ev.pointerId;
-        skipDownX = ev.clientX;
-        skipDownY = ev.clientY;
-      });
-      skipBtn.addEventListener('pointerup', (ev) => {
-        ev.stopPropagation();
-        if (ev.pointerId !== skipPointerId) return;
-        skipPointerId = null;
-        if (!ev.isTrusted || ev.pointerType === 'touch') return;
-        if (performance.now() - this.lastTouchInputAt < 2500) return;
-        if (
-          performance.now() - openedAt >= 420 &&
-          Math.hypot(ev.clientX - skipDownX, ev.clientY - skipDownY) <= 24
-        ) {
-          AudioFX.playHit(false);
-          finishDialogue();
-        }
-      });
-      skipBtn.addEventListener('pointercancel', (ev) => {
-        if (ev.pointerId === skipPointerId) skipPointerId = null;
-      });
-    } else {
-      box.addEventListener('click', (ev) => {
-        if ((ev.target as HTMLElement | null)?.closest('#btn-dlg-skip')) return;
-        if (performance.now() - this.lastTouchInputAt < 2500) return;
-        tryAdvanceFromLine(idx);
-      });
-      skipBtn.addEventListener('click', (ev) => {
-        ev.stopPropagation();
-        if (finished || performance.now() - openedAt < 420) return;
-        if (performance.now() - this.lastTouchInputAt < 2500) return;
-        AudioFX.playHit(false);
-        finishDialogue();
-      });
-    }
-
-    // 通道3：桌面实体键盘（触屏操作 1500ms 内免疫移动端输入法或系统映射键盘回声）
-    const heldCodes = new Set<string>();
     this.dialogueKeyHandler = (e: KeyboardEvent) => {
-      if (!e.isTrusted || e.repeat || heldCodes.has(e.code)) return;
-      heldCodes.add(e.code);
-      const isAdvanceKey =
+      if (e.repeat) return;
+      if (
         e.code === 'KeyJ' ||
         e.code === 'KeyZ' ||
         e.code === 'KeyK' ||
         e.code === 'Space' ||
         e.code === 'Enter' ||
-        e.code === 'KeyE';
-      if (!isAdvanceKey && e.code !== 'Escape') return;
-      e.preventDefault();
-      if (performance.now() - this.lastTouchInputAt < 1500) return;
-      if (performance.now() - openedAt < 600) return;
-      if (isAdvanceKey) {
-        tryAdvanceFromLine(idx);
+        e.code === 'KeyE'
+      ) {
+        e.preventDefault();
+        advanceLine();
       } else if (e.code === 'Escape') {
+        e.preventDefault();
         finishDialogue();
       }
     };
-    this.dialogueKeyUpHandler = (e: KeyboardEvent) => {
-      heldCodes.delete(e.code);
-    };
     window.addEventListener('keydown', this.dialogueKeyHandler);
-    window.addEventListener('keyup', this.dialogueKeyUpHandler);
   }
 
   public showBanner(title: string, sub: string): void {

@@ -488,6 +488,11 @@ const BOOT_CRITICAL_ASSETS: AssetKey[] = [
   'npc_su_0',
   'bust_liyicheng',
   'bust_su_qingyan',
+  'bust_ouye_can',
+  'bust_bai_zhanggui',
+  'bust_xiao_duanshui',
+  'bust_peiwuji',
+  'item_relic_pedestal',
 ];
 
 const ALL_ASSET_KEYS: AssetKey[] = Object.keys(ASSET_FILES) as AssetKey[];
@@ -506,10 +511,17 @@ class GameAssetRegistry {
     const p = new Promise<void>((resolve) => {
       const img = new Image();
       img.onload = () => {
-        this.images.set(key, img);
-        this.inflight.delete(key);
-        this.loadedVersion++;
-        resolve();
+        const finish = () => {
+          this.images.set(key, img);
+          this.inflight.delete(key);
+          this.loadedVersion++;
+          resolve();
+        };
+        if (typeof img.decode === 'function') {
+          img.decode().then(finish, finish);
+        } else {
+          finish();
+        }
       };
       img.onerror = () => {
         this.inflight.delete(key);
@@ -540,6 +552,12 @@ class GameAssetRegistry {
         void this.loadOne(k);
       }
     }
+  }
+
+  public waitFor(key: AssetKey): Promise<HTMLImageElement | undefined> {
+    const existing = this.images.get(key);
+    if (existing) return Promise.resolve(existing);
+    return this.loadOne(key).then(() => this.images.get(key));
   }
 
   public async preloadRemainingInBackground(): Promise<void> {

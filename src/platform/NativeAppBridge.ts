@@ -156,18 +156,14 @@ class NativeAppAdapter {
       typeof document !== 'undefined'
     ) {
       this.immersiveBound = true;
-      let lastImmersiveTryAt = 0;
       const enterImmersiveOnStandalone = () => {
         if (document.fullscreenElement) return;
-        const now = performance.now();
-        if (now - lastImmersiveTryAt < 5000) return;
         const inWebApp =
           window.matchMedia?.('(display-mode: standalone)').matches ||
           window.matchMedia?.('(display-mode: fullscreen)').matches ||
           window.matchMedia?.('(display-mode: minimal-ui)').matches ||
           (navigator as unknown as { standalone?: boolean }).standalone === true;
         if (!inWebApp) return;
-        lastImmersiveTryAt = now;
         const el = document.documentElement as HTMLElement & {
           webkitRequestFullscreen?: () => Promise<void>;
         };
@@ -181,7 +177,8 @@ class NativeAppAdapter {
         };
         orient?.lock?.('landscape').catch(() => {});
       };
-      window.addEventListener('pointerup', enterImmersiveOnStandalone, { passive: true });
+      window.addEventListener('pointerdown', enterImmersiveOnStandalone, { passive: true });
+      window.addEventListener('touchstart', enterImmersiveOnStandalone, { passive: true });
     }
   }
 
