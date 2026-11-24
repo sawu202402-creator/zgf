@@ -22,7 +22,12 @@ import {
   WorldMap,
 } from '../data/worldMap';
 import { AssetKey, Assets, resolveFamiliarAssetKey } from '../game/AssetLoader';
-import { drawInkSlashRibbon, renderModularLiYichengRig } from '../game/CharacterArt';
+import {
+  drawInkSlashRibbon,
+  pickSecondaryWeaponId,
+  renderModularLiYichengRig,
+} from '../game/CharacterArt';
+import { drawPaintedChainTrack, drawPaintedVfxDisc } from '../game/GuofengWorldArt';
 import { ActiveSlash, GameEngine } from '../game/GameEngine';
 import { createFreshSaveSlot, SaveManager } from '../meta/SaveManager';
 import { NativeApp } from '../platform/NativeAppBridge';
@@ -2096,7 +2101,7 @@ export class UIManager {
           this.selectedEquipSlot === 'weapon' && this.previewItemId
             ? this.previewItemId
             : s.equippedWeapon;
-        const secWpn = s.ownedWeapons.find((id) => id !== shownWpn);
+        const secWpn = pickSecondaryWeaponId(s.ownedWeapons, shownWpn);
         const shownFam: FamiliarId | null =
           this.selectedEquipSlot === 'spirit' &&
           this.previewItemId &&
@@ -2515,20 +2520,26 @@ export class UIManager {
           const pts = computeNodeScreenPoints();
           const t = (now - startTs) * 0.001;
 
-          // 绘制已点亮八卦阵之间的青金龙脉星轨虚线
+          // 绘制已点亮八卦阵之间的青金龙脉星轨灵链（手绘锁链与灵珠流光，零虚线！）
           if (pts.length > 1) {
-            mctx.save();
-            mctx.strokeStyle = 'rgba(45, 212, 191, 0.36)';
-            mctx.lineWidth = 1.6;
-            mctx.setLineDash([6, 5]);
-            mctx.lineDashOffset = -t * 18;
-            mctx.beginPath();
-            pts.forEach((p, idx) => {
-              if (idx === 0) mctx.moveTo(p.cx, p.cy);
-              else mctx.lineTo(p.cx, p.cy);
-            });
-            mctx.stroke();
-            mctx.restore();
+            for (let idx = 1; idx < pts.length; idx++) {
+              const p0 = pts[idx - 1];
+              const p1 = pts[idx];
+              drawPaintedChainTrack(mctx, p0.cx, p0.cy, p1.cx, p1.cy, 6, 0.34, '#2dd4bf');
+              const flowU = (t * 0.45 + idx * 0.23) % 1;
+              const fx = p0.cx + (p1.cx - p0.cx) * flowU;
+              const fy = p0.cy + (p1.cy - p0.cy) * flowU;
+              mctx.save();
+              mctx.globalCompositeOperation = 'lighter';
+              const mg = mctx.createRadialGradient(fx, fy, 0.5, fx, fy, 6);
+              mg.addColorStop(0, 'rgba(153, 246, 228, 0.85)');
+              mg.addColorStop(1, 'rgba(45, 212, 191, 0)');
+              mctx.fillStyle = mg;
+              mctx.beginPath();
+              mctx.arc(fx, fy, 6, 0, Math.PI * 2);
+              mctx.fill();
+              mctx.restore();
+            }
           }
 
           // 绘制每一座可点击的八卦阵眼星标（平时无文字遮挡，仅在点击选中时浮现阵名路牌！）
@@ -2567,41 +2578,20 @@ export class UIManager {
             mctx.arc(p.cx, p.cy, outerR + 11, 0, Math.PI * 2);
             mctx.fill();
 
-            // 旋转八卦阵环与选中准星
+            // 旋转手绘古八卦阵环（替代矢量八边形与直角准星框）
+            drawPaintedVfxDisc(
+              mctx,
+              'vfx_bagua_formation',
+              p.cx,
+              p.cy,
+              outerR + (isSel ? 5 : isHov ? 3 : 1),
+              t * (isSel ? 1.5 : 0.7),
+              isSel ? 0.95 : 0.82,
+              isSel ? '#fef08a' : isCur ? '#fb923c' : '#2dd4bf',
+              1,
+              true
+            );
             mctx.translate(p.cx, p.cy);
-            mctx.save();
-            mctx.rotate(t * (isSel ? 1.5 : 0.7));
-            mctx.strokeStyle = isSel ? '#fef08a' : isCur ? '#fdba74' : '#5eead4';
-            mctx.lineWidth = isSel || isHov ? 2.4 : 1.7;
-            mctx.beginPath();
-            for (let i = 0; i < 8; i++) {
-              const ang = (i * Math.PI) / 4;
-              const rx = Math.cos(ang) * outerR;
-              const ry = Math.sin(ang) * outerR;
-              if (i === 0) mctx.moveTo(rx, ry);
-              else mctx.lineTo(rx, ry);
-            }
-            mctx.closePath();
-            mctx.stroke();
-            mctx.restore();
-
-            if (isSel) {
-              const br = outerR + 5;
-              mctx.strokeStyle = '#fde047';
-              mctx.lineWidth = 2;
-              for (const [sx, sy] of [
-                [-1, -1],
-                [1, -1],
-                [1, 1],
-                [-1, 1],
-              ]) {
-                mctx.beginPath();
-                mctx.moveTo(sx * br, sy * (br - 5));
-                mctx.lineTo(sx * br, sy * br);
-                mctx.lineTo(sx * (br - 5), sy * br);
-                mctx.stroke();
-              }
-            }
 
             // 中心阵眼宝珠
             mctx.fillStyle = isSel ? '#fef08a' : isCur ? '#fb923c' : '#2dd4bf';

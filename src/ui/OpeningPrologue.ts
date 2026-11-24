@@ -1,6 +1,7 @@
 import { AudioFX } from '../audio/GuofengAudio';
 import { AssetKey, Assets } from '../game/AssetLoader';
 import { renderModularLiYichengRig } from '../game/CharacterArt';
+import { drawPaintedChainTrack, drawPaintedVfxDisc } from '../game/GuofengWorldArt';
 
 interface PrologueAct {
   seal: string;
@@ -371,45 +372,41 @@ export function playOpeningPrologue(
       const cy = viewH * 0.42;
       const sealR = Math.min(viewW, viewH) * 0.24;
 
-      // 旋转镇渊八卦金印
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.rotate(totalTime * 0.35);
-      ctx.strokeStyle = 'rgba(251, 191, 36, 0.42)';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      for (let i = 0; i < 8; i++) {
-        const a = (i * Math.PI) / 4;
-        const px = Math.cos(a) * sealR;
-        const py = Math.sin(a) * sealR;
-        if (i === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
-      }
-      ctx.closePath();
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(0, 0, sealR * 0.76, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.restore();
+      // 凌霄镇渊古八卦残阵 + 四方朱砂锁链贯入阵心
+      drawPaintedVfxDisc(
+        ctx,
+        'vfx_bagua_formation',
+        cx,
+        cy,
+        sealR,
+        totalTime * 0.35,
+        0.74,
+        '#fbbf24',
+        1,
+        true
+      );
 
       // 四方朱砂锁城光链贯入阵心
-      ctx.save();
-      ctx.strokeStyle = 'rgba(248, 113, 113, 0.52)';
-      ctx.lineWidth = 2.4;
-      ctx.setLineDash([10, 6]);
-      ctx.lineDashOffset = -totalTime * 36;
       for (const [sx, sy] of [
         [0, viewH * 0.12],
         [viewW, viewH * 0.14],
         [0, viewH * 0.76],
         [viewW, viewH * 0.72],
       ]) {
-        ctx.beginPath();
-        ctx.moveTo(sx, sy);
-        ctx.lineTo(cx, cy);
-        ctx.stroke();
+        drawPaintedChainTrack(
+          ctx,
+          sx,
+          sy,
+          cx,
+          cy,
+          12,
+          0.68,
+          '#f87171',
+          2.6,
+          4,
+          totalTime * 5.2
+        );
       }
-      ctx.restore();
 
       // 恩师裴无极孤身镇坛剪影
       const peiSilhouette = Assets.getTintedSilhouette('boss_pei_0', '#1e1b2e', true) || Assets.get('boss_pei_0');

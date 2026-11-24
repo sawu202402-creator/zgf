@@ -8,7 +8,13 @@ import {
   resolveWeaponAssetKey,
 } from './AssetLoader';
 import { ActiveSkillAnim, ActiveSlash, EnemyEntity, GameEngine, WorldDrop } from './GameEngine';
-import { drawCelShadedWeapon, drawSoftGroundShadow } from './GuofengWorldArt';
+import {
+  drawCelShadedWeapon,
+  drawPaintedChainTrack,
+  drawPaintedThunderBolt,
+  drawPaintedVfxDisc,
+  drawSoftGroundShadow,
+} from './GuofengWorldArt';
 import {
   buildEntitySpineJoints,
   drawSkinnedSpineSprite,
@@ -476,13 +482,35 @@ function drawEquippedWeaponInHeroHands(
       ? transformSpinePoint(sock.lx, sock.ly, metrics, joints)
       : null;
 
-  // 1. 双刺奇门系（生铁双短匕 / 碧蟾曲刃毒刺 / 分水精钢峨眉刺 / 子母鸳鸯追魂钺）
+  // 1. 双刺奇门系（生铁双短匕 / 碧蟾曲刃毒刺 / 分水精钢峨眉刺 / 子母鸳鸯追魂钺——全部实装手绘贴图！）
   if (wDef.archetype === 'daggers') {
+    const dImg = Assets.get(resolveWeaponAssetKey('daggers', wDef.id));
+    const drawHandDagger = (reverseGrip: boolean) => {
+      if (!dImg || !dImg.width || !dImg.height) {
+        drawSingleCurvedDagger(ctx, wDef, reverseGrip);
+        return;
+      }
+      const centered = wDef.id === 'daggers_2' || wDef.id === 'daggers_3';
+      const dLen = wDef.id === 'daggers_2' ? 38 : 34;
+      const maxH = wDef.id === 'daggers_3' ? 16 : 12;
+      let w = dLen;
+      let h = w * (dImg.height / dImg.width);
+      if (h > maxH) {
+        h = maxH;
+        w = h * (dImg.width / dImg.height);
+      }
+      ctx.save();
+      if (reverseGrip) ctx.scale(-1, -1);
+      const px = centered ? -w * 0.5 : -w * 0.22;
+      ctx.drawImage(dImg, px, -h * 0.5, w, h);
+      ctx.restore();
+    };
+
     if (lHand && sock.lAngle !== undefined) {
       ctx.save();
       ctx.translate(lHand.x, lHand.y);
       ctx.rotate(sock.lAngle + lHand.angle);
-      drawSingleCurvedDagger(ctx, wDef, frameKey === 'h18_idle_1');
+      drawHandDagger(frameKey === 'h18_idle_1');
       drawFistKnuckleClasp(ctx);
       ctx.restore();
     }
@@ -493,7 +521,7 @@ function drawEquippedWeaponInHeroHands(
         ? 1.22 + rHand.angle
         : sock.rAngle + rHand.angle + (frameKey === 'h18_sword_1' ? 0.35 : 0);
     ctx.rotate(rAng);
-    drawSingleCurvedDagger(ctx, wDef, frameKey === 'h18_sword_1');
+    drawHandDagger(frameKey === 'h18_sword_1');
     drawFistKnuckleClasp(ctx);
     ctx.restore();
     return;
@@ -553,20 +581,16 @@ function drawEquippedWeaponInHeroHands(
     return;
   }
 
-  // 3. 软鞭奇门系（生铁九节鞭 / 赤练火龙锁链刀 / 紫电打神雷音鞭）
+  // 3. 软鞭奇门系（生铁九节鞭 / 赤练火龙锁链刀 / 紫电打神雷音鞭——手绘鞭柄 + 铁链贴图节段！）
   if (wDef.archetype === 'whip') {
-    const rodCol =
-      wDef.id === 'whip_3'
-        ? '#581c87'
-        : wDef.id === 'whip_2'
-          ? '#991b1b'
-          : '#334155';
-    const ringCol =
-      wDef.id === 'whip_3'
-        ? '#fde047'
-        : wDef.id === 'whip_2'
-          ? '#fb923c'
-          : '#94a3b8';
+    const whipImg = Assets.get(resolveWeaponAssetKey('whip', wDef.id));
+    const drawWhipGripSprite = (len = 18) => {
+      if (whipImg && whipImg.width && whipImg.height) {
+        const srcW = Math.floor(whipImg.width * 0.28);
+        const h = Math.max(7, len * (whipImg.height / Math.max(1, srcW)));
+        ctx.drawImage(whipImg, 0, 0, srcW, whipImg.height, -4, -h * 0.5, len, h);
+      }
+    };
 
     ctx.save();
     ctx.translate(rHand.x, rHand.y);
@@ -576,55 +600,47 @@ function drawEquippedWeaponInHeroHands(
       if (pr < 0.24) {
         const u = pr / 0.24;
         ctx.rotate(-2.15 + rHand.angle + u * 0.45);
-        ctx.fillStyle = '#3f2e21';
-        ctx.strokeStyle = '#090d16';
-        ctx.lineWidth = 1.2;
-        ctx.fillRect(-6, -2.4, 17, 4.8);
-        ctx.strokeRect(-6, -2.4, 17, 4.8);
-
-        ctx.strokeStyle = rodCol;
-        ctx.lineWidth = 3.2;
-        ctx.beginPath();
-        ctx.moveTo(11, 0);
-        let lx = 11;
-        let ly = 0;
-        for (let seg = 1; seg <= 7; seg++) {
-          const s = seg / 7;
-          lx = 11 + s * 46;
-          ly = Math.sin(s * Math.PI * 1.35 - u * 2.2) * 18;
-          ctx.lineTo(lx, ly);
-        }
-        ctx.stroke();
-
-        ctx.strokeStyle = ringCol;
-        ctx.lineWidth = 1.4;
-        ctx.stroke();
-
-        ctx.fillStyle = wDef.id === 'whip_3' ? '#fde047' : wDef.id === 'whip_2' ? '#fb923c' : '#e2e8f0';
-        ctx.beginPath();
-        ctx.arc(lx + 4, ly, wDef.id === 'whip_2' ? 5.6 : 4.2, -0.8, 1.9);
-        ctx.lineTo(lx, ly);
-        ctx.closePath();
-        ctx.fill();
+        drawWhipGripSprite(19);
+        drawPaintedChainTrack(
+          ctx,
+          12,
+          0,
+          56,
+          0,
+          9,
+          0.92,
+          wDef.id === 'whip_3' ? '#fde047' : wDef.id === 'whip_2' ? '#fb923c' : undefined,
+          16,
+          1.35,
+          u * 2.2
+        );
+        const endWave = Math.sin(Math.PI * 1.35 - u * 2.2) * 16;
+        drawPaintedVfxDisc(
+          ctx,
+          'vfx_ink_shockwave',
+          58,
+          endWave,
+          9,
+          u * 4,
+          0.75,
+          wDef.glowColor,
+          1,
+          true
+        );
       } else {
         const aimAng =
           (slash.aimY < -0.35 ? -0.62 : slash.aimY > 0.35 ? 0.38 : 0) + rHand.angle;
         ctx.rotate(aimAng);
-        ctx.fillStyle = '#3f2e21';
-        ctx.strokeStyle = '#090d16';
-        ctx.lineWidth = 1.2;
-        ctx.fillRect(-7, -2.5, 19, 5);
-        ctx.strokeRect(-7, -2.5, 19, 5);
-        ctx.fillStyle = ringCol;
-        ctx.fillRect(9, -3, 3.5, 6);
+        drawWhipGripSprite(20);
       }
       drawFistKnuckleClasp(ctx);
     } else {
       const sway = Math.sin(animTime * 3.6 + runCycle * 0.9) * 0.08;
       ctx.rotate(0.32 + rHand.angle + sway);
-      const whipImg = Assets.get(resolveWeaponAssetKey('whip', wDef.id));
-      if (whipImg) {
-        ctx.drawImage(whipImg, -10, -8, 28, 28);
+      if (whipImg && whipImg.width && whipImg.height) {
+        const wLen = 36;
+        const wH = Math.min(14, wLen * (whipImg.height / whipImg.width));
+        ctx.drawImage(whipImg, -8, -wH * 0.5, wLen, wH);
       }
       drawFistKnuckleClasp(ctx);
     }
@@ -655,6 +671,28 @@ function drawEquippedWeaponInHeroHands(
   ctx.restore();
 }
 
+export function pickSecondaryWeaponId(
+  ownedWeapons: string[],
+  equippedWeaponId: string
+): string | undefined {
+  const curArch = WEAPONS[equippedWeaponId]?.archetype;
+  const longBlade = ownedWeapons.find((id) => {
+    if (id === equippedWeaponId) return false;
+    const w = WEAPONS[id];
+    return (
+      w &&
+      w.archetype !== curArch &&
+      (w.archetype === 'sword' || w.archetype === 'greatsword' || w.archetype === 'spear')
+    );
+  });
+  if (longBlade) return longBlade;
+  return ownedWeapons.find((id) => {
+    if (id === equippedWeaponId) return false;
+    const w = WEAPONS[id];
+    return !w || w.archetype !== curArch;
+  });
+}
+
 function drawBackCarriedWeapon(
   ctx: CanvasRenderingContext2D,
   archetype: WeaponArchetype,
@@ -664,10 +702,19 @@ function drawBackCarriedWeapon(
   chestAngle = 0
 ): void {
   ctx.save();
-  ctx.translate(-8 + chestDx, -50 + chestDy);
-  ctx.rotate(-2.32 + chestAngle);
-  ctx.globalAlpha = 0.94;
-  drawCelShadedWeapon(ctx, archetype, weaponId, archetype === 'greatsword' ? 86 : 72);
+  if (archetype === 'daggers' || archetype === 'whip') {
+    // 奇门短匕与九节软鞭束挂于腰后鞘囊，紧凑利落，绝不背成巨型横条！
+    ctx.translate(-12 + chestDx * 0.7, -34 + chestDy * 0.7);
+    ctx.rotate(archetype === 'whip' ? 0.55 + chestAngle * 0.5 : -0.78 + chestAngle * 0.6);
+    ctx.globalAlpha = 0.92;
+    drawCelShadedWeapon(ctx, archetype, weaponId, archetype === 'whip' ? 42 : 34);
+  } else {
+    ctx.translate(-8 + chestDx, -50 + chestDy);
+    ctx.rotate(-2.32 + chestAngle);
+    ctx.globalAlpha = 0.94;
+    const backLen = archetype === 'spear' ? 74 : archetype === 'greatsword' ? 72 : 56;
+    drawCelShadedWeapon(ctx, archetype, weaponId, backLen);
+  }
   ctx.restore();
 }
 
@@ -889,7 +936,7 @@ export function drawHeroCharacter(
     return;
   }
 
-  const secondaryId = s.ownedWeapons.find((id) => id !== s.equippedWeapon);
+  const secondaryId = pickSecondaryWeaponId(s.ownedWeapons, s.equippedWeapon);
 
   renderModularLiYichengRig(ctx, {
     x: p.x,
@@ -925,20 +972,22 @@ export function drawSwordFamiliar(
   const activeFam = engine.getActiveFamiliar();
   if (!activeFam) return;
 
-  // 玄武镇岳：护脉水盾就绪时，于少侠身周环绕温润半透明坎水八卦灵环
+  // 玄武镇岳：护脉水盾就绪时，于少侠身周环绕手绘重彩坎水涡流灵环（彻底替代虚线圆！）
   if (activeFam === 'familiar_tortoise' && engine.tortoiseShieldReady) {
     const p = engine.player;
-    ctx.save();
-    ctx.translate(p.x, p.y - 38);
-    ctx.rotate(t * 0.9);
-    ctx.strokeStyle = 'rgba(34, 211, 238, 0.34)';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([12, 8]);
-    ctx.beginPath();
-    ctx.arc(0, 0, 34, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.restore();
+    const pulse = 46 + Math.sin(t * 2.8) * 2.5;
+    drawPaintedVfxDisc(
+      ctx,
+      'vfx_xuanwu_ward',
+      p.x,
+      p.y - 42,
+      pulse,
+      t * 0.52,
+      0.84,
+      '#22d3ee',
+      1,
+      false
+    );
   }
 
   const fam = engine.familiar;
@@ -1209,18 +1258,23 @@ export function drawMonsterOrBoss(
     const castProg =
       e.castAnimTimer && e.castAnimTimer > 0 ? Math.min(1, e.castAnimTimer / 0.36) : 0;
 
-    // 怪物专属器物常驻与施法/蓄势特效：各司其职，绝不混用！
+    // 怪物专属器物常驻与施法/蓄势特效：全部实装手绘水墨贴图/刀罡，绝不使用空心矢量几何框/圆环！
     if (e.profile.shieldedFront) {
       if (e.aiState === 'stalk' && castProg <= 0) {
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.strokeStyle = `rgba(251, 191, 36, ${0.38 + Math.sin(t * 5 + e.id) * 0.1})`;
-        ctx.lineWidth = 2.6;
-        ctx.beginPath();
         const sAng = e.facing === 1 ? -0.68 : Math.PI - 0.68;
-        ctx.arc(0, -h * 0.52, w * 0.56, sAng, sAng + 1.36);
-        ctx.stroke();
-        ctx.restore();
+        drawInkSlashRibbon(
+          ctx,
+          0,
+          -h * 0.52,
+          1,
+          false,
+          w * 0.54,
+          10,
+          sAng,
+          sAng + 1.36,
+          '#fbbf24',
+          0.38 + Math.sin(t * 5 + e.id) * 0.1
+        );
       } else if (e.aiState === 'windup') {
         // 玄甲重盾傀儡高举重铜战戟过顶蓄势琥珀罡气
         ctx.save();
@@ -1237,112 +1291,141 @@ export function drawMonsterOrBoss(
         ctx.fill();
         ctx.restore();
       } else if (castProg > 0) {
-        // 掷出回旋重铜战斧脱手金环
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.strokeStyle = `rgba(251, 191, 36, ${castProg * 0.85})`;
-        ctx.lineWidth = 2.6;
-        ctx.beginPath();
-        ctx.arc(e.facing * 22, -54, 18 * (1.25 - castProg * 0.4), 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.restore();
+        // 掷出回旋重铜战斧脱手水墨震波
+        drawPaintedVfxDisc(
+          ctx,
+          'vfx_ink_shockwave',
+          e.facing * 22,
+          -54,
+          18 * (1.25 - castProg * 0.4),
+          t * 5,
+          castProg * 0.85,
+          '#fbbf24',
+          1,
+          true
+        );
       }
     } else if (kind === 'paper_swordsman' && e.aiState === 'windup') {
-      // 剪纸刀客：按柄压身居合蓄势冰青寒星 + 飞旋白纸符屑
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
+      // 剪纸刀客：按柄压身居合蓄势冰青水墨震芒 + 飞旋白纸符片
       const gx = -e.facing * 14;
       const gy = -h * 0.46;
-      ctx.strokeStyle = '#bae6fd';
-      ctx.lineWidth = 2.4;
-      ctx.beginPath();
-      ctx.moveTo(gx - 16, gy);
-      ctx.lineTo(gx + 16, gy);
-      ctx.moveTo(gx, gy - 10);
-      ctx.lineTo(gx, gy + 10);
-      ctx.stroke();
+      drawPaintedVfxDisc(
+        ctx,
+        'vfx_ink_shockwave',
+        gx,
+        gy,
+        16 + Math.sin(t * 16) * 3,
+        t * 6,
+        0.72,
+        '#bae6fd',
+        0.65,
+        true
+      );
+      const talImg = Assets.get('item_talisman_scroll');
+      ctx.save();
       for (let pIdx = 0; pIdx < 2; pIdx++) {
         const pa = t * 8 + pIdx * Math.PI + e.id;
-        ctx.fillStyle = 'rgba(224, 242, 254, 0.8)';
-        ctx.fillRect(
-          gx + Math.cos(pa) * 16 - 2.5,
-          gy + Math.sin(pa) * 9 - 4,
-          5,
-          8
-        );
+        const px = gx + Math.cos(pa) * 16;
+        const py = gy + Math.sin(pa) * 9;
+        if (talImg) {
+          ctx.save();
+          ctx.translate(px, py);
+          ctx.rotate(pa);
+          ctx.globalAlpha = 0.85;
+          ctx.drawImage(talImg, -4, -6, 8, 12);
+          ctx.restore();
+        }
       }
       ctx.restore();
     } else if (kind === 'opera_puppet') {
-      // 梨园提线木偶：悬丝傀儡红线（出招/掷针瞬间傀儡丝猛然绷紧泛起赤金流光！）
+      // 梨园提线木偶：悬丝傀儡赤绸丝线（出招/掷针瞬间赤金丝芒流动！）
       const taut = e.aiState === 'windup' || e.aiState === 'lunge_slash' || castProg > 0;
-      ctx.save();
-      ctx.strokeStyle = taut ? 'rgba(251, 113, 133, 0.72)' : 'rgba(244, 63, 94, 0.3)';
-      ctx.lineWidth = taut ? 1.5 : 1.0;
       for (const ox of [-12, 0, 12]) {
-        ctx.beginPath();
-        ctx.moveTo(ox, -h * 0.76);
-        ctx.lineTo(ox + (taut ? 0 : Math.sin(t * 2.5 + ox) * 4), -h - 82);
-        ctx.stroke();
+        drawPaintedChainTrack(
+          ctx,
+          ox,
+          -h * 0.76,
+          ox + (taut ? 0 : Math.sin(t * 2.5 + ox) * 4),
+          -h - 82,
+          3.2,
+          taut ? 0.58 : 0.24,
+          '#fb7185'
+        );
       }
       if (castProg > 0) {
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.strokeStyle = `rgba(244, 114, 182, ${castProg * 0.9})`;
-        ctx.lineWidth = 2.2;
-        ctx.beginPath();
-        ctx.arc(e.facing * 18, -38, 16 * (1.2 - castProg * 0.35), -0.9, 0.9);
-        ctx.stroke();
+        drawInkSlashRibbon(
+          ctx,
+          e.facing * 18,
+          -38,
+          1,
+          false,
+          16 * (1.2 - castProg * 0.35),
+          8,
+          -0.9,
+          0.9,
+          '#f472b6',
+          castProg * 0.88
+        );
       }
-      ctx.restore();
     } else if (kind === 'scroll_demon') {
-      // 飞天书妖：环绕书页的朱砂灵符微页 + 吐符瞬间朱砂敕令法阵
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      for (let sIdx = 0; sIdx < 2; sIdx++) {
-        const sa = t * 3.6 + sIdx * Math.PI + e.id;
-        const sx = Math.cos(sa) * 24;
-        const sy = -30 + Math.sin(sa * 1.4) * 9;
+      // 飞天书妖：环绕书页的朱砂灵符咒页（手绘符箓贴图）+ 吐符古八卦敕令
+      const talImg = Assets.get('item_talisman_scroll');
+      if (talImg) {
         ctx.save();
-        ctx.translate(sx, sy);
-        ctx.rotate(sa * 0.6);
-        ctx.fillStyle = 'rgba(254, 240, 138, 0.72)';
-        ctx.strokeStyle = 'rgba(239, 68, 68, 0.85)';
-        ctx.lineWidth = 1;
-        ctx.fillRect(-3, -5.5, 6, 11);
-        ctx.strokeRect(-3, -5.5, 6, 11);
+        for (let sIdx = 0; sIdx < 2; sIdx++) {
+          const sa = t * 3.6 + sIdx * Math.PI + e.id;
+          const sx = Math.cos(sa) * 24;
+          const sy = -30 + Math.sin(sa * 1.4) * 9;
+          ctx.save();
+          ctx.translate(sx, sy);
+          ctx.rotate(sa * 0.6);
+          ctx.drawImage(talImg, -5, -8, 10, 16);
+          ctx.restore();
+        }
         ctx.restore();
       }
       if (castProg > 0) {
-        const cx = e.facing * 20;
-        const cy = -26;
-        ctx.strokeStyle = `rgba(239, 68, 68, ${castProg * 0.92})`;
-        ctx.lineWidth = 2.2;
-        ctx.beginPath();
-        ctx.arc(cx, cy, 18 * (1.3 - castProg * 0.4), 0, Math.PI * 2);
-        ctx.stroke();
+        drawPaintedVfxDisc(
+          ctx,
+          'vfx_bagua_formation',
+          e.facing * 20,
+          -26,
+          18 * (1.3 - castProg * 0.4),
+          t * 3,
+          castProg * 0.9,
+          '#ef4444',
+          1,
+          true
+        );
       }
-      ctx.restore();
     } else if (kind === 'bell_gargoyle') {
-      // 飞天夜叉：双翼与钢叉跃动金雷电弧 + 掷叉雷音震环
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
+      // 飞天夜叉：双翼与钢叉跃动手绘九霄雷电 + 掷叉雷音水墨震波
       if (castProg > 0 || e.aiState === 'windup') {
-        const cx = e.facing * 20;
-        const cy = -30;
-        ctx.strokeStyle = '#fde047';
-        ctx.lineWidth = 2.2;
-        ctx.beginPath();
-        ctx.arc(cx, cy, 20 * (1.2 - castProg * 0.3), 0, Math.PI * 2);
-        ctx.stroke();
+        drawPaintedVfxDisc(
+          ctx,
+          'vfx_ink_shockwave',
+          e.facing * 20,
+          -30,
+          20 * (1.2 - castProg * 0.3),
+          t * 6,
+          0.8,
+          '#fde047',
+          1,
+          true
+        );
       }
-      ctx.strokeStyle = 'rgba(250, 204, 21, 0.68)';
-      ctx.lineWidth = 1.5;
       const la = t * 18 + e.id;
-      ctx.beginPath();
-      ctx.moveTo(e.facing * 8, -36);
-      ctx.lineTo(e.facing * 16 + Math.sin(la) * 5, -28);
-      ctx.lineTo(e.facing * 24, -34 + Math.cos(la) * 4);
-      ctx.stroke();
-      ctx.restore();
+      drawPaintedThunderBolt(
+        ctx,
+        e.facing * 6,
+        -38,
+        e.facing * 26,
+        -30 + Math.cos(la) * 4,
+        14,
+        0.78,
+        Math.sin(la) > 0,
+        '#facc15'
+      );
     } else if (kind === 'plague_toad' && (Math.abs(e.vy) > 25 || castProg > 0)) {
       // 毒沼金蟾：腾跃扑击与喷毒瞬间咽喉鼓荡碧紫毒雾泡
       ctx.save();
@@ -1449,19 +1532,22 @@ export function drawMonsterOrBoss(
     const kind = e.profile.kind;
 
     if (kind === 'demon_wolf') {
-      // 玄甲镇狱苍狼：飞扑撕裂三道赤金狼爪血痕！
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
+      // 玄甲镇狱苍狼：飞扑撕裂三道水墨赤金狼爪剑弧！
       for (let c = -1; c <= 1; c++) {
-        const yOff = -h * 0.52 + c * 9;
-        ctx.strokeStyle = c === 0 ? `rgba(254, 240, 138, ${fade * 0.95})` : `rgba(249, 115, 22, ${fade * 0.85})`;
-        ctx.lineWidth = c === 0 ? 3.4 : 2.4;
-        ctx.beginPath();
-        ctx.moveTo(e.facing * 4, yOff - 10);
-        ctx.quadraticCurveTo(e.facing * 36, yOff - 2, e.facing * (66 * Math.min(1, p * 1.5)), yOff + 12);
-        ctx.stroke();
+        drawInkSlashRibbon(
+          ctx,
+          e.facing * 4,
+          -h * 0.52 + c * 8,
+          e.facing,
+          false,
+          64,
+          c === 0 ? 11 : 7,
+          -0.42 + p * 0.25,
+          0.35 + p * 0.45,
+          c === 0 ? '#fef08a' : '#f97316',
+          fade * (c === 0 ? 0.95 : 0.78)
+        );
       }
-      ctx.restore();
     } else if (kind === 'corpse_soldier') {
       // 破土荒冢阴兵：锈蚀残戟沉重暗红劈斩！
       const sAng = -1.55 + p * 0.35;
@@ -1473,50 +1559,55 @@ export function drawMonsterOrBoss(
       const eAng = -0.62 + Math.min(1, p * 1.45) * 1.65;
       drawInkSlashRibbon(ctx, e.facing * 6, -h * 0.5, e.facing, false, 60, 13, sAng, eAng, '#10b981', fade);
     } else if (kind === 'paper_swordsman') {
-      // 剪纸刀客：极速冰青居合一字拔刀闪 + 飞舞白纸符片
+      // 剪纸刀客：极速冰青居合一字拔刀闪 + 飞舞飘零符片
       const sAng = -0.52 + p * 0.18;
       const eAng = -0.36 + Math.min(1, p * 1.45) * 1.12;
       drawInkSlashRibbon(ctx, e.facing * 8, -h * 0.54, e.facing, false, 84, 15, sAng, eAng, '#38bdf8', fade);
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      const beamLen = 92 * Math.min(1, p * 1.6);
-      const bg = ctx.createLinearGradient(-16 * e.facing, -h * 0.52, e.facing * beamLen, -h * 0.52);
-      bg.addColorStop(0, 'rgba(56, 189, 248, 0)');
-      bg.addColorStop(0.55, `rgba(186, 230, 253, ${fade * 0.85})`);
-      bg.addColorStop(1, `rgba(255, 255, 255, ${fade * 0.98})`);
-      ctx.strokeStyle = bg;
-      ctx.lineWidth = 4.2 * (1 - p * 0.45);
-      ctx.beginPath();
-      ctx.moveTo(-14 * e.facing, -h * 0.52);
-      ctx.lineTo(e.facing * beamLen, -h * 0.52);
-      ctx.stroke();
-      // 拔刀切碎飘散的剪纸残片
-      for (let k = 0; k < 3; k++) {
-        const px = e.facing * (18 + k * 22 + p * 18);
-        const py = -h * 0.52 + Math.sin(t * 20 + k * 2.1) * 10;
-        ctx.save();
-        ctx.translate(px, py);
-        ctx.rotate(p * 3 + k);
-        ctx.fillStyle = `rgba(241, 245, 249, ${fade * 0.82})`;
-        ctx.fillRect(-3.5, -2, 7, 4);
-        ctx.restore();
+      drawInkSlashRibbon(
+        ctx,
+        e.facing * 10,
+        -h * 0.52,
+        e.facing,
+        false,
+        90 * Math.min(1, p * 1.5),
+        8,
+        -0.12,
+        0.1,
+        '#bae6fd',
+        fade * 0.9
+      );
+      const talImg = Assets.get('item_talisman_scroll');
+      if (talImg) {
+        for (let k = 0; k < 3; k++) {
+          const px = e.facing * (18 + k * 22 + p * 18);
+          const py = -h * 0.52 + Math.sin(t * 20 + k * 2.1) * 10;
+          ctx.save();
+          ctx.translate(px, py);
+          ctx.rotate(p * 3 + k);
+          ctx.globalAlpha = fade * 0.84;
+          ctx.drawImage(talImg, -4.5, -6, 9, 12);
+          ctx.restore();
+        }
       }
-      ctx.restore();
     } else if (kind === 'bronze_guard') {
-      // 玄甲重盾傀儡：千钧重铜战戟自头顶轰然砸地（动态琥珀金铁巨弧 + 裂地冲击金环）
+      // 玄甲重盾傀儡：千钧重铜战戟自头顶轰然砸地（动态琥珀金铁巨弧 + 水墨裂地冲击震波！）
       const sAng = -1.78 + p * 0.35;
       const eAng = -1.42 + Math.min(1, p * 1.38) * 2.48;
       drawInkSlashRibbon(ctx, 0, -h * 0.58, e.facing, false, 84, 24, sAng, eAng, '#f59e0b', fade);
       if (p > 0.4) {
         const slamP = (p - 0.4) / 0.6;
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.strokeStyle = `rgba(251, 191, 36, ${(1 - slamP) * 0.88})`;
-        ctx.lineWidth = 3.2 * (1 - slamP * 0.6);
-        ctx.beginPath();
-        ctx.ellipse(e.facing * 52, -2, 14 + slamP * 34, 4 + slamP * 7, 0, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.restore();
+        drawPaintedVfxDisc(
+          ctx,
+          'vfx_ink_shockwave',
+          e.facing * 52,
+          -2,
+          20 + slamP * 34,
+          slamP * 2.5,
+          (1 - slamP) * 0.88,
+          '#fbbf24',
+          0.28,
+          true
+        );
       }
     } else if (kind === 'lantern_ghost') {
       // 提灯冥火鬼：引魂灯迸发幽青冥火旋涡 + 4团游魂鬼火球（彻底告别违和红刀光！）
@@ -1556,15 +1647,19 @@ export function drawMonsterOrBoss(
       const sAng = -0.85 + p * 0.25;
       const eAng = -0.55 + Math.min(1, p * 1.4) * 1.45;
       drawInkSlashRibbon(ctx, e.facing * 10, -h * 0.58, e.facing, false, 106, 22, sAng, eAng, '#38bdf8', fade);
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.strokeStyle = `rgba(224, 242, 254, ${fade * 0.92})`;
-      ctx.lineWidth = 4.5 * (1 - p * 0.4);
-      ctx.beginPath();
-      ctx.moveTo(-10 * e.facing, -h * 0.56);
-      ctx.lineTo(e.facing * (118 * Math.min(1, p * 1.5)), -h * 0.56);
-      ctx.stroke();
-      ctx.restore();
+      drawInkSlashRibbon(
+        ctx,
+        -8 * e.facing,
+        -h * 0.56,
+        e.facing,
+        false,
+        118 * Math.min(1, p * 1.5),
+        10,
+        -0.08,
+        0.08,
+        '#e0f2fe',
+        fade * 0.92
+      );
     } else {
       // 各区域守关妖王：按自身本命妖气色彩实时挥展霸道水墨刀罡！
       const sAng = -1.45 + p * 0.38;
@@ -1586,32 +1681,25 @@ export function drawMonsterOrBoss(
     }
   }
 
-  // 纸人剑客横刀架挡姿态视觉提示：身前泛起凛冽银青护身刀芒弧（提醒少侠绕背、跳劈或重斩破架！）
+  // 纸人剑客横刀架挡姿态视觉提示：水墨青冥刀罡护盾弧（替代矢量空心圆弧！）
   if (
     e.profile.kind === 'paper_swordsman' &&
     (e.guardStanceTimer || 0) > 0 &&
     e.aiState !== 'staggered'
   ) {
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.strokeStyle = 'rgba(125, 211, 252, 0.92)';
-    ctx.lineWidth = 3.2;
-    ctx.beginPath();
-    ctx.arc(
-      e.facing * 12,
+    drawInkSlashRibbon(
+      ctx,
+      e.facing * 10,
       -h * 0.56,
-      26,
+      1,
+      false,
+      28,
+      9,
       e.facing === 1 ? -0.95 : Math.PI - 0.95,
-      e.facing === 1 ? 0.95 : Math.PI + 0.95
+      e.facing === 1 ? 0.95 : Math.PI + 0.95,
+      '#7dd3fc',
+      0.92
     );
-    ctx.stroke();
-    ctx.strokeStyle = 'rgba(254, 240, 138, 0.85)';
-    ctx.lineWidth = 1.8;
-    ctx.beginPath();
-    ctx.moveTo(e.facing * 18, -h * 0.82);
-    ctx.lineTo(e.facing * 24, -h * 0.28);
-    ctx.stroke();
-    ctx.restore();
   }
 
   // 小怪极简水墨残血细条 + 下方琥珀金架势韧性细槽！
@@ -1903,12 +1991,14 @@ export function drawWorldDrop(
     }
     if (rimColor) {
       ctx.globalCompositeOperation = 'lighter';
-      ctx.strokeStyle = rimColor;
-      ctx.globalAlpha = 0.35 + Math.sin(t * 4 + d.x) * 0.12;
-      ctx.lineWidth = 1.4;
+      const ag = ctx.createRadialGradient(0, 0, 2, 0, 0, dim * 0.52);
+      ag.addColorStop(0, rimColor);
+      ag.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = ag;
+      ctx.globalAlpha = 0.28 + Math.sin(t * 4 + d.x) * 0.08;
       ctx.beginPath();
-      ctx.arc(0, 0, dim * 0.44, 0, Math.PI * 2);
-      ctx.stroke();
+      ctx.arc(0, 0, dim * 0.52, 0, Math.PI * 2);
+      ctx.fill();
     }
     ctx.restore();
   } else if (d.kind === 'skill_scroll') {
@@ -1918,12 +2008,13 @@ export function drawWorldDrop(
       ctx.drawImage(scrImg, -17, floatY - 17, 34, 34);
     }
   } else if (d.kind === 'ability') {
-    // 镇司奇宝传承台：低矮精致青石莲座 + 悬浮秘宝真身（告别原先 94px 遮挡画面的巨型石碑！）
-    ctx.fillStyle = '#1e293b';
-    ctx.strokeStyle = '#64748b';
-    ctx.lineWidth = 1.2;
-    ctx.fillRect(-18, -7, 36, 7);
-    ctx.strokeRect(-18, -7, 36, 7);
+    // 镇司奇宝传承台：手绘古石传功莲座 + 悬浮秘宝真身！
+    const pedImg = Assets.get('item_relic_pedestal');
+    if (pedImg && pedImg.width && pedImg.height) {
+      const pw = 36;
+      const ph = Math.min(18, pw * (pedImg.height / pedImg.width));
+      ctx.drawImage(pedImg, -pw * 0.5, -ph + 2, pw, ph);
+    }
 
     const bobY = -26 + Math.sin(t * 3.6) * 3.2;
     const isFamiliarRelic = ALL_FAMILIAR_IDS.includes(d.itemId as FamiliarId);

@@ -156,6 +156,8 @@ class GuofengAudioEngine {
   private masterBus: GainNode | null = null;
   private echoDelay: DelayNode | null = null;
   private noiseBuf: AudioBuffer | null = null;
+  private foley = new Map<string, AudioBuffer>();
+  private zitherCache = new Map<number, AudioBuffer>();
   private sfxMuted = false;
   private bgmMuted = false;
   private mood: BgmMood = 'off';
@@ -232,6 +234,7 @@ class GuofengAudioEngine {
         for (let i = 0; i < len; i++) {
           data[i] = Math.random() * 2 - 1;
         }
+        this.bakeFoleyBank(this.ctx);
       }
     }
     return this.ctx;
@@ -288,78 +291,522 @@ class GuofengAudioEngine {
     }
   }
 
-  // 声部一：巴洛克羽管键琴 × 古筝清脆拨弦琶音
+  /**
+   * 离线预烘培写实国风拟音与物理建模音源库（彻底取代早期纯正弦/锯齿电子机械音！）
+   */
+  private bakeFoleyBank(ctx: AudioContext): void {
+    if (this.foley.size > 0) return;
+    const sr = ctx.sampleRate;
+    let seed = 0x5f3759df;
+    const rand = () => {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      return seed / 4294967296;
+    };
+    const makeBuf = (dur: number, fn: (out: Float32Array, sr: number) => void): AudioBuffer => {
+      const n = Math.max(64, Math.floor(sr * dur));
+      const buf = ctx.createBuffer(1, n, sr);
+      const out = buf.getChannelData(0);
+      fn(out, sr);
+      let peak = 0;
+      for (let i = 0; i < n; i++) {
+        const a = Math.abs(out[i]);
+        if (a > peak) peak = a;
+      }
+      if (peak > 0.92) {
+        const sc = 0.88 / peak;
+        for (let i = 0; i < n; i++) out[i] *= sc;
+      }
+      return buf;
+    };
+
+    const addModalBurst = (
+      out: Float32Array,
+      startSec: number,
+      modes: ReadonlyArray<readonly [number, number, number]>,
+      noiseAmp = 0,
+      noiseDecay = 80
+    ) => {
+      const i0 = Math.floor(startSec * sr);
+      let lp = 0;
+      for (let i = i0; i < out.length; i++) {
+        const dt = (i - i0) / sr;
+        let s = 0;
+        let active = false;
+        for (const [hz, amp, damp] of modes) {
+          const env = Math.exp(-dt * damp);
+          if (env > 0.001) {
+            s += Math.sin(2 * Math.PI * hz * dt) * amp * env;
+            active = true;
+          }
+        }
+        if (noiseAmp > 0) {
+          const ne = Math.exp(-dt * noiseDecay);
+          if (ne > 0.001) {
+            lp = lp * 0.65 + (rand() * 2 - 1) * 0.35;
+            s += lp * noiseAmp * ne;
+            active = true;
+          }
+        }
+        if (!active) break;
+        out[i] += s;
+      }
+    };
+
+    // 1. 轻功踏石跃起：青石鞋底轻叩 + 麻布衣袂兜风声（绝无机械嘀声！）
+    this.foley.set(
+      'jump',
+      makeBuf(0.14, (out) => {
+        addModalBurst(
+          out,
+          0,
+          [
+            [175, 0.36, 95],
+            [410, 0.24, 145],
+            [790, 0.14, 210],
+          ],
+          0.42,
+          120
+        );
+        let p0 = 0;
+        let p1 = 0;
+        let hp = 0;
+        let prev = 0;
+        for (let i = 0; i < out.length; i++) {
+          const t = i / sr;
+          const w = rand() * 2 - 1;
+          p0 = p0 * 0.84 + w * 0.16;
+          p1 = p1 * 0.92 + p0 * 0.08;
+          hp = p0 - p1 * 0.65;
+          const bp = hp - prev * 0.45;
+          prev = hp;
+          const env = Math.sin(Math.min(1, t / 0.025) * Math.PI * 0.5) * Math.exp(-Math.max(0, t - 0.015) * 26);
+          out[i] += bp * env * 0.48;
+        }
+      })
+    );
+
+    // 2. 挥刃斩风拟音（轻剑 / 重刃 / 银枪 / 九节铁鞭各具真声！）
+    const makeAirCut = (dur: number, cutLo: number, cutHi: number, edgeHz: number, edgeAmp: number) =>
+      makeBuf(dur, (out) => {
+        let lp = 0;
+        let bpState = 0;
+        for (let i = 0; i < out.length; i++) {
+          const u = i / out.length;
+          const t = i / sr;
+          const sweepHz = cutHi * Math.exp(-u * 1.45) + cutLo * u;
+          const alpha = Math.min(0.85, (2 * Math.PI * sweepHz) / sr);
+          const n = rand() * 2 - 1;
+          lp += alpha * (n - lp);
+          const air = lp - bpState;
+          bpState += Math.min(0.75, alpha * 0.38) * (lp - bpState);
+          const env = Math.sin(Math.min(1, u / 0.22) * Math.PI * 0.5) * Math.pow(Math.max(0, 1 - u), 1.45);
+          out[i] += air * env * 0.92;
+          if (edgeAmp > 0) {
+            out[i] += Math.sin(2 * Math.PI * edgeHz * t) * edgeAmp * Math.exp(-t * 24) * env;
+          }
+        }
+      });
+
+    this.foley.set('slash_light', makeAirCut(0.14, 520, 2200, 3150, 0.06));
+    this.foley.set('slash_heavy', makeAirCut(0.24, 165, 760, 142, 0.22));
+    this.foley.set('slash_spear', makeAirCut(0.13, 860, 2950, 1180, 0.09));
+    this.foley.set(
+      'slash_whip',
+      makeBuf(0.16, (out) => {
+        // 5 声错落铁链环扣清脆互碰
+        for (let k = 0; k < 5; k++) {
+          const t0 = k * 0.011;
+          const base = 2450 + k * 460;
+          addModalBurst(out, t0, [
+            [base, 0.18, 95],
+            [base * 1.47, 0.13, 130],
+            [base * 2.13, 0.09, 175],
+          ]);
+        }
+        // 0.056s 鞭梢破音障脆响
+        let lp = 0;
+        const crackIdx = Math.floor(0.056 * sr);
+        for (let i = crackIdx; i < out.length; i++) {
+          const dt = (i - crackIdx) / sr;
+          lp = lp * 0.45 + (rand() * 2 - 1) * 0.55;
+          out[i] += (rand() * 0.55 + lp * 0.45) * Math.exp(-dt * 85) * 0.95;
+        }
+      })
+    );
+
+    // 3. 刀刀入肉击打感（沉实皮革/皮肉闷响 + 甲胄破裂瞬态 + 暴击冷铁震颤）
+    const makeHit = (dur: number, thumpHz: number, crackAmp: number, metalAmp: number) =>
+      makeBuf(dur, (out) => {
+        let lp = 0;
+        let phase = 0;
+        for (let i = 0; i < out.length; i++) {
+          const t = i / sr;
+          const f = thumpHz * (0.46 + 0.78 * Math.exp(-t * 36));
+          phase += (2 * Math.PI * f) / sr;
+          const thump = Math.sin(phase) * Math.exp(-t * 28) * 0.72;
+          const n = rand() * 2 - 1;
+          lp = lp * 0.62 + n * 0.38;
+          const snap = (n * 0.4 + lp * 0.6) * Math.exp(-t * 62) * crackAmp;
+          out[i] += thump + snap;
+        }
+        if (metalAmp > 0) {
+          addModalBurst(out, 0.002, [
+            [2180, metalAmp, 22],
+            [3490, metalAmp * 0.75, 29],
+            [5080, metalAmp * 0.45, 38],
+          ]);
+        }
+      });
+
+    this.foley.set('hit_normal', makeHit(0.13, 128, 0.58, 0));
+    this.foley.set('hit_heavy', makeHit(0.18, 96, 0.76, 0.1));
+    this.foley.set('hit_crit', makeHit(0.24, 114, 0.85, 0.28));
+
+    // 4. 陶罐 / 宫灯破碎：竹框折断声 + 9 枚高低错落瓷片溅落
+    this.foley.set(
+      'lantern_break',
+      makeBuf(0.24, (out) => {
+        addModalBurst(
+          out,
+          0,
+          [
+            [560, 0.25, 58],
+            [1140, 0.22, 85],
+          ],
+          0.55,
+          65
+        );
+        for (let i = 0; i < 9; i++) {
+          const hz = 1650 + ((i * 577) % 3600);
+          addModalBurst(out, 0.008 + i * 0.014, [
+            [hz, 0.16, 42 + i * 4],
+            [hz * 1.63, 0.1, 64 + i * 5],
+          ]);
+        }
+      })
+    );
+
+    // 5. 生铁剑刃拼刀弹反（7 阶冷钢非谐振泛音列，清越凄厉！）
+    this.foley.set(
+      'parry_clang',
+      makeBuf(0.42, (out) => {
+        const modes = [1390, 2180, 2960, 3840, 4790, 5920, 7150];
+        addModalBurst(
+          out,
+          0,
+          modes.map((hz, idx) => [hz, 0.34 / (1 + idx * 0.38), 6.8 + idx * 2.9]),
+          0.65,
+          190
+        );
+      })
+    );
+
+    // 6. 妖魔溃灭 & 镇关魔神轰塌钟鸣
+    this.foley.set(
+      'enemy_die',
+      makeBuf(0.28, (out) => {
+        let lp = 0;
+        let phase = 0;
+        for (let i = 0; i < out.length; i++) {
+          const t = i / sr;
+          const f = 94 * (0.45 + 0.65 * Math.exp(-t * 18));
+          phase += (2 * Math.PI * f) / sr;
+          lp = lp * 0.88 + (rand() * 2 - 1) * 0.12;
+          out[i] += Math.sin(phase) * Math.exp(-t * 15) * 0.6 + lp * Math.exp(-t * 11) * 0.55;
+        }
+      })
+    );
+    this.foley.set(
+      'boss_die',
+      makeBuf(0.95, (out) => {
+        let lp = 0;
+        let phase = 0;
+        for (let i = 0; i < out.length; i++) {
+          const t = i / sr;
+          const f = 68 * (0.48 + 0.72 * Math.exp(-t * 11));
+          phase += (2 * Math.PI * f) / sr;
+          lp = lp * 0.92 + (rand() * 2 - 1) * 0.08;
+          out[i] += Math.sin(phase) * Math.exp(-t * 5.2) * 0.68 + lp * Math.exp(-t * 4.5) * 0.42;
+        }
+        addModalBurst(out, 0.015, [
+          [110, 0.38, 2.8],
+          [174, 0.24, 3.6],
+          [256, 0.18, 4.8],
+          [342, 0.11, 6.2],
+        ]);
+      })
+    );
+
+    // 7. 施展玄门绝学：丹田真炁吐纳涌流 + 青霜出鞘剑鸣
+    this.foley.set(
+      'skill_cast',
+      makeBuf(0.38, (out) => {
+        let lp = 0;
+        let bp = 0;
+        for (let i = 0; i < out.length; i++) {
+          const t = i / sr;
+          const u = i / out.length;
+          const n = rand() * 2 - 1;
+          const hz = 240 + Math.sin(u * Math.PI) * 920;
+          const a = Math.min(0.8, (2 * Math.PI * hz) / sr);
+          lp += a * (n - lp);
+          const band = lp - bp;
+          bp += a * 0.42 * (lp - bp);
+          const env = Math.sin(u * Math.PI);
+          out[i] += band * env * 0.82;
+        }
+        addModalBurst(out, 0.02, [
+          [293.66, 0.22, 6.5],
+          [440, 0.16, 8.2],
+          [2080, 0.11, 14],
+          [3290, 0.08, 19],
+        ]);
+      })
+    );
+
+    // 8. 奇宝秘卷现世：先秦合瓦形双音青铜编钟清越长鸣
+    this.foley.set(
+      'relic_bell',
+      makeBuf(0.95, (out) => {
+        const hitBianzhong = (startSec: number, rootHz: number, amp: number) =>
+          addModalBurst(
+            out,
+            startSec,
+            [
+              [rootHz, 0.42 * amp, 3.1],
+              [rootHz * 1.21, 0.26 * amp, 4.4],
+              [rootHz * 2.02, 0.22 * amp, 6.2],
+              [rootHz * 2.78, 0.14 * amp, 9.5],
+              [rootHz * 3.62, 0.08 * amp, 14],
+            ],
+            0.22 * amp,
+            160
+          );
+        hitBianzhong(0, 293.66, 1.0);
+        hitBianzhong(0.15, 440, 0.85);
+      })
+    );
+
+    // 9. 主角受创痛感：沉闷护体硬直撞击 + 衣袍裂响
+    this.foley.set(
+      'hurt',
+      makeBuf(0.2, (out) => {
+        let lp = 0;
+        let phase = 0;
+        for (let i = 0; i < out.length; i++) {
+          const t = i / sr;
+          const f = 96 * (0.42 + 0.72 * Math.exp(-t * 28));
+          phase += (2 * Math.PI * f) / sr;
+          lp = lp * 0.78 + (rand() * 2 - 1) * 0.22;
+          out[i] += Math.sin(phase) * Math.exp(-t * 17) * 0.78 + lp * Math.exp(-t * 22) * 0.56;
+        }
+      })
+    );
+
+    // 10. 玄门大堂牛皮战鼓（圆膜贝塞尔泛音 + 鼓槌皮面敲击瞬态！）
+    this.foley.set(
+      'war_drum',
+      makeBuf(0.3, (out) => {
+        let phase1 = 0;
+        let phase2 = 0;
+        let phase3 = 0;
+        let lp = 0;
+        const base = 68;
+        for (let i = 0; i < out.length; i++) {
+          const t = i / sr;
+          const tension = 1 + 0.34 * Math.exp(-t * 48);
+          phase1 += (2 * Math.PI * base * tension) / sr;
+          phase2 += (2 * Math.PI * base * 1.59 * tension) / sr;
+          phase3 += (2 * Math.PI * base * 2.14 * tension) / sr;
+          lp = lp * 0.72 + (rand() * 2 - 1) * 0.28;
+          const body =
+            Math.sin(phase1) * Math.exp(-t * 11.5) * 0.78 +
+            Math.sin(phase2) * Math.exp(-t * 18) * 0.24 +
+            Math.sin(phase3) * Math.exp(-t * 26) * 0.12;
+          const stick = lp * Math.exp(-t * 110) * 0.52;
+          out[i] += body + stick;
+        }
+      })
+    );
+
+    // 11. 五行兵刃附魔瞬态（寒霜碎冰 / 紫电雷爆 / 饮血脉动 / 蓄力龙吟）
+    this.foley.set(
+      'elem_frost',
+      makeBuf(0.28, (out) => {
+        for (let i = 0; i < 7; i++) {
+          const hz = 2900 + ((i * 811) % 3400);
+          addModalBurst(out, i * 0.016, [
+            [hz, 0.18, 36],
+            [hz * 1.38, 0.12, 48],
+          ]);
+        }
+      })
+    );
+    this.foley.set(
+      'elem_lightning',
+      makeBuf(0.22, (out) => {
+        let lp = 0;
+        for (let i = 0; i < out.length; i++) {
+          const t = i / sr;
+          const n = rand() * 2 - 1;
+          lp = lp * 0.88 + n * 0.12;
+          const arc = i < sr * 0.045 ? n * 0.65 * Math.exp(-t * 42) : 0;
+          const thunder = lp * Math.exp(-t * 14) * 0.72;
+          out[i] += arc + thunder;
+        }
+      })
+    );
+    this.foley.set(
+      'elem_blood',
+      makeBuf(0.18, (out) => {
+        addModalBurst(out, 0, [[82, 0.55, 16], [124, 0.28, 22]], 0.35, 38);
+      })
+    );
+    this.foley.set(
+      'elem_charge',
+      makeBuf(0.45, (out) => {
+        addModalBurst(
+          out,
+          0.02,
+          [
+            [220, 0.26, 5.2],
+            [330, 0.2, 6.8],
+            [587.3, 0.16, 8.5],
+          ],
+          0.22,
+          16
+        );
+      })
+    );
+  }
+
+  private playFoley(
+    key: string,
+    vol: number,
+    rateJitter = 0.08,
+    useEcho = false,
+    baseRate = 1
+  ): void {
+    const ctx = this.ctx;
+    if (!ctx || ctx.state !== 'running') return;
+    const buf = this.foley.get(key);
+    if (!buf) return;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.playbackRate.value = baseRate * (1 + (Math.random() - 0.5) * rateJitter);
+    const g = ctx.createGain();
+    g.gain.value = vol;
+    src.connect(g);
+    this.sendToHall(g, useEcho);
+    src.start(ctx.currentTime);
+  }
+
+  /**
+   * Karplus-Strong 物理建模古筝/琵琶丝弦（温润木腔共鸣 + 自然弦衰，彻底去除锯齿机械味！）
+   */
+  private getZitherBuffer(midi: number): AudioBuffer | null {
+    const cached = this.zitherCache.get(midi);
+    if (cached || !this.ctx) return cached ?? null;
+    const sr = this.ctx.sampleRate;
+    const hz = midiToHz(midi);
+    const delayN = Math.max(8, Math.round(sr / hz));
+    const len = Math.floor(sr * 0.62);
+    const buf = this.ctx.createBuffer(1, len, sr);
+    const out = buf.getChannelData(0);
+    const ring = new Float32Array(delayN);
+
+    // 温润拨片滤波白噪初始激励 + 古桐木共鸣音色微调
+    let lp = 0;
+    for (let i = 0; i < delayN; i++) {
+      const white = Math.random() * 2 - 1;
+      lp = lp * 0.55 + white * 0.45;
+      ring[i] = lp * Math.sin((i / delayN) * Math.PI);
+    }
+
+    const damping = hz > 520 ? 0.992 : 0.9955;
+    let bodyPhase = 0;
+    let idx = 0;
+    for (let i = 0; i < len; i++) {
+      const nextIdx = (idx + 1) % delayN;
+      const s = 0.5 * (ring[idx] + ring[nextIdx]) * damping;
+      ring[idx] = s;
+      idx = nextIdx;
+      bodyPhase += (2 * Math.PI * Math.min(260, hz * 0.5)) / sr;
+      const woodBody = Math.sin(bodyPhase) * Math.exp((-i / sr) * 18) * 0.16;
+      out[i] = s * 0.72 + woodBody;
+    }
+    this.zitherCache.set(midi, buf);
+    return buf;
+  }
+
+  // 声部一：物理建模古筝/琵琶清脆丝弦琶音
   private playHarpsichordGuzheng(freq: number, dur: number, vol: number): void {
     const ctx = this.ctx;
     if (!ctx || ctx.state !== 'running') return;
+    const midi = Math.round(69 + 12 * Math.log2(Math.max(55, freq) / 440));
+    const buf = this.getZitherBuffer(midi);
+    if (!buf) return;
     const now = ctx.currentTime;
-    const osc1 = ctx.createOscillator();
-    const osc2 = ctx.createOscillator();
-    const filter = ctx.createBiquadFilter();
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const exactRatio = freq / midiToHz(midi);
+    src.playbackRate.value = Math.max(0.5, Math.min(2, exactRatio));
+
     const gain = ctx.createGain();
-
-    osc1.type = 'sawtooth';
-    osc2.type = 'triangle';
-    osc1.frequency.setValueAtTime(freq, now);
-    osc2.frequency.setValueAtTime(freq * 2, now);
-    osc1.detune.value = 4;
-
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(Math.min(5400, freq * 6.5), now);
-    filter.frequency.exponentialRampToValueAtTime(Math.max(260, freq * 1.15), now + dur);
-
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.linearRampToValueAtTime(vol, now + 0.006);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-
-    osc1.connect(filter);
-    osc2.connect(filter);
-    filter.connect(gain);
+    gain.gain.setValueAtTime(vol * 1.45, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + Math.min(0.6, Math.max(0.16, dur * 1.4)));
+    src.connect(gain);
     this.sendToHall(gain, true);
-
-    osc1.start(now);
-    osc2.start(now);
-    osc1.stop(now + dur + 0.02);
-    osc2.stop(now + dur + 0.02);
+    src.start(now);
   }
 
-  // 声部二：二胡/哥特大提琴揉弦歌唱主旋律（自带微颤音 Vibrato！）
+  // 声部二：温润二胡/洞箫揉弦歌唱主旋律（木腔柔和滤波 + 自然松香呼吸泛音）
   private playBowedLead(freq: number, dur: number, vol: number): void {
     const ctx = this.ctx;
     if (!ctx || ctx.state !== 'running') return;
     const now = ctx.currentTime;
 
-    const osc = ctx.createOscillator();
+    const osc1 = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+    const g2 = ctx.createGain();
     const lfo = ctx.createOscillator();
     const lfoGain = ctx.createGain();
     const filter = ctx.createBiquadFilter();
     const gain = ctx.createGain();
 
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(freq, now);
+    osc1.type = 'triangle';
+    osc2.type = 'sine';
+    osc1.frequency.setValueAtTime(freq, now);
+    osc2.frequency.setValueAtTime(freq * 2, now);
+    g2.gain.value = 0.24;
 
     lfo.type = 'sine';
-    lfo.frequency.value = 5.6;
-    lfoGain.gain.value = freq * 0.011;
+    lfo.frequency.value = 5.3;
+    lfoGain.gain.value = freq * 0.009;
     lfo.connect(lfoGain);
-    lfoGain.connect(osc.frequency);
+    lfoGain.connect(osc1.frequency);
+    lfoGain.connect(osc2.frequency);
 
-    filter.type = 'bandpass';
-    filter.frequency.value = Math.min(2800, freq * 2.4);
-    filter.Q.value = 1.25;
+    filter.type = 'lowpass';
+    filter.frequency.value = Math.min(2200, freq * 2.5);
+    filter.Q.value = 1.4;
 
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.linearRampToValueAtTime(vol, now + 0.045);
-    gain.gain.setValueAtTime(vol * 0.85, now + dur * 0.65);
+    gain.gain.linearRampToValueAtTime(vol * 1.15, now + 0.055);
+    gain.gain.setValueAtTime(vol * 0.92, now + dur * 0.65);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
 
-    osc.connect(filter);
+    osc1.connect(filter);
+    osc2.connect(g2);
+    g2.connect(filter);
     filter.connect(gain);
     this.sendToHall(gain, true);
 
-    osc.start(now);
+    osc1.start(now);
+    osc2.start(now);
     lfo.start(now);
-    osc.stop(now + dur + 0.03);
+    osc1.stop(now + dur + 0.03);
+    osc2.stop(now + dur + 0.03);
     lfo.stop(now + dur + 0.03);
   }
 
@@ -389,22 +836,9 @@ class GuofengAudioEngine {
     osc.stop(now + dur + 0.02);
   }
 
-  // 声部四：定音战鼓与细碎节拍镲
+  // 声部四：堂鼓牛皮战鼓（调用预烘培鼓腔拟音而非单一正弦波扫频）与竹木击节
   private playDrum(vol: number, pitch = 68): void {
-    const ctx = this.ctx;
-    if (!ctx || ctx.state !== 'running') return;
-    const now = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(pitch * 1.9, now);
-    osc.frequency.exponentialRampToValueAtTime(pitch * 0.52, now + 0.16);
-    gain.gain.setValueAtTime(vol, now);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
-    osc.connect(gain);
-    this.sendToHall(gain, false);
-    osc.start(now);
-    osc.stop(now + 0.22);
+    this.playFoley('war_drum', vol * 2.1, 0.06, false, Math.max(0.55, Math.min(1.65, pitch / 68)));
   }
 
   private playHiTick(vol = 0.022): void {
@@ -623,168 +1057,86 @@ class GuofengAudioEngine {
     const ctx = this.ensureContext();
     if (!ctx || ctx.state !== 'running') return;
     if (kind === 'frost') {
-      this.playBronzeBell(midiToHz(88), 0.28, 0.055);
-      this.playBronzeBell(midiToHz(95), 0.22, 0.045);
+      this.playFoley('elem_frost', 0.26, 0.12, true);
     } else if (kind === 'lightning') {
-      this.playHarpsichordGuzheng(midiToHz(84), 0.14, 0.07);
-      this.playHiTick(0.065);
+      this.playFoley('elem_lightning', 0.28, 0.14, true);
     } else if (kind === 'blood') {
-      this.playDrum(0.14, 52);
+      this.playFoley('elem_blood', 0.28, 0.1, false);
     } else if (kind === 'charge') {
-      this.playDrum(0.24, 46);
-      this.playBronzeBell(midiToHz(74), 0.48, 0.085);
+      this.playFoley('elem_charge', 0.3, 0.06, true);
     }
   }
 
   public playSlash(weight: 'light' | 'heavy' | 'spear' | 'whip'): void {
     if (this.sfxMuted) return;
     const ctx = this.ensureContext();
-    if (!ctx || ctx.state !== 'running' || !this.noiseBuf) return;
-    const now = ctx.currentTime;
-
-    const src = ctx.createBufferSource();
-    src.buffer = this.noiseBuf;
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    const baseFreq =
-      weight === 'heavy' ? 420 : weight === 'whip' ? 1450 : weight === 'spear' ? 1050 : 880;
-    filter.frequency.setValueAtTime(baseFreq * 1.45, now);
-    filter.frequency.exponentialRampToValueAtTime(baseFreq * 0.42, now + 0.14);
-    filter.Q.value = weight === 'whip' ? 3.5 : 1.8;
-
-    const gain = ctx.createGain();
-    const dur = weight === 'heavy' ? 0.19 : 0.11;
-    gain.gain.setValueAtTime(0.15, now);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-
-    src.connect(filter);
-    filter.connect(gain);
-    this.sendToHall(gain, false);
-    src.start(now);
-    src.stop(now + dur + 0.01);
+    if (!ctx || ctx.state !== 'running') return;
+    const key =
+      weight === 'heavy'
+        ? 'slash_heavy'
+        : weight === 'whip'
+          ? 'slash_whip'
+          : weight === 'spear'
+            ? 'slash_spear'
+            : 'slash_light';
+    this.playFoley(key, weight === 'heavy' ? 0.32 : 0.26, 0.1, false);
   }
 
   public playHit(crit = false, heavy = false): void {
     if (this.sfxMuted) return;
     const ctx = this.ensureContext();
     if (!ctx || ctx.state !== 'running') return;
-    const now = ctx.currentTime;
-    // 1. 沉实入肉低频闷击声
-    this.playDrum(crit ? 0.24 : heavy ? 0.2 : 0.16, crit ? 96 : heavy ? 66 : 78);
-
-    // 2. 刀刃切裂甲胄噪波瞬态（恶魔城刀刀入肉核心听感！）
-    if (this.noiseBuf) {
-      const src = ctx.createBufferSource();
-      src.buffer = this.noiseBuf;
-      const bp = ctx.createBiquadFilter();
-      bp.type = 'bandpass';
-      bp.frequency.setValueAtTime(crit ? 2100 : 1450, now);
-      bp.frequency.exponentialRampToValueAtTime(380, now + 0.075);
-      bp.Q.value = 1.6;
-      const ng = ctx.createGain();
-      ng.gain.setValueAtTime(crit ? 0.19 : 0.13, now);
-      ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
-      src.connect(bp);
-      bp.connect(ng);
-      this.sendToHall(ng, false);
-      src.start(now);
-      src.stop(now + 0.085);
-    }
-
-    // 3. 冷冽金铁泛音余韵
-    if (crit || heavy) {
-      this.playHarpsichordGuzheng(midiToHz(crit ? 81 : 74), 0.18, crit ? 0.09 : 0.06);
-    }
+    const key = crit ? 'hit_crit' : heavy ? 'hit_heavy' : 'hit_normal';
+    this.playFoley(key, crit ? 0.36 : heavy ? 0.32 : 0.26, 0.1, false);
   }
 
   public playLanternBreak(): void {
     if (this.sfxMuted) return;
     const ctx = this.ensureContext();
     if (!ctx || ctx.state !== 'running') return;
-    this.playHarpsichordGuzheng(midiToHz(88), 0.14, 0.065);
-    this.playHarpsichordGuzheng(midiToHz(93), 0.18, 0.055);
+    this.playFoley('lantern_break', 0.28, 0.12, true);
   }
 
   public playEnemyDie(isBoss = false): void {
     if (this.sfxMuted) return;
     const ctx = this.ensureContext();
     if (!ctx || ctx.state !== 'running') return;
-    this.playDrum(isBoss ? 0.24 : 0.15, isBoss ? 44 : 58);
-    this.playSlash('heavy');
+    this.playFoley(isBoss ? 'boss_die' : 'enemy_die', isBoss ? 0.36 : 0.28, 0.08, isBoss);
   }
 
   public playParryClang(): void {
     if (this.sfxMuted) return;
     const ctx = this.ensureContext();
     if (!ctx || ctx.state !== 'running') return;
-    this.playHarpsichordGuzheng(midiToHz(84), 0.35, 0.13);
-    this.playHarpsichordGuzheng(midiToHz(91), 0.28, 0.1);
+    this.playFoley('parry_clang', 0.32, 0.07, true);
   }
 
   public playSkillCast(): void {
     if (this.sfxMuted) return;
     const ctx = this.ensureContext();
     if (!ctx || ctx.state !== 'running') return;
-    const notes = [62, 67, 69, 74, 79];
-    notes.forEach((n, idx) => {
-      window.setTimeout(() => {
-        this.playHarpsichordGuzheng(midiToHz(n), 0.32, 0.075);
-      }, idx * 26);
-    });
+    this.playFoley('skill_cast', 0.3, 0.06, true);
   }
 
   public playRelicBell(): void {
     if (this.sfxMuted) return;
     const ctx = this.ensureContext();
     if (!ctx || ctx.state !== 'running') return;
-    const notes = [57, 62, 69, 74];
-    notes.forEach((n, idx) => {
-      window.setTimeout(() => {
-        this.playHarpsichordGuzheng(midiToHz(n), 0.85, 0.09);
-      }, idx * 85);
-    });
+    this.playFoley('relic_bell', 0.34, 0.04, true);
   }
 
   public playJump(): void {
     if (this.sfxMuted) return;
     const ctx = this.ensureContext();
     if (!ctx || ctx.state !== 'running') return;
-    const now = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(190, now);
-    osc.frequency.exponentialRampToValueAtTime(410, now + 0.09);
-    gain.gain.setValueAtTime(0.07, now);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
-    osc.connect(gain);
-    this.sendToHall(gain, false);
-    osc.start(now);
-    osc.stop(now + 0.11);
+    this.playFoley('jump', 0.24, 0.12, false);
   }
 
   public playHurt(): void {
     if (this.sfxMuted) return;
     const ctx = this.ensureContext();
     if (!ctx || ctx.state !== 'running') return;
-    this.playDrum(0.28, 48);
-    if (this.noiseBuf) {
-      const now = ctx.currentTime;
-      const src = ctx.createBufferSource();
-      src.buffer = this.noiseBuf;
-      const lp = ctx.createBiquadFilter();
-      lp.type = 'lowpass';
-      lp.frequency.setValueAtTime(920, now);
-      lp.frequency.exponentialRampToValueAtTime(220, now + 0.14);
-      const gain = ctx.createGain();
-      gain.gain.setValueAtTime(0.18, now);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
-      src.connect(lp);
-      lp.connect(gain);
-      this.sendToHall(gain, false);
-      src.start(now);
-      src.stop(now + 0.16);
-    }
+    this.playFoley('hurt', 0.32, 0.08, false);
   }
 }
 

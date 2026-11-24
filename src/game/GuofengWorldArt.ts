@@ -21,24 +21,42 @@ export function drawCelShadedWeapon(
 ): void {
   const key = resolveWeaponAssetKey(archetype, weaponId);
   const img = Assets.get(key);
-  if (!img) return;
+  if (!img || !img.width || !img.height) return;
 
   if (archetype === 'whip') {
-    const dim = lengthPx * 0.56;
-    const w = dim * (img.width / img.height);
-    ctx.drawImage(img, -w * 0.5, -dim * 0.5, w, dim);
+    const maxW = lengthPx * 0.94;
+    const maxH = lengthPx * 0.4;
+    let w = maxW;
+    let h = w * (img.height / img.width);
+    if (h > maxH) {
+      h = maxH;
+      w = h * (img.width / img.height);
+    }
+    ctx.drawImage(img, -w * 0.5, -h * 0.5, w, h);
     return;
   }
 
   if (archetype === 'daggers') {
-    const dim = lengthPx * 0.62;
-    const w = dim * (img.width / img.height);
-    ctx.drawImage(img, -w * 0.5, -dim * 0.5, w, dim);
+    const maxW = lengthPx * 0.88;
+    const maxH = lengthPx * 0.44;
+    let w = maxW;
+    let h = w * (img.height / img.width);
+    if (h > maxH) {
+      h = maxH;
+      w = h * (img.width / img.height);
+    }
+    ctx.drawImage(img, -w * 0.5, -h * 0.5, w, h);
     return;
   }
 
-  const w = archetype === 'spear' ? lengthPx * 1.18 : lengthPx;
-  const h = w * (img.height / img.width);
+  const maxW = archetype === 'spear' ? lengthPx * 1.18 : lengthPx;
+  const maxH = lengthPx * 0.44;
+  let w = maxW;
+  let h = w * (img.height / img.width);
+  if (h > maxH) {
+    h = maxH;
+    w = h * (img.width / img.height);
+  }
   ctx.drawImage(img, -w * 0.24, -h * 0.5, w, h);
 }
 
@@ -511,6 +529,154 @@ export function drawSuspensionChain(
     if (hClip <= 2) break;
     const srcClipH = Math.max(6, Math.floor((hClip / stepH) * linkSrcH));
     ctx.drawImage(chainImg, 0, linkSrcY, iw, srcClipH, cx - chainW * 0.5, y, chainW, hClip + 1);
+  }
+  ctx.restore();
+}
+
+/**
+ * 沿任意起点至终点（支持弧垂/蛇形鞭波）平铺手绘玄铁锁链节（替代一切 setLineDash 虚线与多段矢量折线！）
+ */
+export function drawPaintedChainTrack(
+  ctx: CanvasRenderingContext2D,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  widthPx = 11,
+  alpha = 0.86,
+  tintHex?: string,
+  waveAmp = 0,
+  waveFreq = 2.2,
+  wavePhase = 0,
+  sagY = 0
+): void {
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  const dist = Math.hypot(dx, dy);
+  if (dist < 4) return;
+
+  const baseImg = Assets.get('arch_iron_chain');
+  const tinted = tintHex ? Assets.getTintedSilhouette('arch_iron_chain', tintHex) : undefined;
+  const src: HTMLImageElement | HTMLCanvasElement | undefined = tinted || baseImg;
+  if (!src || !src.width || !src.height) return;
+
+  const iw = src.width;
+  const ih = src.height;
+  const linkSrcY = Math.floor(ih * 0.3);
+  const linkSrcH = Math.max(12, Math.floor(ih * 0.66));
+  const segLen = Math.max(12, widthPx * (linkSrcH / iw) * 0.92);
+  const steps = Math.max(2, Math.min(44, Math.ceil(dist / segLen)));
+  const nx = -dy / dist;
+  const ny = dx / dist;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  if (tintHex) ctx.globalCompositeOperation = 'lighter';
+
+  let prevX = x0;
+  let prevY = y0;
+  for (let i = 1; i <= steps; i++) {
+    const u = i / steps;
+    const offset =
+      Math.sin(u * Math.PI * waveFreq - wavePhase) * waveAmp +
+      Math.sin(u * Math.PI) * sagY;
+    const curX = x0 + dx * u + nx * offset;
+    const curY = y0 + dy * u + ny * offset;
+    const sdx = curX - prevX;
+    const sdy = curY - prevY;
+    const slen = Math.max(2, Math.hypot(sdx, sdy));
+    const midX = (prevX + curX) * 0.5;
+    const midY = (prevY + curY) * 0.5;
+    const ang = Math.atan2(sdy, sdx);
+
+    ctx.save();
+    ctx.translate(midX, midY);
+    ctx.rotate(ang - Math.PI * 0.5);
+    ctx.drawImage(src, 0, linkSrcY, iw, linkSrcH, -widthPx * 0.5, -slen * 0.56, widthPx, slen * 1.12);
+    ctx.restore();
+
+    prevX = curX;
+    prevY = curY;
+  }
+  ctx.restore();
+}
+
+/**
+ * 统一绘制手绘重彩水墨光环/阵法/震波贴图（支持透视压扁与灵气染墨叠光，彻底告别空心矢量圆环！）
+ */
+export function drawPaintedVfxDisc(
+  ctx: CanvasRenderingContext2D,
+  assetKey: 'vfx_xuanwu_ward' | 'vfx_bagua_formation' | 'vfx_ink_shockwave',
+  x: number,
+  y: number,
+  radiusPx: number,
+  rotation = 0,
+  alpha = 0.85,
+  tintHex?: string,
+  squashY = 1,
+  additive = false
+): void {
+  const img = Assets.get(assetKey);
+  if (!img || !img.width || !img.height || radiusPx <= 0.5 || alpha <= 0.01) return;
+  const d = radiusPx * 2;
+  const w = d;
+  const h = d * (img.height / img.width);
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(1, squashY);
+  ctx.rotate(rotation);
+  if (additive) ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+  ctx.drawImage(img, -w * 0.5, -h * 0.5, w, h);
+
+  if (tintHex) {
+    const tinted = Assets.getTintedSilhouette(assetKey, tintHex);
+    if (tinted) {
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = Math.max(0, Math.min(1, alpha * 0.72));
+      ctx.drawImage(tinted, -w * 0.5, -h * 0.5, w, h);
+    }
+  }
+  ctx.restore();
+}
+
+/**
+ * 沿任意两点铺展手绘水墨神雷电弧（替代锯齿状折线 stroke）
+ */
+export function drawPaintedThunderBolt(
+  ctx: CanvasRenderingContext2D,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  thicknessPx = 30,
+  alpha = 0.9,
+  flipY = false,
+  tintHex?: string
+): void {
+  const img = Assets.get('vfx_thunder_bolt');
+  if (!img || !img.width || !img.height || alpha <= 0.01) return;
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const dist = Math.hypot(dx, dy);
+  if (dist < 4) return;
+  const w = dist * 1.12;
+  const h = Math.max(10, thicknessPx);
+
+  ctx.save();
+  ctx.translate((x1 + x2) * 0.5, (y1 + y2) * 0.5);
+  ctx.rotate(Math.atan2(dy, dx));
+  if (flipY) ctx.scale(1, -1);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+  ctx.drawImage(img, -w * 0.5, -h * 0.5, w, h);
+  if (tintHex) {
+    const tinted = Assets.getTintedSilhouette('vfx_thunder_bolt', tintHex);
+    if (tinted) {
+      ctx.globalAlpha = Math.max(0, Math.min(1, alpha * 0.55));
+      ctx.drawImage(tinted, -w * 0.5, -h * 0.5, w, h);
+    }
   }
   ctx.restore();
 }
@@ -1549,20 +1715,21 @@ export function drawCastleInteriorPropsAndGears(
           }
         }
 
-        ctx.strokeStyle = 'rgba(180, 142, 76, 0.42)';
-        ctx.lineWidth = 2.6;
-        ctx.setLineDash([6, 4]);
-        ctx.beginPath();
-        ctx.moveTo(ax, ay);
-        ctx.lineTo(bx, by);
-        ctx.stroke();
-        ctx.setLineDash([]);
+        drawPaintedChainTrack(ctx, ax, ay, bx, by, 9, 0.54, '#c69a45');
 
-        ctx.fillStyle = 'rgba(217, 169, 78, 0.78)';
-        ctx.beginPath();
-        ctx.arc(ax, ay, 4.6, 0, Math.PI * 2);
-        ctx.arc(bx, by, 4.6, 0, Math.PI * 2);
-        ctx.fill();
+        if (gearImg) {
+          for (const [px, py, dir] of [
+            [ax, ay, 1],
+            [bx, by, -1],
+          ] as const) {
+            ctx.save();
+            ctx.translate(px, py);
+            ctx.rotate(t * 0.9 * dir);
+            ctx.globalAlpha = 0.86;
+            ctx.drawImage(gearImg, -9, -9, 18, 18);
+            ctx.restore();
+          }
+        }
       }
       ctx.restore();
     }

@@ -181,9 +181,13 @@ export type AssetKey =
   | 'boss_ft_0'
   | 'boss_ft_1'
   | 'boss_op_0'
-  | 'boss_op_1';
+  | 'boss_op_1'
+  | 'vfx_xuanwu_ward'
+  | 'vfx_bagua_formation'
+  | 'vfx_ink_shockwave'
+  | 'vfx_thunder_bolt';
 
-const ASSET_VERSION = 'painted_v22';
+const ASSET_VERSION = 'painted_v23';
 
 const ASSET_FILES: Record<AssetKey, string> = {
   bg_title: './assets/bg_title.webp',
@@ -369,6 +373,10 @@ const ASSET_FILES: Record<AssetKey, string> = {
   boss_ft_1: './assets/boss_ft_1.webp',
   boss_op_0: './assets/boss_op_0.webp',
   boss_op_1: './assets/boss_op_1.webp',
+  vfx_xuanwu_ward: './assets/vfx_xuanwu_ward.webp',
+  vfx_bagua_formation: './assets/vfx_bagua_formation.webp',
+  vfx_ink_shockwave: './assets/vfx_ink_shockwave.webp',
+  vfx_thunder_bolt: './assets/vfx_thunder_bolt.webp',
 };
 
 // 首屏秒开关键资源集（仅含标题画卷、开场动态序章、主角骨骼序列与第一幕苦竹外哨核心构件，实现 <1s 极速入画！）
@@ -384,13 +392,23 @@ const BOOT_CRITICAL_ASSETS: AssetKey[] = [
   'env_pavilion',
   'env_stone_ledge',
   'arch_side_doorframe',
+  'arch_iron_chain',
+  'prop_clock_gear',
   'prop_stone_lantern_post',
   'prop_breakable_urn',
   'prop_shrine',
   'prop_dragon_brazier',
   'wpn_sword_0',
+  'wpn_daggers_1',
+  'wpn_whip_1',
   'part_wpn_sword',
   'part_wpn_daggers',
+  'item_talisman_scroll',
+  'item_sub_bagua',
+  'vfx_xuanwu_ward',
+  'vfx_bagua_formation',
+  'vfx_ink_shockwave',
+  'vfx_thunder_bolt',
   'h18_idle_0',
   'h18_idle_1',
   'h18_jump_up',
