@@ -34,7 +34,25 @@
         window.dispatchEvent(new Event('xuancheng-bip-ready'));
       });
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./sw.js').catch(function () {});
+        var hadSwController = Boolean(navigator.serviceWorker.controller);
+        var swReloading = false;
+        navigator.serviceWorker.addEventListener('controllerchange', function () {
+          if (!hadSwController || swReloading) return;
+          if (document.querySelector('.zx-hud')) return;
+          swReloading = true;
+          window.location.reload();
+        });
+        navigator.serviceWorker
+          .register('./sw.js?v=4', { updateViaCache: 'none' })
+          .then(function (reg) {
+            reg.update().catch(function () {});
+            document.addEventListener('visibilitychange', function () {
+              if (document.visibilityState === 'visible') {
+                reg.update().catch(function () {});
+              }
+            });
+          })
+          .catch(function () {});
       }
     </script>
   </head>

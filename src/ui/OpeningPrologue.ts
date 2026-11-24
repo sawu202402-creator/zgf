@@ -183,6 +183,7 @@ export function playOpeningPrologue(
   const openedAt = performance.now();
   let actEnteredAt = openedAt;
   let lastTapAt = 0;
+  let lastBlockedInputAt = 0;
 
   const advanceAct = () => {
     if (dissolvingOut || destroyed) return;
@@ -199,14 +200,18 @@ export function playOpeningPrologue(
 
   const tryAdvanceAct = () => {
     const now = performance.now();
-    if (now - openedAt < 420 || now - actEnteredAt < 340 || now - lastTapAt < 340) return;
+    if (now - openedAt < 450 || now - lastBlockedInputAt < 380) {
+      lastBlockedInputAt = now;
+      return;
+    }
+    if (now - actEnteredAt < 380 || now - lastTapAt < 380) return;
     lastTapAt = now;
     advanceAct();
   };
 
   const safeSkip = () => {
     const now = performance.now();
-    if (now - openedAt < 180 || now - lastTapAt < 240) return;
+    if (now - openedAt < 240 || now - lastTapAt < 240) return;
     lastTapAt = now;
     beginLiveCrossDissolve();
   };
@@ -229,24 +234,28 @@ export function playOpeningPrologue(
     { passive: false }
   );
 
-  let downOnRoot = false;
+  let activePointerId: number | null = null;
   let downX = 0;
   let downY = 0;
   root.addEventListener('pointerdown', (ev) => {
     if ((ev.target as HTMLElement | null)?.closest('#btn-prologue-skip')) return;
-    downOnRoot = true;
+    if (activePointerId !== null) return;
+    activePointerId = ev.pointerId;
     downX = ev.clientX;
     downY = ev.clientY;
   });
   root.addEventListener('pointerup', (ev) => {
-    if ((ev.target as HTMLElement | null)?.closest('#btn-prologue-skip') || !downOnRoot) return;
-    downOnRoot = false;
+    if (ev.pointerId !== activePointerId) return;
+    activePointerId = null;
+    if ((ev.target as HTMLElement | null)?.closest('#btn-prologue-skip')) return;
     if (Math.hypot(ev.clientX - downX, ev.clientY - downY) <= 28) {
       tryAdvanceAct();
     }
   });
-  root.addEventListener('pointercancel', () => {
-    downOnRoot = false;
+  root.addEventListener('pointercancel', (ev) => {
+    if (ev.pointerId === activePointerId) {
+      activePointerId = null;
+    }
   });
   root.addEventListener(
     'touchend',
@@ -258,7 +267,7 @@ export function playOpeningPrologue(
   );
   root.addEventListener('click', (ev) => {
     if ((ev.target as HTMLElement | null)?.closest('#btn-prologue-skip')) return;
-    if (!ev.isTrusted || typeof window.PointerEvent === 'undefined') {
+    if (ev.detail === 0 || typeof window.PointerEvent === 'undefined') {
       tryAdvanceAct();
     }
   });

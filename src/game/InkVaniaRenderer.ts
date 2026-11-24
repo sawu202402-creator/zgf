@@ -210,7 +210,7 @@ export class InkVaniaRenderer {
     }
 
     // 6. 移动端触屏主机手柄式按键（靠近人物/古祠时 X 键智能切换为金色交互提示！）
-    if (input.usingTouch && !input.uiBlocked && !engine.paused) {
+    if (input.usingTouch && !input.uiBlocked && !engine.paused && !engine.isCutsceneLocked()) {
       this.renderVirtualControls(ctx, input, engine);
     }
   }

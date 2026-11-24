@@ -1,11 +1,19 @@
-const CACHE_NAME = 'xuancheng-pwa-v3';
+const CACHE_NAME = 'xuancheng-pwa-v4';
 const PRECACHE_URLS = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(CACHE_NAME)
-      .then((cache) => cache.addAll(PRECACHE_URLS))
+      .then((cache) =>
+        Promise.all(
+          PRECACHE_URLS.map((url) =>
+            fetch(url, { cache: 'reload' })
+              .then((res) => (res && res.ok ? cache.put(url, res) : undefined))
+              .catch(() => {})
+          )
+        )
+      )
       .catch(() => {})
       .then(() => self.skipWaiting())
   );
@@ -35,11 +43,12 @@ self.addEventListener('fetch', (event) => {
 
   const isDocumentOrManifest =
     req.mode === 'navigate' ||
+    url.pathname.endsWith('/') ||
     url.pathname.endsWith('.html') ||
     url.pathname.endsWith('manifest.webmanifest');
 
   event.respondWith(
-    (isDocumentOrManifest ? fetch(req, { cache: 'no-cache' }) : fetch(req))
+    (isDocumentOrManifest ? fetch(req, { cache: 'no-store' }) : fetch(req))
       .then((res) => {
         if (res && res.ok && res.type === 'basic') {
           const clone = res.clone();

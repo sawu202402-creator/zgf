@@ -3580,6 +3580,7 @@ export class UIManager {
     const openedAt = performance.now();
     let lineShownAt = openedAt;
     let lastAdvanceAt = 0;
+    let lastBlockedInputAt = 0;
 
     // 实景剧情对白：绝不黑屏遮挡背景，自动隐藏顶部 HUD 让背后的宫阙火光与人物完整呈现！
     this.engine.storyDialogueActive = true;
@@ -3619,10 +3620,18 @@ export class UIManager {
       }
     };
 
-    const tryAdvanceLine = () => {
+    const tryAdvanceLine = (fromExplicitBtn = false) => {
       if (finished) return;
       const now = performance.now();
-      if (now - openedAt < 420 || now - lineShownAt < 340 || now - lastAdvanceAt < 340) {
+      if (now - openedAt < (fromExplicitBtn ? 280 : 520)) {
+        lastBlockedInputAt = now;
+        return;
+      }
+      if (!fromExplicitBtn && now - lastBlockedInputAt < 380) {
+        lastBlockedInputAt = now;
+        return;
+      }
+      if (now - lineShownAt < 380 || now - lastAdvanceAt < 380) {
         return;
       }
       lastAdvanceAt = now;
@@ -3633,6 +3642,7 @@ export class UIManager {
       const ln = scene.lines[idx];
       const isHero = ln.speaker.includes('李逸承');
       const portraitH = window.innerHeight < 540 ? 138 : 210;
+      const hasNextLine = idx + 1 < scene.lines.length;
       box.classList.toggle('npc-right', !isHero);
       box.innerHTML = `
         <div class="cv-dlg-bust-slot">${getSpeakerPortraitSvg(ln.speaker, portraitH)}</div>
@@ -3646,13 +3656,17 @@ export class UIManager {
               ${
                 scene.lines.length > 1
                   ? `<span style="font-size:11px;color:var(--ash);">${idx + 1}/${scene.lines.length}</span>
-                     <button type="button" class="zx-dlg-skip" id="btn-dlg-skip">跳过</button>`
+                     <button type="button" tabindex="-1" class="zx-dlg-skip" id="btn-dlg-skip">跳过</button>`
                   : ''
               }
             </div>
           </div>
           <div class="dialogue-text">${ln.text}</div>
-          <div class="dialogue-next">轻触或按【斩】继续 ▸</div>
+          <div class="dialogue-next">
+            <button type="button" tabindex="-1" class="zx-dlg-next-btn" id="btn-dlg-next">
+              ${hasNextLine ? '下一段 ▸' : '结束对话 ▸'}
+            </button>
+          </div>
         </div>
       `;
       const skipBtn = box.querySelector('#btn-dlg-skip');
@@ -3661,7 +3675,7 @@ export class UIManager {
         (ev) => {
           ev.stopPropagation();
           if (ev.cancelable) ev.preventDefault();
-          if (finished) return;
+          if (finished || performance.now() - openedAt < 240) return;
           AudioFX.playHit(false);
           finishDialogue();
         },
@@ -3669,7 +3683,7 @@ export class UIManager {
       );
       skipBtn?.addEventListener('click', (ev) => {
         ev.stopPropagation();
-        if (finished) return;
+        if (finished || performance.now() - openedAt < 240) return;
         AudioFX.playHit(false);
         finishDialogue();
       });
@@ -3677,24 +3691,11 @@ export class UIManager {
 
     renderLine();
 
-    let downOnBackdrop = false;
-    let downX = 0;
-    let downY = 0;
+    // 全屏遮罩仅吸收对白框外（如左摇杆、右侧【斩】键区域）的误触与战斗余势连点，绝不直接翻页！
     backdrop.addEventListener('pointerdown', (ev) => {
-      if ((ev.target as HTMLElement | null)?.closest('#btn-dlg-skip')) return;
-      downOnBackdrop = true;
-      downX = ev.clientX;
-      downY = ev.clientY;
-    });
-    backdrop.addEventListener('pointerup', (ev) => {
-      if ((ev.target as HTMLElement | null)?.closest('#btn-dlg-skip') || !downOnBackdrop) return;
-      downOnBackdrop = false;
-      if (Math.hypot(ev.clientX - downX, ev.clientY - downY) <= 28) {
-        tryAdvanceLine();
+      if (!box.contains(ev.target as Node)) {
+        lastBlockedInputAt = performance.now();
       }
-    });
-    backdrop.addEventListener('pointercancel', () => {
-      downOnBackdrop = false;
     });
     backdrop.addEventListener(
       'touchend',
@@ -3704,10 +3705,36 @@ export class UIManager {
       },
       { passive: false }
     );
-    backdrop.addEventListener('click', (ev) => {
+
+    let activePointerId: number | null = null;
+    let downX = 0;
+    let downY = 0;
+    box.addEventListener('pointerdown', (ev) => {
       if ((ev.target as HTMLElement | null)?.closest('#btn-dlg-skip')) return;
-      if (!ev.isTrusted || typeof window.PointerEvent === 'undefined') {
-        tryAdvanceLine();
+      if (activePointerId !== null) return;
+      activePointerId = ev.pointerId;
+      downX = ev.clientX;
+      downY = ev.clientY;
+    });
+    box.addEventListener('pointerup', (ev) => {
+      if (ev.pointerId !== activePointerId) return;
+      activePointerId = null;
+      if ((ev.target as HTMLElement | null)?.closest('#btn-dlg-skip')) return;
+      if (Math.hypot(ev.clientX - downX, ev.clientY - downY) <= 26) {
+        const fromBtn = Boolean((ev.target as HTMLElement | null)?.closest('#btn-dlg-next'));
+        tryAdvanceLine(fromBtn);
+      }
+    });
+    box.addEventListener('pointercancel', (ev) => {
+      if (ev.pointerId === activePointerId) {
+        activePointerId = null;
+      }
+    });
+    box.addEventListener('click', (ev) => {
+      if ((ev.target as HTMLElement | null)?.closest('#btn-dlg-skip')) return;
+      if (ev.detail === 0 || typeof window.PointerEvent === 'undefined') {
+        const fromBtn = Boolean((ev.target as HTMLElement | null)?.closest('#btn-dlg-next'));
+        tryAdvanceLine(fromBtn);
       }
     });
 
@@ -3722,7 +3749,7 @@ export class UIManager {
         e.code === 'KeyE'
       ) {
         e.preventDefault();
-        tryAdvanceLine();
+        tryAdvanceLine(false);
       } else if (e.code === 'Escape') {
         e.preventDefault();
         finishDialogue();

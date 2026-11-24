@@ -487,6 +487,10 @@ export class GameEngine {
     AudioFX.setMood('title');
   }
 
+  public isCutsceneLocked(): boolean {
+    return Boolean(this.storyDialogueActive || this.pendingRoomStory || this.introWalkInTimer > 0);
+  }
+
   public computePreviewStats(overrides?: {
     weaponId?: string;
     armorId?: string;
@@ -859,6 +863,7 @@ export class GameEngine {
         // 先让过门黑幕完全散去、角色自然踏入实景厅堂后再展开对白，彻底杜绝黑屏出字！
         this.pendingRoomStory = scene;
         this.pendingRoomStoryTimer = 0.32;
+        this.input.resetAll();
       }
     }
   }
@@ -1216,6 +1221,7 @@ export class GameEngine {
 
     if (this.pendingRoomStory) {
       this.pendingRoomStoryTimer -= dt;
+      this.input.resetAll();
       const bossFocus = this.enemies.find((e) => e.profile.isBoss);
       const npcFocus = this.room.npcs[0];
       const partnerX = bossFocus ? bossFocus.x : npcFocus ? npcFocus.x : this.room.focalX;
