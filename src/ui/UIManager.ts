@@ -190,8 +190,8 @@ export class UIManager {
         const sub = btn.querySelector('.zx-install-text small');
         if (sub) {
           sub.textContent = NativeApp.canPromptInstallNatively()
-            ? '一点直装桌面 · 全屏秒开'
-            : '固定至主屏 · 全屏秒开';
+            ? '一键直装桌面 · 全屏无黑边'
+            : '固定至主屏 · 全屏无黑边';
         }
       });
     }
@@ -203,7 +203,7 @@ export class UIManager {
                <img src="./assets/app_icon_192.png" alt="玄城夜行图标" />
                <span class="zx-install-text">
                  <strong>添加到桌面</strong>
-                 <small>${nativeInstallReady ? '一点直装桌面 · 全屏秒开' : '固定至主屏 · 全屏秒开'}</small>
+                 <small>${nativeInstallReady ? '一键直装桌面 · 全屏无黑边' : '固定至主屏 · 全屏无黑边'}</small>
                </span>
              </button>`
           : ''
@@ -368,7 +368,7 @@ export class UIManager {
               <img src="./assets/app_icon_192.png" alt="玄城夜行图标" />
               <div style="flex:1;min-width:0;">
                 <div style="font-size:16px;font-weight:900;color:var(--bronze-light);letter-spacing:2px;">玄城夜行：九幽录</div>
-                <div style="font-size:12px;color:#cbd5e1;margin-top:3px;">添至桌面主屏后，享无浏览器边框横屏体验与自动读档。</div>
+                <div style="font-size:12px;color:#cbd5e1;margin-top:3px;">使用 HTTPS 网址在 Chrome / Edge 打开支持一键直装全屏版（若曾添过带黑边旧图标，请删去旧快捷方式后重新添加）。</div>
               </div>
               ${
                 canNative

@@ -1,5 +1,6 @@
 declare global {
   interface Window {
+    __xuanchengDeferredPrompt?: BeforeInstallPromptEvent | null;
     Capacitor?: {
       isNativePlatform?: () => boolean;
       Plugins?: {
@@ -32,16 +33,27 @@ class NativeAppAdapter {
   private backListeners: (() => void)[] = [];
   private deferredPrompt: BeforeInstallPromptEvent | null = null;
   private installListeners: (() => void)[] = [];
+  private immersiveBound = false;
 
   constructor() {
     if (typeof window !== 'undefined') {
+      this.deferredPrompt = window.__xuanchengDeferredPrompt || null;
+      const syncEarly = () => {
+        if (window.__xuanchengDeferredPrompt) {
+          this.deferredPrompt = window.__xuanchengDeferredPrompt;
+          for (const cb of this.installListeners) cb();
+        }
+      };
+      window.addEventListener('xuancheng-bip-ready', syncEarly);
       window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
         this.deferredPrompt = e as BeforeInstallPromptEvent;
+        window.__xuanchengDeferredPrompt = this.deferredPrompt;
         for (const cb of this.installListeners) cb();
       });
       window.addEventListener('appinstalled', () => {
         this.deferredPrompt = null;
+        window.__xuanchengDeferredPrompt = null;
         try {
           localStorage.setItem(PWA_INSTALLED_KEY, '1');
         } catch {
@@ -60,7 +72,9 @@ class NativeAppAdapter {
     if (window.Capacitor?.isNativePlatform?.()) return true;
     try {
       if (window.matchMedia?.('(display-mode: standalone)').matches) return true;
-      if (window.matchMedia?.('(display-mode: fullscreen)').matches) return true;
+      if (!document.fullscreenElement && window.matchMedia?.('(display-mode: fullscreen)').matches) {
+        return true;
+      }
       if ((navigator as unknown as { standalone?: boolean }).standalone === true) return true;
       if (localStorage.getItem(PWA_INSTALLED_KEY) === '1') return true;
     } catch {
@@ -70,7 +84,7 @@ class NativeAppAdapter {
   }
 
   public canPromptInstallNatively(): boolean {
-    return Boolean(this.deferredPrompt);
+    return Boolean(this.deferredPrompt || window.__xuanchengDeferredPrompt);
   }
 
   public detectInstallGuideKind(): 'ios' | 'wechat' | 'android' | 'desktop' {
@@ -82,12 +96,17 @@ class NativeAppAdapter {
   }
 
   public async promptInstall(): Promise<'accepted' | 'dismissed' | 'manual_guide'> {
-    const p = this.deferredPrompt;
+    let p = this.deferredPrompt || window.__xuanchengDeferredPrompt || null;
+    if (!p && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      await new Promise((r) => window.setTimeout(r, 350));
+      p = this.deferredPrompt || window.__xuanchengDeferredPrompt || null;
+    }
     if (!p) return 'manual_guide';
     try {
       await p.prompt();
       const choice = await p.userChoice;
       this.deferredPrompt = null;
+      window.__xuanchengDeferredPrompt = null;
       if (choice.outcome === 'accepted') {
         try {
           localStorage.setItem(PWA_INSTALLED_KEY, '1');
@@ -120,6 +139,32 @@ class NativeAppAdapter {
       });
     } catch {
       // ignore on web
+    }
+
+    if (!this.immersiveBound && typeof window !== 'undefined' && typeof document !== 'undefined') {
+      this.immersiveBound = true;
+      const enterImmersiveOnStandalone = () => {
+        if (document.fullscreenElement) return;
+        const inWebApp =
+          window.matchMedia?.('(display-mode: standalone)').matches ||
+          window.matchMedia?.('(display-mode: fullscreen)').matches ||
+          (navigator as unknown as { standalone?: boolean }).standalone === true;
+        if (!inWebApp) return;
+        const el = document.documentElement as HTMLElement & {
+          webkitRequestFullscreen?: () => Promise<void>;
+        };
+        if (el.requestFullscreen) {
+          el.requestFullscreen({ navigationUI: 'hide' } as FullscreenOptions).catch(() => {});
+        } else if (el.webkitRequestFullscreen) {
+          el.webkitRequestFullscreen().catch(() => {});
+        }
+        const orient = screen.orientation as ScreenOrientation & {
+          lock?: (m: string) => Promise<void>;
+        };
+        orient?.lock?.('landscape').catch(() => {});
+      };
+      window.addEventListener('pointerdown', enterImmersiveOnStandalone, { passive: true });
+      window.addEventListener('touchstart', enterImmersiveOnStandalone, { passive: true });
     }
   }
 
@@ -156,8 +201,11 @@ class NativeAppAdapter {
       const el = document.documentElement as HTMLElement & {
         webkitRequestFullscreen?: () => Promise<void>;
       };
-      if (el.requestFullscreen) await el.requestFullscreen();
-      else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+      if (el.requestFullscreen) {
+        await el.requestFullscreen({ navigationUI: 'hide' } as FullscreenOptions);
+      } else if (el.webkitRequestFullscreen) {
+        await el.webkitRequestFullscreen();
+      }
     } catch {
       // ignore
     }

@@ -8,15 +8,25 @@
     />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="玄城夜行" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#090b10" />
     <link rel="icon" type="image/png" sizes="192x192" href="./assets/app_icon_192.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="./assets/apple_touch_icon.png" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <title>玄城夜行：九幽录</title>
-    <script type="module" crossorigin src="./assets/index-UdC7otiD.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-CSoD5ypX.css">
+    <script>
+      window.__xuanchengDeferredPrompt = null;
+      window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        window.__xuanchengDeferredPrompt = e;
+        window.dispatchEvent(new Event('xuancheng-bip-ready'));
+      });
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(function () {});
+      }
+    </script>
+    <script type="module" crossorigin src="./assets/index-Bm4Bxms0.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-DzB7mWZd.css">
   </head>
   <body>
     <div id="game-root">
