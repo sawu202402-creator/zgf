@@ -415,7 +415,7 @@ export class UIManager {
           ? `
             <div class="zx-install-step"><strong>1. 点击浏览器【分享】</strong>在 Safari 底部或右上角工具栏找到方框带向上箭头的「分享」图标。</div>
             <div class="zx-install-step"><strong>2. 选择【添加到主屏幕】</strong>在弹出菜单中向上滑动，点击「添加到主屏幕 (Add to Home Screen)」。</div>
-            <div class="zx-install-step"><strong>3. 点击【添加】即成</strong>手机桌面将生成专属《玄城夜行》古风图标，点击可全屏无地址栏启动！</div>`
+            <div class="zx-install-step"><strong>3. 点击【添加】即成</strong>手机桌面将生成专属《玄城夜行》古风图标！若旧版图标仍有顶部黑条，请先删掉桌面旧图标并在 Safari 刷新一次页面，再重新「添加到主屏幕」。</div>`
           : tab === 'wechat'
             ? `
             <div class="zx-install-step"><strong>1. 切出微信内置浏览器</strong>微信内无法直接添加桌面快捷方式，请先点击右上角「⋯」更多按钮。</div>
@@ -702,7 +702,11 @@ export class UIManager {
   }
 
   private launchGame(slot: ReturnType<typeof createFreshSaveSlot>, isPrologueWalkIn = false): void {
-    if (NativeApp.isMobileOrTablet() && !document.fullscreenElement) {
+    if (
+      NativeApp.isMobileOrTablet() &&
+      !NativeApp.isAppleTouchDevice() &&
+      !document.fullscreenElement
+    ) {
       void NativeApp.requestFullscreenAndLandscape();
     }
     this.clearAllUI();
@@ -715,7 +719,11 @@ export class UIManager {
     slot: ReturnType<typeof createFreshSaveSlot>,
     mode: 'story' | 'xiaoduanshui'
   ): void {
-    if (NativeApp.isMobileOrTablet() && !document.fullscreenElement) {
+    if (
+      NativeApp.isMobileOrTablet() &&
+      !NativeApp.isAppleTouchDevice() &&
+      !document.fullscreenElement
+    ) {
       void NativeApp.requestFullscreenAndLandscape();
     }
     this.clearAllUI();

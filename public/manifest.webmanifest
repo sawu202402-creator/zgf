@@ -5,10 +5,10 @@
   "description": "国风水墨类恶魔城横版动作探索 ARPG",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
+  "display": "standalone",
+  "display_override": ["fullscreen", "standalone"],
   "orientation": "landscape",
   "background_color": "#090b10",
-  "theme_color": "#090b10",
   "icons": [
     {
       "src": "./assets/app_icon_192.png",

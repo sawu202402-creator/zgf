@@ -7,14 +7,26 @@
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="玄城夜行" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="theme-color" content="#090b10" />
     <link rel="icon" type="image/png" sizes="192x192" href="./assets/app_icon_192.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="./assets/apple_touch_icon.png" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <title>玄城夜行：九幽录</title>
     <script>
+      (function () {
+        try {
+          var isStandalone =
+            window.navigator.standalone === true ||
+            (window.matchMedia &&
+              (window.matchMedia('(display-mode: standalone)').matches ||
+                window.matchMedia('(display-mode: fullscreen)').matches));
+          if (isStandalone) {
+            document.documentElement.classList.add('is-standalone-webapp');
+          }
+        } catch (e) {}
+      })();
       window.__xuanchengDeferredPrompt = null;
       window.addEventListener('beforeinstallprompt', function (e) {
         e.preventDefault();

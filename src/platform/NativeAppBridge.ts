@@ -91,10 +91,17 @@ class NativeAppAdapter {
     return Boolean(this.deferredPrompt || window.__xuanchengDeferredPrompt);
   }
 
+  public isAppleTouchDevice(): boolean {
+    if (typeof navigator === 'undefined') return false;
+    const ua = navigator.userAgent || '';
+    if (/iPad|iPhone|iPod/i.test(ua)) return true;
+    return /Macintosh/i.test(ua) && navigator.maxTouchPoints > 1;
+  }
+
   public detectInstallGuideKind(): 'ios' | 'wechat' | 'android' | 'desktop' {
     const ua = navigator.userAgent || '';
     if (/MicroMessenger/i.test(ua)) return 'wechat';
-    if (/iPad|iPhone|iPod/i.test(ua)) return 'ios';
+    if (this.isAppleTouchDevice()) return 'ios';
     if (/Android|Mobile/i.test(ua)) return 'android';
     return 'desktop';
   }
@@ -138,7 +145,16 @@ class NativeAppAdapter {
       // ignore on web
     }
 
-    if (!this.immersiveBound && typeof window !== 'undefined' && typeof document !== 'undefined') {
+    if (typeof document !== 'undefined' && this.isStandaloneInstalled()) {
+      document.documentElement.classList.add('is-standalone-webapp');
+    }
+
+    if (
+      !this.immersiveBound &&
+      !this.isAppleTouchDevice() &&
+      typeof window !== 'undefined' &&
+      typeof document !== 'undefined'
+    ) {
       this.immersiveBound = true;
       const enterImmersiveOnStandalone = () => {
         if (document.fullscreenElement) return;
@@ -195,17 +211,19 @@ class NativeAppAdapter {
   }
 
   public async requestFullscreenAndLandscape(): Promise<void> {
-    try {
-      const el = document.documentElement as HTMLElement & {
-        webkitRequestFullscreen?: () => Promise<void>;
-      };
-      if (el.requestFullscreen) {
-        await el.requestFullscreen({ navigationUI: 'hide' } as FullscreenOptions);
-      } else if (el.webkitRequestFullscreen) {
-        await el.webkitRequestFullscreen();
+    if (!this.isAppleTouchDevice()) {
+      try {
+        const el = document.documentElement as HTMLElement & {
+          webkitRequestFullscreen?: () => Promise<void>;
+        };
+        if (el.requestFullscreen) {
+          await el.requestFullscreen({ navigationUI: 'hide' } as FullscreenOptions);
+        } else if (el.webkitRequestFullscreen) {
+          await el.webkitRequestFullscreen();
+        }
+      } catch {
+        // ignore
       }
-    } catch {
-      // ignore
     }
     try {
       const plugins = window.Capacitor?.Plugins;
