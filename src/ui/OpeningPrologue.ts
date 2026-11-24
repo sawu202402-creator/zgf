@@ -200,83 +200,86 @@ export function playOpeningPrologue(
 
   const tryAdvanceAct = () => {
     const now = performance.now();
-    if (now - openedAt < 450 || now - lastBlockedInputAt < 380) {
+    if (now - openedAt < 500 || now - lastBlockedInputAt < 440) {
       lastBlockedInputAt = now;
       return;
     }
-    if (now - actEnteredAt < 380 || now - lastTapAt < 380) return;
+    if (now - actEnteredAt < 440 || now - lastTapAt < 440) return;
     lastTapAt = now;
     advanceAct();
   };
 
   const safeSkip = () => {
     const now = performance.now();
-    if (now - openedAt < 240 || now - lastTapAt < 240) return;
+    if (now - openedAt < 450 || now - lastTapAt < 280) return;
     lastTapAt = now;
     beginLiveCrossDissolve();
   };
 
-  skipBtn.addEventListener('pointerup', (ev) => {
-    ev.stopPropagation();
-    safeSkip();
-  });
-  skipBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation();
-    safeSkip();
-  });
-  skipBtn.addEventListener(
-    'touchend',
-    (ev) => {
+  if (typeof window.PointerEvent !== 'undefined') {
+    let skipPointerId: number | null = null;
+    skipBtn.addEventListener('pointerdown', (ev) => {
       ev.stopPropagation();
-      if (ev.cancelable) ev.preventDefault();
-      safeSkip();
-    },
-    { passive: false }
-  );
+      if (ev.isTrusted && skipPointerId === null) skipPointerId = ev.pointerId;
+    });
+    skipBtn.addEventListener('pointerup', (ev) => {
+      ev.stopPropagation();
+      if (ev.pointerId !== skipPointerId) return;
+      skipPointerId = null;
+      if (ev.isTrusted) safeSkip();
+    });
+    skipBtn.addEventListener('pointercancel', (ev) => {
+      if (ev.pointerId === skipPointerId) skipPointerId = null;
+    });
 
-  let activePointerId: number | null = null;
-  let downX = 0;
-  let downY = 0;
-  root.addEventListener('pointerdown', (ev) => {
-    if ((ev.target as HTMLElement | null)?.closest('#btn-prologue-skip')) return;
-    if (activePointerId !== null) return;
-    activePointerId = ev.pointerId;
-    downX = ev.clientX;
-    downY = ev.clientY;
-  });
-  root.addEventListener('pointerup', (ev) => {
-    if (ev.pointerId !== activePointerId) return;
-    activePointerId = null;
-    if ((ev.target as HTMLElement | null)?.closest('#btn-prologue-skip')) return;
-    if (Math.hypot(ev.clientX - downX, ev.clientY - downY) <= 28) {
-      tryAdvanceAct();
-    }
-  });
-  root.addEventListener('pointercancel', (ev) => {
-    if (ev.pointerId === activePointerId) {
+    let activePointerId: number | null = null;
+    let downX = 0;
+    let downY = 0;
+    root.addEventListener('pointerdown', (ev) => {
+      if ((ev.target as HTMLElement | null)?.closest('#btn-prologue-skip')) return;
+      if (!ev.isTrusted || activePointerId !== null) return;
+      activePointerId = ev.pointerId;
+      downX = ev.clientX;
+      downY = ev.clientY;
+    });
+    root.addEventListener('pointerup', (ev) => {
+      if (ev.pointerId !== activePointerId) return;
       activePointerId = null;
-    }
-  });
+      if ((ev.target as HTMLElement | null)?.closest('#btn-prologue-skip')) return;
+      if (ev.isTrusted && Math.hypot(ev.clientX - downX, ev.clientY - downY) <= 28) {
+        tryAdvanceAct();
+      }
+    });
+    root.addEventListener('pointercancel', (ev) => {
+      if (ev.pointerId === activePointerId) {
+        activePointerId = null;
+      }
+    });
+  } else {
+    skipBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      safeSkip();
+    });
+    root.addEventListener('click', (ev) => {
+      if ((ev.target as HTMLElement | null)?.closest('#btn-prologue-skip')) return;
+      tryAdvanceAct();
+    });
+  }
   root.addEventListener(
     'touchend',
     (ev) => {
-      if ((ev.target as HTMLElement | null)?.closest('#btn-prologue-skip')) return;
       if (ev.cancelable) ev.preventDefault();
     },
     { passive: false }
   );
-  root.addEventListener('click', (ev) => {
-    if ((ev.target as HTMLElement | null)?.closest('#btn-prologue-skip')) return;
-    if (ev.detail === 0 || typeof window.PointerEvent === 'undefined') {
-      tryAdvanceAct();
-    }
-  });
 
+  const heldCodes = new Set<string>();
   const onKeyDown = (ev: KeyboardEvent) => {
-    if (ev.repeat) return;
+    if (!ev.isTrusted || ev.repeat || heldCodes.has(ev.code)) return;
+    heldCodes.add(ev.code);
     if (ev.code === 'Escape') {
       ev.preventDefault();
-      beginLiveCrossDissolve();
+      if (performance.now() - openedAt >= 450) beginLiveCrossDissolve();
     } else if (
       ev.code === 'Space' ||
       ev.code === 'Enter' ||
@@ -285,16 +288,21 @@ export function playOpeningPrologue(
       ev.code === 'KeyK'
     ) {
       ev.preventDefault();
-      tryAdvanceAct();
+      if (performance.now() - openedAt >= 500) tryAdvanceAct();
     }
   };
+  const onKeyUp = (ev: KeyboardEvent) => {
+    heldCodes.delete(ev.code);
+  };
   window.addEventListener('keydown', onKeyDown);
+  window.addEventListener('keyup', onKeyUp);
 
   const cleanup = () => {
     if (destroyed) return;
     destroyed = true;
     cancelAnimationFrame(rafId);
     window.removeEventListener('keydown', onKeyDown);
+    window.removeEventListener('keyup', onKeyUp);
     root.remove();
   };
 

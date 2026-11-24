@@ -62,6 +62,7 @@ export class UIManager {
   private modalEl: HTMLElement | null = null;
   private dialogueEl: HTMLElement | null = null;
   private dialogueKeyHandler: ((e: KeyboardEvent) => void) | null = null;
+  private dialogueKeyUpHandler: ((e: KeyboardEvent) => void) | null = null;
   private bannerEl: HTMLElement | null = null;
   private stageRafId = 0;
   private stageSlash: ActiveSlash | null = null;
@@ -755,6 +756,10 @@ export class UIManager {
       window.removeEventListener('keydown', this.dialogueKeyHandler);
       this.dialogueKeyHandler = null;
     }
+    if (this.dialogueKeyUpHandler) {
+      window.removeEventListener('keyup', this.dialogueKeyUpHandler);
+      this.dialogueKeyUpHandler = null;
+    }
   }
 
   private clearAllUI(): void {
@@ -868,7 +873,7 @@ export class UIManager {
       interactBtn,
     };
 
-    const guardGhostClick = () => performance.now() - this.modalClosedAt < 360;
+    const guardGhostClick = () => performance.now() - this.modalClosedAt < 480;
     hud.querySelector('#hud-wpn-sheath')?.addEventListener('click', () => {
       if (guardGhostClick()) return;
       this.engine.cycleWeapon();
@@ -896,7 +901,7 @@ export class UIManager {
       this.pauseTab = 'skills';
       this.togglePauseModal();
     });
-    interactBtn.addEventListener('click', () => {
+    this.bindFastTap(interactBtn, () => {
       if (guardGhostClick()) return;
       this.engine.input.triggerInteractFromUI();
     });
@@ -3574,13 +3579,13 @@ export class UIManager {
 
   public startStoryDialogue(scene: StoryScene, onDone?: () => void): void {
     this.clearDialogueKeyHandler();
-    if (this.dialogueEl) this.dialogueEl.remove();
+    this.uiLayer.querySelectorAll('.cv-dialogue-backdrop').forEach((el) => el.remove());
+    this.dialogueEl = null;
     let idx = 0;
     let finished = false;
     const openedAt = performance.now();
     let lineShownAt = openedAt;
     let lastAdvanceAt = 0;
-    let lastBlockedInputAt = 0;
 
     // 实景剧情对白：绝不黑屏遮挡背景，自动隐藏顶部 HUD 让背后的宫阙火光与人物完整呈现！
     this.engine.storyDialogueActive = true;
@@ -3590,21 +3595,54 @@ export class UIManager {
     backdrop.className = 'cv-dialogue-backdrop';
     const box = document.createElement('div');
     box.className = 'cv-dialogue';
+    box.innerHTML = `
+      <div class="cv-dlg-bust-slot"></div>
+      <div class="cv-dlg-content">
+        <div class="dialogue-speaker-row">
+          <div>
+            <span class="dialogue-speaker"></span>
+            <span class="dialogue-role"></span>
+          </div>
+          <div class="dialogue-top-actions" style="display:flex;align-items:center;gap:8px;">
+            <span class="dialogue-step-count" style="font-size:11px;color:var(--ash);"></span>
+            <button type="button" tabindex="-1" class="zx-dlg-skip" id="btn-dlg-skip">跳过</button>
+          </div>
+        </div>
+        <div class="dialogue-text"></div>
+        <div class="dialogue-next">
+          <button type="button" tabindex="-1" class="zx-dlg-next-btn" id="btn-dlg-next"></button>
+        </div>
+      </div>
+    `;
     backdrop.appendChild(box);
     this.uiLayer.appendChild(backdrop);
     this.dialogueEl = backdrop;
     this.syncBlockState();
 
+    const bustSlotEl = box.querySelector('.cv-dlg-bust-slot') as HTMLElement;
+    const speakerEl = box.querySelector('.dialogue-speaker') as HTMLElement;
+    const roleEl = box.querySelector('.dialogue-role') as HTMLElement;
+    const topActionsEl = box.querySelector('.dialogue-top-actions') as HTMLElement;
+    const countEl = box.querySelector('.dialogue-step-count') as HTMLElement;
+    const skipBtn = box.querySelector('#btn-dlg-skip') as HTMLButtonElement;
+    const textEl = box.querySelector('.dialogue-text') as HTMLElement;
+    const nextBtn = box.querySelector('#btn-dlg-next') as HTMLButtonElement;
+
     const finishDialogue = () => {
       if (finished) return;
       finished = true;
       this.clearDialogueKeyHandler();
-      backdrop.remove();
       this.dialogueEl = null;
       this.engine.storyDialogueActive = false;
       if (this.hudEl) this.hudEl.style.opacity = '';
       this.modalClosedAt = performance.now();
       this.syncBlockState();
+      backdrop.dataset.closing = '1';
+      backdrop.style.pointerEvents = 'auto';
+      backdrop.style.opacity = '0';
+      window.setTimeout(() => {
+        backdrop.remove();
+      }, 90);
       onDone?.();
     };
 
@@ -3620,18 +3658,10 @@ export class UIManager {
       }
     };
 
-    const tryAdvanceLine = (fromExplicitBtn = false) => {
+    const tryAdvanceLine = () => {
       if (finished) return;
       const now = performance.now();
-      if (now - openedAt < (fromExplicitBtn ? 280 : 520)) {
-        lastBlockedInputAt = now;
-        return;
-      }
-      if (!fromExplicitBtn && now - lastBlockedInputAt < 380) {
-        lastBlockedInputAt = now;
-        return;
-      }
-      if (now - lineShownAt < 380 || now - lastAdvanceAt < 380) {
+      if (now - openedAt < 560 || now - lineShownAt < 460 || now - lastAdvanceAt < 460) {
         return;
       }
       lastAdvanceAt = now;
@@ -3644,118 +3674,112 @@ export class UIManager {
       const portraitH = window.innerHeight < 540 ? 138 : 210;
       const hasNextLine = idx + 1 < scene.lines.length;
       box.classList.toggle('npc-right', !isHero);
-      box.innerHTML = `
-        <div class="cv-dlg-bust-slot">${getSpeakerPortraitSvg(ln.speaker, portraitH)}</div>
-        <div class="cv-dlg-content">
-          <div class="dialogue-speaker-row">
-            <div>
-              <span class="dialogue-speaker" style="color:${ln.portraitColor}">${ln.speaker}</span>
-              <span class="dialogue-role">${ln.role}</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;">
-              ${
-                scene.lines.length > 1
-                  ? `<span style="font-size:11px;color:var(--ash);">${idx + 1}/${scene.lines.length}</span>
-                     <button type="button" tabindex="-1" class="zx-dlg-skip" id="btn-dlg-skip">跳过</button>`
-                  : ''
-              }
-            </div>
-          </div>
-          <div class="dialogue-text">${ln.text}</div>
-          <div class="dialogue-next">
-            <button type="button" tabindex="-1" class="zx-dlg-next-btn" id="btn-dlg-next">
-              ${hasNextLine ? '下一段 ▸' : '结束对话 ▸'}
-            </button>
-          </div>
-        </div>
-      `;
-      const skipBtn = box.querySelector('#btn-dlg-skip');
-      skipBtn?.addEventListener(
-        'touchend',
-        (ev) => {
-          ev.stopPropagation();
-          if (ev.cancelable) ev.preventDefault();
-          if (finished || performance.now() - openedAt < 240) return;
-          AudioFX.playHit(false);
-          finishDialogue();
-        },
-        { passive: false }
-      );
-      skipBtn?.addEventListener('click', (ev) => {
-        ev.stopPropagation();
-        if (finished || performance.now() - openedAt < 240) return;
-        AudioFX.playHit(false);
-        finishDialogue();
-      });
+      bustSlotEl.innerHTML = getSpeakerPortraitSvg(ln.speaker, portraitH);
+      speakerEl.textContent = ln.speaker;
+      speakerEl.style.color = ln.portraitColor;
+      roleEl.textContent = ln.role;
+      topActionsEl.style.display = scene.lines.length > 1 ? 'flex' : 'none';
+      countEl.textContent = `${idx + 1}/${scene.lines.length}`;
+      textEl.textContent = ln.text;
+      nextBtn.textContent = hasNextLine ? '下一段 ▸' : '结束对话 ▸';
     };
 
     renderLine();
 
-    // 全屏遮罩仅吸收对白框外（如左摇杆、右侧【斩】键区域）的误触与战斗余势连点，绝不直接翻页！
-    backdrop.addEventListener('pointerdown', (ev) => {
-      if (!box.contains(ev.target as Node)) {
-        lastBlockedInputAt = performance.now();
-      }
-    });
+    // 保持按钮节点常驻不重建：使 touchend 稳定冒泡至此并被 preventDefault() 拦截，彻底杜绝幽灵 click 穿透或重复触发！
     backdrop.addEventListener(
       'touchend',
       (ev) => {
-        if ((ev.target as HTMLElement | null)?.closest('#btn-dlg-skip')) return;
         if (ev.cancelable) ev.preventDefault();
       },
       { passive: false }
     );
 
-    let activePointerId: number | null = null;
-    let downX = 0;
-    let downY = 0;
-    box.addEventListener('pointerdown', (ev) => {
-      if ((ev.target as HTMLElement | null)?.closest('#btn-dlg-skip')) return;
-      if (activePointerId !== null) return;
-      activePointerId = ev.pointerId;
-      downX = ev.clientX;
-      downY = ev.clientY;
-    });
-    box.addEventListener('pointerup', (ev) => {
-      if (ev.pointerId !== activePointerId) return;
-      activePointerId = null;
-      if ((ev.target as HTMLElement | null)?.closest('#btn-dlg-skip')) return;
-      if (Math.hypot(ev.clientX - downX, ev.clientY - downY) <= 26) {
-        const fromBtn = Boolean((ev.target as HTMLElement | null)?.closest('#btn-dlg-next'));
-        tryAdvanceLine(fromBtn);
-      }
-    });
-    box.addEventListener('pointercancel', (ev) => {
-      if (ev.pointerId === activePointerId) {
-        activePointerId = null;
-      }
-    });
-    box.addEventListener('click', (ev) => {
-      if ((ev.target as HTMLElement | null)?.closest('#btn-dlg-skip')) return;
-      if (ev.detail === 0 || typeof window.PointerEvent === 'undefined') {
-        const fromBtn = Boolean((ev.target as HTMLElement | null)?.closest('#btn-dlg-next'));
-        tryAdvanceLine(fromBtn);
-      }
-    });
+    if (typeof window.PointerEvent !== 'undefined') {
+      let nextPointerId: number | null = null;
+      let nextDownX = 0;
+      let nextDownY = 0;
+      nextBtn.addEventListener('pointerdown', (ev) => {
+        if (!ev.isTrusted || nextPointerId !== null) return;
+        nextPointerId = ev.pointerId;
+        nextDownX = ev.clientX;
+        nextDownY = ev.clientY;
+      });
+      nextBtn.addEventListener('pointerup', (ev) => {
+        if (ev.pointerId !== nextPointerId) return;
+        nextPointerId = null;
+        if (ev.isTrusted && Math.hypot(ev.clientX - nextDownX, ev.clientY - nextDownY) <= 24) {
+          tryAdvanceLine();
+        }
+      });
+      nextBtn.addEventListener('pointercancel', (ev) => {
+        if (ev.pointerId === nextPointerId) nextPointerId = null;
+      });
 
+      let skipPointerId: number | null = null;
+      let skipDownX = 0;
+      let skipDownY = 0;
+      skipBtn.addEventListener('pointerdown', (ev) => {
+        ev.stopPropagation();
+        if (!ev.isTrusted || skipPointerId !== null) return;
+        skipPointerId = ev.pointerId;
+        skipDownX = ev.clientX;
+        skipDownY = ev.clientY;
+      });
+      skipBtn.addEventListener('pointerup', (ev) => {
+        ev.stopPropagation();
+        if (ev.pointerId !== skipPointerId) return;
+        skipPointerId = null;
+        if (
+          ev.isTrusted &&
+          performance.now() - openedAt >= 450 &&
+          Math.hypot(ev.clientX - skipDownX, ev.clientY - skipDownY) <= 24
+        ) {
+          AudioFX.playHit(false);
+          finishDialogue();
+        }
+      });
+      skipBtn.addEventListener('pointercancel', (ev) => {
+        if (ev.pointerId === skipPointerId) skipPointerId = null;
+      });
+    } else {
+      nextBtn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        tryAdvanceLine();
+      });
+      skipBtn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        if (finished || performance.now() - openedAt < 450) return;
+        AudioFX.playHit(false);
+        finishDialogue();
+      });
+    }
+
+    const heldCodes = new Set<string>();
     this.dialogueKeyHandler = (e: KeyboardEvent) => {
-      if (e.repeat) return;
-      if (
+      if (!e.isTrusted || e.repeat || heldCodes.has(e.code)) return;
+      heldCodes.add(e.code);
+      const isAdvanceKey =
         e.code === 'KeyJ' ||
         e.code === 'KeyZ' ||
         e.code === 'KeyK' ||
         e.code === 'Space' ||
         e.code === 'Enter' ||
-        e.code === 'KeyE'
-      ) {
-        e.preventDefault();
-        tryAdvanceLine(false);
+        e.code === 'KeyE';
+      if (!isAdvanceKey && e.code !== 'Escape') return;
+      e.preventDefault();
+      if (performance.now() - openedAt < 600) return;
+      if (isAdvanceKey) {
+        tryAdvanceLine();
       } else if (e.code === 'Escape') {
-        e.preventDefault();
         finishDialogue();
       }
     };
+    this.dialogueKeyUpHandler = (e: KeyboardEvent) => {
+      heldCodes.delete(e.code);
+    };
     window.addEventListener('keydown', this.dialogueKeyHandler);
+    window.addEventListener('keyup', this.dialogueKeyUpHandler);
   }
 
   public showBanner(title: string, sub: string): void {
