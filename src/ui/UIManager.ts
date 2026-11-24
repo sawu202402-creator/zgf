@@ -868,7 +868,7 @@ export class UIManager {
       interactBtn,
     };
 
-    const guardGhostClick = () => performance.now() - this.modalClosedAt < 180;
+    const guardGhostClick = () => performance.now() - this.modalClosedAt < 360;
     hud.querySelector('#hud-wpn-sheath')?.addEventListener('click', () => {
       if (guardGhostClick()) return;
       this.engine.cycleWeapon();
@@ -3576,6 +3576,10 @@ export class UIManager {
     this.clearDialogueKeyHandler();
     if (this.dialogueEl) this.dialogueEl.remove();
     let idx = 0;
+    let finished = false;
+    const openedAt = performance.now();
+    let lineShownAt = openedAt;
+    let lastAdvanceAt = 0;
 
     // 实景剧情对白：绝不黑屏遮挡背景，自动隐藏顶部 HUD 让背后的宫阙火光与人物完整呈现！
     this.engine.storyDialogueActive = true;
@@ -3591,6 +3595,8 @@ export class UIManager {
     this.syncBlockState();
 
     const finishDialogue = () => {
+      if (finished) return;
+      finished = true;
       this.clearDialogueKeyHandler();
       backdrop.remove();
       this.dialogueEl = null;
@@ -3602,13 +3608,25 @@ export class UIManager {
     };
 
     const advanceLine = () => {
+      if (finished) return;
       AudioFX.playHit(false);
       idx++;
       if (idx < scene.lines.length) {
+        lineShownAt = performance.now();
         renderLine();
       } else {
         finishDialogue();
       }
+    };
+
+    const tryAdvanceLine = () => {
+      if (finished) return;
+      const now = performance.now();
+      if (now - openedAt < 420 || now - lineShownAt < 340 || now - lastAdvanceAt < 340) {
+        return;
+      }
+      lastAdvanceAt = now;
+      advanceLine();
     };
 
     const renderLine = () => {
@@ -3637,8 +3655,21 @@ export class UIManager {
           <div class="dialogue-next">轻触或按【斩】继续 ▸</div>
         </div>
       `;
-      box.querySelector('#btn-dlg-skip')?.addEventListener('click', (ev) => {
+      const skipBtn = box.querySelector('#btn-dlg-skip');
+      skipBtn?.addEventListener(
+        'touchend',
+        (ev) => {
+          ev.stopPropagation();
+          if (ev.cancelable) ev.preventDefault();
+          if (finished) return;
+          AudioFX.playHit(false);
+          finishDialogue();
+        },
+        { passive: false }
+      );
+      skipBtn?.addEventListener('click', (ev) => {
         ev.stopPropagation();
+        if (finished) return;
         AudioFX.playHit(false);
         finishDialogue();
       });
@@ -3646,7 +3677,39 @@ export class UIManager {
 
     renderLine();
 
-    backdrop.addEventListener('click', () => advanceLine());
+    let downOnBackdrop = false;
+    let downX = 0;
+    let downY = 0;
+    backdrop.addEventListener('pointerdown', (ev) => {
+      if ((ev.target as HTMLElement | null)?.closest('#btn-dlg-skip')) return;
+      downOnBackdrop = true;
+      downX = ev.clientX;
+      downY = ev.clientY;
+    });
+    backdrop.addEventListener('pointerup', (ev) => {
+      if ((ev.target as HTMLElement | null)?.closest('#btn-dlg-skip') || !downOnBackdrop) return;
+      downOnBackdrop = false;
+      if (Math.hypot(ev.clientX - downX, ev.clientY - downY) <= 28) {
+        tryAdvanceLine();
+      }
+    });
+    backdrop.addEventListener('pointercancel', () => {
+      downOnBackdrop = false;
+    });
+    backdrop.addEventListener(
+      'touchend',
+      (ev) => {
+        if ((ev.target as HTMLElement | null)?.closest('#btn-dlg-skip')) return;
+        if (ev.cancelable) ev.preventDefault();
+      },
+      { passive: false }
+    );
+    backdrop.addEventListener('click', (ev) => {
+      if ((ev.target as HTMLElement | null)?.closest('#btn-dlg-skip')) return;
+      if (!ev.isTrusted || typeof window.PointerEvent === 'undefined') {
+        tryAdvanceLine();
+      }
+    });
 
     this.dialogueKeyHandler = (e: KeyboardEvent) => {
       if (e.repeat) return;
@@ -3659,7 +3722,7 @@ export class UIManager {
         e.code === 'KeyE'
       ) {
         e.preventDefault();
-        advanceLine();
+        tryAdvanceLine();
       } else if (e.code === 'Escape') {
         e.preventDefault();
         finishDialogue();

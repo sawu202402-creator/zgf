@@ -180,11 +180,16 @@ export function playOpeningPrologue(
     root.style.pointerEvents = 'none';
   };
 
+  const openedAt = performance.now();
+  let actEnteredAt = openedAt;
+  let lastTapAt = 0;
+
   const advanceAct = () => {
     if (dissolvingOut || destroyed) return;
     if (actIdx < acts.length - 1) {
       actIdx++;
       actTimer = 0;
+      actEnteredAt = performance.now();
       crossFade = 0.85;
       syncActText();
     } else {
@@ -192,43 +197,71 @@ export function playOpeningPrologue(
     }
   };
 
-  let lastTapAt = 0;
-  const safeTap = (fn: () => void) => {
+  const tryAdvanceAct = () => {
     const now = performance.now();
-    if (now - lastTapAt < 240) return;
+    if (now - openedAt < 420 || now - actEnteredAt < 340 || now - lastTapAt < 340) return;
     lastTapAt = now;
-    fn();
+    advanceAct();
+  };
+
+  const safeSkip = () => {
+    const now = performance.now();
+    if (now - openedAt < 180 || now - lastTapAt < 240) return;
+    lastTapAt = now;
+    beginLiveCrossDissolve();
   };
 
   skipBtn.addEventListener('pointerup', (ev) => {
     ev.stopPropagation();
-    safeTap(beginLiveCrossDissolve);
+    safeSkip();
   });
   skipBtn.addEventListener('click', (ev) => {
     ev.stopPropagation();
-    safeTap(beginLiveCrossDissolve);
+    safeSkip();
   });
   skipBtn.addEventListener(
     'touchend',
     (ev) => {
       ev.stopPropagation();
       if (ev.cancelable) ev.preventDefault();
-      safeTap(beginLiveCrossDissolve);
+      safeSkip();
     },
     { passive: false }
   );
 
-  root.addEventListener('pointerup', (ev) => {
+  let downOnRoot = false;
+  let downX = 0;
+  let downY = 0;
+  root.addEventListener('pointerdown', (ev) => {
     if ((ev.target as HTMLElement | null)?.closest('#btn-prologue-skip')) return;
-    safeTap(advanceAct);
+    downOnRoot = true;
+    downX = ev.clientX;
+    downY = ev.clientY;
+  });
+  root.addEventListener('pointerup', (ev) => {
+    if ((ev.target as HTMLElement | null)?.closest('#btn-prologue-skip') || !downOnRoot) return;
+    downOnRoot = false;
+    if (Math.hypot(ev.clientX - downX, ev.clientY - downY) <= 28) {
+      tryAdvanceAct();
+    }
+  });
+  root.addEventListener('pointercancel', () => {
+    downOnRoot = false;
   });
   root.addEventListener(
     'touchend',
     (ev) => {
+      if ((ev.target as HTMLElement | null)?.closest('#btn-prologue-skip')) return;
       if (ev.cancelable) ev.preventDefault();
     },
     { passive: false }
   );
+  root.addEventListener('click', (ev) => {
+    if ((ev.target as HTMLElement | null)?.closest('#btn-prologue-skip')) return;
+    if (!ev.isTrusted || typeof window.PointerEvent === 'undefined') {
+      tryAdvanceAct();
+    }
+  });
 
   const onKeyDown = (ev: KeyboardEvent) => {
     if (ev.repeat) return;
@@ -243,7 +276,7 @@ export function playOpeningPrologue(
       ev.code === 'KeyK'
     ) {
       ev.preventDefault();
-      advanceAct();
+      tryAdvanceAct();
     }
   };
   window.addEventListener('keydown', onKeyDown);
@@ -281,10 +314,6 @@ export function playOpeningPrologue(
     } else {
       actTimer += dt;
       crossFade = Math.max(0, crossFade - dt * 2.6);
-      const curAct = acts[actIdx];
-      if (curAct && actTimer >= curAct.duration) {
-        advanceAct();
-      }
     }
 
     const viewW = Math.max(1, root.clientWidth || window.innerWidth);

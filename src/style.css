@@ -870,6 +870,10 @@ html.is-standalone-webapp #game-root {
   cursor: pointer;
   overflow: hidden;
   transition: opacity 0.08s linear;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .zx-prologue-canvas {
   position: absolute;
@@ -988,6 +992,10 @@ html.is-standalone-webapp #game-root {
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
   background: linear-gradient(
     180deg,
     rgba(3, 5, 10, 0.24) 0%,
