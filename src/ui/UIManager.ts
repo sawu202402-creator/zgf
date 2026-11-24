@@ -323,10 +323,79 @@ export class UIManager {
     const res = await NativeApp.promptInstall();
     if (res === 'accepted') {
       AudioFX.playRelicBell();
-      triggerEl?.remove();
+      const titleEl = triggerEl?.querySelector('.zx-install-text strong');
+      const subEl = triggerEl?.querySelector('.zx-install-text small');
+      if (titleEl) titleEl.textContent = '正在等待系统安装...';
+      if (subEl) subEl.textContent = '若桌面无图标将自动弹出排查';
+
+      const startAt = Date.now();
+      const pollId = window.setInterval(() => {
+        if (NativeApp.hasCompletedAppInstall()) {
+          window.clearInterval(pollId);
+          triggerEl?.remove();
+          this.showPostInstallNoticeModal(true);
+          return;
+        }
+        if (Date.now() - startAt >= 3200) {
+          window.clearInterval(pollId);
+          if (titleEl) titleEl.textContent = '添加到桌面';
+          if (subEl) subEl.textContent = '换用本地快捷方式 / 排查';
+          this.showPostInstallNoticeModal(false);
+        }
+      }, 250);
     } else if (res === 'manual_guide') {
       this.showInstallToHomeModal();
     }
+  }
+
+  private showPostInstallNoticeModal(appInstalledOk: boolean): void {
+    const overlay = document.createElement('div');
+    overlay.className = 'zx-arsenal-overlay';
+    overlay.innerHTML = appInstalledOk
+      ? `
+      <div class="zx-arsenal-topbar">
+        <span class="zx-modal-heading">《玄城夜行》安装已就绪</span>
+        <button class="zx-seal-btn" id="btn-close-post-install" type="button">知道了</button>
+      </div>
+      <div class="zx-scroll-pane">
+        <div class="zx-install-guide-card">
+          <div class="zx-install-hero">
+            <img src="./assets/app_icon_192.png" alt="玄城夜行图标" />
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:15.5px;font-weight:900;color:#5eead4;letter-spacing:1.5px;">已收到系统安装完成通知</div>
+              <div style="font-size:12px;color:#cbd5e1;margin-top:3px;">若桌面首页暂未看到图标，可按下方两处排查：</div>
+            </div>
+          </div>
+          <div class="zx-install-steps">
+            <div class="zx-install-step"><strong>1. 检查全部应用 / 抽屉</strong>从手机桌面底部向上滑打开应用抽屉，搜索「玄城夜行」长按拖至桌面。</div>
+            <div class="zx-install-step"><strong>2. 放行浏览器建图标权限</strong>小米/OPPO/vivo/华为请到「设置 → 应用管理 → Chrome → 权限 → 桌面快捷方式」设为允许。</div>
+            <div class="zx-install-step"><strong>3. 删旧换新去黑边</strong>若桌面存有早先旧快捷方式，请长按移除后再从新图标启动，开玩即自动全屏。</div>
+          </div>
+        </div>
+      </div>`
+      : `
+      <div class="zx-arsenal-topbar">
+        <span class="zx-modal-heading">系统未生成图标？请改用本地快捷方式</span>
+        <button class="zx-seal-btn" id="btn-close-post-install" type="button">知道了</button>
+      </div>
+      <div class="zx-scroll-pane">
+        <div class="zx-install-guide-card">
+          <div class="zx-install-hero">
+            <img src="./assets/app_icon_192.png" alt="玄城夜行图标" />
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:15.5px;font-weight:900;color:var(--bronze-light);letter-spacing:1.5px;">Chrome「安装应用」受阻提示</div>
+              <div style="font-size:12px;color:#cbd5e1;margin-top:3px;">国内手机若无 Google Play 服务，Chrome 的「安装」会卡在后台且无图标；请直接改建<strong style="color:#fef08a;">本地桌面快捷方式</strong>！</div>
+            </div>
+          </div>
+          <div class="zx-install-steps">
+            <div class="zx-install-step"><strong>1. 改点「创建快捷方式」</strong>点击 Chrome 右上角「⋮」→「添加到主屏幕」→ 若提示选两项，务必点「创建快捷方式」（秒出图标，不卡后台）！</div>
+            <div class="zx-install-step"><strong>2. 开启 Chrome 桌面权限</strong>国产手机默认拦截浏览器建图标：打开「设置 → 应用 → Chrome → 权限 → 桌面快捷方式 → 允许」。</div>
+            <div class="zx-install-step"><strong>3. 检查应用抽屉与全屏</strong>已有图标的请上滑应用抽屉查找「玄城夜行」；点任意方式打开并进入游戏后均会自动全屏隐藏黑条。</div>
+          </div>
+        </div>
+      </div>`;
+    this.uiLayer.appendChild(overlay);
+    overlay.querySelector('#btn-close-post-install')?.addEventListener('click', () => overlay.remove());
   }
 
   private showInstallToHomeModal(): void {
@@ -354,8 +423,8 @@ export class UIManager {
             <div class="zx-install-step"><strong>3. 添加到手机桌面</strong>进入外部浏览器后，再点「添加到桌面」或浏览器菜单「添加到主屏幕」即可！</div>`
             : `
             <div class="zx-install-step"><strong>1. 打开浏览器右上角菜单</strong>点击 Chrome / Edge / 系统浏览器的「⋮」或「≡」菜单按钮。</div>
-            <div class="zx-install-step"><strong>2. 选择【安装 / 添加到主屏幕】</strong>在菜单中点击「安装应用」或「添加到主屏幕 / 桌面」。</div>
-            <div class="zx-install-step"><strong>3. 确认生成桌面图标</strong>手机桌面会直接生成《玄城夜行》独立横屏图标，随时秒开且四卷存档同步保留！</div>`;
+            <div class="zx-install-step"><strong>2. 优先选【创建快捷方式】</strong>点击「添加到主屏幕」；若弹出两项且国内环境「安装应用」找不到图标，请选「创建快捷方式」。</div>
+            <div class="zx-install-step"><strong>3. 允许权限或抽屉查找</strong>若桌面仍无图标，请在手机「设置 → 应用 → Chrome → 权限」允许「桌面快捷方式」，或上滑应用抽屉搜索。</div>`;
 
       overlay.innerHTML = `
         <div class="zx-arsenal-topbar">
@@ -633,6 +702,9 @@ export class UIManager {
   }
 
   private launchGame(slot: ReturnType<typeof createFreshSaveSlot>, isPrologueWalkIn = false): void {
+    if (NativeApp.isMobileOrTablet() && !document.fullscreenElement) {
+      void NativeApp.requestFullscreenAndLandscape();
+    }
     this.clearAllUI();
     this.buildActionGameHud();
     this.engine.startSession(slot, isPrologueWalkIn);
@@ -643,6 +715,9 @@ export class UIManager {
     slot: ReturnType<typeof createFreshSaveSlot>,
     mode: 'story' | 'xiaoduanshui'
   ): void {
+    if (NativeApp.isMobileOrTablet() && !document.fullscreenElement) {
+      void NativeApp.requestFullscreenAndLandscape();
+    }
     this.clearAllUI();
     this.engine.input.uiBlocked = true;
     this.engine.input.resetAll();

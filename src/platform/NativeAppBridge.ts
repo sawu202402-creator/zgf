@@ -27,12 +27,12 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
-const PWA_INSTALLED_KEY = 'xuancheng_pwa_installed';
-
 class NativeAppAdapter {
   private backListeners: (() => void)[] = [];
   private deferredPrompt: BeforeInstallPromptEvent | null = null;
   private installListeners: (() => void)[] = [];
+  private appInstalledListeners: (() => void)[] = [];
+  private appInstalledFired = false;
   private immersiveBound = false;
 
   constructor() {
@@ -54,18 +54,23 @@ class NativeAppAdapter {
       window.addEventListener('appinstalled', () => {
         this.deferredPrompt = null;
         window.__xuanchengDeferredPrompt = null;
-        try {
-          localStorage.setItem(PWA_INSTALLED_KEY, '1');
-        } catch {
-          // ignore
-        }
+        this.appInstalledFired = true;
         for (const cb of this.installListeners) cb();
+        for (const cb of this.appInstalledListeners) cb();
       });
     }
   }
 
   public onInstallAvailabilityChange(cb: () => void): void {
     this.installListeners.push(cb);
+  }
+
+  public onAppInstalled(cb: () => void): void {
+    this.appInstalledListeners.push(cb);
+  }
+
+  public hasCompletedAppInstall(): boolean {
+    return this.appInstalledFired;
   }
 
   public isStandaloneInstalled(): boolean {
@@ -76,7 +81,6 @@ class NativeAppAdapter {
         return true;
       }
       if ((navigator as unknown as { standalone?: boolean }).standalone === true) return true;
-      if (localStorage.getItem(PWA_INSTALLED_KEY) === '1') return true;
     } catch {
       // ignore
     }
@@ -103,18 +107,11 @@ class NativeAppAdapter {
     }
     if (!p) return 'manual_guide';
     try {
+      this.appInstalledFired = false;
       await p.prompt();
       const choice = await p.userChoice;
       this.deferredPrompt = null;
       window.__xuanchengDeferredPrompt = null;
-      if (choice.outcome === 'accepted') {
-        try {
-          localStorage.setItem(PWA_INSTALLED_KEY, '1');
-        } catch {
-          // ignore
-        }
-        for (const cb of this.installListeners) cb();
-      }
       return choice.outcome;
     } catch {
       return 'manual_guide';
@@ -148,6 +145,7 @@ class NativeAppAdapter {
         const inWebApp =
           window.matchMedia?.('(display-mode: standalone)').matches ||
           window.matchMedia?.('(display-mode: fullscreen)').matches ||
+          window.matchMedia?.('(display-mode: minimal-ui)').matches ||
           (navigator as unknown as { standalone?: boolean }).standalone === true;
         if (!inWebApp) return;
         const el = document.documentElement as HTMLElement & {
