@@ -2731,7 +2731,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       solidBlocks: [{ x: 575, y: 328, w: 185, h: 36 }],
       climbWalls: [
         { x: 70, topY: 128, bottomY: 396 },
-        { x: 228, topY: 128, bottomY: 336 },
+        { x: 228, topY: 128, bottomY: 300 },
       ],
       ceilingSpans: [{ x1: 0, x2: 800, bottomY: 36, style: 'palace_timber' }],
       shafts: [{ x1: 310, x2: 510, dir: 'down', targetRoomId: 'clock_boss_spire' }],
@@ -3912,11 +3912,11 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       solidBlocks: [
         { x: 110, y: 276, w: 220, h: 32 },
-        { x: 830, y: 268, w: 210, h: 30 },
+        { x: 830, y: 298, w: 210, h: 30 },
       ],
       climbWalls: [
-        { x: 555, topY: 72, bottomY: 408 },
-        { x: 745, topY: 72, bottomY: 408 },
+        { x: 555, topY: 48, bottomY: 292 },
+        { x: 745, topY: 48, bottomY: 292 },
       ],
       ceilingSpans: [],
       shafts: [{ x1: 560, x2: 740, dir: 'up', targetRoomId: 'west_cliff_skybridge' }],
@@ -3936,14 +3936,14 @@ function createNormalCastleRooms(): BuiltRoom[] {
       lanterns: [],
       npcs: [],
       spawns: [
-        { kind: 'bone_archer', x: 910, y: 268 },
+        { kind: 'bone_archer', x: 910, y: 298 },
         { kind: 'spirit_crow', x: 520, y: 185 },
         { kind: 'bone_archer', x: 220, y: 276 },
         { kind: 'paper_swordsman', x: 760, y: 408 },
       ],
       pickups: [
         { id: 'pk_battlement_spear', kind: 'weapon', itemId: 'spear_1', x: 195, y: 276 },
-        { id: 'pk_battlement_mp', kind: 'consumable', itemId: 'huiqi_dan', x: 925, y: 268 },
+        { id: 'pk_battlement_mp', kind: 'consumable', itemId: 'huiqi_dan', x: 925, y: 298 },
       ],
     },
 

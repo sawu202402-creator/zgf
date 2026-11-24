@@ -2,6 +2,7 @@ import { GameMode, GlobalMetaUnlock, SaveSlotData } from '../types';
 
 const SLOT_KEY_PREFIX = 'xuancheng_vs_slot_v2_';
 const META_KEY = 'xuancheng_global_meta_v1';
+export const MAX_SAVE_SLOTS = 4;
 
 export function createFreshSaveSlot(slotIndex: number, mode: GameMode = 'story'): SaveSlotData {
   const isXiao = mode === 'xiaoduanshui';
@@ -85,6 +86,7 @@ class SaveSystem {
   }
 
   public getSlot(slotIndex: number): SaveSlotData | null {
+    if (slotIndex < 1 || slotIndex > MAX_SAVE_SLOTS) return null;
     try {
       const raw = localStorage.getItem(`${SLOT_KEY_PREFIX}${slotIndex}`);
       if (!raw) return null;
@@ -94,10 +96,47 @@ class SaveSystem {
     }
   }
 
+  public listSlots(): (SaveSlotData | null)[] {
+    const out: (SaveSlotData | null)[] = [];
+    for (let i = 1; i <= MAX_SAVE_SLOTS; i++) {
+      out.push(this.getSlot(i));
+    }
+    return out;
+  }
+
+  public getLatestSlot(): SaveSlotData | null {
+    const slots = this.listSlots().filter(
+      (s): s is SaveSlotData => Boolean(s && s.mode !== 'boss_rush')
+    );
+    if (slots.length === 0) return null;
+    const preferred = this.meta.lastActiveSlot
+      ? slots.find((s) => s.slotIndex === this.meta.lastActiveSlot)
+      : undefined;
+    let newest = slots[0];
+    for (const s of slots) {
+      if ((s.updatedAt || 0) > (newest.updatedAt || 0)) newest = s;
+    }
+    if (preferred && (preferred.updatedAt || 0) >= (newest.updatedAt || 0)) {
+      return preferred;
+    }
+    return newest;
+  }
+
+  public findFirstEmptySlot(): number | null {
+    for (let i = 1; i <= MAX_SAVE_SLOTS; i++) {
+      if (!this.getSlot(i)) return i;
+    }
+    return null;
+  }
+
   public saveSlot(data: SaveSlotData): void {
+    if (data.mode === 'boss_rush' || data.slotIndex < 1 || data.slotIndex > MAX_SAVE_SLOTS) {
+      return;
+    }
     data.updatedAt = Date.now();
     try {
       localStorage.setItem(`${SLOT_KEY_PREFIX}${data.slotIndex}`, JSON.stringify(data));
+      this.saveMeta({ lastActiveSlot: data.slotIndex });
     } catch {
       // ignore
     }
@@ -106,6 +145,10 @@ class SaveSystem {
   public deleteSlot(slotIndex: number): void {
     try {
       localStorage.removeItem(`${SLOT_KEY_PREFIX}${slotIndex}`);
+      if (this.meta.lastActiveSlot === slotIndex) {
+        const nextLatest = this.getLatestSlot();
+        this.saveMeta({ lastActiveSlot: nextLatest?.slotIndex });
+      }
     } catch {
       // ignore
     }

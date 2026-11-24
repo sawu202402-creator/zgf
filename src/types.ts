@@ -295,6 +295,7 @@ export interface GlobalMetaUnlock {
   bestBossRushSec: number | null;
   controlStyle: 'joystick' | 'dpad';
   padScale?: number;
+  lastActiveSlot?: number;
   sfxMuted: boolean;
   bgmMuted: boolean;
 }

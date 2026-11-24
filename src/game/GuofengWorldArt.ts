@@ -1392,6 +1392,27 @@ export function bakeOrthographicRoomTerrain(
       if (stonePillarImg) {
         drawSlicedColumn(bctx, stonePillarImg, cw.x, cw.topY - 4, cw.bottomY, 42, 0.08, true);
       }
+      if (cw.bottomY < sampleSolidGroundY(room, cw.x) - 24) {
+        if (stoneLedgeImg) {
+          bctx.drawImage(
+            stoneLedgeImg,
+            0,
+            0,
+            Math.min(180, stoneLedgeImg.width),
+            stoneLedgeImg.height,
+            cw.x - 26,
+            cw.bottomY - 12,
+            52,
+            14
+          );
+        }
+        if (corbelImg) {
+          const cbW = 30;
+          const cbH = cbW * (corbelImg.height / corbelImg.width);
+          drawWallCorbel(bctx, corbelImg, 'left', cw.x + 17, cw.topY + 4, cbW, cbH, 0.78);
+          drawWallCorbel(bctx, corbelImg, 'right', cw.x - 17, cw.topY + 4, cbW, cbH, 0.78);
+        }
+      }
     }
   }
 

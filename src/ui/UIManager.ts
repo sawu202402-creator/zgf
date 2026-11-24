@@ -29,7 +29,7 @@ import {
 } from '../game/CharacterArt';
 import { drawPaintedChainTrack, drawPaintedVfxDisc } from '../game/GuofengWorldArt';
 import { ActiveSlash, GameEngine } from '../game/GameEngine';
-import { createFreshSaveSlot, SaveManager } from '../meta/SaveManager';
+import { createFreshSaveSlot, MAX_SAVE_SLOTS, SaveManager } from '../meta/SaveManager';
 import { NativeApp } from '../platform/NativeAppBridge';
 import {
   CastleRealm,
@@ -65,6 +65,8 @@ export class UIManager {
   private bannerEl: HTMLElement | null = null;
   private stageRafId = 0;
   private stageSlash: ActiveSlash | null = null;
+  private installHookBound = false;
+  private titleRootEl: HTMLElement | null = null;
 
   private hudRefs: {
     lvSeal?: HTMLElement;
@@ -163,12 +165,49 @@ export class UIManager {
     this.clearAllUI();
     this.engine.stopSession();
 
-    const slot1 = SaveManager.getSlot(1);
+    const latestSlot = SaveManager.getLatestSlot();
+    const allSlots = SaveManager.listSlots();
+    const usedCount = allSlots.filter(Boolean).length;
+    const slotLabels = ['卷壹', '卷贰', '卷叁', '卷肆'];
     const meta = SaveManager.getMeta();
+    const showInstall = !NativeApp.isStandaloneInstalled();
+    const nativeInstallReady = NativeApp.canPromptInstallNatively();
+
     const root = document.createElement('div');
     root.className = 'zx-title-screen';
+    this.titleRootEl = root;
+
+    if (!this.installHookBound) {
+      this.installHookBound = true;
+      NativeApp.onInstallAvailabilityChange(() => {
+        if (!this.titleRootEl?.isConnected) return;
+        const btn = this.titleRootEl.querySelector('#btn-install-home') as HTMLButtonElement | null;
+        if (!btn) return;
+        if (NativeApp.isStandaloneInstalled()) {
+          btn.remove();
+          return;
+        }
+        const sub = btn.querySelector('.zx-install-text small');
+        if (sub) {
+          sub.textContent = NativeApp.canPromptInstallNatively()
+            ? '一点直装桌面 · 全屏秒开'
+            : '固定至主屏 · 全屏秒开';
+        }
+      });
+    }
 
     root.innerHTML = `
+      ${
+        showInstall
+          ? `<button class="zx-install-shortcut" id="btn-install-home" type="button">
+               <img src="./assets/app_icon_192.png" alt="玄城夜行图标" />
+               <span class="zx-install-text">
+                 <strong>添加到桌面</strong>
+                 <small>${nativeInstallReady ? '一点直装桌面 · 全屏秒开' : '固定至主屏 · 全屏秒开'}</small>
+               </span>
+             </button>`
+          : ''
+      }
       <div class="zx-brand-block">
         <div class="zx-red-stamp">镇妖司密录</div>
         <div>
@@ -179,16 +218,20 @@ export class UIManager {
 
       <div class="zx-menu-list">
         ${
-          slot1
+          latestSlot
             ? `<button class="zx-menu-item" id="btn-continue-slot">
                  <span>再续前尘</span>
-                 <span class="zx-menu-sub">${slot1.heroName} · 境界 ${slot1.level}${slot1.currentRealm === 'inverted' ? ' · 倒悬里城' : ''}</span>
+                 <span class="zx-menu-sub">${slotLabels[(latestSlot.slotIndex - 1) % 4] || '卷壹'} · ${latestSlot.heroName} · 境${latestSlot.level}${latestSlot.currentRealm === 'inverted' ? ' · 里城' : ''}</span>
                </button>`
             : ''
         }
+        <button class="zx-menu-item" id="btn-save-slots">
+          <span>命牌秘档</span>
+          <span class="zx-menu-sub">多存档 (${usedCount}/${MAX_SAVE_SLOTS} 卷) · 读档与管理</span>
+        </button>
         <button class="zx-menu-item" id="btn-new-journey">
           <span>踏入玄城</span>
-          <span class="zx-menu-sub">正篇 · 镇妖司传人李逸承</span>
+          <span class="zx-menu-sub">${usedCount > 0 ? '正篇 · 选卷新建不覆盖旧档' : '正篇 · 镇妖司传人李逸承'}</span>
         </button>
         <button class="zx-menu-item" id="btn-xiao-mode">
           <span>少统领传</span>
@@ -213,28 +256,49 @@ export class UIManager {
     this.modalEl = root;
     this.syncBlockState();
 
+    root.querySelector('#btn-install-home')?.addEventListener('click', () => {
+      AudioFX.resume();
+      void this.handleInstallButtonClick(root.querySelector('#btn-install-home') as HTMLElement | null);
+    });
+
     root.querySelector('#btn-continue-slot')?.addEventListener('click', () => {
       AudioFX.resume();
-      if (slot1) this.launchGame(slot1);
+      if (latestSlot) {
+        SaveManager.saveMeta({ lastActiveSlot: latestSlot.slotIndex });
+        this.launchGame(latestSlot);
+      }
+    });
+
+    root.querySelector('#btn-save-slots')?.addEventListener('click', () => {
+      AudioFX.resume();
+      this.showSaveSlotsModal('manage');
     });
 
     root.querySelector('#btn-new-journey')?.addEventListener('click', () => {
       AudioFX.resume();
-      const fresh = createFreshSaveSlot(1, 'story');
-      SaveManager.saveSlot(fresh);
-      this.launchGameWithPrologue(fresh, 'story');
+      if (usedCount === 0) {
+        const fresh = createFreshSaveSlot(1, 'story');
+        SaveManager.saveSlot(fresh);
+        this.launchGameWithPrologue(fresh, 'story');
+      } else {
+        this.showSaveSlotsModal('new_story');
+      }
     });
 
     root.querySelector('#btn-xiao-mode')?.addEventListener('click', () => {
       AudioFX.resume();
-      const xiaoSlot = createFreshSaveSlot(2, 'xiaoduanshui');
-      SaveManager.saveSlot(xiaoSlot);
-      this.launchGameWithPrologue(xiaoSlot, 'xiaoduanshui');
+      if (usedCount === 0) {
+        const xiaoSlot = createFreshSaveSlot(1, 'xiaoduanshui');
+        SaveManager.saveSlot(xiaoSlot);
+        this.launchGameWithPrologue(xiaoSlot, 'xiaoduanshui');
+      } else {
+        this.showSaveSlotsModal('new_xiao');
+      }
     });
 
     root.querySelector('#btn-boss-rush')?.addEventListener('click', () => {
       AudioFX.resume();
-      const rushSlot = createFreshSaveSlot(3, 'boss_rush');
+      const rushSlot = createFreshSaveSlot(0, 'boss_rush');
       rushSlot.level = 14;
       rushSlot.ownedWeapons = ['sword_2', 'greatsword_2', 'spear_2', 'daggers_2', 'whip_2'];
       rushSlot.equippedWeapon = 'sword_2';
@@ -253,6 +317,271 @@ export class UIManager {
     root.querySelector('#btn-title-fs')?.addEventListener('click', () => {
       NativeApp.requestFullscreenAndLandscape();
     });
+  }
+
+  private async handleInstallButtonClick(triggerEl?: HTMLElement | null): Promise<void> {
+    const res = await NativeApp.promptInstall();
+    if (res === 'accepted') {
+      AudioFX.playRelicBell();
+      triggerEl?.remove();
+    } else if (res === 'manual_guide') {
+      this.showInstallToHomeModal();
+    }
+  }
+
+  private showInstallToHomeModal(): void {
+    const overlay = document.createElement('div');
+    overlay.className = 'zx-arsenal-overlay';
+    let tab: 'ios' | 'android' | 'wechat' =
+      NativeApp.detectInstallGuideKind() === 'ios'
+        ? 'ios'
+        : NativeApp.detectInstallGuideKind() === 'wechat'
+          ? 'wechat'
+          : 'android';
+
+    const renderGuide = () => {
+      const canNative = NativeApp.canPromptInstallNatively();
+      const stepsHtml =
+        tab === 'ios'
+          ? `
+            <div class="zx-install-step"><strong>1. 点击浏览器【分享】</strong>在 Safari 底部或右上角工具栏找到方框带向上箭头的「分享」图标。</div>
+            <div class="zx-install-step"><strong>2. 选择【添加到主屏幕】</strong>在弹出菜单中向上滑动，点击「添加到主屏幕 (Add to Home Screen)」。</div>
+            <div class="zx-install-step"><strong>3. 点击【添加】即成</strong>手机桌面将生成专属《玄城夜行》古风图标，点击可全屏无地址栏启动！</div>`
+          : tab === 'wechat'
+            ? `
+            <div class="zx-install-step"><strong>1. 切出微信内置浏览器</strong>微信内无法直接添加桌面快捷方式，请先点击右上角「⋯」更多按钮。</div>
+            <div class="zx-install-step"><strong>2. 在默认浏览器打开</strong>选择「在浏览器打开」（苹果选 Safari，安卓选 Chrome / 手机自带浏览器）。</div>
+            <div class="zx-install-step"><strong>3. 添加到手机桌面</strong>进入外部浏览器后，再点「添加到桌面」或浏览器菜单「添加到主屏幕」即可！</div>`
+            : `
+            <div class="zx-install-step"><strong>1. 打开浏览器右上角菜单</strong>点击 Chrome / Edge / 系统浏览器的「⋮」或「≡」菜单按钮。</div>
+            <div class="zx-install-step"><strong>2. 选择【安装 / 添加到主屏幕】</strong>在菜单中点击「安装应用」或「添加到主屏幕 / 桌面」。</div>
+            <div class="zx-install-step"><strong>3. 确认生成桌面图标</strong>手机桌面会直接生成《玄城夜行》独立横屏图标，随时秒开且四卷存档同步保留！</div>`;
+
+      overlay.innerHTML = `
+        <div class="zx-arsenal-topbar">
+          <span class="zx-modal-heading">添加到手机桌面 · 全屏快捷入口</span>
+          <button class="zx-seal-btn" id="btn-close-install-guide" type="button">返回</button>
+        </div>
+        <div class="zx-scroll-pane">
+          <div class="zx-install-guide-card">
+            <div class="zx-install-hero">
+              <img src="./assets/app_icon_192.png" alt="玄城夜行图标" />
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:16px;font-weight:900;color:var(--bronze-light);letter-spacing:2px;">玄城夜行：九幽录</div>
+                <div style="font-size:12px;color:#cbd5e1;margin-top:3px;">添至桌面主屏后，享无浏览器边框横屏体验与自动读档。</div>
+              </div>
+              ${
+                canNative
+                  ? `<button class="zx-seal-btn" id="btn-native-install-now" type="button" style="border-color:#fde047;color:#fef08a;">立即拉起安装</button>`
+                  : ''
+              }
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="zx-seal-btn ${tab === 'ios' ? 'active' : ''}" data-instab="ios" type="button" style="${tab === 'ios' ? 'border-color:var(--bronze-light);color:var(--bronze-light);' : ''}">苹果 Safari</button>
+              <button class="zx-seal-btn ${tab === 'android' ? 'active' : ''}" data-instab="android" type="button" style="${tab === 'android' ? 'border-color:var(--bronze-light);color:var(--bronze-light);' : ''}">安卓浏览器</button>
+              <button class="zx-seal-btn ${tab === 'wechat' ? 'active' : ''}" data-instab="wechat" type="button" style="${tab === 'wechat' ? 'border-color:var(--bronze-light);color:var(--bronze-light);' : ''}">微信打开时</button>
+            </div>
+            <div class="zx-install-steps">${stepsHtml}</div>
+          </div>
+        </div>
+      `;
+
+      overlay.querySelector('#btn-close-install-guide')?.addEventListener('click', () => overlay.remove());
+      overlay.querySelector('#btn-native-install-now')?.addEventListener('click', async () => {
+        const outcome = await NativeApp.promptInstall();
+        if (outcome === 'accepted') {
+          AudioFX.playRelicBell();
+          overlay.remove();
+        }
+      });
+      overlay.querySelectorAll('[data-instab]').forEach((el) => {
+        el.addEventListener('click', () => {
+          tab = el.getAttribute('data-instab') as 'ios' | 'android' | 'wechat';
+          renderGuide();
+        });
+      });
+    };
+
+    this.uiLayer.appendChild(overlay);
+    renderGuide();
+  }
+
+  private showSaveSlotsModal(intent: 'manage' | 'new_story' | 'new_xiao', fromPause = false): void {
+    const overlay = document.createElement('div');
+    overlay.className = 'zx-arsenal-overlay';
+    const slotLabels = ['卷壹', '卷贰', '卷叁', '卷肆'];
+    const currentRunningIdx = fromPause ? this.engine.slot?.slotIndex : SaveManager.getMeta().lastActiveSlot;
+    let pendingConfirm: { slotIndex: number; action: 'overwrite' | 'delete' } | null = null;
+
+    const formatDur = (sec: number) => {
+      const total = Math.max(0, Math.floor(sec || 0));
+      const h = Math.floor(total / 3600);
+      const m = Math.floor((total % 3600) / 60);
+      const s = total % 60;
+      return h > 0 ? `${h}时${m}分` : `${m}分${String(s).padStart(2, '0')}秒`;
+    };
+
+    const formatStamp = (ts: number) => {
+      if (!ts) return '未知时辰';
+      const d = new Date(ts);
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mi = String(d.getMinutes()).padStart(2, '0');
+      return `${mm}-${dd} ${hh}:${mi}`;
+    };
+
+    const startFreshInSlot = (slotIdx: number, mode: 'story' | 'xiaoduanshui') => {
+      const fresh = createFreshSaveSlot(slotIdx, mode);
+      SaveManager.saveSlot(fresh);
+      overlay.remove();
+      this.launchGameWithPrologue(fresh, mode);
+    };
+
+    const renderSlots = () => {
+      const slots = SaveManager.listSlots();
+      const targetNewMode: 'story' | 'xiaoduanshui' =
+        intent === 'new_xiao' ? 'xiaoduanshui' : 'story';
+      const titleText =
+        intent === 'new_story'
+          ? '选择命牌卷宗 · 开启【李逸承正篇】（绝不误覆已有旧档）'
+          : intent === 'new_xiao'
+            ? '选择命牌卷宗 · 开启【少统领传】'
+            : '镇妖司命牌秘档 · 四卷独立存档';
+
+      const cardsHtml = slots
+        .map((slot, idx) => {
+          const slotIdx = idx + 1;
+          const label = slotLabels[idx];
+          if (!slot) {
+            return `
+              <div class="zx-slot-card is-empty" data-slot="${slotIdx}">
+                <div class="zx-slot-head">
+                  <span class="zx-slot-badge">${label} · 空置命牌</span>
+                  <span style="font-size:11px;color:var(--ash);">可留档</span>
+                </div>
+                <div class="zx-slot-sub" style="color:var(--ash);">尚未记录行踪，可在此卷开启全新旅程而不影响其余存档。</div>
+                <div class="zx-slot-actions">
+                  ${
+                    intent === 'new_xiao'
+                      ? `<button class="zx-seal-btn" data-act="start" data-idx="${slotIdx}" data-mode="xiaoduanshui" type="button">在此卷开启少统领传</button>`
+                      : `<button class="zx-seal-btn" data-act="start" data-idx="${slotIdx}" data-mode="story" type="button">在此卷开启正篇</button>
+                         ${
+                           intent === 'manage'
+                             ? `<button class="zx-seal-btn" data-act="start" data-idx="${slotIdx}" data-mode="xiaoduanshui" type="button">开萧断水篇</button>`
+                             : ''
+                         }`
+                  }
+                </div>
+              </div>
+            `;
+          }
+
+          const rm = WorldMap.getRoom(slot.currentRealm, slot.currentRoomId);
+          const roomTitle = rm?.name || slot.currentRoomId;
+          const isCur = slotIdx === currentRunningIdx;
+          const isConfOverwrite =
+            pendingConfirm?.slotIndex === slotIdx && pendingConfirm.action === 'overwrite';
+          const isConfDelete =
+            pendingConfirm?.slotIndex === slotIdx && pendingConfirm.action === 'delete';
+          const modeLabel = slot.mode === 'xiaoduanshui' ? '少统领传' : '正篇';
+
+          let actionsHtml = '';
+          if (isConfOverwrite) {
+            actionsHtml = `
+              <span style="font-size:12px;color:#fca5a5;">覆盖${label}将抹除原进度：</span>
+              <button class="zx-seal-btn" data-act="confirm-overwrite" data-idx="${slotIdx}" type="button" style="border-color:#ef4444;color:#fecaca;">确认覆盖</button>
+              <button class="zx-seal-btn" data-act="cancel-confirm" type="button">取消</button>
+            `;
+          } else if (isConfDelete) {
+            actionsHtml = `
+              <span style="font-size:12px;color:#fca5a5;">确认抹除${label}？</span>
+              <button class="zx-seal-btn" data-act="confirm-delete" data-idx="${slotIdx}" type="button" style="border-color:#ef4444;color:#fecaca;">确认抹除</button>
+              <button class="zx-seal-btn" data-act="cancel-confirm" type="button">取消</button>
+            `;
+          } else {
+            actionsHtml = `
+              <button class="zx-seal-btn" data-act="load" data-idx="${slotIdx}" type="button" style="border-color:#5eead4;color:#99f6e4;">读取此卷</button>
+              <button class="zx-seal-btn" data-act="ask-overwrite" data-idx="${slotIdx}" type="button">重开覆盖</button>
+              <button class="zx-seal-btn" data-act="ask-delete" data-idx="${slotIdx}" type="button" style="border-color:rgba(239,68,68,0.45);color:#fca5a5;">抹除</button>
+            `;
+          }
+
+          return `
+            <div class="zx-slot-card ${isCur ? 'is-active' : ''}" data-slot="${slotIdx}">
+              <div class="zx-slot-head">
+                <span class="zx-slot-badge">
+                  ${label} · ${modeLabel}
+                  ${isCur ? '<span class="zx-slot-tag-cur">最近 / 当前</span>' : ''}
+                </span>
+                <span style="font-size:11px;color:var(--ash);">${formatStamp(slot.updatedAt)}</span>
+              </div>
+              <div class="zx-slot-meta">
+                <div style="flex-shrink:0;line-height:0;">${getSpeakerPortraitSvg(slot.heroName, 44)}</div>
+                <div class="zx-slot-info">
+                  <div class="zx-slot-title">${slot.heroName} · 境界 ${slot.level}</div>
+                  <div class="zx-slot-sub">${slot.currentRealm === 'inverted' ? '倒悬里城 · ' : ''}${roomTitle} · 历时 ${formatDur(slot.playTimeSec)}</div>
+                </div>
+              </div>
+              <div class="zx-slot-actions">${actionsHtml}</div>
+            </div>
+          `;
+        })
+        .join('');
+
+      overlay.innerHTML = `
+        <div class="zx-arsenal-topbar">
+          <span class="zx-modal-heading">${titleText}</span>
+          <button class="zx-seal-btn" id="btn-close-slots" type="button">返回</button>
+        </div>
+        <div class="zx-scroll-pane">
+          <div class="zx-slots-grid">${cardsHtml}</div>
+        </div>
+      `;
+
+      overlay.querySelector('#btn-close-slots')?.addEventListener('click', () => overlay.remove());
+      overlay.querySelectorAll('[data-act]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const act = btn.getAttribute('data-act');
+          const idx = Number(btn.getAttribute('data-idx') || 0);
+          if (act === 'load' && idx >= 1) {
+            const picked = SaveManager.getSlot(idx);
+            if (picked) {
+              SaveManager.saveMeta({ lastActiveSlot: picked.slotIndex });
+              overlay.remove();
+              this.launchGame(picked);
+            }
+          } else if (act === 'start' && idx >= 1) {
+            const m = (btn.getAttribute('data-mode') as 'story' | 'xiaoduanshui') || targetNewMode;
+            startFreshInSlot(idx, m);
+          } else if (act === 'ask-overwrite' && idx >= 1) {
+            pendingConfirm = { slotIndex: idx, action: 'overwrite' };
+            renderSlots();
+          } else if (act === 'ask-delete' && idx >= 1) {
+            pendingConfirm = { slotIndex: idx, action: 'delete' };
+            renderSlots();
+          } else if (act === 'cancel-confirm') {
+            pendingConfirm = null;
+            renderSlots();
+          } else if (act === 'confirm-overwrite' && idx >= 1) {
+            startFreshInSlot(idx, targetNewMode);
+          } else if (act === 'confirm-delete' && idx >= 1) {
+            SaveManager.deleteSlot(idx);
+            pendingConfirm = null;
+            if (!fromPause && this.titleRootEl?.isConnected) {
+              overlay.remove();
+              this.showTitleScreen();
+              this.showSaveSlotsModal(intent, false);
+              return;
+            }
+            renderSlots();
+          }
+        });
+      });
+    };
+
+    this.uiLayer.appendChild(overlay);
+    renderSlots();
   }
 
   private showQuickGuideModal(): void {
@@ -811,8 +1140,17 @@ export class UIManager {
             </div>
           </div>
 
-          <div>
-            <button class="zx-seal-btn" id="btn-quit-title" style="border-color:#ef4444;color:#fca5a5;">留档并退回标题画卷</button>
+          <div class="zx-item-row" style="cursor:default;flex-direction:column;align-items:flex-start;gap:8px;">
+            <strong style="color:var(--bronze-light);letter-spacing:2px;">命牌存档与手机桌面</strong>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <button class="zx-seal-btn" id="set-open-slots" type="button">多存档管理 / 切换命牌</button>
+              ${
+                !NativeApp.isStandaloneInstalled()
+                  ? `<button class="zx-seal-btn" id="set-install-home" type="button">添加到手机桌面</button>`
+                  : ''
+              }
+              <button class="zx-seal-btn" id="btn-quit-title" style="border-color:#ef4444;color:#fca5a5;">留档并退回标题画卷</button>
+            </div>
           </div>
         </div>
       `;
@@ -2348,6 +2686,13 @@ export class UIManager {
       AudioFX.playRelicBell();
       this.pauseTab = 'map';
       this.renderArsenalModal();
+    });
+    overlay.querySelector('#set-open-slots')?.addEventListener('click', () => {
+      SaveManager.saveSlot(s);
+      this.showSaveSlotsModal('manage', true);
+    });
+    overlay.querySelector('#set-install-home')?.addEventListener('click', () => {
+      void this.handleInstallButtonClick(overlay.querySelector('#set-install-home') as HTMLElement | null);
     });
     overlay.querySelector('#btn-quit-title')?.addEventListener('click', () => {
       SaveManager.saveSlot(s);

@@ -1,10 +1,27 @@
 {
+  "id": "./",
   "name": "玄城夜行：九幽录",
   "short_name": "玄城夜行",
   "description": "国风水墨类恶魔城横版动作探索 ARPG",
-  "start_url": "./index.html",
+  "start_url": "./",
+  "scope": "./",
   "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
   "orientation": "landscape",
   "background_color": "#090b10",
-  "theme_color": "#090b10"
+  "theme_color": "#090b10",
+  "icons": [
+    {
+      "src": "./assets/app_icon_192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./assets/app_icon_512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
 }

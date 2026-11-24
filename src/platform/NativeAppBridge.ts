@@ -21,8 +21,86 @@ declare global {
   }
 }
 
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+
+const PWA_INSTALLED_KEY = 'xuancheng_pwa_installed';
+
 class NativeAppAdapter {
   private backListeners: (() => void)[] = [];
+  private deferredPrompt: BeforeInstallPromptEvent | null = null;
+  private installListeners: (() => void)[] = [];
+
+  constructor() {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        this.deferredPrompt = e as BeforeInstallPromptEvent;
+        for (const cb of this.installListeners) cb();
+      });
+      window.addEventListener('appinstalled', () => {
+        this.deferredPrompt = null;
+        try {
+          localStorage.setItem(PWA_INSTALLED_KEY, '1');
+        } catch {
+          // ignore
+        }
+        for (const cb of this.installListeners) cb();
+      });
+    }
+  }
+
+  public onInstallAvailabilityChange(cb: () => void): void {
+    this.installListeners.push(cb);
+  }
+
+  public isStandaloneInstalled(): boolean {
+    if (window.Capacitor?.isNativePlatform?.()) return true;
+    try {
+      if (window.matchMedia?.('(display-mode: standalone)').matches) return true;
+      if (window.matchMedia?.('(display-mode: fullscreen)').matches) return true;
+      if ((navigator as unknown as { standalone?: boolean }).standalone === true) return true;
+      if (localStorage.getItem(PWA_INSTALLED_KEY) === '1') return true;
+    } catch {
+      // ignore
+    }
+    return false;
+  }
+
+  public canPromptInstallNatively(): boolean {
+    return Boolean(this.deferredPrompt);
+  }
+
+  public detectInstallGuideKind(): 'ios' | 'wechat' | 'android' | 'desktop' {
+    const ua = navigator.userAgent || '';
+    if (/MicroMessenger/i.test(ua)) return 'wechat';
+    if (/iPad|iPhone|iPod/i.test(ua)) return 'ios';
+    if (/Android|Mobile/i.test(ua)) return 'android';
+    return 'desktop';
+  }
+
+  public async promptInstall(): Promise<'accepted' | 'dismissed' | 'manual_guide'> {
+    const p = this.deferredPrompt;
+    if (!p) return 'manual_guide';
+    try {
+      await p.prompt();
+      const choice = await p.userChoice;
+      this.deferredPrompt = null;
+      if (choice.outcome === 'accepted') {
+        try {
+          localStorage.setItem(PWA_INSTALLED_KEY, '1');
+        } catch {
+          // ignore
+        }
+        for (const cb of this.installListeners) cb();
+      }
+      return choice.outcome;
+    } catch {
+      return 'manual_guide';
+    }
+  }
 
   public async init(): Promise<void> {
     const plugins = window.Capacitor?.Plugins;
