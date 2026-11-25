@@ -299,6 +299,8 @@ export interface SaveSlotData {
   readSteles?: string[];
   mapPins?: string[];
   brokenSecretWalls: string[];
+  noHitBosses?: string[];
+  claimedBounties?: string[];
   playTimeSec: number;
 }
 

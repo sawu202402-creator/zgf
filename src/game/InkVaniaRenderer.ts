@@ -116,7 +116,7 @@ export class InkVaniaRenderer {
       this.renderOuterWingMasonry(ctx, room, camLeft, camTop, vW, vH);
     }
 
-    drawCastleInteriorPropsAndGears(ctx, room, engine.player.animTime);
+    drawCastleInteriorPropsAndGears(ctx, room, engine.player.animTime, engine.bellRingTimers);
     this.renderPavilionStructures(ctx, room);
     this.renderRoomHazardsAndCrumbleSlabs(ctx, room, engine);
     this.renderMidgroundArchwaysAndTorches(ctx, room, engine);
@@ -476,6 +476,75 @@ export class InkVaniaRenderer {
           const vw = 74;
           const vh = vw * (ventImg.height / ventImg.width);
           ctx.drawImage(ventImg, hz.x - vw * 0.5, hz.y - vh + 5, vw, vh);
+        }
+      } else if (hz.kind === 'updraft') {
+        const isWarm = room.region === 'forge';
+        const colW = (hz.width ?? 82) * 1.15;
+        const pulse = 0.52 + 0.14 * Math.sin(t * 6.5 + hz.x * 0.02);
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const baseGlow = ctx.createRadialGradient(hz.x, hz.y - 6, 4, hz.x, hz.y - 8, colW * 0.68);
+        baseGlow.addColorStop(
+          0,
+          isWarm ? 'rgba(251, 146, 60, 0.52)' : 'rgba(45, 212, 191, 0.48)'
+        );
+        baseGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = baseGlow;
+        ctx.beginPath();
+        ctx.arc(hz.x, hz.y - 8, colW * 0.68, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        drawPaintedVfxSprite(
+          ctx,
+          'vfx_rising_dragon_pillar',
+          hz.x,
+          hz.y + 6,
+          colW,
+          hz.span + 22,
+          {
+            anchorY: 0.96,
+            alpha: pulse,
+            flipX: Math.floor(t * 7 + hz.x) % 2 === 1,
+            tintHex: isWarm ? '#fb923c' : '#2dd4bf',
+            tintAlpha: 0.42,
+            additive: true,
+          }
+        );
+      } else if (hz.kind === 'arrow_trap') {
+        const period = hz.speed ?? 3.0;
+        const dir: 1 | -1 = hz.dir ?? -1;
+        const cyc = (((t + (hz.phase ?? 0)) % period) + period) % period;
+        const norm = cyc / period;
+        if (norm >= 0.72 && norm < 0.97) {
+          const pProg = (norm - 0.72) / 0.25;
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          const tg = ctx.createRadialGradient(
+            hz.x + dir * 14,
+            hz.y,
+            2,
+            hz.x + dir * 14,
+            hz.y,
+            18 + pProg * 14
+          );
+          tg.addColorStop(0, `rgba(254, 240, 138, ${0.45 + pProg * 0.45})`);
+          tg.addColorStop(0.6, 'rgba(245, 158, 11, 0.35)');
+          tg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          ctx.fillStyle = tg;
+          ctx.beginPath();
+          ctx.arc(hz.x + dir * 14, hz.y, 32, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+        if (ventImg) {
+          const vw = 44;
+          const vh = vw * (ventImg.height / ventImg.width);
+          ctx.save();
+          ctx.translate(hz.x, hz.y);
+          ctx.rotate(dir === -1 ? -Math.PI * 0.5 : Math.PI * 0.5);
+          ctx.drawImage(ventImg, -vw * 0.5, -vh * 0.52, vw, vh);
+          ctx.restore();
         }
       } else if (hz.kind === 'pendulum' && pendImg) {
         const ang = Math.sin(t * (hz.speed ?? 1.9) + (hz.phase ?? 0)) * 0.68;
@@ -1169,7 +1238,12 @@ export class InkVaniaRenderer {
         if (slabImg) {
           ctx.drawImage(slabImg, 18, 28, sw.w, 84, sw.x, sw.y, sw.w, sw.h);
         }
-        const shimmer = 0.28 + 0.16 * Math.sin(this.ambientTime * 3.4 + sw.x);
+        const nearDist = Math.hypot(
+          sw.x + sw.w * 0.5 - engine.player.x,
+          sw.y + sw.h * 0.5 - (engine.player.y - 36)
+        );
+        const proxBoost = nearDist < 170 ? 0.16 : 0;
+        const shimmer = 0.28 + proxBoost + 0.16 * Math.sin(this.ambientTime * 3.4 + sw.x);
         drawPaintedVfxSprite(
           ctx,
           'vfx_iaido_flash_cut',
@@ -1209,7 +1283,12 @@ export class InkVaniaRenderer {
           if (slabImg) {
             ctx.drawImage(slabImg, 8, 22, 56, 92, wx, wy, ww, wh);
           }
-          const shimmer = 0.3 + 0.18 * Math.sin(this.ambientTime * 3.2 + sd.floorY);
+          const nearDist = Math.hypot(
+            wx + ww * 0.5 - engine.player.x,
+            wy + wh * 0.5 - (engine.player.y - 36)
+          );
+          const proxBoost = nearDist < 175 ? 0.18 : 0;
+          const shimmer = 0.3 + proxBoost + 0.18 * Math.sin(this.ambientTime * 3.2 + sd.floorY);
           drawPaintedVfxSprite(
             ctx,
             'vfx_iaido_flash_cut',
@@ -2540,6 +2619,25 @@ export class InkVaniaRenderer {
       ctx.fillStyle = `rgba(127, 29, 29, ${engine.soulStealFlashTimer * 0.24})`;
       ctx.fillRect(0, 0, viewW, viewH);
     }
+    if (engine.perfectDodgeFlashTimer > 0) {
+      const fp = engine.perfectDodgeFlashTimer / 0.36;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const dg = ctx.createRadialGradient(
+        viewW * 0.5,
+        viewH * 0.5,
+        36,
+        viewW * 0.5,
+        viewH * 0.5,
+        Math.max(viewW, viewH) * 0.58
+      );
+      dg.addColorStop(0, `rgba(45, 212, 191, ${fp * 0.18})`);
+      dg.addColorStop(0.55, `rgba(253, 224, 71, ${fp * 0.12})`);
+      dg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = dg;
+      ctx.fillRect(0, 0, viewW, viewH);
+      ctx.restore();
+    }
     if (engine.bossKillSlowTimer > 0) {
       const kp = engine.bossKillSlowTimer / 0.68;
       ctx.save();
@@ -2565,18 +2663,25 @@ export class InkVaniaRenderer {
       ctx.save();
       ctx.globalAlpha = Math.min(0.92, sb.timer * 1.8);
       const y = viewH * 0.14;
-      const g = ctx.createLinearGradient(viewW * 0.5 - 125, 0, viewW * 0.5 + 125, 0);
+      const halfBannerW = sb.subtext ? 205 : 135;
+      const bannerH = sb.subtext ? 48 : 30;
+      const g = ctx.createLinearGradient(viewW * 0.5 - halfBannerW, 0, viewW * 0.5 + halfBannerW, 0);
       g.addColorStop(0, 'rgba(5, 7, 12, 0)');
-      g.addColorStop(0.25, 'rgba(5, 7, 12, 0.78)');
-      g.addColorStop(0.75, 'rgba(5, 7, 12, 0.78)');
+      g.addColorStop(0.22, 'rgba(5, 7, 12, 0.82)');
+      g.addColorStop(0.78, 'rgba(5, 7, 12, 0.82)');
       g.addColorStop(1, 'rgba(5, 7, 12, 0)');
       ctx.fillStyle = g;
-      ctx.fillRect(viewW * 0.5 - 125, y - 18, 250, 30);
+      ctx.fillRect(viewW * 0.5 - halfBannerW, y - 18, halfBannerW * 2, bannerH);
 
       ctx.font = '900 20px "STKaiti", "KaiTi", serif';
       ctx.textAlign = 'center';
       ctx.fillStyle = sb.color;
       ctx.fillText(sb.name, viewW * 0.5, y + 3);
+      if (sb.subtext) {
+        ctx.font = '600 12.5px "STKaiti", "KaiTi", sans-serif';
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillText(sb.subtext, viewW * 0.5, y + 22);
+      }
       ctx.restore();
     }
   }

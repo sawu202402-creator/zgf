@@ -6,7 +6,7 @@ import {
   resolveFamiliarAssetKey,
   resolveWeaponAssetKey,
 } from './AssetLoader';
-import { BOSS_RUSH_ORDER, ENEMY_PROFILES, EnemyProfile } from '../data/enemies';
+import { BOSS_RUSH_ORDER, ENEMY_PROFILES, EnemyProfile, EnemyWeakness } from '../data/enemies';
 import {
   ABILITIES_META,
   ALL_FAMILIAR_IDS,
@@ -18,7 +18,13 @@ import {
   WEAPONS,
   YAO_CORES,
 } from '../data/itemsAndSkills';
-import { LORE_STELES, STORY_SCENES } from '../data/storyAndNpcs';
+import {
+  BOSS_PHASE2_LINES,
+  CASTLE_BOUNTIES,
+  getDynamicSuQingyanScene,
+  LORE_STELES,
+  STORY_SCENES,
+} from '../data/storyAndNpcs';
 import {
   BuiltRoom,
   CELL_PIXEL_W,
@@ -106,6 +112,7 @@ export interface Projectile {
   ownerId?: number;
   kind: 'qi_wave' | 'dagger' | 'holy_fire' | 'fire_pillar' | 'bagua' | 'seal' | 'ink_spear';
   enemyFx?: EnemyProjectileFx;
+  affinity?: EnemyWeakness;
   x: number;
   y: number;
   vx: number;
@@ -383,12 +390,20 @@ export class GameEngine {
   };
   private slashHitIds = new Set<number>();
   private kickHitIds = new Set<number>();
-  public skillBanner: { name: string; timer: number; color: string } | null = null;
+  public skillBanner: { name: string; subtext?: string; timer: number; color: string } | null = null;
   public taijiFlashTimer = 0;
+  public perfectDodgeBuffTimer = 0;
+  public perfectDodgeFlashTimer = 0;
+  private perfectDodgeCooldown = 0;
   public soulStealFlashTimer = 0;
   public levelUpPillarTimer = 0;
   public bossKillSlowTimer = 0;
   public parryZoomTimer = 0;
+  public bellRingTimers = new Map<number, number>();
+  private bellCooldowns = new Map<number, number>();
+  private arrowTrapCycles = new Map<number, number>();
+  private bossFightTookDamage = false;
+  private secretWallDustTimer = 0;
   public lightningArcs: {
     x1: number;
     y1: number;
@@ -482,6 +497,8 @@ export class GameEngine {
     this.foxBlessingTimer = 3.2;
     if (!slot.discoveredDrops) slot.discoveredDrops = [];
     if (!slot.readSteles) slot.readSteles = [];
+    if (!slot.noHitBosses) slot.noHitBosses = [];
+    if (!slot.claimedBounties) slot.claimedBounties = [];
     if (!slot.familiarExps) slot.familiarExps = {};
     if (slot.familiarExp && !slot.familiarExps.familiar_sword) {
       slot.familiarExps.familiar_sword = slot.familiarExp;
@@ -795,6 +812,10 @@ export class GameEngine {
     this.familiar.y = entryY - 68;
     this.familiar.swoopTimer = 0;
     this.secretWallHits.clear();
+    this.bellRingTimers.clear();
+    this.bellCooldowns.clear();
+    this.arrowTrapCycles.clear();
+    this.bossFightTookDamage = false;
 
     // 优先预热当前房间及 1-hop 相邻房间的背景画卷、神兵护法灵与驻场妖邪贴图，确保流式加载零等待同时节省移动端显存！
     const curWpn = WEAPONS[s.equippedWeapon] || WEAPONS.sword_0;
@@ -1358,6 +1379,80 @@ export class GameEngine {
     }
     if (this.screenShake > 0) this.screenShake = Math.max(0, this.screenShake - dt * 28);
     if (this.taijiFlashTimer > 0) this.taijiFlashTimer = Math.max(0, this.taijiFlashTimer - dt);
+    if (this.perfectDodgeBuffTimer > 0) {
+      this.perfectDodgeBuffTimer = Math.max(0, this.perfectDodgeBuffTimer - dt);
+      if (Math.random() < dt * 16) {
+        this.particles.push({
+          kind: 'spark',
+          x: this.player.x + (Math.random() - 0.5) * 34,
+          y: this.player.y - 12 - Math.random() * 48,
+          vx: (Math.random() - 0.5) * 24,
+          vy: -36 - Math.random() * 34,
+          size: 2.3,
+          color: Math.random() < 0.5 ? '#2dd4bf' : '#fde047',
+          life: 0.25,
+          maxLife: 0.25,
+        });
+      }
+    }
+    if (this.perfectDodgeFlashTimer > 0) {
+      this.perfectDodgeFlashTimer = Math.max(0, this.perfectDodgeFlashTimer - dt);
+    }
+    if (this.perfectDodgeCooldown > 0) {
+      this.perfectDodgeCooldown = Math.max(0, this.perfectDodgeCooldown - dt);
+    }
+    for (const [bIdx, rem] of this.bellRingTimers) {
+      const next = rem - dt;
+      if (next <= 0) this.bellRingTimers.delete(bIdx);
+      else this.bellRingTimers.set(bIdx, next);
+    }
+    for (const [bIdx, rem] of this.bellCooldowns) {
+      const next = rem - dt;
+      if (next <= 0) this.bellCooldowns.delete(bIdx);
+      else this.bellCooldowns.set(bIdx, next);
+    }
+    if (this.secretWallDustTimer > 0) {
+      this.secretWallDustTimer -= dt;
+    } else if (this.room && this.slot) {
+      this.secretWallDustTimer = 0.44;
+      const p = this.player;
+      if (this.room.secretWalls) {
+        for (const sw of this.room.secretWalls) {
+          if (this.slot.brokenSecretWalls.includes(sw.id)) continue;
+          if (Math.hypot(sw.x + sw.w * 0.5 - p.x, sw.y + sw.h * 0.5 - (p.y - 36)) < 175) {
+            this.particles.push({
+              kind: 'ink',
+              x: sw.x + Math.random() * sw.w,
+              y: sw.y + 8 + Math.random() * (sw.h * 0.6),
+              vx: (Math.random() - 0.5) * 14,
+              vy: 18 + Math.random() * 24,
+              size: 1.9,
+              color: '#fde047',
+              life: 0.36,
+              maxLife: 0.36,
+            });
+          }
+        }
+      }
+      for (const sd of getRoomSideDoors(this.room)) {
+        if (!sd.secretWallId || this.slot.brokenSecretWalls.includes(sd.secretWallId)) continue;
+        const dx = sd.side === 'left' ? 18 : this.room.pixelW - 18;
+        const dy = sd.floorY - 56;
+        if (Math.hypot(dx - p.x, dy - (p.y - 36)) < 185) {
+          this.particles.push({
+            kind: 'ink',
+            x: dx + (Math.random() - 0.5) * 16,
+            y: dy + (Math.random() - 0.5) * 44,
+            vx: (Math.random() - 0.5) * 16,
+            vy: 20 + Math.random() * 24,
+            size: 2.1,
+            color: '#fde047',
+            life: 0.38,
+            maxLife: 0.38,
+          });
+        }
+      }
+    }
     if (this.soulStealFlashTimer > 0) {
       this.soulStealFlashTimer = Math.max(0, this.soulStealFlashTimer - dt);
     }
@@ -1931,8 +2026,8 @@ export class GameEngine {
         for (const sw of this.room.secretWalls) {
           if (this.slot.brokenSecretWalls.includes(sw.id)) continue;
           if (Math.hypot(sw.x - p.x, sw.y + sw.h * 0.5 - (p.y - 36)) < 165) {
-            fam.calloutText = '';
-            fam.calloutTimer = 2.6;
+            fam.calloutText = activeFam === 'familiar_fox' ? '灵狐嗅秘…' : '此壁空鸣…';
+            fam.calloutTimer = 2.8;
             this.spawnInkBurst(sw.x + sw.w * 0.5, sw.y + sw.h * 0.5, sparkCol, '#fde047', 6);
             hinted = true;
             break;
@@ -1945,8 +2040,8 @@ export class GameEngine {
           const dx = sd.side === 'left' ? 20 : this.room.pixelW - 20;
           const dy = sd.floorY - 56;
           if (Math.hypot(dx - p.x, dy - (p.y - 36)) < 195) {
-            fam.calloutText = '';
-            fam.calloutTimer = 2.6;
+            fam.calloutText = '暗格藏锋!';
+            fam.calloutTimer = 2.8;
             this.spawnInkBurst(dx, dy, sparkCol, '#fde047', 8);
             hinted = true;
             break;
@@ -2091,6 +2186,7 @@ export class GameEngine {
         this.projectiles.push({
           fromPlayer: true,
           kind: 'qi_wave',
+          affinity: 'fire',
           burnOnHit: true,
           x: fam.x + fam.facing * 14,
           y: fam.y,
@@ -2134,7 +2230,7 @@ export class GameEngine {
         this.spawnInkBurst(p.x, p.y - 36, '#22d3ee', '#083344', 14);
         for (const e of nearby) {
           e.chillTimer = Math.max(e.chillTimer || 0, 2.5);
-          this.applyDamageToEnemy(e, dmg, false, 24);
+          this.applyDamageToEnemy(e, dmg, false, 24, 'frost');
         }
       }
     } else if (activeFam === 'familiar_kestrel') {
@@ -2164,6 +2260,7 @@ export class GameEngine {
         this.projectiles.push({
           fromPlayer: true,
           kind: 'dagger',
+          affinity: 'lightning',
           x: fam.x + fam.facing * 14,
           y: fam.y,
           vx: (dx / dist) * 720,
@@ -2921,6 +3018,66 @@ export class GameEngine {
         }
       }
     }
+
+    // 4. 敲响高堂【共振镇魂青铜古钟 (`giant_bell`)】：击中钟身迸发金色声浪震晕周围妖邪并扫落盏灯！
+    if (this.room.decorProps) {
+      for (let dIdx = 0; dIdx < this.room.decorProps.length; dIdx++) {
+        const dp = this.room.decorProps[dIdx];
+        if (dp.kind !== 'giant_bell' || (this.bellCooldowns.get(dIdx) || 0) > 0) continue;
+        const sc = dp.scale ?? 1;
+        const bellH = 215 * sc;
+        const bellW = 118 * sc;
+        const bellLeft = dp.x - bellW * 0.5;
+        const bellTop = dp.y - bellH * 0.94;
+        if (
+          bellLeft + bellW >= bx &&
+          bellLeft <= bx + bw &&
+          bellTop + bellH * 1.04 >= by &&
+          bellTop <= by + bh
+        ) {
+          this.bellCooldowns.set(dIdx, 1.8);
+          this.bellRingTimers.set(dIdx, 1.8);
+          AudioFX.playRelicBell();
+          this.screenShake = Math.max(this.screenShake, 7.5);
+          NativeApp.haptic('medium');
+          const bellMidY = dp.y - bellH * 0.45;
+          this.slashImpacts.push({
+            x: dp.x,
+            y: bellMidY,
+            angle: 0,
+            length: 72,
+            thickness: 5,
+            color: '#fde047',
+            ringRadius: 175,
+            life: 0.42,
+            maxLife: 0.42,
+          });
+          this.spawnInkBurst(dp.x, bellMidY, '#fde047', '#f97316', 20);
+          this.floats.push({
+            x: dp.x,
+            y: bellTop - 6,
+            vy: -32,
+            text: '钟鸣镇魂!',
+            color: '#fde047',
+            size: 13.5,
+            life: 0.78,
+          });
+          const bellDmg = Math.max(18, Math.round(this.player.atk * 0.9 + 18));
+          for (const e of [...this.enemies]) {
+            if (Math.hypot(e.x - dp.x, e.y - e.profile.h * 0.5 - bellMidY) <= 320) {
+              this.applyDamageToEnemy(e, bellDmg, true, 85, 'lightning');
+            }
+          }
+          for (let li = 0; li < this.liveLanterns.length; li++) {
+            const ln = this.liveLanterns[li];
+            if (!ln.broken && Math.hypot(ln.x - dp.x, ln.y - bellMidY) <= 240) {
+              ln.broken = true;
+              this.spawnInkBurst(ln.x, ln.y, '#fb923c', '#1e293b', 8);
+            }
+          }
+        }
+      }
+    }
   }
 
   private updateActiveSlash(dt: number): void {
@@ -3209,6 +3366,22 @@ export class GameEngine {
           const mpGain = 2.4 + (eqArm.mpOnHitBonus || 0) + (eqAcc.mpOnHitBonus || 0);
           p.mp = Math.min(p.maxMp, p.mp + mpGain);
 
+          let slashForceCrit = forceCrit;
+          if (this.perfectDodgeBuffTimer > 0) {
+            this.perfectDodgeBuffTimer = 0;
+            slashForceCrit = true;
+            dmgMult *= 1.2;
+            this.floats.push({
+              x: e.x,
+              y: e.y - e.profile.h * 1.18,
+              vy: -48,
+              text: '破隙暴击!',
+              color: '#2dd4bf',
+              size: 13.5,
+              life: 0.62,
+            });
+          }
+
           const baseHitDmg = Math.round(this.player.atk * dmgMult);
           const finalPoiseDmg = Math.max(
             4,
@@ -3218,7 +3391,7 @@ export class GameEngine {
               bonusPoiseBreak +
               (sl.chargedHeavy ? 60 : 0)
           );
-          this.applyDamageToEnemy(e, baseHitDmg, forceCrit, finalPoiseDmg);
+          this.applyDamageToEnemy(e, baseHitDmg, slashForceCrit, finalPoiseDmg);
 
           // 泣血饮魂妖刀专属腥红血珠飞散特效
           if (wDef.lifestealBonus && wDef.lifestealBonus > 0) {
@@ -3531,11 +3704,21 @@ export class GameEngine {
             pr.hitIds.add(e.id);
             const antiAirBonus = pr.kind === 'dagger' && e.profile.flying ? 1.35 : 1;
             const projPoise = pr.kind === 'seal' ? 68 : pr.kind === 'bagua' ? 24 : 16;
+            const projAffinity: EnemyWeakness | undefined =
+              pr.affinity ??
+              (pr.kind === 'seal'
+                ? 'heavy'
+                : pr.kind === 'bagua'
+                  ? 'lightning'
+                  : pr.kind === 'fire_pillar' || pr.kind === 'holy_fire' || pr.burnOnHit
+                    ? 'fire'
+                    : undefined);
             this.applyDamageToEnemy(
               e,
               Math.round(pr.dmg * antiAirBonus),
               antiAirBonus > 1,
-              projPoise
+              projPoise,
+              projAffinity
             );
             if ((pr.kind === 'fire_pillar' || pr.burnOnHit) && e.hp > 0) {
               e.dotTimer = Math.max(e.dotTimer || 0, 2.8);
@@ -3554,16 +3737,19 @@ export class GameEngine {
         const p = this.player;
         const effH = p.crouching || p.slideTimer > 0 ? 44 : p.h;
         if (
-          p.invulnTimer <= 0 &&
-          p.mistDashTimer <= 0 &&
           Math.abs(pr.x - p.x) < p.w * 0.5 + pr.r &&
           pr.y >= p.y - effH &&
           pr.y <= p.y + 8
         ) {
-          this.damagePlayer(pr.dmg, pr.x < p.x ? 1 : -1);
-          pr.pierce--;
-          if (pr.pierce <= 0) {
-            this.projectiles.splice(i, 1);
+          if (this.tryTriggerPerfectDodge(pr.x, pr.y)) {
+            continue;
+          }
+          if (p.invulnTimer <= 0 && p.mistDashTimer <= 0) {
+            this.damagePlayer(pr.dmg, pr.x < p.x ? 1 : -1);
+            pr.pierce--;
+            if (pr.pierce <= 0) {
+              this.projectiles.splice(i, 1);
+            }
           }
         }
       }
@@ -3659,11 +3845,83 @@ export class GameEngine {
       }
     }
 
-    // 3. 区域机关伤害与武侠拼刀弹开交互（寒铁地刺 / 钟楼斩仙摆斧 / 地肺兽首喷火柱）
+    // 3. 区域机关伤害、灵脉升龙风道托举、暗箭连弩机关与武侠拼刀弹开交互
     if (!room.hazards || room.hazards.length === 0) return;
 
-    for (const hz of room.hazards) {
-      if (hz.kind === 'fire_vent') {
+    for (let hi = 0; hi < room.hazards.length; hi++) {
+      const hz = room.hazards[hi];
+      if (hz.kind === 'updraft') {
+        const halfW = (hz.width ?? 82) * 0.5;
+        if (Math.random() < dt * 20) {
+          this.particles.push({
+            kind: 'spark',
+            x: hz.x + (Math.random() - 0.5) * (halfW * 1.4),
+            y: hz.y - 10 - Math.random() * (hz.span * 0.45),
+            vx: (Math.random() - 0.5) * 18,
+            vy: -135 - Math.random() * 95,
+            size: 2.2,
+            color: room.region === 'forge' ? '#fb923c' : '#5eead4',
+            life: 0.42,
+            maxLife: 0.42,
+          });
+        }
+        if (
+          Math.abs(p.x - hz.x) <= halfW &&
+          p.y >= hz.y - hz.span &&
+          p.y - 44 <= hz.y + 8 &&
+          !p.onGround &&
+          !p.groundSlamming
+        ) {
+          p.vy = Math.min(80, p.vy);
+          p.vy = Math.max(-420, p.vy - 1750 * dt);
+        }
+      } else if (hz.kind === 'arrow_trap') {
+        const period = hz.speed ?? 3.0;
+        const dir: 1 | -1 = hz.dir ?? -1;
+        const cycTime = p.animTime + (hz.phase ?? 0);
+        const cycIdx = Math.floor(cycTime / period);
+        const prevCyc = this.arrowTrapCycles.get(hi);
+        const norm = (((cycTime % period) + period) % period) / period;
+        if (norm >= 0.72 && norm < 0.97 && Math.random() < dt * 22) {
+          this.particles.push({
+            kind: 'spark',
+            x: hz.x + dir * 10,
+            y: hz.y + (Math.random() - 0.5) * 8,
+            vx: dir * (28 + Math.random() * 24),
+            vy: (Math.random() - 0.5) * 24,
+            size: 2.3,
+            color: '#fbbf24',
+            life: 0.22,
+            maxLife: 0.22,
+          });
+        }
+        if (prevCyc === undefined) {
+          this.arrowTrapCycles.set(hi, cycIdx);
+        } else if (cycIdx !== prevCyc) {
+          this.arrowTrapCycles.set(hi, cycIdx);
+          if (Math.abs(p.x - hz.x) <= 680) {
+            const boltSpeed = 370;
+            this.projectiles.push({
+              fromPlayer: false,
+              kind: 'dagger',
+              enemyFx: 'bone_bolt',
+              x: hz.x + dir * 20,
+              y: hz.y,
+              vx: dir * boltSpeed,
+              vy: 0,
+              r: 9,
+              dmg: Math.max(12, Math.round(p.maxHp * 0.09)),
+              color: '#f59e0b',
+              life: Math.min(2.2, hz.span / boltSpeed),
+              maxLife: 2.2,
+              pierce: 1,
+              hitIds: new Set(),
+            });
+            AudioFX.playSlash('light');
+            this.spawnInkBurst(hz.x + dir * 14, hz.y, '#fbbf24', '#1e293b', 6);
+          }
+        }
+      } else if (hz.kind === 'fire_vent') {
         const period = hz.speed ?? 3.4;
         const cyc = (((p.animTime + (hz.phase ?? 0)) % period) + period) % period;
         const norm = cyc / period;
@@ -3685,18 +3943,21 @@ export class GameEngine {
         if (
           norm >= 0.68 &&
           norm <= 0.92 &&
-          p.invulnTimer <= 0 &&
-          p.mistDashTimer <= 0 &&
           Math.abs(p.x - hz.x) <= 24 &&
           p.y >= hz.y - hz.span + 10 &&
           p.y - 54 <= hz.y
         ) {
-          this.damagePlayer(
-            Math.max(15, Math.round(p.maxHp * 0.12)),
-            p.x >= hz.x ? 1 : -1
-          );
-          p.vy = -390;
-          p.onGround = false;
+          if (this.tryTriggerPerfectDodge(hz.x, p.y - 36)) {
+            continue;
+          }
+          if (p.invulnTimer <= 0 && p.mistDashTimer <= 0) {
+            this.damagePlayer(
+              Math.max(15, Math.round(p.maxHp * 0.12)),
+              p.x >= hz.x ? 1 : -1
+            );
+            p.vy = -390;
+            p.onGround = false;
+          }
         }
       } else if (hz.kind === 'spikes') {
         if (
@@ -3721,14 +3982,16 @@ export class GameEngine {
         const by = hz.y + Math.cos(ang) * hz.span;
         const heroCenterY = p.y - (p.crouching || p.slideTimer > 0 ? 18 : 34);
         const dist = Math.hypot(p.x - bx, heroCenterY - by);
-        if (dist <= 31 && p.mistDashTimer <= 0) {
+        if (dist <= 31) {
           // 挥兵瞬间可金铁交鸣借力弹开摆斧，尽显武侠身法！
           if (this.activeSlash && this.activeSlash.progress < 0.62) {
             AudioFX.playParryClang();
             p.vx = (p.x >= bx ? 1 : -1) * 240;
             p.invulnTimer = Math.max(p.invulnTimer, 0.22);
             this.spawnInkBurst(bx, by, '#fde047', '#f97316', 10);
-          } else if (p.invulnTimer <= 0) {
+          } else if (this.tryTriggerPerfectDodge(bx, by)) {
+            continue;
+          } else if (p.invulnTimer <= 0 && p.mistDashTimer <= 0) {
             this.damagePlayer(
               Math.max(16, Math.round(p.maxHp * 0.12)),
               p.x >= bx ? 1 : -1
@@ -3749,13 +4012,12 @@ export class GameEngine {
         this.spawnInkBurst(sk.x, sk.groundY, sk.color || '#38bdf8', '#090d16', 18);
         this.screenShake = Math.max(this.screenShake, 5);
         AudioFX.playSlash('heavy');
-        if (
-          p.invulnTimer <= 0 &&
-          p.mistDashTimer <= 0 &&
-          Math.abs(p.x - sk.x) < 34 &&
-          Math.abs(p.y - sk.groundY) < 90
-        ) {
-          this.damagePlayer(sk.dmg, p.x >= sk.x ? 1 : -1);
+        if (Math.abs(p.x - sk.x) < 34 && Math.abs(p.y - sk.groundY) < 90) {
+          if (this.tryTriggerPerfectDodge(sk.x, sk.groundY - 32)) {
+            // dodged cleanly
+          } else if (p.invulnTimer <= 0 && p.mistDashTimer <= 0) {
+            this.damagePlayer(sk.dmg, p.x >= sk.x ? 1 : -1);
+          }
         }
         this.skyStrikes.splice(i, 1);
       }
@@ -5609,13 +5871,14 @@ export class GameEngine {
             AudioFX.playSlash('heavy');
             NativeApp.haptic('heavy');
             this.spawnInkBurst(e.x, e.y - 10, e.profile.accentColor, '#090d16', 24);
-            if (
-              p.invulnTimer <= 0 &&
-              p.mistDashTimer <= 0 &&
-              Math.abs(p.x - e.x) < e.profile.w * 0.95 + 24 &&
-              Math.abs(p.y - e.y) < 76
-            ) {
-              this.damagePlayer(e.profile.atk, p.x >= e.x ? 1 : -1);
+            if (Math.abs(p.x - e.x) < e.profile.w * 0.95 + 24 && Math.abs(p.y - e.y) < 76) {
+              if (
+                !this.tryTriggerPerfectDodge(e.x, e.y - 24) &&
+                p.invulnTimer <= 0 &&
+                p.mistDashTimer <= 0
+              ) {
+                this.damagePlayer(e.profile.atk, p.x >= e.x ? 1 : -1);
+              }
             }
             const useLava =
               e.profile.kind === 'boss_furnace_titan' ||
@@ -5674,14 +5937,16 @@ export class GameEngine {
           }
           if (
             !e.slashHitPlayer &&
-            p.invulnTimer <= 0 &&
-            p.mistDashTimer <= 0 &&
             Math.abs(p.x - e.x) < e.profile.w * 0.68 &&
             p.y > e.y - e.profile.h * 0.9 &&
             p.y - p.h < e.y + 8
           ) {
-            e.slashHitPlayer = true;
-            this.damagePlayer(e.profile.atk, e.facing);
+            if (this.tryTriggerPerfectDodge(e.x, e.y - e.profile.h * 0.5)) {
+              e.slashHitPlayer = true;
+            } else if (p.invulnTimer <= 0 && p.mistDashTimer <= 0) {
+              e.slashHitPlayer = true;
+              this.damagePlayer(e.profile.atk, e.facing);
+            }
           }
           const gY = sampleSolidGroundY(room, e.x);
           if (e.y >= gY - 6 || e.stateTimer <= 0) {
@@ -5692,13 +5957,14 @@ export class GameEngine {
             AudioFX.playSlash('heavy');
             NativeApp.haptic('heavy');
             this.spawnInkBurst(e.x, gY - 12, e.profile.accentColor, '#fde047', 26);
-            if (
-              p.invulnTimer <= 0 &&
-              p.mistDashTimer <= 0 &&
-              Math.abs(p.x - e.x) < e.profile.w * 1.05 + 26 &&
-              Math.abs(p.y - gY) < 76
-            ) {
-              this.damagePlayer(Math.round(e.profile.atk * 1.08), p.x >= e.x ? 1 : -1);
+            if (Math.abs(p.x - e.x) < e.profile.w * 1.05 + 26 && Math.abs(p.y - gY) < 76) {
+              if (
+                !this.tryTriggerPerfectDodge(e.x, gY - 24) &&
+                p.invulnTimer <= 0 &&
+                p.mistDashTimer <= 0
+              ) {
+                this.damagePlayer(Math.round(e.profile.atk * 1.08), p.x >= e.x ? 1 : -1);
+              }
             }
             this.spawnTwinShockwaves(
               e.x,
@@ -5818,14 +6084,16 @@ export class GameEngine {
           }
           if (
             !e.slashHitPlayer &&
-            p.invulnTimer <= 0 &&
-            p.mistDashTimer <= 0 &&
             Math.abs(p.x - e.x) < e.profile.w * 0.65 &&
             p.y > e.y - e.profile.h * 0.92 &&
             p.y - p.h < e.y + 8
           ) {
-            e.slashHitPlayer = true;
-            this.damagePlayer(e.profile.atk, e.facing);
+            if (this.tryTriggerPerfectDodge(e.x, e.y - e.profile.h * 0.5)) {
+              e.slashHitPlayer = true;
+            } else if (p.invulnTimer <= 0 && p.mistDashTimer <= 0) {
+              e.slashHitPlayer = true;
+              this.damagePlayer(e.profile.atk, e.facing);
+            }
           }
           if (e.stateTimer <= 0) {
             if ((e.bossSubStep || 1) > 1) {
@@ -5884,14 +6152,16 @@ export class GameEngine {
           }
           if (
             !e.slashHitPlayer &&
-            p.invulnTimer <= 0 &&
-            p.mistDashTimer <= 0 &&
             Math.abs(p.x - e.x) < e.profile.w * 0.85 &&
             p.y > e.y - e.profile.h * 0.95 &&
             p.y - p.h < e.y + 8
           ) {
-            e.slashHitPlayer = true;
-            this.damagePlayer(Math.round(e.profile.atk * 0.72), p.x >= e.x ? 1 : -1);
+            if (this.tryTriggerPerfectDodge(e.x, e.y - e.profile.h * 0.5)) {
+              e.slashHitPlayer = true;
+            } else if (p.invulnTimer <= 0 && p.mistDashTimer <= 0) {
+              e.slashHitPlayer = true;
+              this.damagePlayer(Math.round(e.profile.atk * 0.72), p.x >= e.x ? 1 : -1);
+            }
           }
           if (e.stateTimer <= 0) {
             e.bossAction = undefined;
@@ -5985,15 +6255,17 @@ export class GameEngine {
 
         if (
           !e.slashHitPlayer &&
-          p.invulnTimer <= 0 &&
-          p.mistDashTimer <= 0 &&
           p.x + p.w * 0.4 >= slashMinX &&
           p.x - p.w * 0.4 <= slashMaxX &&
           p.y > e.y - e.profile.h * 1.15 &&
           p.y - p.h < e.y + 8
         ) {
-          e.slashHitPlayer = true;
-          this.damagePlayer(e.profile.atk, e.facing);
+          if (this.tryTriggerPerfectDodge(e.x, e.y - e.profile.h * 0.5)) {
+            e.slashHitPlayer = true;
+          } else if (p.invulnTimer <= 0 && p.mistDashTimer <= 0) {
+            e.slashHitPlayer = true;
+            this.damagePlayer(e.profile.atk, e.facing);
+          }
         }
 
         if (e.stateTimer <= 0) {
@@ -6099,7 +6371,8 @@ export class GameEngine {
     bh: number,
     dmg: number,
     forceCrit: boolean,
-    poise: number
+    poise: number,
+    explicitAffinity?: EnemyWeakness
   ): void {
     this.shatterLanternsAndWallsInBox(bx, by, bw, bh, poise >= 50, 0);
     for (const e of [...this.enemies]) {
@@ -6109,7 +6382,7 @@ export class GameEngine {
         e.y >= by &&
         e.y - e.profile.h * 1.2 <= by + bh
       ) {
-        this.applyDamageToEnemy(e, dmg, forceCrit, poise);
+        this.applyDamageToEnemy(e, dmg, forceCrit, poise, explicitAffinity);
       }
     }
   }
@@ -6118,16 +6391,35 @@ export class GameEngine {
     e: EnemyEntity,
     rawDmg: number,
     forceCrit: boolean,
-    poiseDmg: number
+    poiseDmg: number,
+    explicitAffinity?: EnemyWeakness
   ): void {
     if (!this.slot) return;
     const wCur = WEAPONS[this.slot.equippedWeapon] || WEAPONS.sword_0;
+    let affinity: EnemyWeakness | undefined = explicitAffinity;
+    if (!affinity) {
+      if (wCur.archetype === 'greatsword' || wCur.specialEffect === 'armor_sunder') {
+        affinity = 'heavy';
+      } else if (wCur.specialEffect === 'burn_dot') {
+        affinity = 'fire';
+      } else if (wCur.specialEffect === 'chain_lightning') {
+        affinity = 'lightning';
+      } else if (wCur.specialEffect === 'frost_slow') {
+        affinity = 'frost';
+      }
+    }
+    const hitWeakness = Boolean(e.profile.weakness && affinity === e.profile.weakness);
+    const effectivePoiseDmg = hitWeakness ? Math.round(poiseDmg * 1.3) : poiseDmg;
+
     const isCrit = forceCrit || Math.random() < this.player.critChance;
     const critMult = isCrit ? 1.52 : 1;
     const effDef = wCur.specialEffect === 'armor_sunder' ? e.profile.def * 0.15 : e.profile.def;
     const rawCrit = rawDmg * critMult;
     const defMitigation = 0.34 + 0.66 * (rawCrit / (rawCrit + effDef * 2.1 + 1));
-    const finalDmg = Math.max(2, Math.round(rawCrit * defMitigation));
+    const finalDmg = Math.max(
+      2,
+      Math.round(rawCrit * defMitigation * (hitWeakness ? 1.25 : 1))
+    );
 
     e.hp -= finalDmg;
     e.hurtFlash = 0.14;
@@ -6138,9 +6430,9 @@ export class GameEngine {
     }
 
     // 真实韧性架势条博弈：积累削韧击穿架势才触发失衡大硬直，彻底告别无脑无限平A控死小怪与Boss木桩化！
-    if (e.hp > 0 && e.aiState !== 'staggered' && poiseDmg > 0) {
+    if (e.hp > 0 && e.aiState !== 'staggered' && effectivePoiseDmg > 0) {
       e.poiseRegenDelay = e.profile.isBoss ? 2.4 : 1.8;
-      e.poise -= poiseDmg;
+      e.poise -= effectivePoiseDmg;
       if (e.poise <= 0) {
         e.poise = e.maxPoise;
         e.guardStanceTimer = 0;
@@ -6161,6 +6453,7 @@ export class GameEngine {
     if (e.profile.isBoss && e.hp > 0 && e.hp <= e.maxHp * 0.55 && !e.enragedTriggered) {
       e.enragedTriggered = true;
       this.screenShake = Math.max(this.screenShake, 9);
+      this.hitstopTimer = Math.max(this.hitstopTimer, 0.14);
       AudioFX.playSkillCast();
       NativeApp.haptic('heavy');
       this.spawnInkBurst(e.x, e.y - e.profile.h * 0.55, e.profile.accentColor, '#fde047', 28);
@@ -6175,6 +6468,15 @@ export class GameEngine {
         life: 0.32,
         maxLife: 0.32,
       });
+      const p2 = BOSS_PHASE2_LINES[e.profile.kind];
+      if (p2) {
+        this.skillBanner = {
+          name: p2.title,
+          subtext: p2.cry,
+          timer: 2.35,
+          color: p2.color,
+        };
+      }
     }
 
     const isHeavyStrike = wCur.archetype === 'greatsword' || this.player.comboStep === 2;
@@ -6209,14 +6511,35 @@ export class GameEngine {
       isCrit ? 7 : wCur.tier === 1 ? 3 : 5
     );
 
+    const weakPrefix = hitWeakness
+      ? affinity === 'heavy'
+        ? '破甲 '
+        : affinity === 'fire'
+          ? '焚邪 '
+          : affinity === 'lightning'
+            ? '雷克 '
+            : '冰克 '
+      : '';
+    const floatColor = hitWeakness
+      ? affinity === 'heavy'
+        ? '#fbbf24'
+        : affinity === 'fire'
+          ? '#fb923c'
+          : affinity === 'lightning'
+            ? '#c084fc'
+            : '#38bdf8'
+      : isCrit
+        ? '#fde047'
+        : '#e2e8f0';
+
     this.floats.push({
       x: e.x + (Math.random() - 0.5) * 12,
       y: e.y - e.profile.h * 1.06,
       vy: -38,
-      text: `${finalDmg}`,
-      color: isCrit ? '#fde047' : '#e2e8f0',
-      size: isCrit ? 14 : 11.5,
-      life: 0.48,
+      text: `${weakPrefix}${finalDmg}`,
+      color: floatColor,
+      size: hitWeakness || isCrit ? 14 : 11.5,
+      life: hitWeakness ? 0.62 : 0.48,
     });
 
     if (e.hp <= 0) {
@@ -6237,6 +6560,7 @@ export class GameEngine {
     }
     const nextKind = BOSS_RUSH_ORDER[this.bossRushWave];
     this.bossRushWave++;
+    this.bossFightTookDamage = false;
     this.spawnEnemy(nextKind, this.room.pixelW * 0.72, this.room.focalY);
     this.cb.onShowBanner(
       `镇妖塔 第 ${this.bossRushWave}/${BOSS_RUSH_ORDER.length} 层`,
@@ -6290,6 +6614,34 @@ export class GameEngine {
       // 妖王伏诛瞬间自动驱散其悬丝召唤的伴生傀儡
       this.enemies = this.enemies.filter((o) => o.profile.isBoss);
       NativeApp.haptic('heavy');
+
+      // 《被夺走的封印》/《血污》经典【Boss 无伤破阵勋章】：全程无伤克敌永久赏赐气血真气与鎏金勋章！
+      if (!this.bossFightTookDamage) {
+        const medalKey =
+          s.mode === 'boss_rush'
+            ? `boss_rush:${e.profile.kind}`
+            : `${this.room.realm}:${e.profile.kind}`;
+        if (!s.noHitBosses) s.noHitBosses = [];
+        const isFirstMedal = !s.noHitBosses.includes(medalKey);
+        if (isFirstMedal) {
+          s.noHitBosses.push(medalKey);
+          s.maxHpBonus += 10;
+          s.maxMpBonus += 5;
+          s.gold += Math.round(e.profile.gold * 0.5);
+          this.recalcStats(false);
+          SaveManager.saveSlot(s);
+        }
+        AudioFX.playRelicBell();
+        this.spawnInkBurst(e.x, e.y - 48, '#fde047', '#2dd4bf', 28);
+        this.skillBanner = {
+          name: '✦ 无伤破阵勋章 ✦',
+          subtext: isFirstMedal
+            ? `${e.profile.name} · 永久气血+10 真气+5`
+            : `${e.profile.name} · 无伤破阵完美克敌`,
+          timer: 2.6,
+          color: '#fde047',
+        };
+      }
     }
 
     // 百鬼试炼·镇妖塔连战模式处理（仅当守层妖王本体伏诛时进入下一层！）
@@ -6542,8 +6894,44 @@ export class GameEngine {
     return Math.round(92 * Math.pow(1.34, lv - 1));
   }
 
+  private tryTriggerPerfectDodge(srcX: number, srcY: number): boolean {
+    const p = this.player;
+    if (
+      (p.backdashTimer <= 0.03 && p.mistDashTimer <= 0.04) ||
+      this.perfectDodgeCooldown > 0
+    ) {
+      return false;
+    }
+    this.perfectDodgeCooldown = 0.65;
+    this.perfectDodgeBuffTimer = 3.5;
+    this.perfectDodgeFlashTimer = 0.36;
+    p.invulnTimer = Math.max(p.invulnTimer, 0.32);
+    p.mp = Math.min(p.maxMp, p.mp + 15);
+    this.hitstopTimer = Math.max(this.hitstopTimer, 0.058);
+    AudioFX.playParryClang();
+    NativeApp.haptic('light');
+    this.spawnInkBurst((p.x + srcX) * 0.5, (p.y - 38 + srcY) * 0.5, '#2dd4bf', '#fde047', 16);
+    this.afterImages.push(
+      { x: p.x - p.facing * 10, y: p.y, facing: p.facing, color: '#2dd4bf', alpha: 0.72 },
+      { x: p.x - p.facing * 20, y: p.y, facing: p.facing, color: '#fde047', alpha: 0.54 }
+    );
+    this.floats.push({
+      x: p.x,
+      y: p.y - p.h - 14,
+      vy: -44,
+      text: '踏影! +15真气',
+      color: '#2dd4bf',
+      size: 13,
+      life: 0.72,
+    });
+    return true;
+  }
+
   private damagePlayer(rawAtk: number, knockDir: 1 | -1): void {
     const p = this.player;
+    if (this.enemies.some((e) => e.profile.isBoss)) {
+      this.bossFightTookDamage = true;
+    }
     let tortoiseMult = 1;
     if (this.getActiveFamiliar() === 'familiar_tortoise' && this.tortoiseShieldReady) {
       this.tortoiseShieldReady = false;
@@ -7158,7 +7546,16 @@ export class GameEngine {
         this.screenShake = Math.max(this.screenShake, 7);
         AudioFX.playSlash('heavy');
         this.spawnInkBurst(p.x, p.y - 8, '#fb923c', '#090d16', 22);
-        this.damageEnemiesInBox(p.x - 105, p.y - 68, 210, 74, Math.round(p.atk * 1.25), true, 45);
+        this.damageEnemiesInBox(
+          p.x - 105,
+          p.y - 68,
+          210,
+          74,
+          Math.round(p.atk * 1.25),
+          true,
+          45,
+          'heavy'
+        );
         for (const sh of room.shafts) {
           if (
             sh.dir === 'down' &&
@@ -7545,13 +7942,21 @@ export class GameEngine {
       const nextRealm: CastleRealm = this.room.realm === 'normal' ? 'inverted' : 'normal';
       this.warpToRoom(nextRealm, 'sky_altar');
     } else if (kind === 'su_qingyan') {
-      const sceneKey =
-        this.room.id === 'gate_1'
-          ? 'su_gate_chat'
-          : this.room.id === 'upper_library'
-            ? 'meet_library_su'
-            : 'su_shrine_guide';
-      const sc = STORY_SCENES[sceneKey];
+      let sc: StoryScene | undefined;
+      if (this.room.id === 'gate_1' && !this.slot.triggeredStories.includes('su_gate_chat')) {
+        this.slot.triggeredStories.push('su_gate_chat');
+        SaveManager.saveSlot(this.slot);
+        sc = STORY_SCENES.su_gate_chat;
+      } else if (
+        this.room.id === 'upper_library' &&
+        !this.slot.triggeredStories.includes('meet_library_su')
+      ) {
+        this.slot.triggeredStories.push('meet_library_su');
+        SaveManager.saveSlot(this.slot);
+        sc = STORY_SCENES.meet_library_su;
+      } else {
+        sc = getDynamicSuQingyanScene(this.slot, this.room.id);
+      }
       if (sc) {
         this.cb.onStartStory(sc);
       }
@@ -7661,6 +8066,31 @@ export class GameEngine {
       }
     }
     return shrines.sort((a, b) => a.mapX - b.mapX || a.mapY - b.mapY);
+  }
+
+  public claimBounty(bountyId: string): boolean {
+    const s = this.slot;
+    if (!s) return false;
+    if (!s.claimedBounties) s.claimedBounties = [];
+    if (s.claimedBounties.includes(bountyId)) return false;
+    const b = CASTLE_BOUNTIES.find((x) => x.id === bountyId);
+    if (!b || b.getProgress(s) < b.targetCount) return false;
+
+    s.claimedBounties.push(bountyId);
+    s.gold += b.rewardGold;
+    if (b.rewardConsumables) {
+      for (const [cid, qty] of Object.entries(b.rewardConsumables)) {
+        s.consumables[cid] = (s.consumables[cid] || 0) + qty;
+      }
+    }
+    if (b.rewardMaxHp) s.maxHpBonus += b.rewardMaxHp;
+    if (b.rewardMaxMp) s.maxMpBonus += b.rewardMaxMp;
+    this.recalcStats(false);
+    SaveManager.saveSlot(s);
+    AudioFX.playRelicBell();
+    NativeApp.haptic('medium');
+    this.spawnInkBurst(this.player.x, this.player.y - 40, '#fde047', '#2dd4bf', 20);
+    return true;
   }
 
   // 喷溅定向拉长水墨飞白与刀锋金铁火星（彻底告别廉价圆点粒子！）

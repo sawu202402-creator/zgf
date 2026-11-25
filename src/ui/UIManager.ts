@@ -11,7 +11,7 @@ import {
   WEAPONS,
   YAO_CORES,
 } from '../data/itemsAndSkills';
-import { CHARACTER_BIOS, LORE_STELES } from '../data/storyAndNpcs';
+import { CASTLE_BOUNTIES, CHARACTER_BIOS, LORE_STELES } from '../data/storyAndNpcs';
 import {
   BuiltRoom,
   getRoomSideDoors,
@@ -1208,7 +1208,32 @@ export class UIManager {
     } else if (this.pauseTab === 'lore') {
       const compact = window.innerHeight < 540;
       const readList = s.readSteles || [];
+      const claimedSet = new Set(s.claimedBounties || []);
       const steleEntries = Object.values(LORE_STELES);
+      const bountyCardsHtml = CASTLE_BOUNTIES.map((b) => {
+        const cur = Math.min(b.targetCount, b.getProgress(s));
+        const done = claimedSet.has(b.id);
+        const ready = !done && cur >= b.targetCount;
+        return `
+          <div class="zx-item-row" style="flex-direction:column;align-items:flex-start;gap:5px;cursor:default;border-color:${done ? 'rgba(45,212,191,0.38)' : ready ? 'rgba(250,204,21,0.68)' : 'rgba(148,163,184,0.18)'};background:${ready ? 'rgba(234,179,8,0.08)' : ''};">
+            <div style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+              <strong style="font-size:13.5px;color:${done ? '#5eead4' : ready ? '#fde047' : 'var(--bronze-light)'};">${b.title}</strong>
+              <span style="font-size:11px;color:var(--ash);">${b.issuer}</span>
+            </div>
+            <div style="font-size:12px;color:#e2e8f0;line-height:1.45;">${b.desc}</div>
+            <div style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:2px;">
+              <span style="font-size:11.5px;color:#fbbf24;">赏格：${b.rewardSummary}</span>
+              ${
+                done
+                  ? `<span style="font-size:11.5px;font-weight:800;color:#2dd4bf;">✓ 已领赏格</span>`
+                  : ready
+                    ? `<button class="zx-seal-btn" data-claim-bounty="${b.id}" style="padding:4px 11px;font-size:12px;border-color:#fde047;color:#fde047;">领取赏格 (${cur}/${b.targetCount})</button>`
+                    : `<span style="font-size:11.5px;color:#94a3b8;">历练中 (${cur}/${b.targetCount})</span>`
+              }
+            </div>
+          </div>`;
+      }).join('');
+
       const steleCardsHtml = steleEntries
         .map((st) => {
           const unlocked = readList.includes(st.id);
@@ -1234,6 +1259,11 @@ export class UIManager {
 
       mainHtml = `
         <div class="zx-scroll-pane" style="display:flex;flex-direction:column;gap:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(250,204,21,0.28);padding-bottom:6px;">
+            <strong style="color:#fde047;letter-spacing:2px;font-size:14px;">镇妖司江湖悬赏令</strong>
+            <span style="font-size:12px;color:var(--jade);font-weight:800;">已结案 ${claimedSet.size} / ${CASTLE_BOUNTIES.length}</span>
+          </div>
+          <div class="zx-card-grid">${bountyCardsHtml}</div>
           <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(212,175,55,0.22);padding-bottom:6px;">
             <strong style="color:var(--bronze-light);letter-spacing:2px;font-size:14px;">甲申血月 · 镇妖司残碑秘档</strong>
             <span style="font-size:12px;color:#38bdf8;font-weight:800;">已拓印 ${readList.length} / ${steleEntries.length} 卷</span>
@@ -1303,6 +1333,10 @@ export class UIManager {
     }
 
     const isTouch = this.engine.input.usingTouch || NativeApp.isMobileOrTablet();
+    const claimedBountiesSet = new Set(s.claimedBounties || []);
+    const claimableBountiesCount = CASTLE_BOUNTIES.filter(
+      (b) => !claimedBountiesSet.has(b.id) && b.getProgress(s) >= b.targetCount
+    ).length;
     overlay.innerHTML = `
       <div class="zx-arsenal-topbar">
         <div class="zx-arsenal-tabs">
@@ -1310,7 +1344,7 @@ export class UIManager {
           <button class="zx-atab ${this.pauseTab === 'skills' ? 'active' : ''}" data-ptab="skills">剑诀</button>
           <button class="zx-atab ${this.pauseTab === 'map' ? 'active' : ''}" data-ptab="map">堪舆</button>
           <button class="zx-atab ${this.pauseTab === 'bestiary' ? 'active' : ''}" data-ptab="bestiary">百鬼录</button>
-          <button class="zx-atab ${this.pauseTab === 'lore' ? 'active' : ''}" data-ptab="lore">列传</button>
+          <button class="zx-atab ${this.pauseTab === 'lore' ? 'active' : ''}" data-ptab="lore" style="${claimableBountiesCount > 0 ? 'color:#fde047;border-color:rgba(250,204,21,0.65);' : ''}">列传${claimableBountiesCount > 0 ? ` · ${claimableBountiesCount}` : ''}</button>
           <button class="zx-atab ${this.pauseTab === 'settings' ? 'active' : ''}" data-ptab="settings">系统</button>
         </div>
         <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
@@ -1532,6 +1566,15 @@ export class UIManager {
           { passive: false }
         );
       }
+    } else if (this.pauseTab === 'lore') {
+      overlay.querySelectorAll<HTMLButtonElement>('[data-claim-bounty]').forEach((btn) => {
+        this.bindFastTap(btn, () => {
+          const bid = btn.dataset.claimBounty;
+          if (bid && this.engine.claimBounty(bid)) {
+            this.renderArsenalModal();
+          }
+        });
+      });
     } else if (this.pauseTab === 'settings') {
       this.bindSettingsEvents(overlay);
     }
@@ -1599,6 +1642,14 @@ export class UIManager {
       return false;
     };
 
+    const weaknessMeta: Record<string, { label: string; color: string }> = {
+      heavy: { label: '弱重器破甲', color: '#fbbf24' },
+      fire: { label: '弱真火焚邪', color: '#fb923c' },
+      lightning: { label: '弱紫电雷克', color: '#c084fc' },
+      frost: { label: '弱玄冰镇火', color: '#38bdf8' },
+    };
+    const noHitList = s.noHitBosses || [];
+
     const cards = (Object.keys(ENEMY_PROFILES) as EnemyKind[])
       .map((kind) => {
         const pr = ENEMY_PROFILES[kind];
@@ -1609,6 +1660,8 @@ export class UIManager {
           cnt > 0 ||
           s.defeatedBosses.some((k) => k.endsWith(kind)) ||
           this.engine.enemies.some((e) => e.profile.kind === kind);
+        const hasNoHit = pr.isBoss && noHitList.some((k) => k.endsWith(`:${kind}`));
+        const wInfo = pr.weakness ? weaknessMeta[pr.weakness] : undefined;
 
         const commonKnown = pr.commonDrop ? isLootKnown(kind, 'common', pr.commonDrop) : false;
         const rareKnown = pr.rareDrop ? isLootKnown(kind, 'rare', pr.rareDrop) : false;
@@ -1636,12 +1689,12 @@ export class UIManager {
           <div class="zx-item-row" style="gap:12px;cursor:default;opacity:${seen ? 1 : 0.45};">
             <img src="${Assets.getUrl(getThumbKey(kind))}" style="width:68px;height:54px;object-fit:contain;flex-shrink:0;filter:${seen ? 'drop-shadow(0 2px 5px #000)' : 'brightness(0)'};" alt="${pr.name}" />
             <div style="flex:1;min-width:0;">
-              <div style="display:flex;justify-content:space-between;align-items:center;">
-                <strong style="font-size:14.5px;color:${pr.isBoss ? '#fca5a5' : 'var(--bronze-light)'};">${seen ? pr.name : '？？？· 未知妖邪'}</strong>
-                <span style="font-size:11.5px;color:var(--ash);">斩讨 ${cnt}</span>
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+                <strong style="font-size:14.5px;color:${pr.isBoss ? '#fca5a5' : 'var(--bronze-light)'};">${seen ? pr.name : '？？？· 未知妖邪'}${hasNoHit ? ` <span style="font-size:10.5px;padding:1px 6px;border-radius:3px;background:rgba(250,204,21,0.16);border:1px solid rgba(250,204,21,0.55);color:#fde047;vertical-align:middle;">✦ 无伤破阵</span>` : ''}</strong>
+                <span style="font-size:11.5px;color:var(--ash);flex-shrink:0;">斩讨 ${cnt}</span>
               </div>
               <div style="font-size:11.5px;color:#cbd5e1;margin-top:3px;">
-                ${seen ? `气血 ${pr.hp} · 杀伐 ${pr.atk} · 护体 ${pr.def} · 银两 ${pr.gold}` : '行踪隐秘，尚未交锋'}
+                ${seen ? `气血 ${pr.hp} · 杀伐 ${pr.atk} · 护体 ${pr.def} · 银两 ${pr.gold}${wInfo ? ` · <span style="color:${wInfo.color};font-weight:700;">${wInfo.label}</span>` : ''}` : '行踪隐秘，尚未交锋'}
               </div>
               ${seen ? dropLineHtml : ''}
               <div style="font-size:11px;margin-top:2px;color:${hasCore ? '#d8b4fe' : 'var(--jade)'};">

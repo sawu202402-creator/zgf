@@ -1,4 +1,308 @@
-import { StoryScene } from '../types';
+import { EnemyKind, SaveSlotData, StoryScene } from '../types';
+
+export interface CastleBountyDef {
+  id: string;
+  title: string;
+  issuer: string;
+  desc: string;
+  targetCount: number;
+  getProgress: (slot: SaveSlotData) => number;
+  rewardSummary: string;
+  rewardGold: number;
+  rewardConsumables?: Record<string, number>;
+  rewardMaxHp?: number;
+  rewardMaxMp?: number;
+}
+
+export const BOSS_PHASE2_LINES: Partial<
+  Record<EnemyKind, { title: string; cry: string; color: string }>
+> = {
+  boss_xiao_duanshui: {
+    title: '白虎战意觉醒',
+    cry: '师弟，接我镇妖司秘传杀剑！！',
+    color: '#c084fc',
+  },
+  boss_scroll_king: {
+    title: '万卷狂墨入魂',
+    cry: '龙脉残图，尽化青墨狂潮！！',
+    color: '#38bdf8',
+  },
+  boss_colosseum_general: {
+    title: '神武裂阵怒吼',
+    cry: '敢破本将金甲？十方战戟随我鸣啸！！',
+    color: '#f59e0b',
+  },
+  boss_furnace_titan: {
+    title: '地肺炉心沸腾',
+    cry: '嗡——赤铜焚脉！地火随吾倾泻！！',
+    color: '#fb923c',
+  },
+  boss_opera_god: {
+    title: '傩面悬丝乱舞',
+    cry: '锣鼓急催！今日满台傀儡皆为我替身！！',
+    color: '#f472b6',
+  },
+  boss_shipyard_leviathan: {
+    title: '归墟怒涛倾覆',
+    cry: '孽海翻天！沉船亡魂随本王吞日！！',
+    color: '#22d3ee',
+  },
+  boss_thunder_yaksha: {
+    title: '九霄雷音破空',
+    cry: '聒噪蝼蚁！尝尝大鹏金翅九天罡雷！！',
+    color: '#facc15',
+  },
+  boss_dragon_warden: {
+    title: '太古战魄狂怒',
+    cry: '头可断，战魂不灭——干戚舞九幽！！',
+    color: '#f43f5e',
+  },
+  boss_pei_wuji: {
+    title: '蚀心蛊魔剑全开',
+    cry: '逸承……快醒醒……或者斩断为师这身魔骨！！',
+    color: '#ef4444',
+  },
+  boss_zhuyin: {
+    title: '太古尸仙烛阴现世',
+    cry: '瞑目为夜，开目为昼——尔等尽堕九幽冥渊！！',
+    color: '#f43f5e',
+  },
+};
+
+export const CASTLE_BOUNTIES: CastleBountyDef[] = [
+  {
+    id: 'bounty_first_boss',
+    title: '初试镇魔刃',
+    issuer: '萧断水 · 镇妖司悬赏',
+    desc: '斩灭玄城内任意一名镇关妖王或堕魔守将，夺回其镇守密宝。',
+    targetCount: 1,
+    getProgress: (s) => s.defeatedBosses.length,
+    rewardSummary: '纹银 220 · 千山缩地符 ×2 · 虎骨烈酒 ×1',
+    rewardGold: 220,
+    rewardConsumables: { suodi_talisman: 2, tiger_bone_wine: 1 },
+  },
+  {
+    id: 'bounty_secret_hunter',
+    title: '摸金勘壁录',
+    issuer: '欧冶残 · 秘室委托',
+    desc: '留意墙面裂隙暗格与灵兽提示，累计劈开 3 处隐藏暗壁或秘门。',
+    targetCount: 3,
+    getProgress: (s) => s.brokenSecretWalls.length,
+    rewardSummary: '纹银 300 · 神行疾风散 ×2 · 千山缩地符 ×2',
+    rewardGold: 300,
+    rewardConsumables: { shenxing_san: 2, suodi_talisman: 2 },
+  },
+  {
+    id: 'bounty_stele_scholar',
+    title: '血月拾遗录',
+    issuer: '苏清晏 · 钦天密档',
+    desc: '踏遍残垣拓印 4 卷《甲申血月》镇妖司遗留残碑，查明真相。',
+    targetCount: 4,
+    getProgress: (s) => (s.readSteles || []).length,
+    rewardSummary: '纹银 360 · 回气碧灵丹 ×3 · 永久真气上限 +15',
+    rewardGold: 360,
+    rewardConsumables: { huiqi_dan: 3 },
+    rewardMaxMp: 15,
+  },
+  {
+    id: 'bounty_yaocore_collector',
+    title: '炼妖夺丹诀',
+    issuer: '白掌柜 · 鬼市奇珍悬赏',
+    desc: '斩杀城中妖邪并融汇吸收至少 4 枚不同妖邪的本命妖丹。',
+    targetCount: 4,
+    getProgress: (s) => s.ownedYaoCores.length,
+    rewardSummary: '纹银 480 · 九转还魂大金丹 ×1 · 永久气血上限 +20',
+    rewardGold: 480,
+    rewardConsumables: { jiuzhuan_jin_dan: 1 },
+    rewardMaxHp: 20,
+  },
+  {
+    id: 'bounty_demon_slayer',
+    title: '荡寇除邪令',
+    issuer: '镇妖司 · 巡城战功榜',
+    desc: '肃清旧都妖氛，累计斩讨城内各路妖邪达到 40 具。',
+    targetCount: 40,
+    getProgress: (s) => Object.values(s.bestiaryKills || {}).reduce((acc, n) => acc + (n || 0), 0),
+    rewardSummary: '纹银 420 · 九转还魂大金丹 ×1 · 虎骨烈酒 ×2',
+    rewardGold: 420,
+    rewardConsumables: { jiuzhuan_jin_dan: 1, tiger_bone_wine: 2 },
+  },
+  {
+    id: 'bounty_no_hit_master',
+    title: '无伤破阵传',
+    issuer: '裴无极 · 剑魁绝诣考验',
+    desc: '在任意一场首领决战中全程无伤破阵，赢取至少 1 枚【无伤破阵勋章】。',
+    targetCount: 1,
+    getProgress: (s) => (s.noHitBosses || []).length,
+    rewardSummary: '纹银 660 · 九转金丹 ×2 · 永久气血 +25 · 真气 +15',
+    rewardGold: 660,
+    rewardConsumables: { jiuzhuan_jin_dan: 2 },
+    rewardMaxHp: 25,
+    rewardMaxMp: 15,
+  },
+];
+
+export function getDynamicSuQingyanScene(slot: SaveSlotData, _roomId: string): StoryScene {
+  const ab = new Set(slot.abilities);
+  const steles = (slot.readSteles || []).length;
+  const bossCnt = slot.defeatedBosses.length;
+  const noHitCnt = (slot.noHitBosses || []).length;
+
+  if (slot.defeatedBosses.includes('inverted:boss_zhuyin')) {
+    return {
+      id: 'su_dynamic_zhuyin_cleared',
+      title: '清晏星语 · 破晓余韵',
+      lines: [
+        {
+          speaker: '苏清晏',
+          role: '钦天监司辰女官',
+          portraitColor: '#7dd3fc',
+          text: `太古尸仙烛阴伏诛，倒悬里城的阴煞也尽数化作晨曦……李少侠，你不仅替镇妖司洗雪了三年沉冤，还集齐了 ${steles} 卷血月残碑、揽获 ${noHitCnt} 枚无伤勋章，真是当世第一剑侠！`,
+        },
+        {
+          speaker: '李逸承',
+          role: '镇妖司传剑弟子',
+          portraitColor: '#48c9b0',
+          text: '多亏苏姑娘一路筹谋勘察。城中若还有未破的密室或悬赏令，趁着黎明微光再去踏遍百格江湖也无妨。',
+        },
+      ],
+    };
+  }
+
+  if (slot.invertedUnlocked) {
+    return {
+      id: 'su_dynamic_inverted_open',
+      title: '清晏星语 · 倒悬乾坤',
+      lines: [
+        {
+          speaker: '苏清晏',
+          role: '钦天监司辰女官',
+          portraitColor: '#7dd3fc',
+          text: `玄鸟佩与破妄古镜果真破开了蚀心蛊！裴剑魁虽已清醒，可倒悬在旧都苍穹之上的【里城】深处仍盘踞着太古尸仙·烛阴（当前已胜 ${bossCnt} 场首领战）。`,
+        },
+        {
+          speaker: '苏清晏',
+          role: '钦天监司辰女官',
+          portraitColor: '#7dd3fc',
+          text: '里城地势上下颠倒、妖兵皆受九幽煞气淬炼，去凌霄祭天坛中央裂隙之前，别忘了去【赤火铸剑坊】与【子夜鬼市】添置趁手神兵与金丹！',
+        },
+      ],
+    };
+  }
+
+  if (ab.has('mirror_truth') && ab.has('jade_pendant_full')) {
+    return {
+      id: 'su_dynamic_ready_altar',
+      title: '清晏星语 · 双璧齐聚',
+      lines: [
+        {
+          speaker: '苏清晏',
+          role: '钦天监司辰女官',
+          portraitColor: '#7dd3fc',
+          text: '【破妄古镜】与完整【玄鸟玉佩】皆已归位！有此二宝护心，即便直面凌霄祭天坛上的裴统领，也能照出他灵台深处的九幽蚀心蛊，不会误入寻常假结局。',
+        },
+        {
+          speaker: '李逸承',
+          role: '镇妖司传剑弟子',
+          portraitColor: '#48c9b0',
+          text: '好，我这便登凌霄祭天坛救出师父，揭开倒悬里城的真面目！',
+        },
+      ],
+    };
+  }
+
+  if (ab.has('wall_jump') || ab.has('grapple_hook')) {
+    const missing = [
+      !ab.has('mirror_truth') ? '【破妄古镜】（藏于望月塔或演武校场秘道深处）' : '',
+      !ab.has('jade_pendant_full') ? '【完整玄鸟玉佩】（藏于九曲寒潭水牢尽头）' : '',
+    ]
+      .filter(Boolean)
+      .join(' 与 ');
+    return {
+      id: 'su_dynamic_relic_hint',
+      title: '清晏星语 · 破妄之道',
+      lines: [
+        {
+          speaker: '苏清晏',
+          role: '钦天监司辰女官',
+          portraitColor: '#7dd3fc',
+          text: `你已习得飞燕钩锁或游墙绝技，上层望月塔与梨园阁楼皆可畅行无阻！切记：直取祭天坛前若未备齐 ${missing || '双秘宝'}，斩杀裴无极只会迎来遗憾的凡尘结局。`,
+        },
+        {
+          speaker: '苏清晏',
+          role: '钦天监司辰女官',
+          portraitColor: '#7dd3fc',
+          text: `此外若能全程无伤击败首领，还能摘得【无伤破阵勋章】永久增幅气血真气；兵匣【列传】页也已张贴了镇妖司悬赏令（已拓碑 ${steles} 卷），别忘了及时领赏！`,
+        },
+      ],
+    };
+  }
+
+  if (ab.has('mist_dash')) {
+    return {
+      id: 'su_dynamic_post_mist',
+      title: '清晏星语 · 化雾穿栅',
+      lines: [
+        {
+          speaker: '苏清晏',
+          role: '钦天监司辰女官',
+          portraitColor: '#7dd3fc',
+          text: '【缩地化雾符】既得，玄城各处玄铁重闸与九幽毒瘴壁垒已困不住你了。顺便一提，极限踏影疾退闪避敌招或弩箭的一刹那，能回气 15 点并触发下次必暴击！',
+        },
+        {
+          speaker: '苏清晏',
+          role: '钦天监司辰女官',
+          portraitColor: '#7dd3fc',
+          text: '往百戏梨园可求取高空摆荡的【飞燕钩锁】，而东垣望月塔上还藏着能翻越高壁的【壁虎游墙功】。',
+        },
+      ],
+    };
+  }
+
+  if (ab.has('ground_slam')) {
+    return {
+      id: 'su_dynamic_post_slam',
+      title: '清晏星语 · 千斤镇渊',
+      lines: [
+        {
+          speaker: '苏清晏',
+          role: '钦天监司辰女官',
+          portraitColor: '#7dd3fc',
+          text: '【千斤坠】霸体刚猛无比！现在凡见地面龟裂脆弱青砖（如铸剑坊、寒潭水牢与太液地渠），只需凌空垂直重砸即可踏碎地砖开路。',
+        },
+        {
+          speaker: '苏清晏',
+          role: '钦天监司辰女官',
+          portraitColor: '#7dd3fc',
+          text: '下一步可潜入极深处的【九曲寒潭水牢】寻找【缩地化雾符】——另外，高悬堂中的青铜古钟用剑劈响时，钟声也能震晕周遭群妖！',
+        },
+      ],
+    };
+  }
+
+  if (ab.has('double_jump')) {
+    return {
+      id: 'su_dynamic_post_djump',
+      title: '清晏星语 · 踏云登高',
+      lines: [
+        {
+          speaker: '苏清晏',
+          role: '钦天监司辰女官',
+          portraitColor: '#7dd3fc',
+          text: '你已从试剑堂与藏书妖宗手中夺回轻功【踏云步】，奉天盘龙殿与神武校场的高台再也拦不住你了。',
+        },
+        {
+          speaker: '苏清晏',
+          role: '钦天监司辰女官',
+          portraitColor: '#7dd3fc',
+          text: '接下来建议重锻趁手重刃，前往【赤火铸剑坊】挑战赤铜巨灵，夺取能震碎脆石暗井的【千斤坠】！',
+        },
+      ],
+    };
+  }
+
+  return STORY_SCENES.su_shrine_guide;
+}
 
 export interface CharacterBio {
   id: string;
@@ -394,6 +698,31 @@ export const STORY_SCENES: Record<string, StoryScene> = {
         role: '镇妖司少统领',
         portraitColor: '#c084fc',
         text: '水牢尽头的玄鸟秘冢里，藏着令堂当年遗落的另一半【玄鸟玉佩】与【缩地化雾】秘术！这枚镇军【白虎啸风兵符】你且收好，我留在下层替你镇住阴兵潮——去吧，师弟！',
+      },
+    ],
+  },
+
+  boss_titan_pre: {
+    id: 'boss_titan_pre',
+    title: '第五章 · 炉君震怒',
+    lines: [
+      {
+        speaker: '赤铜镇火巨灵',
+        role: '地肺古矿镇脉铜偶',
+        portraitColor: '#fb923c',
+        text: '吼——擅入地肺禁炉者，皆作熔铜之薪！！',
+      },
+      {
+        speaker: '李逸承',
+        role: '镇妖司传剑弟子',
+        portraitColor: '#48c9b0',
+        text: '连欧冶世伯亲手铸造的镇脉铜偶也受阴煞所控……若不劈碎你周身邪火，地下的玄钧秘坛便永无宁日！',
+      },
+      {
+        speaker: '赤铜镇火巨灵',
+        role: '地肺古矿镇脉铜偶',
+        portraitColor: '#fde047',
+        text: '炉心沸腾——接吾万钧赤铜重锤！！',
       },
     ],
   },

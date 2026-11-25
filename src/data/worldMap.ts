@@ -188,11 +188,15 @@ export interface MovingPlatformDef {
 }
 
 export interface RoomHazardDef {
-  kind: 'spikes' | 'pendulum' | 'fire_vent';
+  kind: 'spikes' | 'pendulum' | 'fire_vent' | 'updraft' | 'arrow_trap';
   x: number;
   y: number;
-  /** 地刺宽度 / 摆斧臂长 / 地肺喷火高度 */
+  /** 地刺宽度 / 摆斧臂长 / 地肺喷火高度 / 升龙风道高度 / 暗箭射程 */
   span: number;
+  /** 升龙风道水平宽度 */
+  width?: number;
+  /** 连弩暗箭墙朝向 */
+  dir?: 1 | -1;
   speed?: number;
   phase?: number;
 }
@@ -1377,6 +1381,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       pixelH: 480,
       special: 'boss_room',
       bossKind: 'boss_furnace_titan',
+      storyTriggerId: 'boss_titan_pre',
       focalX: 620,
       focalY: 408,
       leftRoomId: 'sunken_sluice_cavern',
@@ -3615,10 +3620,14 @@ function createNormalCastleRooms(): BuiltRoom[] {
       hazards: [
         { kind: 'fire_vent', x: 320, y: 408, span: 142, speed: 3.4, phase: 0 },
         { kind: 'fire_vent', x: 480, y: 408, span: 142, speed: 3.4, phase: 1.7 },
+        { kind: 'updraft', x: 615, y: 448, span: 195, width: 78 },
       ],
     },
     secret_forge_smeltery: {
       hazards: [{ kind: 'fire_vent', x: 265, y: 432, span: 135, speed: 3.2, phase: 0.9 }],
+    },
+    mine_lava_bridge: {
+      hazards: [{ kind: 'updraft', x: 1640, y: 416, span: 190, width: 84 }],
     },
     prison_waterway: {
       hazards: [{ kind: 'pendulum', x: 1035, y: 32, span: 158, speed: 1.75, phase: 0.3 }],
@@ -3638,20 +3647,44 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
     },
     opera_gallery: {
-      hazards: [{ kind: 'pendulum', x: 830, y: 34, span: 152, speed: 1.85, phase: 1.1 }],
+      hazards: [
+        { kind: 'pendulum', x: 830, y: 34, span: 152, speed: 1.85, phase: 1.1 },
+        { kind: 'updraft', x: 1480, y: 424, span: 195, width: 82 },
+      ],
     },
     clock_gear_hall: {
       hazards: [
         { kind: 'spikes', x: 235, y: 442, span: 100 },
         { kind: 'spikes', x: 465, y: 442, span: 100 },
         { kind: 'pendulum', x: 400, y: 34, span: 148, speed: 2.05, phase: 0.7 },
+        { kind: 'updraft', x: 615, y: 442, span: 185, width: 78 },
+        { kind: 'arrow_trap', x: 1360, y: 392, span: 440, dir: -1, speed: 3.0, phase: 1.0 },
       ],
+    },
+    clock_bell_gallery: {
+      hazards: [
+        { kind: 'arrow_trap', x: 1120, y: 358, span: 460, dir: -1, speed: 3.1, phase: 0.7 },
+      ],
+    },
+    observatory_bridge: {
+      hazards: [
+        { kind: 'arrow_trap', x: 880, y: 362, span: 440, dir: -1, speed: 2.9, phase: 0.3 },
+      ],
+    },
+    altar_cloud_bridge: {
+      hazards: [{ kind: 'updraft', x: 1100, y: 376, span: 205, width: 86 }],
     },
     catacomb_hall: {
       hazards: [
         { kind: 'spikes', x: 545, y: 450, span: 96 },
         { kind: 'spikes', x: 1190, y: 452, span: 105 },
         { kind: 'pendulum', x: 885, y: 34, span: 156, speed: 1.85, phase: 0.5 },
+        { kind: 'arrow_trap', x: 1300, y: 402, span: 500, dir: 1, speed: 3.0, phase: 0.4 },
+      ],
+    },
+    abyss_dragon_spine: {
+      hazards: [
+        { kind: 'arrow_trap', x: 1550, y: 406, span: 520, dir: -1, speed: 3.0, phase: 0.5 },
       ],
     },
     secret_catacomb_treasury: {
@@ -10405,7 +10438,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       lanterns,
       ceilingSpans,
       ambushSeal: ambushRoomIds.has(rm.id),
-      hazards: extra?.hazards ?? rm.hazards,
+      hazards: extra?.hazards ? [...(rm.hazards || []), ...extra.hazards] : rm.hazards,
       crumbleSlabs: extra?.crumbleSlabs ?? rm.crumbleSlabs,
     };
   });
@@ -10689,9 +10722,9 @@ function sanitizeRoomDecorAndSpawns(rm: BuiltRoom): BuiltRoom {
     }
   }
 
-  // 4. 校准机关、龟裂石板与拾取物高度：防止拓宽后地刺/火井/丹药浮空或与实心踏石重叠
+  // 4. 校准机关、龟裂石板与拾取物高度：防止拓宽后地刺/火井/风道/丹药浮空或与实心踏石重叠
   const cleanHazards = workRm.hazards?.map((hz) => {
-    if (hz.kind !== 'spikes' && hz.kind !== 'fire_vent') return hz;
+    if (hz.kind !== 'spikes' && hz.kind !== 'fire_vent' && hz.kind !== 'updraft') return hz;
     const refX = hz.kind === 'spikes' ? hz.x + hz.span * 0.5 : hz.x;
     const onPlat = (workRm.solidBlocks || []).some(
       (sb) => hz.x >= sb.x - 12 && hz.x <= sb.x + sb.w + 12 && Math.abs(hz.y - sb.y) <= 18
@@ -13164,6 +13197,7 @@ function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
       hazards: rm.hazards?.map((hz) => ({
         ...hz,
         x: hz.kind === 'spikes' ? W - hz.x - hz.span : W - hz.x,
+        dir: hz.dir ? ((-hz.dir) as 1 | -1) : undefined,
       })),
       crumbleSlabs: rm.crumbleSlabs?.map((cs) => ({
         ...cs,

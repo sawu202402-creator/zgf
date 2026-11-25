@@ -1674,7 +1674,8 @@ export function getClockGearOrbitPlatforms(
 export function drawCastleInteriorPropsAndGears(
   ctx: CanvasRenderingContext2D,
   room: BuiltRoom,
-  t: number
+  t: number,
+  bellRingTimers?: Map<number, number>
 ): void {
   if (room.decorProps) {
     const shelfImg = Assets.get('prop_bookshelf');
@@ -1688,7 +1689,8 @@ export function drawCastleInteriorPropsAndGears(
     const bellImg = Assets.get('prop_giant_bell');
     const chainImg = Assets.get('arch_iron_chain');
 
-    for (const dp of room.decorProps) {
+    for (let dpIdx = 0; dpIdx < room.decorProps.length; dpIdx++) {
+      const dp = room.decorProps[dpIdx];
       const sc = dp.scale ?? 1;
 
       if (dp.kind === 'coiled_pillar' && pillarImg) {
@@ -1721,7 +1723,9 @@ export function drawCastleInteriorPropsAndGears(
         const hm = getHarmonizedSprite('prop_bookshelf', shelfImg, room, 0.46);
         ctx.drawImage(hm, dp.x - w * 0.5, dp.y - h + 4, w, h);
       } else if (dp.kind === 'giant_bell' && bellImg) {
-        const sway = Math.sin(t * 1.1 + dp.x * 0.01) * 0.022;
+        const ringT = bellRingTimers?.get(dpIdx) || 0;
+        const ringSway = ringT > 0 ? Math.sin(t * 16) * 0.24 * (ringT / 1.8) : 0;
+        const sway = Math.sin(t * 1.1 + dp.x * 0.01) * 0.022 + ringSway;
         const h = 210 * sc;
         const w = bellImg.width * (h / bellImg.height);
         const ceilY = Math.max(24, sampleCeilingY(room, dp.x, false));
@@ -1734,6 +1738,17 @@ export function drawCastleInteriorPropsAndGears(
         ctx.rotate(sway);
         ctx.drawImage(hm, -w * 0.5, 0, w, h);
         ctx.restore();
+        if (ringT > 0) {
+          const rProg = 1 - ringT / 1.8;
+          const haloSz = (120 + rProg * 210) * sc;
+          drawPaintedVfxSprite(ctx, 'vfx_taiji_gold_bell', dp.x, dp.y - h * 0.44, haloSz, haloSz, {
+            alpha: (ringT / 1.8) * 0.65,
+            rotation: t * 1.8,
+            tintHex: '#fde047',
+            tintAlpha: 0.45,
+            additive: true,
+          });
+        }
       } else if (dp.kind === 'guardian_statue' && statueImg) {
         const h = 152 * sc;
         const w = statueImg.width * (h / statueImg.height);

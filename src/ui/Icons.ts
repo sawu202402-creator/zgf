@@ -60,7 +60,7 @@ export function resolveSpeakerPortraitKey(speaker: string): AssetKey {
   if (speaker.includes('炉君') || speaker.includes('巨灵')) return 'boss_ft_0';
   if (speaker.includes('傩')) return 'boss_op_0';
   if (speaker.includes('大鹏') || speaker.includes('夜叉')) return 'boss_yk_0';
-  if (speaker.includes('烛阴')) return 'boss_pei_2';
+  if (speaker.includes('烛阴')) return 'boss_zhuyin_0';
   if (speaker.includes('《') || speaker.includes('碑') || speaker.includes('秘档')) {
     return 'item_relic_pedestal';
   }
