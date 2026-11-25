@@ -43,7 +43,7 @@
           window.location.reload();
         });
         navigator.serviceWorker
-          .register('./sw.js?v=14', { updateViaCache: 'none' })
+          .register('./sw.js?v=15', { updateViaCache: 'none' })
           .then(function (reg) {
             reg.update().catch(function () {});
             document.addEventListener('visibilitychange', function () {

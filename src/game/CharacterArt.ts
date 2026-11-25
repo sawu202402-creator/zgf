@@ -1,6 +1,6 @@
 import { ALL_FAMILIAR_IDS, FAMILIARS, WEAPONS } from '../data/itemsAndSkills';
 import { SceneNpc } from '../data/worldMap';
-import { FamiliarId, WeaponArchetype, WeaponDef } from '../types';
+import { EnemyKind, FamiliarId, WeaponArchetype, WeaponDef } from '../types';
 import {
   AssetKey,
   Assets,
@@ -1921,6 +1921,19 @@ export function renderHeroWeaponSlashVfx(
   }
 }
 
+const BOSS_VISUAL_SCALES: Partial<Record<EnemyKind, number>> = {
+  boss_xiao_duanshui: 0.58,
+  boss_pei_wuji: 0.64,
+  boss_scroll_king: 0.76,
+  boss_opera_god: 0.82,
+  boss_colosseum_general: 0.88,
+  boss_thunder_yaksha: 0.96,
+  boss_shipyard_leviathan: 1.0,
+  boss_furnace_titan: 1.12,
+  boss_dragon_warden: 1.14,
+  boss_zhuyin: 1.18,
+};
+
 export function drawMonsterOrBoss(
   ctx: CanvasRenderingContext2D,
   e: EnemyEntity,
@@ -1943,7 +1956,7 @@ export function drawMonsterOrBoss(
   ctx.translate(e.x + joltX, e.y);
 
   if (!e.profile.flying) {
-    drawSoftGroundShadow(ctx, 0, 2, w * 0.76, 6.8, 0.56);
+    drawSoftGroundShadow(ctx, 0, 2, w * 0.76, e.profile.isBoss ? Math.max(7.5, w * 0.11) : 6.8, 0.56);
   }
 
   // 破土阴兵钻出地面时的翻卷泥石土堆遮罩
@@ -1957,32 +1970,27 @@ export function drawMonsterOrBoss(
   if (img) {
     const knd = e.profile.kind;
     const sc =
-      knd === 'boss_zhuyin'
-        ? 0.78
-        : knd === 'boss_xiao_duanshui'
-          ? 0.56
-          : e.profile.isBoss
-            ? 0.62
-            : knd === 'magma_crucible_golem' || knd === 'celestial_sentinel'
-              ? 0.62
-              : knd === 'terracotta_halberdier' || knd === 'frost_chain_jailer'
-                ? 0.6
-                : knd === 'demon_wolf' ||
-                    knd === 'taoist_talisman_priest' ||
-                    knd === 'ink_brush_scholar'
-                  ? 0.55
-                  : knd === 'bronze_guard' ||
-                      knd === 'opera_sleeve_siren' ||
-                      knd === 'drowned_corpse_bride'
-                    ? 0.54
-                    : knd === 'spirit_crow' ||
-                        knd === 'mine_pickaxe_ghoul' ||
-                        knd === 'clockwork_mantis' ||
-                        knd === 'bronze_gear_wisp'
-                      ? 0.5
-                      : knd === 'alchemy_homunculus'
-                        ? 0.46
-                        : 0.52;
+      (e.profile.isBoss ? BOSS_VISUAL_SCALES[knd] ?? 0.86 : undefined) ??
+      (knd === 'magma_crucible_golem' || knd === 'celestial_sentinel'
+        ? 0.62
+        : knd === 'terracotta_halberdier' || knd === 'frost_chain_jailer'
+          ? 0.6
+          : knd === 'demon_wolf' ||
+              knd === 'taoist_talisman_priest' ||
+              knd === 'ink_brush_scholar'
+            ? 0.55
+            : knd === 'bronze_guard' ||
+                knd === 'opera_sleeve_siren' ||
+                knd === 'drowned_corpse_bride'
+              ? 0.54
+              : knd === 'spirit_crow' ||
+                  knd === 'mine_pickaxe_ghoul' ||
+                  knd === 'clockwork_mantis' ||
+                  knd === 'bronze_gear_wisp'
+                ? 0.5
+                : knd === 'alchemy_homunculus'
+                  ? 0.46
+                  : 0.52);
 
     const hoverY = e.roosting
       ? 0
@@ -2162,20 +2170,21 @@ export function drawMonsterOrBoss(
     const gx = isBeast ? e.facing * (w * 0.38) : -e.facing * (w * 0.28);
     const gy = isBeast ? -h * 0.62 : -h * 0.68;
     const glintCol = isBeast ? 'rgba(251, 146, 60,' : 'rgba(254, 240, 138,';
+    const glintR = e.profile.isBoss ? Math.max(14, h * 0.16) : 12;
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    const rg = ctx.createRadialGradient(gx, gy, 1, gx, gy, 12);
+    const rg = ctx.createRadialGradient(gx, gy, 1, gx, gy, glintR);
     rg.addColorStop(0, `${glintCol} 0.52)`);
     rg.addColorStop(0.5, `${glintCol} 0.16)`);
     rg.addColorStop(1, `${glintCol} 0)`);
     ctx.fillStyle = rg;
     ctx.beginPath();
-    ctx.arc(gx, gy, 12, 0, Math.PI * 2);
+    ctx.arc(gx, gy, glintR, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
 
-  // 怪物近战出招极简水墨劈斩/突刺：杂兵克制一笔，妖王洗练单弧，让位主角高阶招式辨识度！
+  // 怪物近战出招极简水墨劈斩/突刺：杂兵克制一笔，妖王按四阶体型自适应挥砍尺度！
   if (e.aiState === 'lunge_slash') {
     const dur = Math.max(0.12, e.stateDuration || 0.24);
     const p = Math.max(0, Math.min(1, 1 - e.stateTimer / dur));
@@ -2217,14 +2226,23 @@ export function drawMonsterOrBoss(
     } else {
       const heavyBoss =
         kind === 'boss_furnace_titan' ||
-        kind === 'boss_colosseum_general';
-      const vfxKey: AssetKey = heavyBoss ? 'vfx_slash_heavy_cleave' : 'vfx_slash_crescent';
+        kind === 'boss_colosseum_general' ||
+        kind === 'boss_dragon_warden' ||
+        kind === 'boss_zhuyin';
+      const duelistBoss = kind === 'boss_pei_wuji' || kind === 'boss_xiao_duanshui';
+      const vfxKey: AssetKey = heavyBoss
+        ? 'vfx_slash_heavy_cleave'
+        : duelistBoss
+          ? 'vfx_iaido_flash_cut'
+          : 'vfx_slash_crescent';
+      const sw = duelistBoss ? Math.round(h * 1.85) : Math.round(h * 1.48);
+      const sh = duelistBoss ? Math.round(h * 0.45) : Math.round(h * 1.42);
       const bossCol =
         kind === 'boss_xiao_duanshui' ? '#38bdf8' : e.profile.accentColor || '#dc2626';
-      drawPaintedVfxSprite(ctx, vfxKey, e.facing * 10, -h * 0.58, 116, 112, {
-        rotation: e.facing * (-0.36 + p * 0.9),
+      drawPaintedVfxSprite(ctx, vfxKey, e.facing * w * 0.32, -h * 0.56, sw, sh, {
+        rotation: e.facing * (duelistBoss ? -0.14 + p * 0.34 : -0.36 + p * 0.9),
         flipX: e.facing === -1,
-        alpha: fade * 0.7,
+        alpha: fade * 0.72,
         tintHex: bossCol,
         tintAlpha: 0.42,
         additive: false,
@@ -2265,7 +2283,7 @@ export function drawMonsterOrBoss(
     ctx.fillStyle = '#fde047';
     ctx.font = 'bold 12.5px "STKaiti", "KaiTi", serif';
     ctx.textAlign = 'center';
-    ctx.fillText('✦ 破招失衡 ✦', 0, -h * 1.52 - 14);
+    ctx.fillText('✦ 破招失衡 ✦', 0, e.profile.isBoss ? -h * 1.22 - 16 : -h * 1.52 - 14);
   }
 
   ctx.restore();

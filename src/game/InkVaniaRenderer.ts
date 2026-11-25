@@ -144,20 +144,21 @@ export class InkVaniaRenderer {
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
         const pulse = Math.sin(this.ambientTime * 11) * 7;
+        const auraR = Math.max(64, Math.max(e.profile.w, e.profile.h) * 0.82) + pulse;
         const ag = ctx.createRadialGradient(
           e.x,
           e.y - e.profile.h * 0.5,
-          6,
+          8,
           e.x,
           e.y - e.profile.h * 0.5,
-          64 + pulse
+          auraR
         );
         ag.addColorStop(0, 'rgba(254, 240, 138, 0.42)');
         ag.addColorStop(0.45, 'rgba(239, 68, 68, 0.24)');
         ag.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = ag;
         ctx.beginPath();
-        ctx.arc(e.x, e.y - e.profile.h * 0.5, 64 + pulse, 0, Math.PI * 2);
+        ctx.arc(e.x, e.y - e.profile.h * 0.5, auraR, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
       }
@@ -1551,6 +1552,8 @@ export class InkVaniaRenderer {
   private renderSkyStrikeTelegraphs(ctx: CanvasRenderingContext2D, engine: GameEngine): void {
     for (const sk of engine.skyStrikes) {
       const prog = 1 - sk.timer / sk.maxTimer;
+      const boltCol = sk.color || '#38bdf8';
+      const discCol = sk.discColor || sk.color || '#ef4444';
       drawPaintedThunderBolt(
         ctx,
         sk.x,
@@ -1560,7 +1563,7 @@ export class InkVaniaRenderer {
         18 + prog * 30,
         0.42 + prog * 0.56,
         Math.floor(this.ambientTime * 16) % 2 === 1,
-        '#38bdf8'
+        boltCol
       );
       drawPaintedVfxDisc(
         ctx,
@@ -1570,7 +1573,7 @@ export class InkVaniaRenderer {
         28 * prog + 8,
         this.ambientTime * 5.2,
         0.58 + prog * 0.4,
-        '#ef4444',
+        discCol,
         0.26,
         true
       );
@@ -1771,7 +1774,18 @@ export class InkVaniaRenderer {
     for (const pr of engine.projectiles) {
       ctx.save();
       ctx.translate(pr.x, pr.y);
-      if (pr.kind === 'qi_wave') {
+      if (pr.enemyFx === 'lava_wave') {
+        // 赤铜镇火巨灵 / 烛阴：手绘赤焰裂地熔浪
+        const dir = pr.vx >= 0 ? 1 : -1;
+        drawPaintedVfxSprite(ctx, 'vfx_samadhi_fire_pillar', 0, 14, 44, 42, {
+          anchorY: 0.95,
+          flipX: dir === -1,
+          alpha: 0.9,
+          tintHex: pr.color || '#f97316',
+          tintAlpha: 0.3,
+          additive: false,
+        });
+      } else if (pr.kind === 'qi_wave') {
         const dir = pr.vx >= 0 ? 1 : -1;
         if (pr.fromPlayer) {
           const eqW = engine.slot ? WEAPONS[engine.slot.equippedWeapon] : undefined;
@@ -1864,32 +1878,23 @@ export class InkVaniaRenderer {
           ctx.drawImage(coreImg, -14, -14, 28, 28);
           ctx.restore();
         }
-      } else if (pr.enemyFx === 'lava_wave') {
-        // 赤铜镇火巨灵 / 烛阴：手绘赤焰裂地熔浪
-        const dir = pr.vx >= 0 ? 1 : -1;
-        drawPaintedVfxSprite(ctx, 'vfx_samadhi_fire_pillar', 0, 14, 44, 42, {
-          anchorY: 0.95,
-          flipX: dir === -1,
-          alpha: 0.9,
-          tintHex: '#f97316',
-          tintAlpha: 0.3,
-          additive: false,
-        });
       } else if (pr.enemyFx === 'bronze_axe') {
-        // 玄甲重盾傀儡：手绘疾旋重兵器 + 淡金水墨风旋
+        // 玄甲重盾傀儡 / 拓跋烈 / 刑天：按半径自适应手绘疾旋重兵器 + 水墨风旋
         const dir = pr.vx >= 0 ? 1 : -1;
         const spin = this.ambientTime * 19 * dir;
-        drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', 0, 0, 38, 38, {
+        const axeScale = Math.max(1, pr.r / 15);
+        const sz = Math.round(38 * axeScale);
+        drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', 0, 0, sz, sz, {
           rotation: spin,
           alpha: 0.38,
-          tintHex: '#fbbf24',
+          tintHex: pr.color || '#fbbf24',
           additive: false,
         });
         const axeImg = Assets.get('wpn_greatsword_2') || Assets.get('wpn_greatsword_1');
         if (axeImg) {
           ctx.save();
           ctx.rotate(spin);
-          ctx.drawImage(axeImg, -19, -8, 38, 16);
+          ctx.drawImage(axeImg, -sz * 0.5, -Math.round(8 * axeScale), sz, Math.round(16 * axeScale));
           ctx.restore();
         }
       } else if (pr.enemyFx === 'cursed_talisman') {
