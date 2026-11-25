@@ -460,6 +460,9 @@ export class GameEngine {
     slot.equippedWeapon = migrateWeaponId(slot.equippedWeapon);
     if (slot.equippedYaoCore === 'core_bat') slot.equippedYaoCore = 'core_crow';
     slot.ownedYaoCores = slot.ownedYaoCores.map((c) => (c === 'core_bat' ? 'core_crow' : c));
+    if (WorldMap.migrateSlotVisitedCells(slot)) {
+      SaveManager.saveSlot(slot);
+    }
     this.recalcStats(true);
 
     if (slot.mode === 'boss_rush') {
@@ -657,13 +660,33 @@ export class GameEngine {
       0,
       Math.min(this.room.gridW - 1, Math.floor((this.player.x / Math.max(1, this.room.pixelW)) * this.room.gridW))
     );
-    const localGy = Math.max(
+    const localGyFoot = Math.max(
       0,
       Math.min(this.room.gridH - 1, Math.floor((this.player.y / Math.max(1, this.room.pixelH)) * this.room.gridH))
     );
-    const cellKey = `cell:${this.room.realm}:${this.room.mapX + localGx},${this.room.mapY + localGy}`;
-    if (!this.slot.visitedRooms.includes(cellKey)) {
-      this.slot.visitedRooms.push(cellKey);
+    const localGyHead = Math.max(
+      0,
+      Math.min(
+        this.room.gridH - 1,
+        Math.floor((Math.max(0, this.player.y - this.player.h) / Math.max(1, this.room.pixelH)) * this.room.gridH)
+      )
+    );
+    const gyList: number[] =
+      this.room.pixelH <= 560 && this.room.gridH > 1
+        ? Array.from({ length: this.room.gridH }, (_, idx) => idx)
+        : localGyHead === localGyFoot
+          ? [localGyFoot]
+          : [localGyFoot, localGyHead];
+
+    let changed = false;
+    for (const gy of gyList) {
+      const cellKey = `cell:${this.room.realm}:${this.room.mapX + localGx},${this.room.mapY + gy}`;
+      if (!this.slot.visitedRooms.includes(cellKey)) {
+        this.slot.visitedRooms.push(cellKey);
+        changed = true;
+      }
+    }
+    if (changed) {
       const pct = WorldMap.calcExplorationPct(this.slot.visitedRooms);
       if (pct > SaveManager.getMeta().bestExplorationPct) {
         SaveManager.saveMeta({ bestExplorationPct: pct });

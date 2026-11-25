@@ -176,8 +176,13 @@ export class UIManager {
     this.clearAllUI();
     this.engine.stopSession();
 
-    const latestSlot = SaveManager.getLatestSlot();
     const allSlots = SaveManager.listSlots();
+    for (const sl of allSlots) {
+      if (sl && WorldMap.migrateSlotVisitedCells(sl)) {
+        SaveManager.saveSlot(sl);
+      }
+    }
+    const latestSlot = SaveManager.getLatestSlot();
     const usedCount = allSlots.filter(Boolean).length;
     const slotLabels = ['卷壹', '卷贰', '卷叁', '卷肆'];
     const meta = SaveManager.getMeta();
@@ -1654,8 +1659,8 @@ export class UIManager {
     const padY = 14;
     const baseCellW = Math.floor((w - padX * 2) / MAP_GRID_TOTAL_W);
     const baseCellH = Math.floor((h - padY * 2) / MAP_GRID_TOTAL_H);
-    const cellW = Math.round(baseCellW * zoom);
-    const cellH = Math.round(baseCellH * zoom);
+    const cellW = Math.max(5, Math.round(baseCellW * zoom));
+    const cellH = Math.max(4, Math.round(baseCellH * zoom));
     let ox: number;
     let oy: number;
     if (zoom > 1 && curRoom) {
@@ -1922,8 +1927,8 @@ export class UIManager {
         ctx.stroke();
       }
     } else {
-      cellW = 14;
-      cellH = 11;
+      cellW = 11;
+      cellH = 9;
       const totalPxW = MAP_GRID_TOTAL_W * cellW;
       const totalPxH = MAP_GRID_TOTAL_H * cellH;
       const idealOx = Math.round(w * 0.5 - playerGridX * cellW);
@@ -1991,7 +1996,7 @@ export class UIManager {
           const cellVis =
             visitedSet.has(`cell:${targetRealm}:${gx},${gy}`) ||
             (targetRealm === 'normal' && visitedSet.has(`cell:${gx},${gy}`)) ||
-            (rm.gridH === 1 && roomVisited);
+            ((rm.gridH === 1 || rm.pixelH <= 560) && roomVisited);
           ctx.fillStyle = cellVis ? fillCol : 'rgba(30, 41, 59, 0.42)';
           ctx.fillRect(ox + gx * cellW + 0.5, oy + gy * cellH + 0.5, cellW - 1, cellH - 1);
         }

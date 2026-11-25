@@ -278,6 +278,7 @@ export interface SaveSlotData {
   equippedFamiliar?: FamiliarId;
   familiarExps?: Partial<Record<FamiliarId, number>>;
   invertedUnlocked?: boolean;
+  mapLayoutVersion?: number;
   visitedRooms: string[]; // 'normal:room_id' | 'inverted:room_id' | 'cell:normal:x,y' | 'cell:inverted:x,y'
   collectedPickups: string[];
   defeatedBosses: string[];
