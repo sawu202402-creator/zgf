@@ -52,10 +52,16 @@ function selectEnemySpriteFrame(e: EnemyEntity, t: number): AssetKey {
     return 'boss_op_0';
   }
 
-  if (kind === 'boss_pei_wuji' || kind === 'boss_zhuyin') {
+  if (kind === 'boss_pei_wuji') {
     if (e.aiState === 'windup') return 'boss_pei_1';
     if (e.aiState === 'lunge_slash') return 'boss_pei_2';
     return 'boss_pei_0';
+  }
+
+  if (kind === 'boss_zhuyin') {
+    if (e.aiState === 'windup') return 'boss_zhuyin_1';
+    if (e.aiState === 'lunge_slash') return 'boss_zhuyin_2';
+    return 'boss_zhuyin_0';
   }
 
   if (kind === 'boss_thunder_yaksha') {
@@ -99,6 +105,18 @@ function selectEnemySpriteFrame(e: EnemyEntity, t: number): AssetKey {
   if (kind === 'armored_tortoise') return 'mob_tortoise';
   if (kind === 'wuchang_reaper') return 'mob_wuchang';
   if (kind === 'bixie_stone_beast') return 'mob_bixie';
+  if (kind === 'alchemy_homunculus') return 'mob_homunculus';
+  if (kind === 'taoist_talisman_priest') return 'mob_taoist_priest';
+  if (kind === 'magma_crucible_golem') return 'mob_magma_golem';
+  if (kind === 'mine_pickaxe_ghoul') return 'mob_mine_ghoul';
+  if (kind === 'frost_chain_jailer') return 'mob_frost_jailer';
+  if (kind === 'drowned_corpse_bride') return 'mob_corpse_bride';
+  if (kind === 'opera_sleeve_siren') return 'mob_opera_siren';
+  if (kind === 'ink_brush_scholar') return 'mob_ink_scholar';
+  if (kind === 'clockwork_mantis') return 'mob_clock_mantis';
+  if (kind === 'bronze_gear_wisp') return 'mob_gear_wisp';
+  if (kind === 'terracotta_halberdier') return 'mob_terracotta_general';
+  if (kind === 'celestial_sentinel') return 'mob_celestial_sentinel';
 
   if (kind === 'bronze_guard') {
     if (e.aiState === 'windup') return 'mob_gd_2';
@@ -1937,20 +1955,34 @@ export function drawMonsterOrBoss(
   }
 
   if (img) {
+    const knd = e.profile.kind;
     const sc =
-      e.profile.kind === 'boss_zhuyin'
-        ? 0.72
-        : e.profile.kind === 'boss_xiao_duanshui'
+      knd === 'boss_zhuyin'
+        ? 0.78
+        : knd === 'boss_xiao_duanshui'
           ? 0.56
           : e.profile.isBoss
             ? 0.62
-            : e.profile.kind === 'demon_wolf'
-              ? 0.55
-              : e.profile.kind === 'bronze_guard'
-                ? 0.54
-                : e.profile.kind === 'spirit_crow'
-                  ? 0.5
-                  : 0.52;
+            : knd === 'magma_crucible_golem' || knd === 'celestial_sentinel'
+              ? 0.62
+              : knd === 'terracotta_halberdier' || knd === 'frost_chain_jailer'
+                ? 0.6
+                : knd === 'demon_wolf' ||
+                    knd === 'taoist_talisman_priest' ||
+                    knd === 'ink_brush_scholar'
+                  ? 0.55
+                  : knd === 'bronze_guard' ||
+                      knd === 'opera_sleeve_siren' ||
+                      knd === 'drowned_corpse_bride'
+                    ? 0.54
+                    : knd === 'spirit_crow' ||
+                        knd === 'mine_pickaxe_ghoul' ||
+                        knd === 'clockwork_mantis' ||
+                        knd === 'bronze_gear_wisp'
+                      ? 0.5
+                      : knd === 'alchemy_homunculus'
+                        ? 0.46
+                        : 0.52;
 
     const hoverY = e.roosting
       ? 0

@@ -170,6 +170,21 @@ export type AssetKey =
   | 'mob_tortoise'
   | 'mob_wuchang'
   | 'mob_bixie'
+  | 'mob_homunculus'
+  | 'mob_taoist_priest'
+  | 'mob_magma_golem'
+  | 'mob_mine_ghoul'
+  | 'mob_frost_jailer'
+  | 'mob_corpse_bride'
+  | 'mob_opera_siren'
+  | 'mob_ink_scholar'
+  | 'mob_clock_mantis'
+  | 'mob_gear_wisp'
+  | 'mob_terracotta_general'
+  | 'mob_celestial_sentinel'
+  | 'boss_zhuyin_0'
+  | 'boss_zhuyin_1'
+  | 'boss_zhuyin_2'
   | 'boss_gen_0'
   | 'boss_gen_1'
   | 'boss_lev_0'
@@ -209,7 +224,7 @@ export type AssetKey =
   | 'vfx_earth_sunder_burst'
   | 'vfx_iaido_flash_cut';
 
-const ASSET_VERSION = 'painted_v24';
+const ASSET_VERSION = 'painted_v25';
 
 const ASSET_FILES: Record<AssetKey, string> = {
   bg_title: './assets/bg_title.webp',
@@ -373,6 +388,21 @@ const ASSET_FILES: Record<AssetKey, string> = {
   mob_tortoise: './assets/mob_tortoise.webp',
   mob_wuchang: './assets/mob_wuchang.webp',
   mob_bixie: './assets/mob_bixie.webp',
+  mob_homunculus: './assets/mob_homunculus.webp',
+  mob_taoist_priest: './assets/mob_taoist_priest.webp',
+  mob_magma_golem: './assets/mob_magma_golem.webp',
+  mob_mine_ghoul: './assets/mob_mine_ghoul.webp',
+  mob_frost_jailer: './assets/mob_frost_jailer.webp',
+  mob_corpse_bride: './assets/mob_corpse_bride.webp',
+  mob_opera_siren: './assets/mob_opera_siren.webp',
+  mob_ink_scholar: './assets/mob_ink_scholar.webp',
+  mob_clock_mantis: './assets/mob_clock_mantis.webp',
+  mob_gear_wisp: './assets/mob_gear_wisp.webp',
+  mob_terracotta_general: './assets/mob_terracotta_general.webp',
+  mob_celestial_sentinel: './assets/mob_celestial_sentinel.webp',
+  boss_zhuyin_0: './assets/boss_zhuyin_0.webp',
+  boss_zhuyin_1: './assets/boss_zhuyin_1.webp',
+  boss_zhuyin_2: './assets/boss_zhuyin_2.webp',
   boss_gen_0: './assets/boss_gen_0.webp',
   boss_gen_1: './assets/boss_gen_1.webp',
   boss_lev_0: './assets/boss_lev_0.webp',
@@ -699,8 +729,9 @@ export function resolveEnemyAssetKeys(kind: EnemyKind): AssetKey[] {
     case 'boss_thunder_yaksha':
       return ['boss_yk_0', 'boss_yk_1', 'boss_yk_2'];
     case 'boss_pei_wuji':
-    case 'boss_zhuyin':
       return ['boss_pei_0', 'boss_pei_1', 'boss_pei_2'];
+    case 'boss_zhuyin':
+      return ['boss_zhuyin_0', 'boss_zhuyin_1', 'boss_zhuyin_2'];
     case 'bronze_guard':
       return ['mob_gd_0', 'mob_gd_1', 'mob_gd_2', 'mob_gd_3'];
     case 'lantern_ghost':
@@ -733,6 +764,30 @@ export function resolveEnemyAssetKeys(kind: EnemyKind): AssetKey[] {
       return ['mob_tortoise'];
     case 'bixie_stone_beast':
       return ['mob_bixie'];
+    case 'alchemy_homunculus':
+      return ['mob_homunculus'];
+    case 'taoist_talisman_priest':
+      return ['mob_taoist_priest'];
+    case 'magma_crucible_golem':
+      return ['mob_magma_golem'];
+    case 'mine_pickaxe_ghoul':
+      return ['mob_mine_ghoul'];
+    case 'frost_chain_jailer':
+      return ['mob_frost_jailer'];
+    case 'drowned_corpse_bride':
+      return ['mob_corpse_bride'];
+    case 'opera_sleeve_siren':
+      return ['mob_opera_siren'];
+    case 'ink_brush_scholar':
+      return ['mob_ink_scholar'];
+    case 'clockwork_mantis':
+      return ['mob_clock_mantis'];
+    case 'bronze_gear_wisp':
+      return ['mob_gear_wisp'];
+    case 'terracotta_halberdier':
+      return ['mob_terracotta_general'];
+    case 'celestial_sentinel':
+      return ['mob_celestial_sentinel'];
     case 'paper_swordsman':
     default:
       return ['mob_sw_0', 'mob_sw_1', 'mob_sw_2', 'mob_sw_3'];

@@ -10402,8 +10402,110 @@ function createNormalCastleRooms(): BuiltRoom[] {
 
   return applyDispersedWorldLayout(baseRooms)
     .map(widenRoomToDispersedWidth)
+    .map(enrichRegionalEnemySpawns)
     .map(thinCrowdedRoomInteriors)
     .map(sanitizeRoomDecorAndSpawns);
+}
+
+const FLYING_ENEMY_KINDS = new Set<EnemyKind>([
+  'spirit_crow',
+  'lantern_ghost',
+  'scroll_demon',
+  'bell_gargoyle',
+  'guixu_water_fiend',
+  'wuchang_reaper',
+  'drowned_corpse_bride',
+  'opera_sleeve_siren',
+  'bronze_gear_wisp',
+  'celestial_sentinel',
+]);
+
+interface RegionEcology {
+  ground: readonly EnemyKind[];
+  air: readonly EnemyKind[];
+}
+
+const REGION_ENEMY_ECOLOGY: Record<Exclude<RegionId, 'gatehouse'>, RegionEcology> = {
+  main_hall: {
+    ground: ['taoist_talisman_priest', 'jinwu_mace_guard', 'bronze_guard', 'taoist_talisman_priest'],
+    air: ['lantern_ghost', 'scroll_demon', 'celestial_sentinel'],
+  },
+  alchemy: {
+    ground: ['alchemy_homunculus', 'taoist_talisman_priest', 'alchemy_homunculus', 'plague_toad'],
+    air: ['lantern_ghost', 'scroll_demon'],
+  },
+  colosseum: {
+    ground: ['jinwu_mace_guard', 'shenji_musketeer', 'clockwork_mantis', 'terracotta_halberdier'],
+    air: ['bell_gargoyle', 'celestial_sentinel'],
+  },
+  forge: {
+    ground: ['magma_crucible_golem', 'mine_pickaxe_ghoul', 'alchemy_homunculus', 'jinwu_mace_guard'],
+    air: ['lantern_ghost'],
+  },
+  prison: {
+    ground: ['frost_chain_jailer', 'mine_pickaxe_ghoul', 'armored_tortoise', 'frost_chain_jailer'],
+    air: ['drowned_corpse_bride', 'guixu_water_fiend'],
+  },
+  shipyard: {
+    ground: ['armored_tortoise', 'frost_chain_jailer', 'shenji_musketeer', 'mine_pickaxe_ghoul'],
+    air: ['guixu_water_fiend', 'drowned_corpse_bride'],
+  },
+  catacomb: {
+    ground: ['terracotta_halberdier', 'mine_pickaxe_ghoul', 'bixie_stone_beast', 'bone_archer', 'corpse_soldier'],
+    air: ['wuchang_reaper', 'drowned_corpse_bride'],
+  },
+  nether: {
+    ground: ['terracotta_halberdier', 'bixie_stone_beast', 'magma_crucible_golem', 'armored_tortoise'],
+    air: ['wuchang_reaper', 'drowned_corpse_bride', 'celestial_sentinel'],
+  },
+  library: {
+    ground: ['ink_brush_scholar', 'paper_swordsman', 'taoist_talisman_priest', 'ink_brush_scholar'],
+    air: ['scroll_demon', 'opera_sleeve_siren', 'lantern_ghost'],
+  },
+  opera: {
+    ground: ['opera_puppet', 'ink_brush_scholar', 'taoist_talisman_priest', 'opera_puppet'],
+    air: ['opera_sleeve_siren', 'lantern_ghost'],
+  },
+  clock_tower: {
+    ground: ['clockwork_mantis', 'shenji_musketeer', 'clockwork_mantis', 'terracotta_halberdier'],
+    air: ['bronze_gear_wisp', 'bell_gargoyle'],
+  },
+  altar: {
+    ground: ['taoist_talisman_priest', 'jinwu_mace_guard', 'bronze_guard', 'clockwork_mantis'],
+    air: ['celestial_sentinel', 'bronze_gear_wisp', 'celestial_sentinel', 'bell_gargoyle'],
+  },
+};
+
+function hashRoomId(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) {
+    h = (h * 31 + id.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
+
+function enrichRegionalEnemySpawns(rm: BuiltRoom): BuiltRoom {
+  if (rm.special === 'boss_room' || rm.region === 'gatehouse' || rm.spawns.length === 0) {
+    return rm;
+  }
+  const eco = REGION_ENEMY_ECOLOGY[rm.region];
+  const baseSeed = hashRoomId(rm.id);
+  let groundIdx = baseSeed;
+  let airIdx = baseSeed;
+
+  const spawns = rm.spawns.map((sp) => {
+    if (sp.kind.startsWith('boss_')) return sp;
+    if (FLYING_ENEMY_KINDS.has(sp.kind)) {
+      const kind = eco.air[airIdx % eco.air.length];
+      airIdx++;
+      return { ...sp, kind };
+    }
+    const kind = eco.ground[groundIdx % eco.ground.length];
+    groundIdx++;
+    return { ...sp, kind };
+  });
+
+  return { ...rm, spawns };
 }
 
 function sanitizeRoomDecorAndSpawns(rm: BuiltRoom): BuiltRoom {
@@ -12941,24 +13043,12 @@ function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
       rm.special !== 'warp_bagua' &&
       (!rm.isSecretRoom || rm.id === 'secret_sword_tomb')
     ) {
-      const flyerKind: EnemyKind =
-        rm.region === 'shipyard' || rm.region === 'prison'
-          ? 'guixu_water_fiend'
-          : rm.region === 'nether' || rm.region === 'catacomb'
-            ? 'wuchang_reaper'
-            : 'bell_gargoyle';
-      const groundKind1: EnemyKind =
-        rm.region === 'colosseum' || rm.region === 'forge'
-          ? 'jinwu_mace_guard'
-          : rm.region === 'shipyard' || rm.region === 'prison'
-            ? 'armored_tortoise'
-            : rm.region === 'nether' || rm.region === 'catacomb'
-              ? 'bixie_stone_beast'
-              : 'bronze_guard';
-      const groundKind2: EnemyKind =
-        rm.region === 'colosseum' || rm.region === 'clock_tower'
-          ? 'shenji_musketeer'
-          : 'opera_puppet';
+      const invEco =
+        rm.region === 'gatehouse' ? REGION_ENEMY_ECOLOGY.main_hall : REGION_ENEMY_ECOLOGY[rm.region];
+      const invSeed = hashRoomId(rm.id);
+      const flyerKind: EnemyKind = invEco.air[invSeed % invEco.air.length];
+      const groundKind1: EnemyKind = invEco.ground[invSeed % invEco.ground.length];
+      const groundKind2: EnemyKind = invEco.ground[(invSeed + 1) % invEco.ground.length];
       if (W >= 1500) {
         eliteSpawns.push({ kind: flyerKind, x: Math.round(W * 0.28), y: 210 });
         const gx1 = findSafeDrySpawnX(W * 0.52);

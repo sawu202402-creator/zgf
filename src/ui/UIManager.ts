@@ -1539,9 +1539,8 @@ export class UIManager {
       if (kind === 'boss_colosseum_general') return 'boss_gen_0';
       if (kind === 'boss_shipyard_leviathan') return 'boss_lev_0';
       if (kind === 'boss_dragon_warden') return 'boss_wdn_0';
-      if (kind === 'boss_pei_wuji' || kind === 'boss_zhuyin') {
-        return 'boss_pei_0';
-      }
+      if (kind === 'boss_pei_wuji') return 'boss_pei_0';
+      if (kind === 'boss_zhuyin') return 'boss_zhuyin_0';
       if (ENEMY_PROFILES[kind].isBoss) return 'boss_ik_0';
       if (kind === 'scroll_demon') return 'mob_book';
       if (kind === 'plague_toad') return 'mob_toad';
@@ -1557,6 +1556,18 @@ export class UIManager {
       if (kind === 'armored_tortoise') return 'mob_tortoise';
       if (kind === 'wuchang_reaper') return 'mob_wuchang';
       if (kind === 'bixie_stone_beast') return 'mob_bixie';
+      if (kind === 'alchemy_homunculus') return 'mob_homunculus';
+      if (kind === 'taoist_talisman_priest') return 'mob_taoist_priest';
+      if (kind === 'magma_crucible_golem') return 'mob_magma_golem';
+      if (kind === 'mine_pickaxe_ghoul') return 'mob_mine_ghoul';
+      if (kind === 'frost_chain_jailer') return 'mob_frost_jailer';
+      if (kind === 'drowned_corpse_bride') return 'mob_corpse_bride';
+      if (kind === 'opera_sleeve_siren') return 'mob_opera_siren';
+      if (kind === 'ink_brush_scholar') return 'mob_ink_scholar';
+      if (kind === 'clockwork_mantis') return 'mob_clock_mantis';
+      if (kind === 'bronze_gear_wisp') return 'mob_gear_wisp';
+      if (kind === 'terracotta_halberdier') return 'mob_terracotta_general';
+      if (kind === 'celestial_sentinel') return 'mob_celestial_sentinel';
       if (kind === 'bronze_guard') return 'mob_gd_0';
       if (ENEMY_PROFILES[kind].flying) return 'mob_wr_0';
       return 'mob_sw_0';

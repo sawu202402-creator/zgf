@@ -205,6 +205,18 @@ export type EnemyKind =
   | 'armored_tortoise' // 玄甲覆海妖龟（沉船坞/极渊正甲霸体妖兽）
   | 'wuchang_reaper' // 勾魂白无常（荒冢/九幽忘川索魂阴差）
   | 'bixie_stone_beast' // 镇陵辟邪石兽（帝陵/太古龙陵活化石兽）
+  | 'alchemy_homunculus' // 丹鼎朱砂药傀（钦天炼丹司/铸剑坊药罐妖傀）
+  | 'taoist_talisman_priest' // 镇魔符箓妖道（炼丹司/盘龙殿/祭天坛腐化符道）
+  | 'magma_crucible_golem' // 地肺熔金巨傀（赤火铸剑坊/极渊熔岩铸鼎重甲）
+  | 'mine_pickaxe_ghoul' // 古矿赤铜矿奴（古矿脉/荒冢/寒潭阴魂矿鬼）
+  | 'frost_chain_jailer' // 寒潭玄铁狱卒（九曲寒潭/归墟船坞链槌狱卒）
+  | 'drowned_corpse_bride' // 寒渊沉尸怨灵（九曲寒潭/归墟/忘川浮空怨灵）
+  | 'opera_sleeve_siren' // 百戏水袖花旦（百戏梨园/藏书阁魅音水袖花旦）
+  | 'ink_brush_scholar' // 翰林执笔书魔（万卷藏书阁/百戏梨园巨笔书魔）
+  | 'clockwork_mantis' // 墨家青铜螳螂（望月塔/神武校场机括螳螂）
+  | 'bronze_gear_wisp' // 浑天铜轮机灵（望月塔/祭天坛悬浮浑天仪灵）
+  | 'terracotta_halberdier' // 皇陵秦俑戟将（九幽荒冢/太古龙陵/神武重戟秦俑）
+  | 'celestial_sentinel' // 凌霄金甲天将（凌霄祭天坛/忘川堕落金甲天兵）
   | 'boss_colosseum_general' // 演武校场Boss: 镇武大将军·拓跋烈
   | 'boss_shipyard_leviathan' // 沉船古渡Boss: 归墟镇海蛟王·敖溟
   | 'boss_dragon_warden' // 太古龙陵Boss: 守陵太古战魄·刑天
