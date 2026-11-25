@@ -45,7 +45,7 @@ async function bootstrap() {
   const engine = new GameEngine(input, {
     onShowBanner: (title, sub) => ui.showBanner(title, sub),
     onStartStory: (scene, onDone) => ui.startStoryDialogue(scene, onDone),
-    onOpenInteractModal: (kind) => ui.openInteractModal(kind),
+    onOpenInteractModal: (kind, opts) => ui.openInteractModal(kind, opts),
     onToggleMap: () => ui.toggleMapModal(),
     onTogglePause: () => ui.togglePauseModal(),
     onGameOver: () => ui.showGameOverModal(),

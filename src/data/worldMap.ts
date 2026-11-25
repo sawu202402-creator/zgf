@@ -4286,7 +4286,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'bone_archer', x: 940, y: 212 },
         { kind: 'bronze_guard', x: 1280, y: 404 },
       ],
-      pickups: [],
+      pickups: [{ id: 'pk_suodi_hall', kind: 'consumable', itemId: 'suodi_talisman', x: 760, y: 372 }],
     },
     {
       id: 'hall_west_gallery',
@@ -4510,7 +4510,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'scroll_demon', x: 650, y: 195 },
         { kind: 'bone_archer', x: 860, y: 392 },
       ],
-      pickups: [],
+      pickups: [{ id: 'pk_suodi_alch', kind: 'consumable', itemId: 'suodi_talisman', x: 760, y: 392 }],
     },
     {
       id: 'alchemy_herb_garden',
@@ -7908,7 +7908,10 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'demon_wolf', x: 1860, y: 416 },
         { kind: 'bronze_guard', x: 2480, y: 416 },
       ],
-      pickups: [{ id: 'pk_mine_deep_hp', kind: 'max_up', itemId: 'hp_vessel', x: 1370, y: 342 }],
+      pickups: [
+        { id: 'pk_mine_deep_hp', kind: 'max_up', itemId: 'hp_vessel', x: 1370, y: 342 },
+        { id: 'pk_suodi_mine', kind: 'consumable', itemId: 'suodi_talisman', x: 1980, y: 416 },
+      ],
     },
     {
       id: 'mine_warp',
@@ -8752,6 +8755,13 @@ function createNormalCastleRooms(): BuiltRoom[] {
           kind: 'armor',
           itemId: 'sunken_pearl_robe',
           x: 1620,
+          y: 486,
+        },
+        {
+          id: 'pk_suodi_dock',
+          kind: 'consumable',
+          itemId: 'suodi_talisman',
+          x: 1580,
           y: 486,
         },
       ],
@@ -10588,9 +10598,14 @@ function sanitizeRoomDecorAndSpawns(rm: BuiltRoom): BuiltRoom {
     return true;
   };
 
-  // 2. 净化落地陈设（火盆、石兽、盘龙柱、书架、兵器架）：严禁落水、悬空于竖井、贴门或叠压残碑/古祠！
+  // 2. 净化落地陈设（火盆、石兽、盘龙柱、书架、兵器架）：严禁落水、悬空于竖井、露天悬钟、贴门或叠压残碑/古祠！
   const cleanDecor: CastleDecorProp[] = [];
-  for (const dp of workRm.decorProps || []) {
+  const rawDecor = (workRm.decorProps || []).map((dp) =>
+    !workRm.indoor && workRm.ceilingSpans.length === 0 && dp.kind === 'giant_bell'
+      ? { kind: 'dragon_brazier' as const, x: dp.x, y: sampleSolidGroundY(workRm, dp.x), scale: 0.92 }
+      : dp
+  );
+  for (const dp of rawDecor) {
     if (dp.kind === 'chandelier' || dp.kind === 'silk_banner' || dp.kind === 'giant_bell') {
       cleanDecor.push(dp);
       continue;
@@ -10674,8 +10689,44 @@ function sanitizeRoomDecorAndSpawns(rm: BuiltRoom): BuiltRoom {
     }
   }
 
+  // 4. 校准机关、龟裂石板与拾取物高度：防止拓宽后地刺/火井/丹药浮空或与实心踏石重叠
+  const cleanHazards = workRm.hazards?.map((hz) => {
+    if (hz.kind !== 'spikes' && hz.kind !== 'fire_vent') return hz;
+    const refX = hz.kind === 'spikes' ? hz.x + hz.span * 0.5 : hz.x;
+    const onPlat = (workRm.solidBlocks || []).some(
+      (sb) => hz.x >= sb.x - 12 && hz.x <= sb.x + sb.w + 12 && Math.abs(hz.y - sb.y) <= 18
+    );
+    if (onPlat) return hz;
+    const gy = Math.round(sampleSolidGroundY(workRm, refX));
+    return Math.abs(hz.y - gy) > 22 ? { ...hz, y: gy } : hz;
+  });
+
+  const cleanCrumbles = workRm.crumbleSlabs?.filter(
+    (cs) =>
+      !(workRm.solidBlocks || []).some(
+        (sb) => cs.x < sb.x + sb.w - 6 && cs.x + cs.w > sb.x + 6 && Math.abs(cs.y - sb.y) < 24
+      )
+  );
+
+  const cleanPickups = workRm.pickups.map((pk) => {
+    if (typeof pk.y !== 'number') return pk;
+    const onPlat =
+      (workRm.solidBlocks || []).some(
+        (sb) => pk.x >= sb.x - 18 && pk.x <= sb.x + sb.w + 18 && Math.abs(pk.y! - sb.y) <= 28
+      ) ||
+      workRm.pavilions.some(
+        (pv) => pk.x >= pv.x - 18 && pk.x <= pv.x + pv.w + 18 && Math.abs(pk.y! - pv.y) <= 28
+      );
+    if (onPlat) return pk;
+    const gy = Math.round(sampleSolidGroundY(workRm, pk.x));
+    return Math.abs(pk.y - gy) > 28 ? { ...pk, y: gy } : pk;
+  });
+
   return {
     ...workRm,
+    hazards: cleanHazards,
+    crumbleSlabs: cleanCrumbles,
+    pickups: cleanPickups,
     decorProps: cleanDecor,
     torches: cleanTorches,
   };
@@ -10917,14 +10968,17 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
 
     if (!opts?.keepExistingShafts) {
       rm.shafts = opts?.extraShafts ? [...opts.extraShafts] : [];
+      if (opts?.extraPavilions) {
+        rm.pavilions = rm.pavilions.filter((pv) => pv.y < rm.focalY - 40);
+      }
     } else if (opts?.extraShafts) {
       rm.shafts = [...rm.shafts, ...opts.extraShafts];
     }
     if (opts?.extraPavilions) {
       rm.pavilions.push(...opts.extraPavilions);
     }
-    syncCeilingsWithUpShafts(id, rm.region === 'forge' || rm.region === 'prison' || rm.region === 'nether' ? 'crypt_vault' : 'palace_timber');
     byId.set(id, rm);
+    syncCeilingsWithUpShafts(id, rm.region === 'forge' || rm.region === 'prison' || rm.region === 'nether' ? 'crypt_vault' : 'palace_timber');
     return rm;
   };
 
@@ -11247,6 +11301,7 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
   const moatCav = byId.get('entrance_moat_cavern');
   if (moatCav) {
     // 1600px, cols 10..11 -> col 11 dry right shore [1370..1530] aligns plaza@col 11 [310..490]
+    moatCav.solidBlocks = (moatCav.solidBlocks || []).filter((sb) => !(sb.x === 1240 && sb.y === 328));
     setColAlignedUpShaft('entrance_moat_cavern', 'entrance_imperial_plaza', 1370, 1530, 'crypt_vault', [1190, 1340, 1390]);
   }
   const forgeAnte = byId.get('forge_antechamber');
@@ -12008,27 +12063,27 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
       { x: 670, topY: 36, bottomY: 660 },
     ];
     eastTower.solidBlocks = [
-      // y=3548 -> y=3080
+      // y=3548 -> y=3080 (中央 x=485..595 专留升降机井道！)
       { x: 640, y: 3420, w: 240, h: 32 },
-      { x: 260, y: 3280, w: 240, h: 32 },
+      { x: 220, y: 3280, w: 240, h: 32 },
       { x: 600, y: 3180, w: 240, h: 32 },
       { x: 0, y: 3080, w: 430, h: 36 },
       { x: 650, y: 3080, w: 430, h: 36 },
       // y=3080 -> y=2680 (east_warp)
-      { x: 340, y: 2940, w: 240, h: 32 },
+      { x: 230, y: 2940, w: 230, h: 32 },
       { x: 620, y: 2810, w: 240, h: 32 },
       { x: 650, y: 2680, w: 430, h: 36 },
       // y=2680 -> y=1920 (observatory_bridge)
-      { x: 340, y: 2510, w: 240, h: 32 },
+      { x: 230, y: 2510, w: 230, h: 32 },
       { x: 620, y: 2340, w: 240, h: 32 },
-      { x: 340, y: 2170, w: 240, h: 32 },
+      { x: 230, y: 2170, w: 230, h: 32 },
       { x: 620, y: 2040, w: 240, h: 32 },
       { x: 0, y: 1920, w: 430, h: 36 },
       { x: 650, y: 1920, w: 430, h: 36 },
       // y=1920 -> y=1160 (upper_library / clock_gear_hall)
-      { x: 360, y: 1750, w: 240, h: 32 },
+      { x: 230, y: 1750, w: 230, h: 32 },
       { x: 620, y: 1580, w: 240, h: 32 },
-      { x: 320, y: 1410, w: 240, h: 32 },
+      { x: 230, y: 1410, w: 230, h: 32 },
       { x: 620, y: 1280, w: 240, h: 32 },
       { x: 0, y: 1160, w: 430, h: 36 },
       { x: 650, y: 1160, w: 430, h: 36 },
@@ -12043,7 +12098,7 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     ];
     eastTower.crumbleSlabs = [
       { id: 'cs_tow_1', x: 515, y: 3280, w: 105 },
-      { id: 'cs_tow_2', x: 345, y: 980, w: 110 },
+      { id: 'cs_tow_2', x: 590, y: 870, w: 110 },
     ];
     eastTower.pickups = [
       { id: 'pk_tower_mp_up', kind: 'max_up', itemId: 'mp_vessel', x: 380, y: 3280 },
@@ -12152,11 +12207,11 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
       { x: 0, y: 520, w: 400, h: 36 },
       { x: 0, y: 920, w: 400, h: 36 },
       { x: 680, y: 920, w: 400, h: 36 },
-      { x: 300, y: 1180, w: 210, h: 32 },
-      { x: 580, y: 1440, w: 210, h: 32 },
-      { x: 300, y: 1700, w: 210, h: 32 },
-      { x: 580, y: 1960, w: 210, h: 32 },
-      { x: 300, y: 2220, w: 210, h: 32 },
+      { x: 215, y: 1180, w: 215, h: 32 },
+      { x: 650, y: 1440, w: 215, h: 32 },
+      { x: 215, y: 1700, w: 215, h: 32 },
+      { x: 650, y: 1960, w: 215, h: 32 },
+      { x: 215, y: 2220, w: 215, h: 32 },
     ];
     outerLower.movingPlatforms = [
       { x1: 450, y1: 880, x2: 450, y2: 560, w: 180, speed: 1.0, style: 'bronze_lift' },
@@ -12195,12 +12250,12 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     ferryShaft.rightRoomId = undefined;
     ferryShaft.solidBlocks = [
       { x: 660, y: 356, w: 420, h: 36 },
-      { x: 380, y: 492, w: 210, h: 32 },
-      { x: 600, y: 628, w: 210, h: 32 },
+      { x: 210, y: 492, w: 215, h: 32 },
+      { x: 635, y: 628, w: 215, h: 32 },
       { x: 660, y: 764, w: 420, h: 36 },
-      { x: 360, y: 956, w: 210, h: 32 },
-      { x: 600, y: 1148, w: 210, h: 32 },
-      { x: 380, y: 1340, w: 210, h: 32 },
+      { x: 210, y: 956, w: 215, h: 32 },
+      { x: 635, y: 1148, w: 215, h: 32 },
+      { x: 210, y: 1340, w: 215, h: 32 },
     ];
     ferryShaft.movingPlatforms = [
       { x1: 450, y1: 1510, x2: 450, y2: 396, w: 165, speed: 1.15, style: 'bronze_lift' },
@@ -12235,13 +12290,13 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     minePit.solidBlocks = [
       { x: 0, y: 356, w: 390, h: 36 },
       { x: 690, y: 356, w: 390, h: 36 },
-      { x: 340, y: 540, w: 210, h: 32 },
-      { x: 560, y: 730, w: 210, h: 32 },
-      { x: 340, y: 920, w: 210, h: 32 },
+      { x: 210, y: 540, w: 215, h: 32 },
+      { x: 645, y: 730, w: 215, h: 32 },
+      { x: 210, y: 920, w: 215, h: 32 },
       { x: 0, y: 1120, w: 400, h: 36 },
-      { x: 560, y: 1320, w: 210, h: 32 },
-      { x: 340, y: 1520, w: 210, h: 32 },
-      { x: 560, y: 1720, w: 210, h: 32 },
+      { x: 645, y: 1320, w: 215, h: 32 },
+      { x: 210, y: 1520, w: 215, h: 32 },
+      { x: 645, y: 1720, w: 215, h: 32 },
     ];
     minePit.movingPlatforms = [
       { x1: 450, y1: 1870, x2: 450, y2: 396, w: 175, speed: 1.25, style: 'bronze_lift' },
@@ -12342,14 +12397,14 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
       { x: 340, y: 540, w: 185, h: 32 },
       { x: 440, y: 340, w: 185, h: 32 },
       { x: 420, y: 156, w: 185, h: 28 },
-      { x: 260, y: 960, w: 220, h: 32 },
-      { x: 380, y: 1180, w: 220, h: 32 },
-      { x: 260, y: 1400, w: 220, h: 32 },
-      { x: 380, y: 1620, w: 220, h: 32 },
-      { x: 260, y: 1780, w: 220, h: 32 },
+      { x: 210, y: 960, w: 215, h: 32 },
+      { x: 635, y: 1180, w: 215, h: 32 },
+      { x: 210, y: 1400, w: 215, h: 32 },
+      { x: 635, y: 1620, w: 215, h: 32 },
+      { x: 210, y: 1780, w: 215, h: 32 },
     ];
     ascShaft.movingPlatforms = [
-      { x1: 310, y1: 1870, x2: 310, y2: 760, w: 150, speed: 1.25, style: 'bronze_lift' },
+      { x1: 450, y1: 1870, x2: 450, y2: 760, w: 165, speed: 1.25, style: 'bronze_lift' },
     ];
     ascShaft.decorProps = [{ kind: 'guardian_statue', x: 180, y: 1916, scale: 0.94 }];
     ascShaft.torches = [{ x: 820, y: 644 }];

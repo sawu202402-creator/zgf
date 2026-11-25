@@ -1048,29 +1048,29 @@ export function bakeOrthographicRoomTerrain(
     anchorFloatingPlatform(pv.x, pv.y, pv.w, pv.hasPillars);
   }
 
-  // 0C. 下潜竖井 (`dir === 'down'`) 铺设深邃幽暗井道与两侧收口青石井壁
+  // 0C. 下潜竖井 (`dir === 'down'`) 铺设深邃幽暗井道、收口青石井壁与左右井栏压顶石
   for (const sh of room.shafts) {
     if (sh.dir !== 'down') continue;
     const gyL = sampleSolidGroundY(room, Math.max(0, sh.x1 - 8));
     const sw = sh.x2 - sh.x1;
     const wg = bctx.createLinearGradient(0, gyL, 0, room.pixelH);
-    wg.addColorStop(0, '#04070e');
-    wg.addColorStop(0.5, '#020409');
+    wg.addColorStop(0, 'rgba(5, 8, 16, 0.92)');
+    wg.addColorStop(0.35, 'rgba(2, 4, 10, 0.98)');
     wg.addColorStop(1, '#010205');
     bctx.fillStyle = wg;
-    bctx.fillRect(sh.x1 - 4, gyL, sw + 8, Math.max(0, room.pixelH - gyL));
+    bctx.fillRect(sh.x1 - 4, gyL + 6, sw + 8, Math.max(0, room.pixelH - gyL - 6));
 
     if (slabImg) {
       const mY = Math.floor(slabImg.height * 0.42);
       const mH = Math.max(24, slabImg.height - mY - 2);
-      const jambW = 18;
+      const jambW = 24;
       for (let y = gyL; y < room.pixelH; y += mH - 2) {
-        bctx.save();
-        bctx.globalAlpha = 0.78;
-        bctx.drawImage(slabImg, 8, mY, jambW, mH, sh.x1 - 2, y, jambW, mH);
-        bctx.drawImage(slabImg, 40, mY, jambW, mH, sh.x2 - jambW + 2, y, jambW, mH);
-        bctx.restore();
+        bctx.drawImage(slabImg, 8, mY, jambW, mH, sh.x1 - 6, y, jambW, mH);
+        bctx.drawImage(slabImg, 34, mY, jambW, mH, sh.x2 - jambW + 6, y, jambW, mH);
       }
+      // 井口左右缘砌合压顶青石栏缘，消弭地砖切割生硬感
+      bctx.drawImage(slabImg, 4, 0, 36, 20, sh.x1 - 14, gyL - 2, 32, 16);
+      bctx.drawImage(slabImg, 4, 0, 36, 20, sh.x2 - 18, gyL - 2, 32, 16);
     }
   }
 
@@ -1649,9 +1649,15 @@ export function getClockGearOrbitPlatforms(
   if (room.movingPlatforms) {
     for (const mp of room.movingPlatforms) {
       const ph = mp.phase || 0;
-      const ang = t * mp.speed + ph;
-      const u = 0.5 - 0.5 * Math.cos(ang);
-      const du = 0.5 * mp.speed * Math.sin(ang);
+      const dist = Math.hypot(mp.x2 - mp.x1, mp.y2 - mp.y1);
+      const maxLin = mp.style === 'bronze_lift' ? 185 : 155;
+      const effOmega = dist > 1 ? Math.min(mp.speed, (2 * maxLin) / dist) : mp.speed;
+      const ang = t * effOmega + ph;
+      const raw = -Math.cos(ang);
+      const scale = 1.18;
+      const s = Math.max(-1, Math.min(1, raw * scale));
+      const u = 0.5 + 0.5 * s;
+      const du = Math.abs(raw * scale) < 1 ? 0.5 * scale * effOmega * Math.sin(ang) : 0;
       const x = mp.x1 + (mp.x2 - mp.x1) * u;
       const y = mp.y1 + (mp.y2 - mp.y1) * u;
       const vx = (mp.x2 - mp.x1) * du;

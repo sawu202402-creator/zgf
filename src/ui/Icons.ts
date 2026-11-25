@@ -38,6 +38,9 @@ export function getSlotCategorySvg(
   if (slot === 'core') {
     return `<img src="${Assets.getUrl('item_yao_core')}" width="28" height="28" style="width:28px;height:28px;max-width:28px;max-height:28px;flex-shrink:0;object-fit:contain;display:block;filter:drop-shadow(0 2px 5px rgba(168,85,247,0.5));" alt="妖丹" />`;
   }
+  if (itemId === 'suodi_talisman') {
+    return `<img src="${Assets.getUrl('item_talisman_scroll')}" width="28" height="28" style="width:28px;height:28px;max-width:28px;max-height:28px;flex-shrink:0;object-fit:contain;display:block;filter:drop-shadow(0 2px 5px rgba(45,212,191,0.55));" alt="缩地符" />`;
+  }
   if (itemId === 'beggar_chicken') {
     return `<img src="${Assets.getUrl('item_lotus_chicken')}" width="30" height="26" style="width:30px;height:26px;max-width:30px;max-height:26px;flex-shrink:0;object-fit:contain;display:block;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.85));" alt="叫花鸡" />`;
   }

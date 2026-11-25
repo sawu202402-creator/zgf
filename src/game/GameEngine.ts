@@ -95,10 +95,15 @@ export type EnemyProjectileFx =
   | 'magma_bomb'
   | 'magma_pool'
   | 'lava_wave'
-  | 'bone_bolt';
+  | 'bone_bolt'
+  | 'cinnabar_flask'
+  | 'frost_flail'
+  | 'ink_calligraphy'
+  | 'bronze_gear';
 
 export interface Projectile {
   fromPlayer: boolean;
+  ownerId?: number;
   kind: 'qi_wave' | 'dagger' | 'holy_fire' | 'fire_pillar' | 'bagua' | 'seal' | 'ink_spear';
   enemyFx?: EnemyProjectileFx;
   x: number;
@@ -279,7 +284,7 @@ export interface BreakableLanternEntity {
 export interface EngineCallbacks {
   onShowBanner: (title: string, sub: string) => void;
   onStartStory: (scene: StoryScene, onDone?: () => void) => void;
-  onOpenInteractModal: (kind: 'smith' | 'merchant' | 'warp') => void;
+  onOpenInteractModal: (kind: 'smith' | 'merchant' | 'warp', opts?: { consumeTalisman?: boolean }) => void;
   onToggleMap: () => void;
   onTogglePause: () => void;
   onGameOver: () => void;
@@ -3483,9 +3488,10 @@ export class GameEngine {
             hitIds: new Set(),
           });
         } else {
-          // 赤铜熔炉巨灵高爆熔岩火弹落地溅起赤金岩浆火柱
+          // 赤铜熔炉巨灵火弹 / 丹鼎朱砂药葫芦落地溅起赤金烈焰灼烧潭
           const gy = sampleGroundY(this.room, pr.x);
-          this.spawnInkBurst(pr.x, gy - 4, '#fb923c', '#fde047', 12);
+          const isFlask = pr.enemyFx === 'cinnabar_flask';
+          this.spawnInkBurst(pr.x, gy - 4, isFlask ? '#ef4444' : '#fb923c', '#fde047', 12);
           this.projectiles.push({
             fromPlayer: false,
             kind: 'fire_pillar',
@@ -4590,7 +4596,7 @@ export class GameEngine {
             e.profile.kind === 'bell_gargoyle' || e.profile.kind === 'celestial_sentinel'
               ? 32
               : e.profile.kind === 'opera_sleeve_siren'
-                ? 26
+                ? 28
                 : e.profile.kind === 'bronze_gear_wisp'
                   ? 22
                   : e.profile.kind === 'spirit_crow' || e.profile.kind === 'drowned_corpse_bride'
@@ -4599,55 +4605,197 @@ export class GameEngine {
           e.y = e.baseY + Math.sin(e.animPhase) * waveAmp;
           const minFlyDist =
             e.profile.kind === 'spirit_crow' || e.profile.kind === 'drowned_corpse_bride' ? 60 : 95;
-          if (absDx < 480 && absDx > minFlyDist) {
+          if (e.profile.kind === 'opera_sleeve_siren' && absDx < 360) {
+            // 百戏水袖花旦：水袖蝶步 8 字缠绕滑翔！
+            e.vx = Math.cos(e.animPhase * 0.72) * e.profile.speed * 0.85 + e.facing * 42;
+            e.x = Math.max(54, Math.min(room.pixelW - 54, e.x + e.vx * dt));
+          } else if (absDx < 480 && absDx > minFlyDist) {
             e.vx = e.facing * e.profile.speed;
             e.x = Math.max(54, Math.min(room.pixelW - 54, e.x + e.vx * dt));
           }
-          if (e.stateTimer <= 0 && absDx < 410) {
-            if (e.profile.ranged) {
-              const fk = e.profile.kind;
+          if (e.stateTimer <= 0 && absDx < 420) {
+            const fk = e.profile.kind;
+            if (fk === 'drowned_corpse_bride') {
+              // 寒渊沉尸怨灵：0 怨雾闪烁瞬移换位+追踪怨魄；1 双发寒霜冰泣弹！
+              e.castAnimTimer = 0.4;
+              e.bossMoveIdx = (e.bossMoveIdx + 1) % 2;
+              if (e.bossMoveIdx === 0) {
+                const blinkX = Math.max(
+                  75,
+                  Math.min(room.pixelW - 75, p.x + (dx >= 0 ? 142 : -142))
+                );
+                this.spawnInkBurst(e.x, e.y - 26, '#67e8f9', '#0f766e', 14);
+                e.x = blinkX;
+                e.facing = p.x >= e.x ? 1 : -1;
+                this.spawnInkBurst(e.x, e.y - 26, '#67e8f9', '#0f766e', 14);
+                const ang = Math.atan2(p.y - 38 - (e.y - 26), p.x - e.x);
+                for (const off of [-0.28, 0.28]) {
+                  this.projectiles.push({
+                    fromPlayer: false,
+                    kind: 'dagger',
+                    enemyFx: 'cursed_talisman',
+                    x: e.x + e.facing * 16,
+                    y: e.y - 26,
+                    vx: Math.cos(ang + off) * 235,
+                    vy: Math.sin(ang + off) * 235,
+                    r: 10,
+                    dmg: Math.round(e.profile.atk * 0.92),
+                    color: '#67e8f9',
+                    life: 2.3,
+                    maxLife: 2.3,
+                    pierce: 1,
+                    homingRate: 1.55,
+                    hitIds: new Set(),
+                  });
+                }
+              } else {
+                for (const yOff of [-12, 16]) {
+                  this.projectiles.push({
+                    fromPlayer: false,
+                    kind: 'dagger',
+                    enemyFx: 'cursed_talisman',
+                    x: e.x + e.facing * 18,
+                    y: e.y - 24 + yOff,
+                    vx: e.facing * 335,
+                    vy: 0,
+                    r: 9,
+                    dmg: e.profile.atk,
+                    color: '#22d3ee',
+                    life: 1.75,
+                    maxLife: 1.75,
+                    pierce: 1,
+                    hitIds: new Set(),
+                  });
+                }
+              }
+              AudioFX.playSkillCast();
+              e.stateTimer = 1.65;
+            } else if (fk === 'opera_sleeve_siren') {
+              // 百戏水袖花旦：反相正弦螺旋绸浪金针！
+              e.castAnimTimer = 0.38;
+              for (const phase of [0, Math.PI]) {
+                this.projectiles.push({
+                  fromPlayer: false,
+                  kind: 'dagger',
+                  enemyFx: 'opera_needle',
+                  x: e.x + e.facing * 20,
+                  y: e.y - 26,
+                  vx: e.facing * 315,
+                  vy: 0,
+                  r: 9,
+                  dmg: Math.round(e.profile.atk * 0.94),
+                  color: '#f472b6',
+                  life: 2.1,
+                  maxLife: 2.1,
+                  pierce: 1,
+                  waveAmp: 34,
+                  waveFreq: 8.0,
+                  wavePhase: phase,
+                  waveBaseY: e.y - 26,
+                  hitIds: new Set(),
+                });
+              }
+              this.spawnInkBurst(e.x + e.facing * 18, e.y - 24, '#f472b6', '#9f1239', 8);
+              AudioFX.playSlash('light');
+              e.stateTimer = 1.6;
+            } else if (fk === 'bronze_gear_wisp') {
+              // 浑天铜轮机灵：十字 <-> 斜叉交替四向旋转铜齿轮齐射！
+              e.castAnimTimer = 0.38;
+              e.bossMoveIdx = (e.bossMoveIdx + 1) % 2;
+              const baseRot = e.bossMoveIdx === 0 ? 0 : Math.PI * 0.25;
+              for (let k = 0; k < 4; k++) {
+                const a = baseRot + k * Math.PI * 0.5;
+                this.projectiles.push({
+                  fromPlayer: false,
+                  kind: 'dagger',
+                  enemyFx: 'bronze_gear',
+                  x: e.x,
+                  y: e.y - 24,
+                  vx: Math.cos(a) * 245,
+                  vy: Math.sin(a) * 245,
+                  r: 12,
+                  dmg: e.profile.atk,
+                  color: '#22d3ee',
+                  life: 2.0,
+                  maxLife: 2.0,
+                  pierce: 1,
+                  hitIds: new Set(),
+                });
+              }
+              this.spawnInkBurst(e.x, e.y - 24, '#22d3ee', '#78350f', 9);
+              AudioFX.playSlash('heavy');
+              e.stateTimer = 1.7;
+            } else if (fk === 'celestial_sentinel') {
+              // 凌霄金甲天将：0 金甲天降俯冲掠袭；1 三连金矛+黄金天雷柱！
+              e.bossMoveIdx = (e.bossMoveIdx + 1) % 2;
+              if (e.bossMoveIdx === 0 && absDx < 320) {
+                e.aiState = 'windup';
+                e.stateTimer = 0.44;
+                e.stateDuration = 0.44;
+                e.bossAction = 'dive_bomb';
+                e.bossTargetX = Math.max(70, Math.min(room.pixelW - 70, p.x));
+                e.bossTargetY = sampleSolidGroundY(room, e.bossTargetX);
+                e.vx = 0;
+                e.slashHitPlayer = false;
+                this.spawnInkBurst(e.x, e.y - 28, '#fde047', '#a16207', 12);
+              } else {
+                e.castAnimTimer = 0.38;
+                const ang = Math.atan2(p.y - 42 - (e.y - 26), p.x - e.x);
+                for (const offAng of [-0.16, 0, 0.16]) {
+                  const a = ang + offAng;
+                  this.projectiles.push({
+                    fromPlayer: false,
+                    kind: 'dagger',
+                    enemyFx: 'thunder_lance',
+                    x: e.x + e.facing * 20,
+                    y: e.y - 26,
+                    vx: Math.cos(a) * 415,
+                    vy: Math.sin(a) * 415,
+                    r: 10,
+                    dmg: e.profile.atk,
+                    color: '#fde047',
+                    life: 1.8,
+                    maxLife: 1.8,
+                    pierce: 1,
+                    hitIds: new Set(),
+                  });
+                }
+                const sx = Math.max(95, Math.min(room.pixelW - 95, p.x));
+                this.skyStrikes.push({
+                  x: sx,
+                  groundY: sampleGroundY(room, sx),
+                  timer: 0.78,
+                  maxTimer: 0.78,
+                  dmg: Math.round(e.profile.atk * 1.08),
+                  color: '#facc15',
+                  discColor: '#f59e0b',
+                });
+                this.spawnInkBurst(e.x + e.facing * 18, e.y - 24, '#fde047', '#a16207', 8);
+                AudioFX.playSkillCast();
+                e.stateTimer = 1.7;
+              }
+            } else if (e.profile.ranged) {
               const isGargoyle = fk === 'bell_gargoyle' || fk === 'guixu_water_fiend';
               const isWaterFiend = fk === 'guixu_water_fiend';
               const isWuchang = fk === 'wuchang_reaper';
-              const isSiren = fk === 'opera_sleeve_siren';
-              const isBride = fk === 'drowned_corpse_bride';
-              const isWisp = fk === 'bronze_gear_wisp';
-              const isCelestial = fk === 'celestial_sentinel';
               const ang = Math.atan2(p.y - 42 - (e.y - 24), p.x - e.x);
-              const spd =
-                isGargoyle || isCelestial ? 415 : isWuchang || isWisp ? 365 : isSiren ? 345 : 320;
+              const spd = isGargoyle ? 415 : isWuchang ? 365 : 320;
               e.castAnimTimer = 0.36;
               const isLateStage =
                 room.realm === 'inverted' ||
                 (room.region !== 'gatehouse' &&
                   room.region !== 'main_hall' &&
                   room.region !== 'alchemy');
-              const spreadOffsets = isWisp
-                ? [-0.36, 0, 0.36]
-                : isGargoyle || isWuchang || isCelestial
-                  ? [-0.12, 0.12]
-                  : isSiren
-                    ? [-0.18, 0.18]
-                    : isBride
-                      ? [-0.08, 0.08]
-                      : isLateStage
-                        ? [-0.22, 0, 0.22]
-                        : [0];
-              const projFx =
-                isGargoyle || isCelestial || isWisp
-                  ? 'thunder_lance'
-                  : isSiren
-                    ? 'opera_needle'
-                    : 'cursed_talisman';
-              const projColor = isWaterFiend || isBride
+              const spreadOffsets =
+                isGargoyle || isWuchang ? [-0.12, 0.12] : isLateStage ? [-0.22, 0, 0.22] : [0];
+              const projFx = isGargoyle ? 'thunder_lance' : 'cursed_talisman';
+              const projColor = isWaterFiend
                 ? '#22d3ee'
-                : isGargoyle || isCelestial || isWisp
+                : isGargoyle
                   ? '#facc15'
                   : isWuchang
                     ? '#c084fc'
-                    : isSiren
-                      ? '#f472b6'
-                      : '#ef4444';
+                    : '#ef4444';
               for (const offAng of spreadOffsets) {
                 const a = ang + offAng;
                 this.projectiles.push({
@@ -4658,7 +4806,7 @@ export class GameEngine {
                   y: e.y - 24,
                   vx: Math.cos(a) * spd,
                   vy: Math.sin(a) * spd,
-                  r: isGargoyle || isCelestial ? 10 : 9,
+                  r: isGargoyle ? 10 : 9,
                   dmg: e.profile.atk,
                   color: projColor,
                   life: 1.85,
@@ -4667,7 +4815,7 @@ export class GameEngine {
                   hitIds: new Set(),
                 });
               }
-              if ((isGargoyle && isLateStage) || isCelestial) {
+              if (isGargoyle && isLateStage) {
                 const sx = Math.max(95, Math.min(room.pixelW - 95, p.x));
                 this.skyStrikes.push({
                   x: sx,
@@ -4681,11 +4829,11 @@ export class GameEngine {
                 e.x + e.facing * 18,
                 e.y - 24,
                 projColor,
-                isWaterFiend || isBride ? '#0f766e' : isGargoyle || isCelestial ? '#38bdf8' : '#090d16',
+                isWaterFiend ? '#0f766e' : isGargoyle ? '#38bdf8' : '#090d16',
                 6
               );
               AudioFX.playSlash('light');
-              e.stateTimer = isGargoyle || isCelestial ? 1.55 : isBride && absDx < 190 ? 1.15 : 1.5;
+              e.stateTimer = isGargoyle ? 1.55 : 1.5;
             } else if (absDx < 225) {
               e.aiState = 'windup';
               const crowWind = e.profile.kind === 'spirit_crow' ? 0.34 : 0.46;
@@ -4707,55 +4855,87 @@ export class GameEngine {
             continue;
           }
 
-          // 地面妖邪差异化 AI：毒沼三足蟾/丹鼎药傀弹跳扑击投毒火，重盾/秦俑掷飞斧，妖道布阵符，巨傀崩地火波，墨客挥墨浪，螳螂疾剪！
-          if (e.profile.kind === 'plague_toad' || e.profile.kind === 'alchemy_homunculus') {
-            const isHomunc = e.profile.kind === 'alchemy_homunculus';
-            const curSurfY = sampleEntitySurfaceY(room, e.x, e.y);
+          // 地面妖邪差异化 AI：金蟾高跃毒潭、药傀后跳双瓶、矿奴跃空裂石、妖道周天符阵、巨傀震地火泉、狱卒锁链寒槌、书魔游龙狂草+墨遁、螳螂齿轮+双剪、秦俑重戟破空！
+          const curSurfY = sampleEntitySurfaceY(room, e.x, e.y);
+          if (
+            e.profile.kind === 'plague_toad' ||
+            ((e.profile.kind === 'alchemy_homunculus' || e.profile.kind === 'mine_pickaxe_ghoul') &&
+              (e.vy !== 0 || e.y < curSurfY - 2))
+          ) {
+            const isToad = e.profile.kind === 'plague_toad';
+            const isGhoul = e.profile.kind === 'mine_pickaxe_ghoul';
             if (e.vy !== 0 || e.y < curSurfY - 2) {
-              e.vy += 1280 * dt;
-              const nextToadX = Math.max(50, Math.min(room.pixelW - 50, e.x + e.vx * dt));
-              e.x = nextToadX;
+              e.vy += 1260 * dt;
+              e.x = Math.max(50, Math.min(room.pixelW - 50, e.x + e.vx * dt));
               const gy = sampleEntitySurfaceY(room, e.x, e.y);
               if (e.y + e.vy * dt >= gy) {
                 if (e.vy > 180) {
                   this.spawnInkBurst(
                     e.x,
                     gy - 3,
-                    isHomunc ? '#fb923c' : '#4ade80',
+                    isGhoul ? '#f59e0b' : isToad ? '#4ade80' : '#ef4444',
                     '#1e1b4b',
-                    6
+                    8
                   );
                 }
                 e.y = gy;
                 e.vy = 0;
                 e.vx = 0;
+                if (isGhoul) {
+                  AudioFX.playSlash('heavy');
+                  this.projectiles.push({
+                    fromPlayer: false,
+                    kind: 'holy_fire',
+                    enemyFx: 'magma_bomb',
+                    x: e.x + e.facing * 20,
+                    y: gy - 20,
+                    vx: e.facing * 225,
+                    vy: -295,
+                    r: 8,
+                    dmg: Math.round(e.profile.atk * 0.85),
+                    color: '#f59e0b',
+                    life: 1.25,
+                    maxLife: 1.25,
+                    pierce: 1,
+                    hitIds: new Set(),
+                  });
+                  this.projectiles.push({
+                    fromPlayer: false,
+                    kind: 'dagger',
+                    enemyFx: 'bone_bolt',
+                    x: e.x + e.facing * 22,
+                    y: gy - 26,
+                    vx: e.facing * 355,
+                    vy: 0,
+                    r: 8,
+                    dmg: Math.round(e.profile.atk * 0.82),
+                    color: '#fde047',
+                    life: 1.15,
+                    maxLife: 1.15,
+                    pierce: 1,
+                    hitIds: new Set(),
+                  });
+                }
               } else {
                 e.y += e.vy * dt;
               }
             } else if (e.stateTimer <= 0 && absDx < 420) {
-              // 蛤蟆/丹鼎药傀高跃扑击 + 抛射毒囊/丹火弹！
-              e.vy = isHomunc ? -385 : -450;
-              e.vx = e.facing * (isHomunc ? 205 : 230);
-              e.stateTimer = isHomunc ? 1.38 : 1.45;
+              e.vy = -450;
+              e.vx = e.facing * 230;
+              e.stateTimer = 1.45;
               e.castAnimTimer = 0.38;
-              this.spawnInkBurst(
-                e.x + e.facing * 18,
-                e.y - 22,
-                isHomunc ? '#f97316' : '#4ade80',
-                isHomunc ? '#ef4444' : '#a855f7',
-                7
-              );
+              this.spawnInkBurst(e.x + e.facing * 18, e.y - 22, '#4ade80', '#a855f7', 7);
               this.projectiles.push({
                 fromPlayer: false,
                 kind: 'holy_fire',
-                enemyFx: isHomunc ? 'magma_bomb' : 'venom_glob',
+                enemyFx: 'venom_glob',
                 x: e.x + e.facing * 18,
                 y: e.y - 22,
-                vx: e.facing * (isHomunc ? 265 : 240),
-                vy: isHomunc ? -285 : -260,
+                vx: e.facing * 240,
+                vy: -260,
                 r: 10,
                 dmg: e.profile.atk,
-                color: isHomunc ? '#f97316' : '#a855f7',
+                color: '#a855f7',
                 life: 1.45,
                 maxLife: 1.45,
                 pierce: 1,
@@ -4781,24 +4961,33 @@ export class GameEngine {
             const isKiteCaster =
               gk === 'bone_archer' ||
               gk === 'shenji_musketeer' ||
-              gk === 'taoist_talisman_priest';
+              gk === 'taoist_talisman_priest' ||
+              gk === 'alchemy_homunculus';
             const attackRange = isKiteCaster
               ? 285
               : gk === 'ink_brush_scholar'
-                ? 230
+                ? 245
                 : gk === 'demon_wolf' || gk === 'bixie_stone_beast' || gk === 'clockwork_mantis'
                   ? 200
-                  : gk === 'paper_swordsman'
-                    ? 175
-                    : gk === 'terracotta_halberdier' || gk === 'frost_chain_jailer'
-                      ? 142
-                      : gk === 'magma_crucible_golem'
-                        ? 135
-                        : e.profile.shieldedFront || gk === 'jinwu_mace_guard'
-                          ? 98
-                          : 108;
+                  : gk === 'terracotta_halberdier'
+                    ? 235
+                    : gk === 'paper_swordsman'
+                      ? 175
+                      : gk === 'frost_chain_jailer'
+                        ? 150
+                        : gk === 'magma_crucible_golem'
+                          ? 145
+                          : e.profile.shieldedFront || gk === 'jinwu_mace_guard'
+                            ? 98
+                            : 108;
             if ((e.guardStanceTimer || 0) > 0) {
               e.vx = 0;
+            } else if (gk === 'alchemy_homunculus' && absDx < 95 && e.stateTimer <= 0.35) {
+              e.vy = -295;
+              e.vx = -e.facing * 235;
+              e.y = curSurfY - 3;
+              e.stateTimer = 1.25;
+              continue;
             } else if (isKiteCaster && absDx < 125) {
               e.vx = -e.facing * e.profile.speed * 0.85;
               e.animPhase += dt * 8;
@@ -4815,28 +5004,61 @@ export class GameEngine {
 
             this.stepGroundEnemyX(e, e.vx * dt);
 
-            // 白骨弩卒 / 神机火铳兵 / 镇魔符箓妖道 / 翰林书魔：远程差异化弹幕！
-            if (gk === 'taoist_talisman_priest' && e.stateTimer <= 0 && absDx < 440) {
-              e.castAnimTimer = 0.38;
+            if (gk === 'alchemy_homunculus' && e.stateTimer <= 0 && absDx >= 90 && absDx < 395) {
+              // 丹鼎朱砂药傀：止步抛掷高低双发朱砂爆裂药瓶！
+              e.castAnimTimer = 0.4;
+              for (const cfg of [
+                { vx: 210, vy: -345 },
+                { vx: 325, vy: -395 },
+              ]) {
+                this.projectiles.push({
+                  fromPlayer: false,
+                  kind: 'holy_fire',
+                  enemyFx: 'cinnabar_flask',
+                  x: e.x + e.facing * 18,
+                  y: e.y - 26,
+                  vx: e.facing * cfg.vx,
+                  vy: cfg.vy,
+                  r: 10,
+                  dmg: Math.round(e.profile.atk * 0.92),
+                  color: '#ef4444',
+                  life: 1.6,
+                  maxLife: 1.6,
+                  gravity: 960,
+                  pierce: 1,
+                  hitIds: new Set(),
+                });
+              }
+              this.spawnInkBurst(e.x + e.facing * 18, e.y - 26, '#ef4444', '#fb923c', 8);
+              AudioFX.playSkillCast();
+              e.stateTimer = 1.75;
+            } else if (gk === 'taoist_talisman_priest' && e.stateTimer <= 0 && absDx < 440) {
+              // 镇魔符箓妖道：0 周天三枚护身咒符依次攒射；1 红金天雷镇魂柱！
+              e.castAnimTimer = 0.4;
               e.bossMoveIdx = (e.bossMoveIdx + 1) % 2;
               if (e.bossMoveIdx === 0) {
-                const ang = Math.atan2(p.y - 38 - (e.y - 38), p.x - e.x);
-                for (let m = -1; m <= 1; m++) {
-                  const a = ang + m * 0.2;
+                for (let idx = 0; idx < 3; idx++) {
+                  const ang = (idx / 3) * Math.PI * 2;
+                  const rad = 46;
                   this.projectiles.push({
                     fromPlayer: false,
                     kind: 'dagger',
                     enemyFx: 'cursed_talisman',
-                    x: e.x + e.facing * 20,
-                    y: e.y - 38,
-                    vx: Math.cos(a) * 335,
-                    vy: Math.sin(a) * 335,
+                    x: e.x + Math.cos(ang) * rad,
+                    y: e.y - e.profile.h * 0.54 + Math.sin(ang) * rad,
+                    vx: 335,
+                    vy: 0,
                     r: 9,
-                    dmg: e.profile.atk,
+                    dmg: Math.round(e.profile.atk * 0.9),
                     color: '#ef4444',
-                    life: 1.65,
-                    maxLife: 1.65,
+                    life: 3.3,
+                    maxLife: 3.3,
                     pierce: 1,
+                    orbitParentId: e.id,
+                    orbitAngle: ang,
+                    orbitRadius: rad,
+                    orbitSpeed: 3.3,
+                    orbitReleaseTime: 2.35 - idx * 0.25,
                     hitIds: new Set(),
                   });
                 }
@@ -4845,97 +5067,186 @@ export class GameEngine {
                 this.skyStrikes.push({
                   x: sx,
                   groundY: sampleGroundY(room, sx),
-                  timer: 0.72,
-                  maxTimer: 0.72,
+                  timer: 0.74,
+                  maxTimer: 0.74,
                   dmg: Math.round(e.profile.atk * 1.12),
+                  color: '#ef4444',
+                  discColor: '#fde047',
                 });
               }
               this.spawnInkBurst(e.x + e.facing * 20, e.y - 38, '#fde047', '#dc2626', 8);
-              AudioFX.playSlash('light');
-              e.stateTimer = 1.65;
+              AudioFX.playSkillCast();
+              e.stateTimer = 1.85;
             } else if (
               gk === 'ink_brush_scholar' &&
               e.stateTimer <= 0 &&
-              absDx > 110 &&
-              absDx < 370 &&
+              absDx < 395 &&
+              Math.abs(dy) < 110
+            ) {
+              if (absDx < 115) {
+                // 翰林执笔书魔：近身触发墨遁闪避！原地泼墨后闪身拉开！
+                this.spawnInkBurst(e.x, e.y - 34, '#38bdf8', '#090d16', 14);
+                this.stepGroundEnemyX(e, -e.facing * 115);
+                this.spawnInkBurst(e.x, e.y - 34, '#38bdf8', '#090d16', 10);
+                this.projectiles.push({
+                  fromPlayer: false,
+                  kind: 'holy_fire',
+                  enemyFx: 'magma_bomb',
+                  x: e.x,
+                  y: e.y - 36,
+                  vx: e.facing * 120,
+                  vy: -260,
+                  r: 9,
+                  dmg: Math.round(e.profile.atk * 0.85),
+                  color: '#38bdf8',
+                  life: 1.25,
+                  maxLife: 1.25,
+                  pierce: 1,
+                  hitIds: new Set(),
+                });
+                AudioFX.playSlash('light');
+                e.stateTimer = 1.45;
+              } else {
+                e.castAnimTimer = 0.38;
+                const yMid = e.y - 40;
+                this.projectiles.push({
+                  fromPlayer: false,
+                  kind: 'qi_wave',
+                  enemyFx: 'ink_calligraphy',
+                  x: e.x + e.facing * 24,
+                  y: yMid,
+                  vx: e.facing * 335,
+                  vy: 0,
+                  r: 15,
+                  dmg: e.profile.atk,
+                  color: '#38bdf8',
+                  life: 1.85,
+                  maxLife: 1.85,
+                  pierce: 2,
+                  waveAmp: 28,
+                  waveFreq: 6.8,
+                  wavePhase: 0,
+                  waveBaseY: yMid,
+                  hitIds: new Set(),
+                });
+                this.spawnInkBurst(e.x + e.facing * 24, yMid, '#38bdf8', '#090d16', 9);
+                AudioFX.playSlash('spear');
+                e.stateTimer = 1.58;
+              }
+            } else if (
+              gk === 'magma_crucible_golem' &&
+              e.stateTimer <= 0 &&
+              absDx < 275 &&
               Math.abs(dy) < 105
             ) {
-              e.castAnimTimer = 0.36;
+              // 地肺熔金巨傀：重拳震地迸发双侧熔岩地波 + 喷溅两枚火山火陨！
+              e.castAnimTimer = 0.48;
+              this.screenShake = Math.max(this.screenShake, 4.5);
+              const surfY = sampleSolidGroundY(room, e.x);
+              this.spawnTwinShockwaves(
+                e.x,
+                surfY - 18,
+                310,
+                Math.round(e.profile.atk * 0.96),
+                '#f97316',
+                true
+              );
+              for (const dir of [-1, 1]) {
+                this.projectiles.push({
+                  fromPlayer: false,
+                  kind: 'holy_fire',
+                  enemyFx: 'magma_bomb',
+                  x: e.x + dir * 20,
+                  y: surfY - 46,
+                  vx: dir * 115,
+                  vy: -435,
+                  r: 10,
+                  dmg: Math.round(e.profile.atk * 0.88),
+                  color: '#fb923c',
+                  life: 1.65,
+                  maxLife: 1.65,
+                  pierce: 1,
+                  hitIds: new Set(),
+                });
+              }
+              this.spawnInkBurst(e.x, surfY - 12, '#fb923c', '#7c2d12', 14);
+              AudioFX.playSlash('heavy');
+              e.stateTimer = 2.05;
+            } else if (
+              gk === 'mine_pickaxe_ghoul' &&
+              e.stateTimer <= 0 &&
+              absDx > 85 &&
+              absDx < 255 &&
+              Math.abs(dy) < 95
+            ) {
+              // 古矿赤铜矿奴：助跑高跃重镐劈地！
+              e.vy = -345;
+              e.vx = e.facing * 255;
+              e.y = curSurfY - 3;
+              e.castAnimTimer = 0.42;
+              AudioFX.playJump();
+              continue;
+            } else if (
+              gk === 'frost_chain_jailer' &&
+              e.stateTimer <= 0 &&
+              absDx > 105 &&
+              absDx < 325 &&
+              Math.abs(dy) < 95
+            ) {
+              // 寒潭玄铁狱卒：铁链牵引寒霜链槌高低交替甩击折返！
+              e.castAnimTimer = 0.4;
               e.bossMoveIdx = (e.bossMoveIdx + 1) % 2;
-              const yOff = e.bossMoveIdx === 0 ? 48 : 22;
+              const flailY = e.bossMoveIdx === 0 ? e.y - 18 : e.y - 52;
               this.projectiles.push({
                 fromPlayer: false,
-                kind: 'qi_wave',
+                ownerId: e.id,
+                kind: 'bagua',
+                enemyFx: 'frost_flail',
                 x: e.x + e.facing * 24,
-                y: e.y - yOff,
-                vx: e.facing * 355,
+                y: flailY,
+                vx: e.facing * 380,
                 vy: 0,
                 r: 13,
                 dmg: e.profile.atk,
                 color: '#38bdf8',
-                life: 1.5,
-                maxLife: 1.5,
-                pierce: 2,
-                hitIds: new Set(),
-              });
-              this.spawnInkBurst(e.x + e.facing * 24, e.y - yOff, '#38bdf8', '#090d16', 9);
-              AudioFX.playSlash('spear');
-              e.stateTimer = 1.48;
-            } else if (
-              gk === 'magma_crucible_golem' &&
-              e.stateTimer <= 0 &&
-              absDx > 125 &&
-              absDx < 370 &&
-              Math.abs(dy) < 95
-            ) {
-              e.castAnimTimer = 0.42;
-              const surfY = sampleSolidGroundY(room, e.x);
-              this.projectiles.push({
-                fromPlayer: false,
-                kind: 'qi_wave',
-                enemyFx: 'lava_wave',
-                x: e.x + e.facing * 30,
-                y: surfY - 18,
-                vx: e.facing * 330,
-                vy: 0,
-                r: 16,
-                dmg: Math.round(e.profile.atk * 1.05),
-                color: '#f97316',
-                life: 0.9,
-                maxLife: 0.9,
-                pierce: 99,
-                hitIds: new Set(),
-              });
-              this.spawnInkBurst(e.x + e.facing * 30, surfY - 10, '#fb923c', '#7c2d12', 12);
-              AudioFX.playSlash('heavy');
-              e.stateTimer = 1.78;
-            } else if (
-              gk === 'frost_chain_jailer' &&
-              e.stateTimer <= 0 &&
-              absDx > 130 &&
-              absDx < 325 &&
-              Math.abs(dy) < 95
-            ) {
-              e.castAnimTimer = 0.36;
-              this.projectiles.push({
-                fromPlayer: false,
-                kind: 'dagger',
-                enemyFx: 'thunder_lance',
-                x: e.x + e.facing * 24,
-                y: e.y - 36,
-                vx: e.facing * 395,
-                vy: 0,
-                r: 11,
-                dmg: e.profile.atk,
-                color: '#38bdf8',
-                life: 1.35,
-                maxLife: 1.35,
+                life: 1.45,
+                maxLife: 1.45,
+                returnAtRatio: 0.52,
                 pierce: 1,
                 hitIds: new Set(),
               });
-              this.spawnInkBurst(e.x + e.facing * 24, e.y - 36, '#38bdf8', '#0f172a', 8);
+              this.spawnInkBurst(e.x + e.facing * 24, flailY, '#38bdf8', '#0f172a', 8);
               AudioFX.playSlash('heavy');
-              e.stateTimer = 1.68;
+              e.stateTimer = 1.8;
+            } else if (
+              gk === 'clockwork_mantis' &&
+              e.stateTimer <= 0 &&
+              absDx >= 195 &&
+              absDx < 345 &&
+              Math.abs(dy) < 95
+            ) {
+              // 墨家青铜螳螂：中距离弹射旋转青铜机括锯齿飞轮！
+              e.castAnimTimer = 0.36;
+              this.projectiles.push({
+                fromPlayer: false,
+                kind: 'bagua',
+                enemyFx: 'bronze_gear',
+                x: e.x + e.facing * 22,
+                y: e.y - 32,
+                vx: e.facing * 350,
+                vy: 0,
+                r: 12,
+                dmg: e.profile.atk,
+                color: '#fbbf24',
+                life: 1.5,
+                maxLife: 1.5,
+                returnAtRatio: 0.56,
+                pierce: 1,
+                hitIds: new Set(),
+              });
+              this.spawnInkBurst(e.x + e.facing * 22, e.y - 32, '#22d3ee', '#fbbf24', 7);
+              AudioFX.playSlash('light');
+              e.stateTimer = 1.65;
             } else if (
               (gk === 'bone_archer' || gk === 'shenji_musketeer') &&
               e.stateTimer <= 0 &&
@@ -5005,8 +5316,9 @@ export class GameEngine {
               AudioFX.playSlash('light');
               e.stateTimer = 1.85;
             } else if (
-              // 玄甲重盾卫中距离投掷恶魔城经典高低回旋双刃铜斧（蹲下可躲过高斧！）
+              // 玄甲重盾卫中距离投掷恶魔城经典高低回旋双刃铜斧（皇陵秦俑戟将专精长戟刺杀，不共用扔斧！）
               e.profile.shieldedFront &&
+              gk !== 'terracotta_halberdier' &&
               e.stateTimer <= 0 &&
               absDx > 145 &&
               absDx < 350 &&
@@ -5035,18 +5347,23 @@ export class GameEngine {
             } else if (e.stateTimer <= 0 && absDx <= attackRange + 18 && Math.abs(dy) < 90) {
               e.guardStanceTimer = 0;
               e.aiState = 'windup';
-              const wDur = e.profile.shieldedFront || e.profile.kind === 'frost_chain_jailer'
-                ? 0.56
-                : e.profile.kind === 'clockwork_mantis'
-                  ? 0.36
-                  : e.profile.kind === 'paper_swordsman'
-                    ? 0.42
-                    : 0.46;
+              e.bossAction = undefined;
+              e.bossSubStep = gk === 'clockwork_mantis' ? 2 : 1;
+              const wDur =
+                gk === 'terracotta_halberdier'
+                  ? 0.48
+                  : e.profile.shieldedFront || gk === 'frost_chain_jailer'
+                    ? 0.56
+                    : gk === 'clockwork_mantis'
+                      ? 0.34
+                      : gk === 'paper_swordsman'
+                        ? 0.42
+                        : 0.46;
               e.stateTimer = wDur;
               e.stateDuration = wDur;
               e.vx = 0;
               e.slashHitPlayer = false;
-              if (e.profile.kind === 'paper_swordsman' || e.profile.kind === 'clockwork_mantis') {
+              if (gk === 'paper_swordsman' || gk === 'clockwork_mantis') {
                 this.spawnInkBurst(e.x - e.facing * 10, e.y - 32, '#e0f2fe', '#38bdf8', 7);
               }
             }
@@ -5239,26 +5556,34 @@ export class GameEngine {
                               ? 315
                               : 340;
           e.vx = e.facing * lungeSpd;
+          if (e.profile.kind === 'celestial_sentinel' && e.bossAction === 'dive_bomb') {
+            const tx = e.bossTargetX ?? p.x;
+            const ty = e.bossTargetY ?? sampleSolidGroundY(room, tx);
+            const diveA = Math.atan2(ty - e.y, tx - e.x);
+            e.vx = Math.cos(diveA) * 580;
+            e.vy = Math.sin(diveA) * 580;
+            e.stateTimer = 0.42;
+            e.stateDuration = 0.42;
+          }
           AudioFX.playSlash(e.profile.shieldedFront || isTitanCharge || isWarg ? 'heavy' : 'light');
           if (e.profile.kind === 'lantern_ghost') {
             this.spawnInkBurst(e.x + e.facing * 24, e.y - 42, '#5eead4', '#a855f7', 9);
           } else if (isIaido) {
             this.spawnInkBurst(e.x + e.facing * 28, e.y - 36, '#e0f2fe', '#38bdf8', 8);
-          } else if (e.profile.kind === 'mine_pickaxe_ghoul') {
-            // 矿奴重镐劈地迸溅抛物线飞石！
+          } else if (e.profile.kind === 'terracotta_halberdier') {
+            // 皇陵秦俑戟将：长戟破空突刺 + 赤血罡风！
             this.projectiles.push({
               fromPlayer: false,
-              kind: 'holy_fire',
-              enemyFx: 'magma_bomb',
-              x: e.x + e.facing * 22,
-              y: e.y - 24,
-              vx: e.facing * 240,
-              vy: -310,
-              r: 9,
-              dmg: Math.round(e.profile.atk * 0.88),
-              color: '#f59e0b',
-              life: 1.2,
-              maxLife: 1.2,
+              kind: 'qi_wave',
+              x: e.x + e.facing * 32,
+              y: e.y - 34,
+              vx: e.facing * 385,
+              vy: 0,
+              r: 18,
+              dmg: Math.round(e.profile.atk * 0.92),
+              color: '#ef4444',
+              life: 0.72,
+              maxLife: 0.72,
               pierce: 1,
               hitIds: new Set(),
             });
@@ -5641,14 +5966,20 @@ export class GameEngine {
             continue;
           }
           e.x = Math.max(50, Math.min(room.pixelW - 50, nextBossX));
-          if (e.profile.isBoss && !e.profile.flying) {
+          if (e.profile.kind === 'celestial_sentinel' && e.bossAction === 'dive_bomb') {
+            e.y = Math.min(sampleSolidGroundY(room, e.x), e.y + e.vy * dt);
+          } else if (e.profile.isBoss && !e.profile.flying) {
             e.y = sampleEntitySurfaceY(room, e.x, e.y);
           }
         } else {
           this.stepGroundEnemyX(e, e.vx * dt);
         }
 
-        const reach = e.profile.isBoss ? Math.max(106, Math.round(e.profile.w * 1.15 + 52)) : 86;
+        const reach = e.profile.isBoss
+          ? Math.max(106, Math.round(e.profile.w * 1.15 + 52))
+          : e.profile.kind === 'terracotta_halberdier'
+            ? 158
+            : 86;
         const slashMinX = e.facing === 1 ? e.x - 16 : e.x - reach;
         const slashMaxX = e.facing === 1 ? e.x + reach : e.x + 16;
 
@@ -5708,6 +6039,19 @@ export class GameEngine {
             continue;
           }
 
+          // 墨家青铜螳螂二连交剪逆袭！
+          if (e.profile.kind === 'clockwork_mantis' && (e.bossSubStep || 1) > 1) {
+            e.bossSubStep = (e.bossSubStep || 1) - 1;
+            e.facing = p.x >= e.x ? 1 : -1;
+            e.aiState = 'windup';
+            e.stateTimer = 0.24;
+            e.stateDuration = 0.24;
+            e.vx = 0;
+            e.slashHitPlayer = false;
+            this.spawnInkBurst(e.x, e.y - 30, '#fbbf24', '#22d3ee', 8);
+            continue;
+          }
+
           // 中后期玄甲苍狼二连猛扑追咬！
           const isLateWolf =
             e.profile.kind === 'demon_wolf' &&
@@ -5727,6 +6071,7 @@ export class GameEngine {
             e.bossMoveIdx = 0;
             e.bossAction = undefined;
             e.bossSubStep = 0;
+            e.vy = 0;
             e.aiState = 'recover';
             e.stateTimer = e.profile.isBoss ? 0.56 : e.profile.kind === 'demon_wolf' ? 0.42 : 0.52;
             e.vx = 0;
@@ -5734,6 +6079,9 @@ export class GameEngine {
         }
       } else if (e.aiState === 'recover') {
         e.stateTimer -= dt;
+        if (e.profile.flying && !e.profile.isBoss) {
+          e.y += (e.baseY - e.y) * Math.min(1, dt * 5);
+        }
         if (e.stateTimer <= 0) {
           const enraged = e.profile.isBoss && e.hp < e.maxHp * 0.55;
           e.bossAction = undefined;
@@ -6397,7 +6745,19 @@ export class GameEngine {
   public useConsumable(id: string): boolean {
     const s = this.slot;
     const def = CONSUMABLES[id];
-    if (!s || !def || (s.consumables[id] || 0) <= 0 || this.player.potionCooldown > 0) return false;
+    if (!s || !def || (s.consumables[id] || 0) <= 0) return false;
+    if (def.warpTalisman) {
+      if (this.enemies.some((e) => e.profile.isBoss) || this.ambushSealed) {
+        AudioFX.playHurt();
+        this.cb.onShowBanner('结界封锁', '妖王或封印结界未破，暂不可催动千山缩地符');
+        return false;
+      }
+      AudioFX.playRelicBell();
+      NativeApp.haptic('medium');
+      this.cb.onOpenInteractModal('warp', { consumeTalisman: true });
+      return true;
+    }
+    if (this.player.potionCooldown > 0) return false;
     s.consumables[id]--;
     this.player.potionCooldown = 3.5;
 
@@ -6449,7 +6809,7 @@ export class GameEngine {
     const orbitPlats = getClockGearOrbitPlatforms(this.room, p.animTime);
     if (
       orbitPlats.some(
-        (op) => p.x >= op.x + 4 && p.x <= op.x + op.w - 4 && Math.abs(p.y - op.y) < 10
+        (op) => p.x >= op.x - 6 && p.x <= op.x + op.w + 6 && Math.abs(p.y - op.y) < 12
       )
     ) {
       return true;
@@ -6674,19 +7034,23 @@ export class GameEngine {
       }
     }
 
-    // 1. 检测雕栏阁台、旋转青铜机关齿轮踏板、石壁顶端与竖井井口单向栈板着陆
+    // 1. 检测雕栏阁台、旋转青铜机关齿轮踏板、高速配重升降梯、石壁顶端与竖井井口单向栈板着陆
     if (!p.onGround && p.vy >= 0 && p.dropThroughTimer <= 0) {
       const orbitPlats = getClockGearOrbitPlatforms(room, p.animTime);
       for (const op of orbitPlats) {
-        if (p.x >= op.x + 4 && p.x <= op.x + op.w - 4) {
-          const stepDownAllowance = 18 + Math.max(0, op.vy * dt * 2.5);
-          if (prevY <= op.y + stepDownAllowance && nextY >= op.y - 8) {
-            p.y = op.y;
-            p.x = Math.max(36, Math.min(room.pixelW - 36, p.x + op.vx * dt));
-            p.vy = 0;
-            p.onGround = true;
-            break;
-          }
+        const prevPlatX = op.x - op.vx * dt;
+        const prevPlatY = op.y - op.vy * dt;
+        const withinCurX = p.x >= op.x - 6 && p.x <= op.x + op.w + 6;
+        const withinPrevX = p.x >= prevPlatX - 10 && p.x <= prevPlatX + op.w + 10;
+        const stickyRide = wasGrounded && withinPrevX && Math.abs(prevY - prevPlatY) <= 18;
+        const sweptLanding = withinCurX && prevY <= prevPlatY + 14 && nextY >= op.y - 6;
+        if (stickyRide || sweptLanding) {
+          p.y = op.y;
+          p.x = Math.max(36, Math.min(room.pixelW - 36, p.x + op.vx * dt));
+          if (!wasGrounded && p.vy > 260) p.landSquash = 1;
+          p.vy = 0;
+          p.onGround = true;
+          break;
         }
       }
 
@@ -7258,6 +7622,45 @@ export class GameEngine {
       }
     }
     return stops;
+  }
+
+  public getTalismanWarpStops(): ReturnType<GameEngine['getUnlockedWarpStops']> {
+    const warps = this.getUnlockedWarpStops();
+    if (warps.length > 0 || !this.slot) return warps;
+    const shrines: ReturnType<GameEngine['getUnlockedWarpStops']> = [];
+    for (const realm of ['normal', 'inverted'] as CastleRealm[]) {
+      if (realm === 'inverted' && !this.slot.invertedUnlocked) continue;
+      for (const rm of WorldMap.getAllRooms(realm)) {
+        if (rm.special === 'save_shrine' && this.slot.visitedRooms.includes(`${realm}:${rm.id}`)) {
+          shrines.push({
+            realm,
+            roomId: rm.id,
+            name: rm.name,
+            stageTitle: realm === 'inverted' ? INVERTED_REGION_NAMES[rm.region] : REGION_NAMES[rm.region],
+            mapX: rm.mapX,
+            mapY: rm.mapY,
+            gridW: rm.gridW,
+            gridH: rm.gridH,
+          });
+        }
+      }
+    }
+    if (shrines.length === 0) {
+      const outpost = WorldMap.getRoom('normal', 'bamboo_outpost');
+      if (outpost) {
+        shrines.push({
+          realm: 'normal',
+          roomId: outpost.id,
+          name: outpost.name,
+          stageTitle: REGION_NAMES[outpost.region],
+          mapX: outpost.mapX,
+          mapY: outpost.mapY,
+          gridW: outpost.gridW,
+          gridH: outpost.gridH,
+        });
+      }
+    }
+    return shrines.sort((a, b) => a.mapX - b.mapX || a.mapY - b.mapY);
   }
 
   // 喷溅定向拉长水墨飞白与刀锋金铁火星（彻底告别廉价圆点粒子！）

@@ -1082,6 +1082,15 @@ export const CONSUMABLES: Record<string, ConsumableDef> = {
     price: 520,
     desc: '钦天炼丹司至高仙药，服之顷刻回满全部气血与真气！',
   },
+  suodi_talisman: {
+    id: 'suodi_talisman',
+    name: '千山缩地符',
+    hpRestore: 0,
+    mpRestore: 0,
+    warpTalisman: true,
+    price: 90,
+    desc: '钦天监秘制归阵灵符：非封锁状态下催动可展开堪舆阵图，瞬移返回任意已点亮的八卦传送阵（未点亮阵眼时可急返最近留档古祠）。',
+  },
 };
 
 export const SKILLS: Record<SkillId, SkillDef> = {

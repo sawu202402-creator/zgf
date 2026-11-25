@@ -1166,6 +1166,11 @@ export class UIManager {
       const pinBtnHtml = pinTargetId
         ? `<button class="zx-seal-btn" id="btn-map-pin" style="padding:4px 10px;font-size:12px;${isPinned ? 'border-color:#fb7185;color:#fecdd3;background:rgba(159,18,57,0.55);' : ''}">${isPinned ? '⚑ 取消标点' : '⚑ 朱砂标点'}</button>`
         : '';
+      const suodiCnt = s.consumables.suodi_talisman || 0;
+      const suodiBtnHtml =
+        suodiCnt > 0
+          ? `<button class="zx-seal-btn" id="btn-map-suodi" style="padding:4px 10px;font-size:12px;border-color:#2dd4bf;color:#fef08a;background:rgba(15,118,110,0.55);">✦ 缩地归阵 ×${suodiCnt}</button>`
+          : '';
       mainHtml = `
         <div class="zx-map-pane">
           <div class="zx-map-header">
@@ -1176,6 +1181,7 @@ export class UIManager {
               探索度 ${pct}% / 200%+
             </span>
             ${realmSwitchHtml}
+            ${suodiBtnHtml}
             ${pinBtnHtml}
           </div>
           <div class="zx-map-canvas-wrap">
@@ -1378,6 +1384,9 @@ export class UIManager {
         pinBtn.style.color = pinned ? '#fecdd3' : '';
         pinBtn.style.background = pinned ? 'rgba(159,18,57,0.55)' : '';
       };
+      this.bindFastTap(overlay.querySelector('#btn-map-suodi'), () => {
+        this.engine.useConsumable('suodi_talisman');
+      });
       this.bindFastTap(overlay.querySelector('#btn-map-pin'), () => {
         const targetId =
           this.inspectedMapRoomId ||
@@ -2503,8 +2512,10 @@ export class UIManager {
           : entries
               .map(([id, cnt]) => {
                 const c = CONSUMABLES[id];
+                const isTalisman = Boolean(c.warpTalisman);
+                const dimmed = !isTalisman && potCd > 0.05;
                 return `
-              <div class="zx-item-row" data-pick-id="${id}" style="opacity:${potCd > 0.05 ? 0.58 : 1};">
+              <div class="zx-item-row" data-pick-id="${id}" style="opacity:${dimmed ? 0.58 : 1};">
                 <div style="display:flex;align-items:center;gap:12px;">
                   ${getSlotCategorySvg('potion', id)}
                   <div>
@@ -2512,7 +2523,7 @@ export class UIManager {
                     <div style="font-size:11.5px;color:var(--jade);">${c.desc}</div>
                   </div>
                 </div>
-                <span class="zx-eq-seal" style="background:${potCd > 0.05 ? '#334155' : '#115e59'};border-color:${potCd > 0.05 ? '#64748b' : '#2dd4bf'};">${potCd > 0.05 ? `${potCd.toFixed(1)}s` : '服用'}</span>
+                <span class="zx-eq-seal" style="background:${dimmed ? '#334155' : isTalisman ? '#0f766e' : '#115e59'};border-color:${dimmed ? '#64748b' : isTalisman ? '#fde047' : '#2dd4bf'};color:${isTalisman ? '#fef08a' : ''};">${dimmed ? `${potCd.toFixed(1)}s` : isTalisman ? '催动' : '服用'}</span>
               </div>`;
               })
               .join('');
@@ -2755,7 +2766,11 @@ export class UIManager {
           this.engine.recalcStats(false);
           AudioFX.playRelicBell();
         } else if (this.selectedEquipSlot === 'potion') {
+          const isTalisman = Boolean(CONSUMABLES[id]?.warpTalisman);
           this.engine.useConsumable(id);
+          if (isTalisman && this.modalEl) {
+            return;
+          }
         }
         this.previewItemId = id;
         this.renderArsenalModal();
@@ -2885,7 +2900,10 @@ export class UIManager {
     });
   }
 
-  public openInteractModal(kind: 'smith' | 'merchant' | 'warp'): void {
+  public openInteractModal(
+    kind: 'smith' | 'merchant' | 'warp',
+    opts?: { consumeTalisman?: boolean }
+  ): void {
     const s = this.engine.slot;
     if (!s) return;
 
@@ -2900,7 +2918,10 @@ export class UIManager {
     const compact = window.innerHeight < 540 || window.innerWidth < 900;
 
     if (kind === 'warp') {
-      const allStops = this.engine.getUnlockedWarpStops();
+      const consumeTalisman = Boolean(opts?.consumeTalisman);
+      const allStops = consumeTalisman
+        ? this.engine.getTalismanWarpStops()
+        : this.engine.getUnlockedWarpStops();
       let viewRealm: CastleRealm = this.engine.room?.realm || 'normal';
       const curRoomId = this.engine.room?.id || '';
       const curRealm = this.engine.room?.realm || 'normal';
@@ -2928,7 +2949,7 @@ export class UIManager {
 
       overlay.innerHTML = `
         <div class="zx-arsenal-topbar">
-          <span class="zx-modal-heading" style="color:var(--jade);">乾坤八卦阵 · 堪舆选点瞬移</span>
+          <span class="zx-modal-heading" style="color:var(--jade);">${consumeTalisman ? `千山缩地符 · 择阵瞬归（余 ${s.consumables.suodi_talisman || 0} 张）` : '乾坤八卦阵 · 堪舆选点瞬移'}</span>
           <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
             ${realmSwitchHtml}
             <button class="zx-seal-btn" id="btn-close-npc" style="border-color:var(--bronze-light);color:var(--bronze-light);">${isTouch ? '✕ 返回' : '留在原处 [ESC]'}</button>
@@ -3019,8 +3040,21 @@ export class UIManager {
 
       const executeTeleportTo = (st: NonNullable<typeof selectedStop>) => {
         if (st.realm === curRealm && st.roomId === curRoomId) return;
+        if (consumeTalisman && (s.consumables.suodi_talisman || 0) <= 0) return;
         this.closeModal();
         this.engine.warpToRoom(st.realm, st.roomId);
+        if (consumeTalisman) {
+          s.consumables.suodi_talisman--;
+          SaveManager.saveSlot(s);
+          AudioFX.playSkillCast();
+          this.engine.spawnInkBurst(
+            this.engine.player.x,
+            this.engine.player.y - 36,
+            '#2dd4bf',
+            '#fde047',
+            18
+          );
+        }
       };
 
       let animId = 0;
@@ -3480,6 +3514,14 @@ export class UIManager {
             desc: '恢复 35 真气，且 30 秒内暴击 +20%、移速 +14%',
             price: 78,
             icon: getSlotCategorySvg('potion', 'huiqi_dan'),
+          },
+          {
+            id: 'suodi_talisman',
+            kind: 'pot',
+            name: '灵符 · 千山缩地符',
+            desc: '非封锁状态下催动可瞬移返回任意已点亮的八卦传送阵',
+            price: 90,
+            icon: getSlotCategorySvg('potion', 'suodi_talisman'),
           },
           {
             id: 'hearts_10',

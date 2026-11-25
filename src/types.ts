@@ -131,6 +131,7 @@ export interface ConsumableDef {
   hpRestore: number;
   mpRestore: number;
   fullRestore?: boolean;
+  warpTalisman?: boolean;
   buffKind?: CombatBuffKind;
   buffSec?: number;
   price: number;

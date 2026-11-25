@@ -1775,7 +1775,7 @@ export class InkVaniaRenderer {
       ctx.save();
       ctx.translate(pr.x, pr.y);
       if (pr.enemyFx === 'lava_wave') {
-        // 赤铜镇火巨灵 / 烛阴：手绘赤焰裂地熔浪
+        // 赤铜镇火巨灵 / 地肺巨傀 / 烛阴：手绘赤焰裂地熔浪
         const dir = pr.vx >= 0 ? 1 : -1;
         drawPaintedVfxSprite(ctx, 'vfx_samadhi_fire_pillar', 0, 14, 44, 42, {
           anchorY: 0.95,
@@ -1783,6 +1783,16 @@ export class InkVaniaRenderer {
           alpha: 0.9,
           tintHex: pr.color || '#f97316',
           tintAlpha: 0.3,
+          additive: false,
+        });
+      } else if (pr.enemyFx === 'ink_calligraphy') {
+        // 翰林执笔书魔：正弦游龙狂草水墨笔锋
+        const dir = pr.vx >= 0 ? 1 : -1;
+        drawPaintedVfxSprite(ctx, 'vfx_qi_dragon_wave', 0, 0, 48, 34, {
+          flipX: dir === -1,
+          alpha: 0.9,
+          tintHex: pr.color || '#38bdf8',
+          tintAlpha: 0.45,
           additive: false,
         });
       } else if (pr.kind === 'qi_wave') {
@@ -1973,6 +1983,52 @@ export class InkVaniaRenderer {
           ctx.drawImage(needleImg, -14, -4, 28, 8);
         }
         ctx.restore();
+      } else if (pr.enemyFx === 'cinnabar_flask') {
+        // 丹鼎朱砂药傀：飞旋朱砂爆裂药葫芦 + 丹火水墨晕影
+        const rot = this.ambientTime * 11 * (pr.vx >= 0 ? 1 : -1);
+        drawPaintedVfxDisc(ctx, 'vfx_ink_shockwave', 0, 0, 15, rot, 0.55, '#ef4444', 1, true);
+        const flaskImg = Assets.get('item_sub_fire_gourd') || Assets.get('item_yao_core');
+        if (flaskImg) {
+          ctx.save();
+          ctx.rotate(rot);
+          ctx.drawImage(flaskImg, -13, -16, 26, 32);
+          ctx.restore();
+        }
+      } else if (pr.enemyFx === 'frost_flail') {
+        // 寒潭玄铁狱卒：铁链牵引寒霜链槌（真实与狱卒手部牵连锁链！）
+        const owner = pr.ownerId ? engine.enemies.find((en) => en.id === pr.ownerId) : undefined;
+        if (owner) {
+          drawPaintedChainTrack(
+            ctx,
+            owner.x + owner.facing * 14 - pr.x,
+            owner.y - 36 - pr.y,
+            0,
+            0,
+            9,
+            0.9,
+            '#38bdf8'
+          );
+        }
+        const spin = this.ambientTime * 16;
+        drawPaintedVfxDisc(ctx, 'vfx_ink_shockwave', 0, 0, 17, spin, 0.62, '#38bdf8', 1, true);
+        const ballImg = Assets.get('item_yao_core');
+        if (ballImg) {
+          ctx.save();
+          ctx.rotate(spin);
+          ctx.drawImage(ballImg, -13, -13, 26, 26);
+          ctx.restore();
+        }
+      } else if (pr.enemyFx === 'bronze_gear') {
+        // 浑天铜轮机灵 / 青铜螳螂：高速旋转手绘墨家铜齿轮 + 青金气环
+        const spin = this.ambientTime * 12 * (pr.vx >= 0 ? 1 : -1);
+        drawPaintedVfxDisc(ctx, 'vfx_ink_shockwave', 0, 0, 16, -spin, 0.45, '#22d3ee', 0.85, true);
+        const gearImg = Assets.get('prop_clock_gear');
+        if (gearImg) {
+          ctx.save();
+          ctx.rotate(spin);
+          ctx.drawImage(gearImg, -15, -15, 30, 30);
+          ctx.restore();
+        }
       } else if (pr.fromPlayer && pr.kind === 'holy_fire' && Assets.get('item_sub_fire_gourd')) {
         const fgImg = Assets.get('item_sub_fire_gourd')!;
         ctx.save();
