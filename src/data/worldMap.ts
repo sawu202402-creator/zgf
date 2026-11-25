@@ -12,9 +12,9 @@ import {
 export const TILE_SIZE = 40;
 export const CELL_PIXEL_W = 800;
 export const CELL_PIXEL_H = 440;
-export const MAP_GRID_TOTAL_W = 56;
-export const MAP_GRID_TOTAL_H = 28;
-export const MAP_LAYOUT_VERSION = 2;
+export const MAP_GRID_TOTAL_W = 46;
+export const MAP_GRID_TOTAL_H = 18;
+export const MAP_LAYOUT_VERSION = 3;
 
 export interface GroundNode {
   x: number;
@@ -10182,188 +10182,184 @@ function createNormalCastleRooms(): BuiltRoom[] {
     },
   ];
 
-  // 全城 56×28 月下级分散舒展立体堪舆网格坐标 [mapX, mapY, gridW, gridH]（零误墙、零重叠、高塔长廊极渊层次分明！）
+  // 全城 46×18 本真比例舒展立体堪舆网格坐标 [mapX, mapY, gridW, gridH]（零假拉高单层房、1×1 祠堂/传送阵还原方正、高塔真增高、庭院海崖极渊留白分明！）
   const DISPERSED_WORLD_LAYOUT: Record<string, readonly [number, number, number, number]> = {
-    // 1. 凌霄祭天坛孤峰 (y=0..2)
-    cloud_star_gallery: [31, 0, 2, 4],
-    altar_forecourt: [33, 0, 5, 1],
-    altar_save: [38, 0, 1, 1],
-    sky_altar: [39, 0, 6, 1],
-    altar_cloud_bridge: [34, 2, 3, 1],
-    altar_vestibule: [37, 1, 1, 2],
-    altar_east_terrace: [38, 2, 7, 1],
-    celestial_bell_sanctum: [46, 2, 4, 1],
-    celestial_star_vault: [50, 2, 3, 1],
+    // 1. 凌霄祭天坛孤峰 (y=0..1) + 摘星霓裳云廊真三层斜升天梯 (y=0..2)
+    cloud_star_gallery: [26, 0, 2, 3],
+    altar_forecourt: [28, 0, 5, 1],
+    altar_save: [33, 0, 1, 1],
+    sky_altar: [34, 0, 4, 1],
+    outer_wall_upper: [38, 0, 1, 4],
+    altar_cloud_bridge: [29, 1, 3, 1],
+    altar_vestibule: [32, 1, 1, 1],
+    altar_east_terrace: [33, 1, 5, 1],
+    celestial_bell_sanctum: [39, 1, 4, 1],
+    celestial_star_vault: [43, 1, 3, 1],
 
-    // 2. 神武演武校场 · 西北天脊 (y=3)
-    chapel_cloud_stair: [4, 3, 4, 3],
-    colosseum_west_gate: [8, 3, 3, 1],
-    colosseum_grand_arena: [11, 3, 5, 1],
-    colosseum_save: [16, 3, 2, 1],
-    colosseum_east_armory: [18, 3, 1, 2],
-    colosseum_sky_bridge: [19, 3, 5, 1],
+    // 2. 神武演武校场 & 百戏梨园上层脊廊 (y=2..3)
+    chapel_cloud_stair: [6, 2, 3, 2],
+    colosseum_west_gate: [9, 2, 2, 1],
+    colosseum_grand_arena: [11, 2, 3, 1],
+    colosseum_save: [14, 2, 1, 1],
+    colosseum_east_armory: [15, 2, 3, 1],
+    colosseum_sky_bridge: [18, 2, 1, 1],
+    relic_grapple_vault: [19, 2, 1, 1],
+    opera_boss_stage: [20, 2, 3, 1],
+    opera_save: [23, 2, 1, 1],
+    opera_moon_pavilion: [24, 2, 2, 1],
+    east_outer_tower: [29, 2, 1, 7],
 
-    // 3. 百戏梨园 · 上层中庭悬台 (y=3..5)
-    relic_grapple_vault: [24, 3, 1, 1],
-    opera_boss_stage: [25, 3, 3, 1],
-    opera_save: [28, 3, 1, 2],
-    opera_moon_pavilion: [29, 3, 2, 1],
-    library_warp: [24, 5, 1, 1],
-    opera_dressing_room: [25, 5, 1, 1],
-    opera_gallery: [26, 5, 4, 1],
-    opera_foyer: [30, 5, 2, 2],
+    // 3. 钦天炼丹司上层 & 百戏梨园下层 & 钟楼高空水渠 (y=3)
+    west_cliff_watchtower: [9, 3, 1, 2],
+    relic_double_jump: [10, 3, 1, 1],
+    xiao_boss_hall: [11, 3, 2, 1],
+    alchemy_save: [13, 3, 1, 1],
+    alchemy_fire_sanctum: [15, 3, 2, 1],
+    library_automaton_loft: [17, 3, 2, 1],
+    library_warp: [19, 3, 1, 1],
+    opera_dressing_room: [20, 3, 1, 1],
+    opera_gallery: [21, 3, 3, 1],
+    opera_foyer: [24, 3, 4, 1],
+    secret_archive: [30, 3, 1, 1],
+    clock_sky_aqueduct: [31, 3, 5, 1],
+    relic_wall_vault: [36, 3, 1, 1],
+    outer_wall_armory: [37, 3, 1, 1],
 
-    // 4. 钦天炼丹司 · 西翼重阁 (y=5..7)
-    west_cliff_watchtower: [8, 4, 1, 4],
-    relic_double_jump: [9, 5, 1, 1],
-    xiao_boss_hall: [10, 5, 3, 1],
-    alchemy_save: [13, 5, 1, 2],
-    alchemy_fire_sanctum: [15, 5, 3, 1],
-    library_automaton_loft: [18, 5, 6, 1],
-    secret_armory_vault: [10, 7, 1, 1],
-    west_armory: [11, 7, 1, 1],
-    alchemy_lab: [12, 7, 3, 1],
-    alchemy_foyer: [15, 7, 2, 2],
-    alchemy_herb_garden: [17, 6, 1, 2],
+    // 4. 苦竹西崖上段 & 炼丹司下层 & 万卷藏书阁 & 钟楼机括殿 (y=4)
+    cliff_hermit_shrine: [3, 4, 2, 1],
+    cliff_wind_pavilion: [5, 4, 1, 1],
+    west_cliff_pagoda: [6, 4, 1, 3],
+    west_cliff_skybridge: [7, 4, 2, 1],
+    secret_armory_vault: [11, 4, 1, 1],
+    west_armory: [12, 4, 1, 1],
+    alchemy_lab: [13, 4, 2, 1],
+    alchemy_foyer: [15, 4, 2, 1],
+    alchemy_herb_garden: [17, 4, 1, 1],
+    alchemy_library_bridge: [18, 4, 3, 1],
+    secret_library_study: [21, 4, 1, 1],
+    library_shop: [22, 4, 1, 1],
+    library_save: [23, 4, 1, 1],
+    library_grand_hall: [24, 4, 3, 1],
+    upper_library: [27, 4, 2, 2],
+    clock_gear_hall: [30, 4, 3, 1],
+    clock_bell_gallery: [33, 4, 2, 1],
+    clock_save: [35, 4, 1, 1],
+    clock_boss_spire: [36, 4, 1, 1],
+    secret_thunder_vault: [37, 4, 1, 1],
+    outer_wall_lower: [38, 4, 1, 5],
+    outer_wall_battlement: [43, 4, 3, 2],
 
-    // 5. 万卷藏书阁 · 中枢书楼 (y=7)
-    alchemy_library_bridge: [18, 7, 6, 1],
-    secret_library_study: [24, 7, 1, 1],
-    library_shop: [25, 7, 1, 1],
-    library_save: [26, 7, 1, 1],
-    library_grand_hall: [27, 7, 3, 1],
-    upper_library: [30, 7, 4, 1],
+    // 5. 中庭留白阔院 (y=5 西中空旷) + 镇海观星台 (y=5 东翼)
+    gate_2: [15, 5, 3, 3],
+    east_warp: [30, 5, 1, 1],
+    observatory_bridge: [31, 5, 4, 1],
+    observatory_pavilion: [35, 5, 1, 1],
+    secret_sword_tomb: [36, 5, 1, 1],
+    clock_east_bastion: [37, 5, 1, 1],
+    outer_wall_telescope: [39, 5, 3, 1],
+    outer_wall_save: [42, 5, 1, 1],
 
-    // 6. 正阳皇城门 · 苦竹西崖与中轴正门大道 (y=7..11)
-    cliff_hermit_shrine: [0, 7, 3, 1],
-    cliff_wind_pavilion: [3, 7, 1, 1],
-    west_cliff_pagoda: [4, 6, 1, 4],
-    west_cliff_skybridge: [5, 7, 3, 1],
-    cliff_pine_trail: [0, 9, 4, 1],
-    entrance_battlement_tower: [5, 9, 4, 1],
-    bamboo_outpost: [0, 11, 1, 1],
-    entrance_bamboo_woods: [1, 10, 2, 2],
-    bridge_save: [3, 11, 1, 1],
-    gate_1: [4, 11, 5, 1],
-    entrance_imperial_plaza: [9, 9, 4, 3],
-    entrance_guard_pavilion: [13, 9, 2, 1],
-    entrance_mid_save: [13, 11, 2, 1],
-    gate_2: [15, 9, 2, 3],
-    outer_city_warp: [17, 9, 2, 1],
-    gate_save: [17, 11, 5, 1],
+    // 6. 正阳皇城门 & 奉天盘龙殿 (y=6..7；东半城 y=6..7 为两行海崖留白！)
+    cliff_pine_trail: [3, 6, 3, 1],
+    entrance_battlement_tower: [7, 6, 3, 1],
+    entrance_imperial_plaza: [10, 6, 4, 2],
+    entrance_guard_pavilion: [14, 6, 1, 1],
+    outer_city_warp: [18, 6, 1, 1],
+    hall_west_gallery: [22, 6, 2, 1],
+    hall_corridor: [24, 6, 3, 2],
+    bamboo_outpost: [0, 7, 1, 1],
+    entrance_bamboo_woods: [1, 7, 3, 1],
+    bridge_save: [4, 7, 1, 1],
+    gate_1: [5, 7, 5, 1],
+    entrance_mid_save: [14, 7, 1, 1],
+    gate_save: [18, 7, 1, 1],
+    hall_courtyard: [19, 7, 5, 1],
+    hall_save: [27, 7, 1, 1],
+    hall_east_vestibule: [28, 7, 1, 1],
 
-    // 7. 奉天盘龙殿 · 中央皇殿群 (y=9..11)
-    hall_west_gallery: [22, 9, 3, 1],
-    hall_courtyard: [22, 11, 3, 1],
-    hall_corridor: [25, 9, 4, 3],
-    hall_save: [29, 11, 2, 1],
-    hall_east_vestibule: [31, 11, 3, 1],
+    // 7. 地宫一层：御河暗渠 / 铸剑坊上段 / 水牢上渠 / 船坞上港 (y=8)
+    sunken_ferry_shaft: [1, 8, 1, 3],
+    bamboo_cliff_grotto: [2, 8, 2, 1],
+    moat_west_tunnel: [4, 8, 6, 1],
+    entrance_moat_cavern: [10, 8, 2, 1],
+    forge_moat_sluice: [12, 8, 1, 1],
+    forge_slag_bridge: [13, 8, 1, 1],
+    forge_molten_hall: [14, 8, 2, 1],
+    forge_smithy: [16, 8, 1, 1],
+    forge_antechamber: [17, 8, 1, 1],
+    central_underpass: [18, 8, 2, 1],
+    central_warp: [20, 8, 1, 1],
+    imperial_aqueduct_west: [21, 8, 3, 1],
+    imperial_aqueduct_east: [24, 8, 4, 1],
+    prison_save: [28, 8, 1, 1],
+    dock_sluice_passage: [30, 8, 4, 1],
+    dock_shipyard_hall: [34, 8, 4, 2],
+    dock_east_beacon: [39, 8, 4, 1],
 
-    // 8. 东垣望月塔 & 镇海外壁双巨塔 (x=34..55, y=0..14)
-    east_outer_tower: [34, 3, 1, 12],
-    secret_archive: [35, 5, 1, 1],
-    clock_sky_aqueduct: [36, 5, 6, 1],
-    relic_wall_vault: [42, 5, 1, 2],
-    outer_wall_armory: [43, 5, 2, 1],
-    clock_gear_hall: [35, 7, 3, 1],
-    clock_bell_gallery: [38, 7, 3, 1],
-    clock_save: [41, 7, 1, 1],
-    clock_boss_spire: [42, 7, 1, 1],
-    secret_thunder_vault: [43, 7, 2, 2],
-    east_warp: [35, 9, 1, 1],
-    observatory_bridge: [36, 9, 5, 1],
-    observatory_pavilion: [41, 9, 1, 1],
-    secret_sword_tomb: [42, 9, 1, 1],
-    clock_east_bastion: [43, 9, 2, 1],
-    outer_wall_upper: [45, 0, 1, 7],
-    outer_wall_lower: [45, 7, 1, 8],
-    outer_wall_telescope: [46, 9, 4, 1],
-    outer_wall_save: [50, 9, 1, 1],
-    outer_wall_battlement: [51, 8, 5, 2],
+    // 8. 地宫二层：沉船栈道 / 炼器炉殿 / 寒潭大牢 / 船坞水仓 (y=9)
+    sunken_reed_wharf: [2, 9, 4, 1],
+    sunken_water_shrine: [6, 9, 1, 1],
+    sunken_sluice_cavern: [7, 9, 2, 1],
+    forge_boss_arena: [9, 9, 4, 1],
+    forge_save: [13, 9, 1, 1],
+    forge_prison_conduit: [14, 9, 3, 1],
+    prison_sluice_entry: [17, 9, 2, 1],
+    prison_waterway: [19, 9, 3, 1],
+    prison_cellblock: [22, 9, 1, 1],
+    prison_pre_save: [23, 9, 1, 1],
+    prison_boss_hall: [24, 9, 4, 1],
+    relic_mist_vault: [28, 9, 1, 1],
+    secret_ice_spring: [29, 9, 1, 1],
+    dock_flooded_hold: [30, 9, 4, 1],
 
-    // 9. 地宫上层 · 御河暗渠 / 铸剑坊上段 / 水牢水闸 / 船坞上港 (y=12..14)
-    sunken_ferry_shaft: [0, 14, 1, 5],
-    bamboo_cliff_grotto: [1, 12, 2, 3],
-    moat_west_tunnel: [3, 14, 4, 1],
-    entrance_moat_cavern: [7, 12, 2, 3],
-    forge_moat_sluice: [9, 14, 2, 1],
-    forge_slag_bridge: [11, 14, 1, 2],
-    forge_molten_hall: [12, 14, 3, 1],
-    forge_smithy: [15, 14, 1, 1],
-    forge_antechamber: [16, 12, 1, 3],
-    central_underpass: [17, 14, 5, 1],
-    central_warp: [22, 12, 1, 3],
-    imperial_aqueduct_west: [23, 14, 5, 1],
-    imperial_aqueduct_east: [28, 14, 5, 1],
-    prison_save: [33, 14, 1, 2],
-    dock_sluice_passage: [35, 14, 6, 1],
-    dock_shipyard_hall: [41, 14, 4, 3],
-    dock_east_beacon: [46, 14, 5, 1],
+    // 9. 地宫三层：古矿脉 / 九幽帝陵 / 潜渊海道 (y=10)
+    mine_vertical_pit: [2, 10, 1, 2],
+    mine_timber_gallery: [3, 10, 4, 1],
+    mine_crystal_cavern: [7, 10, 2, 1],
+    relic_ground_slam: [9, 10, 1, 1],
+    secret_forge_smeltery: [10, 10, 1, 1],
+    forge_catacomb_tunnel: [11, 10, 4, 1],
+    secret_catacomb_treasury: [15, 10, 1, 1],
+    catacomb_west_crypt: [16, 10, 1, 1],
+    catacomb_entry: [17, 10, 1, 1],
+    catacomb_save: [18, 10, 1, 1],
+    catacomb_hall: [19, 10, 4, 1],
+    catacomb_shrine: [23, 10, 2, 1],
+    catacomb_prison_vault: [25, 10, 4, 1],
+    abyss_ascension_shaft: [29, 10, 1, 1],
+    dock_underwater_tunnel: [30, 10, 6, 1],
+    dock_save: [36, 10, 1, 1],
+    dock_coral_grotto: [37, 10, 5, 1],
 
-    // 10. 地宫中层 · 沉船栈道 / 炼器炉殿 / 寒潭大牢 (y=16)
-    sunken_reed_wharf: [1, 16, 4, 1],
-    sunken_water_shrine: [5, 16, 1, 1],
-    sunken_sluice_cavern: [6, 15, 1, 2],
-    forge_boss_arena: [7, 16, 4, 1],
-    forge_save: [11, 16, 1, 1],
-    forge_prison_conduit: [12, 16, 4, 1],
-    prison_sluice_entry: [16, 15, 1, 2],
-    prison_waterway: [17, 16, 6, 1],
-    prison_cellblock: [23, 15, 1, 2],
-    prison_pre_save: [24, 16, 2, 1],
-    prison_boss_hall: [26, 16, 7, 1],
-    relic_mist_vault: [33, 16, 1, 1],
-    secret_ice_spring: [34, 16, 1, 2],
-    dock_flooded_hold: [35, 16, 6, 1],
+    // 10. 极渊上脉：熔岩桥 / 镇龙渊 / 归墟海沟 (y=11)
+    mine_secret_geode: [1, 11, 1, 1],
+    mine_deep_vein: [3, 11, 5, 1],
+    mine_warp: [8, 11, 1, 1],
+    mine_lava_bridge: [9, 11, 4, 1],
+    abyss_dragon_vein_west: [13, 11, 6, 1],
+    abyss_sanctum_save: [19, 11, 1, 1],
+    abyss_dragon_spine: [20, 11, 6, 1],
+    abyss_east_corridor: [26, 11, 4, 1],
+    dock_abyss_trench: [30, 11, 6, 1],
+    dock_warp: [36, 11, 1, 1],
+    dock_treasure_vault: [37, 11, 3, 1],
 
-    // 11. 地宫下层 · 古矿脉 / 九幽帝陵 / 潜渊海道 (y=18)
-    mine_vertical_pit: [1, 18, 1, 3],
-    mine_timber_gallery: [2, 18, 4, 1],
-    mine_crystal_cavern: [6, 18, 3, 1],
-    relic_ground_slam: [9, 17, 1, 2],
-    secret_forge_smeltery: [10, 18, 3, 1],
-    forge_catacomb_tunnel: [13, 18, 1, 2],
-    secret_catacomb_treasury: [14, 18, 1, 1],
-    catacomb_west_crypt: [15, 18, 1, 1],
-    catacomb_entry: [16, 17, 1, 2],
-    catacomb_save: [17, 18, 2, 1],
-    catacomb_hall: [19, 18, 6, 1],
-    catacomb_shrine: [25, 18, 2, 2],
-    catacomb_prison_vault: [27, 18, 7, 1],
-    abyss_ascension_shaft: [34, 18, 1, 2],
-    dock_underwater_tunnel: [35, 18, 6, 1],
-    dock_save: [41, 17, 1, 2],
-    dock_coral_grotto: [42, 18, 8, 1],
-
-    // 12. 极渊上脉 · 熔岩桥 / 镇龙渊 / 归墟海沟 (y=20)
-    mine_secret_geode: [0, 20, 1, 1],
-    mine_deep_vein: [2, 20, 5, 1],
-    mine_warp: [7, 20, 1, 1],
-    mine_lava_bridge: [8, 20, 5, 1],
-    abyss_dragon_vein_west: [13, 20, 7, 1],
-    abyss_sanctum_save: [20, 20, 1, 2],
-    abyss_dragon_spine: [21, 20, 7, 1],
-    abyss_east_corridor: [28, 20, 7, 1],
-    dock_abyss_trench: [35, 20, 6, 1],
-    dock_warp: [41, 19, 1, 2],
-    dock_treasure_vault: [42, 20, 6, 1],
-
-    // 13. 最深处 · 九幽忘川冥府与太古祖龙极渊 (y=23..27)
-    nether_west_descent: [12, 21, 1, 6],
-    nether_soul_bridge: [13, 23, 7, 1],
-    nether_ferry_save: [20, 22, 1, 2],
-    nether_lantern_avenue: [21, 23, 7, 1],
-    nether_east_descent: [28, 21, 1, 6],
-    nether_pillar_hall: [13, 25, 5, 1],
-    nether_trial_colosseum: [18, 25, 5, 1],
-    nether_mirror_crypt: [23, 25, 5, 1],
-    nether_east_ossuary: [29, 25, 6, 1],
-    nether_ancient_stele_room: [35, 25, 4, 1],
-    dragon_tomb_west: [12, 27, 8, 1],
-    dragon_tomb_save: [20, 27, 1, 1],
-    dragon_tomb_heart: [21, 27, 6, 1],
-    dragon_tomb_warp: [27, 27, 1, 1],
-    dragon_tomb_sanctuary: [28, 27, 7, 1],
+    // 11. 九幽忘川冥府 & 太古祖龙极渊 (y=12..17；y=12, 14, 16 为三层深渊断层，仅由东西双五层落渊竖井贯通！)
+    nether_west_descent: [11, 12, 1, 5],
+    nether_east_descent: [27, 12, 1, 5],
+    nether_soul_bridge: [12, 13, 7, 1],
+    nether_ferry_save: [19, 13, 1, 1],
+    nether_lantern_avenue: [20, 13, 7, 1],
+    nether_pillar_hall: [12, 15, 5, 1],
+    nether_trial_colosseum: [17, 15, 5, 1],
+    nether_mirror_crypt: [22, 15, 5, 1],
+    nether_east_ossuary: [28, 15, 5, 1],
+    nether_ancient_stele_room: [33, 15, 3, 1],
+    dragon_tomb_west: [11, 17, 7, 1],
+    dragon_tomb_save: [18, 17, 1, 1],
+    dragon_tomb_heart: [19, 17, 7, 1],
+    dragon_tomb_warp: [26, 17, 1, 1],
+    dragon_tomb_sanctuary: [27, 17, 5, 1],
   };
 
   const baseRooms: BuiltRoom[] = [
@@ -10588,18 +10584,33 @@ function sanitizeRoomDecorAndSpawns(rm: BuiltRoom): BuiltRoom {
 }
 
 /**
- * 对全城 155 座房间执行 56×28 分散重构的井道改道与跨层门位 rowOffset 自动对齐：
- * 1) 把部分宽殿叠宽殿的贴面直坠井替换为相邻 1 格塔楼/祠堂竖井，消灭无效叠墙同时 100% 保留全部进度锁与回路；
- * 2) 为拉开空隙后的 gridH > 1 跨层房重新精确匹配每扇侧门的 rowOffset，使小地图门豁口严丝合缝。
+ * 对全城 155 座房间执行 46×18 本真比例分散重构：
+ * 1) 还原所有单层房为 gridH = 1（零假拉高），全部存档祠 / 八卦传送阵 / 藏宝密室严格 1×1；
+ * 2) 剪除 5 处叠墙冗余竖井，并让太古祖龙极渊经黄泉东西双五层落渊竖井贯通；
+ * 3) 对 8 座真实增高的多层巨塔与天梯同步等比重建真实 pixelH、立体石阶与青铜升降梯，严格保留 100% 能力锁；
+ * 4) 为其余多层房自动精确对齐侧门 rowOffset。
  */
 function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
   const cloned = rooms.map((r) => ({
     ...r,
+    groundNodes: r.groundNodes.map((gn) => ({ ...gn })),
     shafts: r.shafts.map((sh) => ({ ...sh })),
     ceilingSpans: r.ceilingSpans.map((cs) => ({ ...cs })),
     pavilions: r.pavilions.map((pv) => ({ ...pv })),
     solidBlocks: r.solidBlocks ? r.solidBlocks.map((sb) => ({ ...sb })) : undefined,
     sideDoors: r.sideDoors ? r.sideDoors.map((sd) => ({ ...sd })) : undefined,
+    movingPlatforms: r.movingPlatforms ? r.movingPlatforms.map((mp) => ({ ...mp })) : undefined,
+    climbWalls: r.climbWalls ? r.climbWalls.map((cw) => ({ ...cw })) : undefined,
+    hazards: r.hazards ? r.hazards.map((hz) => ({ ...hz })) : undefined,
+    crumbleSlabs: r.crumbleSlabs ? r.crumbleSlabs.map((cs) => ({ ...cs })) : undefined,
+    clockGears: r.clockGears ? r.clockGears.map((cg) => ({ ...cg })) : undefined,
+    lanterns: r.lanterns.map((ln) => ({ ...ln })),
+    decorProps: r.decorProps ? r.decorProps.map((dp) => ({ ...dp })) : undefined,
+    torches: r.torches.map((tc) => ({ ...tc })),
+    spawns: r.spawns.map((sp) => ({ ...sp })),
+    pickups: r.pickups.map((pk) => ({ ...pk })),
+    archways: r.archways.map((ar) => ({ ...ar })),
+    foregrounds: r.foregrounds.map((fg) => ({ ...fg })),
   }));
   const byId = new Map(cloned.map((r) => [r.id, r]));
 
@@ -10609,7 +10620,10 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     rm.shafts = rm.shafts.filter((sh) => !(sh.dir === dir && sh.targetRoomId === targetId));
   };
 
-  const closeCeilingIfNoUp = (id: string, styleFallback: 'gate_tunnel' | 'palace_timber' | 'crypt_vault' = 'crypt_vault') => {
+  const closeCeilingIfNoUp = (
+    id: string,
+    styleFallback: 'gate_tunnel' | 'palace_timber' | 'crypt_vault' = 'crypt_vault'
+  ) => {
     const rm = byId.get(id);
     if (!rm || rm.shafts.some((s) => s.dir === 'up')) return;
     if (rm.ceilingSpans.length > 0) {
@@ -10640,85 +10654,43 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     ];
   };
 
-  // 1) 剪除已被旁边 1 格塔/回廊替代的宽房直连冗余井
-  dropShaft('west_cliff_skybridge', 'down', 'entrance_battlement_tower');
-  dropShaft('entrance_battlement_tower', 'up', 'west_cliff_skybridge');
-  dropShaft('hall_west_gallery', 'down', 'hall_courtyard');
-  dropShaft('hall_courtyard', 'up', 'hall_west_gallery');
+  // 1) 剪除西崖错落错层后的 3 处冗余直通井道，保持中庭与崖壁错落天际线
   dropShaft('cliff_hermit_shrine', 'down', 'cliff_pine_trail');
+  const hermitShrine = byId.get('cliff_hermit_shrine');
+  if (hermitShrine) {
+    hermitShrine.pavilions = hermitShrine.pavilions.filter((pv) => Math.abs(pv.x - 904) > 25);
+  }
   dropShaft('cliff_pine_trail', 'up', 'cliff_hermit_shrine');
-
-  // 2) 朱雀天街 -> 苦竹断桥 (gate_1) 下通桥下暗渠
-  dropShaft('entrance_imperial_plaza', 'down', 'entrance_moat_cavern');
-  const plaza = byId.get('entrance_imperial_plaza');
-  if (plaza) {
-    plaza.pavilions = plaza.pavilions.filter((pv) => Math.abs(pv.x - 978) > 25);
-  }
-  const gate1 = byId.get('gate_1');
-  if (gate1) {
-    gate1.shafts.push({ x1: 1360, x2: 1520, dir: 'down', targetRoomId: 'entrance_moat_cavern' });
-    gate1.pavilions.push({ x: 1350, y: 404, w: 180, hasPillars: false });
-  }
-  const moatCavern = byId.get('entrance_moat_cavern');
-  if (moatCavern) {
-    for (const sh of moatCavern.shafts) {
-      if (sh.dir === 'up' && sh.targetRoomId === 'entrance_imperial_plaza') {
-        sh.targetRoomId = 'gate_1';
-      }
-    }
+  closeCeilingIfNoUp('cliff_pine_trail', 'gate_tunnel');
+  const pineTrail = byId.get('cliff_pine_trail');
+  if (pineTrail?.solidBlocks) {
+    pineTrail.solidBlocks = pineTrail.solidBlocks.filter(
+      (sb) => !(sb.x >= 860 && sb.x <= 1020 && sb.y <= 340)
+    );
   }
 
-  // 3) 丹火秘殿 -> 紫微东庑 (alchemy_herb_garden) 下接（alchemy_foyer 专职下接 gate_2）
-  dropShaft('alchemy_foyer', 'up', 'alchemy_fire_sanctum');
-  closeCeilingIfNoUp('alchemy_foyer', 'palace_timber');
-  const foyer = byId.get('alchemy_foyer');
-  if (foyer && foyer.solidBlocks) {
-    foyer.solidBlocks = foyer.solidBlocks.filter((sb) => !(Math.abs(sb.x - 580) < 30 && sb.y < 140));
+  dropShaft('west_cliff_skybridge', 'down', 'entrance_battlement_tower');
+  const cliffSkybridge = byId.get('west_cliff_skybridge');
+  if (cliffSkybridge) {
+    cliffSkybridge.pavilions = cliffSkybridge.pavilions.filter((pv) => Math.abs(pv.x - 554) > 25);
   }
-  const fireSanctum = byId.get('alchemy_fire_sanctum');
-  if (fireSanctum) {
-    fireSanctum.shafts = [{ x1: 1180, x2: 1360, dir: 'down', targetRoomId: 'alchemy_herb_garden' }];
-    fireSanctum.pavilions = [{ x: 1172, y: 408, w: 196, hasPillars: false }];
-  }
-  const herbGarden = byId.get('alchemy_herb_garden');
-  if (herbGarden) {
-    splitCeilingForShaft('alchemy_herb_garden', 340, 520, 'palace_timber');
-    herbGarden.shafts.push({ x1: 340, x2: 520, dir: 'up', targetRoomId: 'alchemy_fire_sanctum' });
-  }
+  dropShaft('entrance_battlement_tower', 'up', 'west_cliff_skybridge');
+  closeCeilingIfNoUp('entrance_battlement_tower', 'gate_tunnel');
 
-  // 4) 镇龙骨渊裂地井 -> 移至盘龙石兽殿 (abyss_sanctum_save) -> 忘川拱石桥 (nether_ferry_save)，保持 seal_dragon_spine_nether 进度锁
   dropShaft('abyss_dragon_spine', 'down', 'nether_lantern_avenue');
   dropShaft('nether_lantern_avenue', 'up', 'abyss_dragon_spine');
   closeCeilingIfNoUp('nether_lantern_avenue', 'crypt_vault');
-  const sanctumSave = byId.get('abyss_sanctum_save');
-  if (sanctumSave) {
-    sanctumSave.shafts.push({
-      x1: 310,
-      x2: 490,
-      dir: 'down',
-      targetRoomId: 'nether_ferry_save',
-      sealId: 'seal_dragon_spine_nether',
-    });
-    sanctumSave.pavilions.push({ x: 300, y: 428, w: 200, hasPillars: false });
-  }
-  const ferrySave = byId.get('nether_ferry_save');
-  if (ferrySave) {
-    splitCeilingForShaft('nether_ferry_save', 310, 490, 'crypt_vault');
-    ferrySave.shafts.push({ x1: 310, x2: 490, dir: 'up', targetRoomId: 'abyss_sanctum_save' });
-    ferrySave.solidBlocks = [...(ferrySave.solidBlocks || []), { x: 490, y: 174, w: 155, h: 28 }];
-  }
 
-  // 5) 祖龙西陵/东坛改走黄泉东西双落渊竖井 (nether_west_descent / nether_east_descent)
+  // 2) 太古祖龙极渊西坛 / 东殿改由黄泉东西双五层落渊竖井直下贯通（隔开三道深渊空隙）
   dropShaft('nether_pillar_hall', 'down', 'dragon_tomb_west');
+  const pillarHall = byId.get('nether_pillar_hall');
+  if (pillarHall) {
+    pillarHall.pavilions = pillarHall.pavilions.filter((pv) => Math.abs(pv.x - 1854) > 25);
+  }
   dropShaft('nether_east_ossuary', 'down', 'dragon_tomb_sanctuary');
   const netherEastOss = byId.get('nether_east_ossuary');
   if (netherEastOss) {
     netherEastOss.pavilions = netherEastOss.pavilions.filter((pv) => Math.abs(pv.x - 1054) > 25);
-  }
-  const nWest = byId.get('nether_west_descent');
-  if (nWest) {
-    nWest.shafts.push({ x1: 680, x2: 860, dir: 'down', targetRoomId: 'dragon_tomb_west' });
-    nWest.pavilions.push({ x: 670, y: 804, w: 200, hasPillars: false });
   }
   const tombWest = byId.get('dragon_tomb_west');
   if (tombWest) {
@@ -10731,11 +10703,6 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
       { x: 1580, y: 356, w: 240, h: 32 },
     ];
   }
-  const nEast = byId.get('nether_east_descent');
-  if (nEast) {
-    nEast.shafts.push({ x1: 680, x2: 860, dir: 'down', targetRoomId: 'dragon_tomb_sanctuary' });
-    nEast.pavilions.push({ x: 670, y: 804, w: 200, hasPillars: false });
-  }
   const tombSanc = byId.get('dragon_tomb_sanctuary');
   if (tombSanc) {
     tombSanc.shafts = [{ x1: 180, x2: 360, dir: 'up', targetRoomId: 'nether_east_descent' }];
@@ -10747,63 +10714,437 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     ];
   }
 
-  // 6) 皇家废船坞改经船坞镇海古祠 (dock_save) -> 归墟海眼阵 (dock_warp) 垂直串联
-  const dockHall = byId.get('dock_shipyard_hall');
-  if (dockHall) {
-    for (const sh of dockHall.shafts) {
-      if (sh.dir === 'down' && sh.targetRoomId === 'dock_underwater_tunnel') {
-        sh.targetRoomId = 'dock_save';
-      }
-    }
-  }
-  dropShaft('dock_underwater_tunnel', 'up', 'dock_shipyard_hall');
-  closeCeilingIfNoUp('dock_underwater_tunnel', 'crypt_vault');
-  const dockTunnel = byId.get('dock_underwater_tunnel');
-  if (dockTunnel && dockTunnel.solidBlocks) {
-    dockTunnel.solidBlocks = dockTunnel.solidBlocks.filter((sb) => sb.x < 2400);
-  }
-  dropShaft('dock_coral_grotto', 'down', 'dock_treasure_vault');
-  const coral = byId.get('dock_coral_grotto');
-  if (coral) coral.pavilions = coral.pavilions.filter((pv) => Math.abs(pv.x - 1074) > 25);
-  dropShaft('dock_treasure_vault', 'up', 'dock_coral_grotto');
-  closeCeilingIfNoUp('dock_treasure_vault', 'crypt_vault');
-
-  const dockSave = byId.get('dock_save');
-  if (dockSave) {
-    splitCeilingForShaft('dock_save', 310, 490, 'crypt_vault');
-    dockSave.shafts = [
-      { x1: 310, x2: 490, dir: 'up', targetRoomId: 'dock_shipyard_hall' },
-      { x1: 310, x2: 490, dir: 'down', targetRoomId: 'dock_warp' },
-    ];
-    dockSave.pavilions = [{ x: 300, y: 368, w: 200, hasPillars: false }];
-    dockSave.solidBlocks = [
-      { x: 140, y: 264, w: 150, h: 28 },
-      { x: 510, y: 160, w: 150, h: 28 },
-    ];
-  }
-  const dockWarp = byId.get('dock_warp');
-  if (dockWarp) {
-    splitCeilingForShaft('dock_warp', 310, 490, 'crypt_vault');
-    dockWarp.shafts = [{ x1: 310, x2: 490, dir: 'up', targetRoomId: 'dock_save' }];
-    dockWarp.solidBlocks = [
-      { x: 140, y: 304, w: 150, h: 28 },
-      { x: 510, y: 204, w: 150, h: 28 },
-      { x: 150, y: 118, w: 150, h: 26 },
-    ];
-  }
-
-  // 7) 摘星霓裳云廊：修正左侧接门地坪高度并转为 4 格斜升天梯侧门
+  // 3) 真等比重建 8 座增高高塔/星廊天梯的真实像素高度、石阶与升降梯
   const cloudGallery = byId.get('cloud_star_gallery');
   if (cloudGallery) {
+    cloudGallery.pixelW = 1600;
+    cloudGallery.pixelH = 1280;
+    cloudGallery.focalX = 240;
+    cloudGallery.focalY = 1212;
+    cloudGallery.groundNodes = [
+      { x: 0, y: 1212, style: 'marble' },
+      { x: 1600, y: 1212, style: 'marble' },
+    ];
+    cloudGallery.ceilingSpans = [];
     cloudGallery.sideDoors = [
-      { side: 'left', floorY: 412, targetRoomId: 'opera_moon_pavilion', rowOffset: 3 },
-      { side: 'right', floorY: 100, targetRoomId: 'altar_forecourt', rowOffset: 0 },
+      { side: 'left', floorY: 1212, targetRoomId: 'opera_moon_pavilion', rowOffset: 2 },
+      { side: 'right', floorY: 220, targetRoomId: 'altar_forecourt', rowOffset: 0 },
     ];
     cloudGallery.leftRoomId = undefined;
     cloudGallery.rightRoomId = undefined;
+    cloudGallery.ironGate = {
+      id: 'gate_cloud_fox_illusion',
+      x: 420,
+      topY: 0,
+      bottomY: 1212,
+      gateKind: 'illusion_fox',
+    };
+    cloudGallery.solidBlocks = [
+      { x: 520, y: 1088, w: 210, h: 32 },
+      { x: 720, y: 956, w: 210, h: 32 },
+      { x: 540, y: 824, w: 210, h: 32 },
+      { x: 780, y: 680, w: 280, h: 36 },
+      { x: 1120, y: 220, w: 480, h: 992, blocking: true },
+    ];
+    cloudGallery.climbWalls = [{ x: 1090, topY: 180, bottomY: 620 }];
+    cloudGallery.decorProps = [
+      { kind: 'coiled_pillar', x: 240, y: 1212, scale: 0.96 },
+      { kind: 'dragon_brazier', x: 920, y: 680, scale: 0.94 },
+      { kind: 'coiled_pillar', x: 1420, y: 220, scale: 0.92 },
+    ];
+    cloudGallery.torches = [
+      { x: 640, y: 1138 },
+      { x: 1320, y: 146 },
+    ];
+    cloudGallery.spawns = [
+      { kind: 'bell_gargoyle', x: 700, y: 760 },
+      { kind: 'bronze_guard', x: 880, y: 680 },
+      { kind: 'bell_gargoyle', x: 1260, y: 190 },
+    ];
   }
 
-  // 8) 自动根据 56×28 新网格坐标精确校准全部侧门的 rowOffset！
+  const pagoda = byId.get('west_cliff_pagoda');
+  if (pagoda) {
+    pagoda.pixelH = 1280;
+    pagoda.focalY = 1204;
+    pagoda.groundNodes = [
+      { x: 0, y: 1204, style: 'marble' },
+      { x: 1080, y: 1204, style: 'marble' },
+    ];
+    pagoda.sideDoors = [
+      { side: 'left', floorY: 356, targetRoomId: 'cliff_wind_pavilion', rowOffset: 0 },
+      { side: 'right', floorY: 356, targetRoomId: 'west_cliff_skybridge', rowOffset: 0 },
+      { side: 'left', floorY: 1204, targetRoomId: 'cliff_pine_trail', rowOffset: 2 },
+      { side: 'right', floorY: 1204, targetRoomId: 'entrance_battlement_tower', rowOffset: 2 },
+    ];
+    pagoda.leftRoomId = undefined;
+    pagoda.rightRoomId = undefined;
+    // 严格维持每级阶梯 dy=160~192px (>118 且 <=228)，确保二段跳前绝不可越塔登峰！
+    pagoda.solidBlocks = [
+      { x: 0, y: 356, w: 390, h: 36 },
+      { x: 690, y: 356, w: 390, h: 36 },
+      { x: 455, y: 196, w: 170, h: 28 },
+      { x: 420, y: 548, w: 220, h: 32 },
+      { x: 600, y: 712, w: 220, h: 32 },
+      { x: 380, y: 876, w: 220, h: 32 },
+      { x: 580, y: 1040, w: 220, h: 32 },
+    ];
+    pagoda.decorProps = pagoda.decorProps?.map((dp) => ({ ...dp, y: dp.y + 400 }));
+    pagoda.torches = pagoda.torches.map((tc) =>
+      tc.y > 400 ? { ...tc, y: tc.y + 400 } : tc
+    );
+    pagoda.spawns = [
+      { kind: 'bone_archer', x: 770, y: 356 },
+      { kind: 'paper_swordsman', x: 560, y: 1204 },
+    ];
+  }
+
+  const gate2 = byId.get('gate_2');
+  if (gate2) {
+    gate2.pixelH = 1280;
+    gate2.focalY = 1204;
+    gate2.groundNodes = gate2.groundNodes.map((gn) => ({ ...gn, y: gn.y + 400 }));
+    gate2.sideDoors = [
+      { side: 'left', floorY: 756, targetRoomId: 'entrance_guard_pavilion', rowOffset: 1 },
+      { side: 'right', floorY: 756, targetRoomId: 'outer_city_warp', rowOffset: 1 },
+      { side: 'left', floorY: 1204, targetRoomId: 'entrance_mid_save', rowOffset: 2 },
+      { side: 'right', floorY: 1204, targetRoomId: 'gate_save', rowOffset: 2 },
+    ];
+    gate2.leftRoomId = undefined;
+    gate2.rightRoomId = undefined;
+    gate2.pavilions = gate2.pavilions.map((pv) => ({ ...pv, y: pv.y + 400 }));
+    gate2.lanterns = gate2.lanterns.map((ln) => ({ ...ln, y: ln.y + 400 }));
+    gate2.pickups = gate2.pickups.map((pk) => ({
+      ...pk,
+      y: pk.y !== undefined ? pk.y + 400 : undefined,
+    }));
+    gate2.spawns = gate2.spawns.map((sp) => ({
+      ...sp,
+      y: sp.y !== undefined ? sp.y + 400 : undefined,
+    }));
+    gate2.decorProps = gate2.decorProps?.map((dp) => ({ ...dp, y: dp.y + 400 }));
+    gate2.torches = gate2.torches.map((tc) => ({ ...tc, y: tc.y + 400 }));
+    gate2.solidBlocks = [
+      ...(gate2.solidBlocks || []).map((sb) => ({ ...sb, y: sb.y + 400 })),
+      // 增建高穹木栈阶（每级 dy=86px <= 118，Stage 0 单跳即可直上钦天炼丹司）
+      { x: 980, y: 496, w: 210, h: 30 },
+      { x: 1180, y: 410, w: 210, h: 30 },
+      { x: 980, y: 324, w: 210, h: 30 },
+      { x: 1180, y: 238, w: 210, h: 30 },
+      { x: 1120, y: 152, w: 220, h: 30 },
+    ];
+  }
+
+  const eastTower = byId.get('east_outer_tower');
+  if (eastTower) {
+    eastTower.pixelH = 2640;
+    eastTower.focalY = 2548;
+    eastTower.groundNodes = eastTower.groundNodes.map((gn) => ({ ...gn, y: gn.y + 1000 }));
+    eastTower.pavilions = [{ x: 410, y: 2544, w: 240, hasPillars: false }];
+    eastTower.sideDoors = [
+      { side: 'right', floorY: 400, targetRoomId: 'secret_archive', rowOffset: 1 },
+      { side: 'right', floorY: 820, targetRoomId: 'clock_gear_hall', rowOffset: 2 },
+      { side: 'left', floorY: 1220, targetRoomId: 'upper_library', rowOffset: 3 },
+      { side: 'right', floorY: 1220, targetRoomId: 'east_warp', rowOffset: 3 },
+      { side: 'left', floorY: 2060, targetRoomId: 'hall_east_vestibule', rowOffset: 5 },
+      { side: 'left', floorY: 2548, targetRoomId: 'prison_save', rowOffset: 6 },
+      { side: 'right', floorY: 2548, targetRoomId: 'dock_sluice_passage', rowOffset: 6 },
+    ];
+    eastTower.leftRoomId = undefined;
+    eastTower.rightRoomId = undefined;
+    // 严格保留 400px 处的雾隐机关门，且其上方仅靠壁虎游墙双侧攀壁登顶，无踏板可越！
+    eastTower.ironGate = {
+      id: 'gate_mist_archive',
+      x: 820,
+      topY: 0,
+      bottomY: 400,
+      gateKind: 'mist_only',
+    };
+    eastTower.climbWalls = [
+      { x: 425, topY: 36, bottomY: 320 },
+      { x: 670, topY: 36, bottomY: 320 },
+    ];
+    eastTower.solidBlocks = [
+      // y=2548 -> y=2060
+      { x: 640, y: 2430, w: 240, h: 32 },
+      { x: 260, y: 2310, w: 240, h: 32 },
+      { x: 600, y: 2190, w: 240, h: 32 },
+      { x: 0, y: 2060, w: 430, h: 36 },
+      { x: 650, y: 2060, w: 430, h: 36 },
+      // y=2060 -> y=1220（跨海崖双空隙长段）
+      { x: 360, y: 1900, w: 240, h: 32 },
+      { x: 620, y: 1740, w: 240, h: 32 },
+      { x: 320, y: 1580, w: 240, h: 32 },
+      { x: 620, y: 1410, w: 240, h: 32 },
+      { x: 0, y: 1220, w: 430, h: 36 },
+      { x: 650, y: 1220, w: 430, h: 36 },
+      // y=1220 -> y=820
+      { x: 420, y: 1090, w: 240, h: 32 },
+      { x: 640, y: 960, w: 240, h: 32 },
+      { x: 0, y: 820, w: 440, h: 36 },
+      { x: 640, y: 820, w: 440, h: 36 },
+      // y=820 -> y=400
+      { x: 340, y: 570, w: 240, h: 32 },
+      { x: 600, y: 400, w: 480, h: 36 },
+    ];
+    eastTower.movingPlatforms = [
+      { x1: 485, y1: 2040, x2: 485, y2: 1240, w: 110, speed: 1.15, style: 'bronze_lift' },
+      { x1: 485, y1: 1200, x2: 485, y2: 840, w: 110, speed: 0.85, style: 'bronze_lift' },
+    ];
+    eastTower.crumbleSlabs = [
+      { id: 'cs_tow_1', x: 515, y: 2310, w: 105 },
+      { id: 'cs_tow_2', x: 345, y: 695, w: 110 },
+    ];
+    eastTower.pickups = [
+      { id: 'pk_tower_mp_up', kind: 'max_up', itemId: 'mp_vessel', x: 380, y: 2310 },
+    ];
+    eastTower.lanterns = [
+      { x: 530, y: 2380 },
+      { x: 530, y: 1820 },
+      { x: 530, y: 1380 },
+      { x: 295, y: 1020 },
+      { x: 785, y: 940 },
+      { x: 460, y: 620 },
+    ];
+    eastTower.hazards = [
+      { kind: 'pendulum', x: 540, y: 1580, span: 145, speed: 1.9, phase: 0 },
+      { kind: 'pendulum', x: 540, y: 520, span: 140, speed: 2.05, phase: 1.6 },
+    ];
+    eastTower.clockGears = [
+      { x: 540, y: 2295, radius: 66, speed: 0.48, hasOrbitPlatforms: false },
+      { x: 540, y: 1495, radius: 68, speed: 0.5, hasOrbitPlatforms: false },
+      { x: 540, y: 655, radius: 70, speed: -0.52, hasOrbitPlatforms: false },
+    ];
+    eastTower.decorProps = [
+      { kind: 'dragon_brazier', x: 285, y: 2548, scale: 0.92 },
+      { kind: 'silk_banner', x: 540, y: 2110, scale: 0.88 },
+      { kind: 'silk_banner', x: 540, y: 1290, scale: 0.88 },
+      { kind: 'silk_banner', x: 540, y: 890, scale: 0.88 },
+      { kind: 'silk_banner', x: 360, y: 470, scale: 0.86 },
+    ];
+    eastTower.torches = [
+      { x: 300, y: 1986 },
+      { x: 780, y: 1986 },
+      { x: 320, y: 746 },
+      { x: 700, y: 326 },
+    ];
+    eastTower.spawns = [
+      { kind: 'bronze_guard', x: 740, y: 2430 },
+      { kind: 'bell_gargoyle', x: 540, y: 1580 },
+      { kind: 'bronze_guard', x: 320, y: 1220 },
+      { kind: 'bronze_guard', x: 760, y: 820 },
+      { kind: 'bell_gargoyle', x: 520, y: 540 },
+    ];
+  }
+
+  const outerUpper = byId.get('outer_wall_upper');
+  if (outerUpper) {
+    outerUpper.pixelH = 1640;
+    outerUpper.focalY = 1556;
+    outerUpper.groundNodes = [
+      { x: 0, y: 1556, style: 'marble' },
+      { x: 1080, y: 1556, style: 'marble' },
+    ];
+    outerUpper.pavilions = [{ x: 444, y: 1556, w: 192, hasPillars: false }];
+    outerUpper.sideDoors = [
+      { side: 'left', floorY: 356, targetRoomId: 'sky_altar', rowOffset: 0 },
+      { side: 'left', floorY: 764, targetRoomId: 'altar_east_terrace', rowOffset: 1 },
+      { side: 'right', floorY: 764, targetRoomId: 'celestial_bell_sanctum', rowOffset: 1 },
+      { side: 'left', floorY: 1556, targetRoomId: 'outer_wall_armory', rowOffset: 3 },
+    ];
+    outerUpper.leftRoomId = undefined;
+    outerUpper.rightRoomId = undefined;
+    // y=764..1556 之间仅设双侧壁虎攀壁、零悬石，严格锁死壁虎游墙方可登祭天东廊！
+    outerUpper.climbWalls = [
+      { x: 445, topY: 764, bottomY: 1450 },
+      { x: 635, topY: 764, bottomY: 1450 },
+    ];
+    outerUpper.solidBlocks = [
+      { x: 0, y: 356, w: 420, h: 110, blocking: true },
+      { x: 480, y: 460, w: 220, h: 32 },
+      { x: 400, y: 560, w: 220, h: 32 },
+      { x: 500, y: 660, w: 220, h: 32 },
+      { x: 0, y: 764, w: 400, h: 36 },
+      { x: 680, y: 764, w: 400, h: 36 },
+    ];
+    outerUpper.decorProps = outerUpper.decorProps?.map((dp) =>
+      dp.kind === 'dragon_brazier' ? { ...dp, y: 1556 } : dp
+    );
+    outerUpper.torches = outerUpper.torches.map((tc) =>
+      tc.y > 1000 ? { ...tc, y: tc.y + 320 } : tc
+    );
+  }
+
+  const outerLower = byId.get('outer_wall_lower');
+  if (outerLower) {
+    outerLower.pixelH = 2000;
+    outerLower.focalY = 1916;
+    outerLower.groundNodes = [
+      { x: 0, y: 1916, style: 'marble' },
+      { x: 1080, y: 1916, style: 'marble' },
+    ];
+    outerLower.sideDoors = [
+      { side: 'left', floorY: 356, targetRoomId: 'secret_thunder_vault', rowOffset: 0 },
+      { side: 'left', floorY: 764, targetRoomId: 'clock_east_bastion', rowOffset: 1 },
+      { side: 'right', floorY: 764, targetRoomId: 'outer_wall_telescope', rowOffset: 1 },
+      { side: 'left', floorY: 1916, targetRoomId: 'dock_shipyard_hall', rowOffset: 4 },
+      { side: 'right', floorY: 1916, targetRoomId: 'dock_east_beacon', rowOffset: 4 },
+    ];
+    outerLower.leftRoomId = undefined;
+    outerLower.rightRoomId = undefined;
+    outerLower.climbWalls = [
+      { x: 445, topY: 36, bottomY: 270 },
+      { x: 635, topY: 36, bottomY: 270 },
+    ];
+    outerLower.solidBlocks = [
+      { x: 0, y: 356, w: 400, h: 36 },
+      { x: 0, y: 764, w: 400, h: 36 },
+      { x: 680, y: 764, w: 400, h: 36 },
+      { x: 300, y: 960, w: 210, h: 32 },
+      { x: 580, y: 1150, w: 210, h: 32 },
+      { x: 300, y: 1340, w: 210, h: 32 },
+      { x: 580, y: 1530, w: 210, h: 32 },
+      { x: 300, y: 1720, w: 210, h: 32 },
+    ];
+    outerLower.movingPlatforms = [
+      { x1: 450, y1: 720, x2: 450, y2: 396, w: 180, speed: 1.0, style: 'bronze_lift' },
+      { x1: 450, y1: 1880, x2: 450, y2: 810, w: 180, speed: 1.25, style: 'bronze_lift' },
+    ];
+    outerLower.decorProps = outerLower.decorProps?.map((dp) =>
+      dp.kind === 'dragon_brazier' ? { ...dp, y: 1916 } : { ...dp, y: 764 }
+    );
+    outerLower.torches = outerLower.torches.map((tc) =>
+      tc.y > 1000 ? { ...tc, y: tc.y + 680 } : tc
+    );
+    outerLower.spawns = [
+      { kind: 'bronze_guard', x: 290, y: 764 },
+      { kind: 'bone_archer', x: 660, y: 1530 },
+      { kind: 'bell_gargoyle', x: 540, y: 1220 },
+    ];
+  }
+
+  const nWest = byId.get('nether_west_descent');
+  if (nWest) {
+    nWest.pixelW = 1080;
+    nWest.pixelH = 2000;
+    nWest.focalX = 540;
+    nWest.focalY = 1916;
+    nWest.groundNodes = [
+      { x: 0, y: 1916, style: 'crypt_stone' },
+      { x: 1080, y: 1916, style: 'crypt_stone' },
+    ];
+    nWest.ceilingSpans = [
+      { x1: 0, x2: 450, bottomY: 34, style: 'crypt_vault' },
+      { x1: 630, x2: 1080, bottomY: 34, style: 'crypt_vault' },
+    ];
+    nWest.shafts = [
+      { x1: 450, x2: 630, dir: 'up', targetRoomId: 'mine_lava_bridge' },
+      { x1: 450, x2: 630, dir: 'down', targetRoomId: 'dragon_tomb_west' },
+    ];
+    nWest.pavilions = [{ x: 444, y: 1916, w: 192, hasPillars: false }];
+    nWest.sideDoors = [
+      { side: 'right', floorY: 720, targetRoomId: 'nether_soul_bridge', rowOffset: 1 },
+      { side: 'right', floorY: 1520, targetRoomId: 'nether_pillar_hall', rowOffset: 3 },
+    ];
+    nWest.leftRoomId = undefined;
+    nWest.rightRoomId = undefined;
+    nWest.solidBlocks = [
+      { x: 680, y: 720, w: 400, h: 36 },
+      { x: 680, y: 1520, w: 400, h: 36 },
+      { x: 220, y: 1720, w: 210, h: 32 },
+      { x: 220, y: 1340, w: 210, h: 32 },
+      { x: 640, y: 1140, w: 210, h: 32 },
+      { x: 220, y: 940, w: 210, h: 32 },
+      { x: 220, y: 540, w: 210, h: 32 },
+      { x: 640, y: 360, w: 210, h: 32 },
+      { x: 440, y: 180, w: 200, h: 28 },
+    ];
+    nWest.movingPlatforms = [
+      { x1: 450, y1: 1860, x2: 450, y2: 220, w: 180, speed: 1.2, style: 'bronze_lift' },
+    ];
+    nWest.decorProps = [
+      { kind: 'coiled_pillar', x: 220, y: 1916, scale: 0.96 },
+      { kind: 'dragon_brazier', x: 860, y: 1916, scale: 0.94 },
+    ];
+    nWest.torches = [
+      { x: 880, y: 644 },
+      { x: 840, y: 1842 },
+    ];
+    nWest.spawns = [
+      { kind: 'bell_gargoyle', x: 540, y: 620 },
+      { kind: 'demon_wolf', x: 320, y: 1916 },
+      { kind: 'bronze_guard', x: 820, y: 1520 },
+    ];
+  }
+
+  const nEast = byId.get('nether_east_descent');
+  if (nEast) {
+    nEast.pixelW = 1080;
+    nEast.pixelH = 2000;
+    nEast.focalX = 540;
+    nEast.focalY = 1916;
+    nEast.groundNodes = [
+      { x: 0, y: 1916, style: 'crypt_stone' },
+      { x: 1080, y: 1916, style: 'crypt_stone' },
+    ];
+    nEast.ceilingSpans = [
+      { x1: 0, x2: 450, bottomY: 34, style: 'crypt_vault' },
+      { x1: 630, x2: 1080, bottomY: 34, style: 'crypt_vault' },
+    ];
+    nEast.shafts = [
+      { x1: 450, x2: 630, dir: 'up', targetRoomId: 'abyss_east_corridor' },
+      { x1: 450, x2: 630, dir: 'down', targetRoomId: 'dragon_tomb_sanctuary' },
+    ];
+    nEast.pavilions = [{ x: 444, y: 1916, w: 192, hasPillars: false }];
+    nEast.sideDoors = [
+      { side: 'left', floorY: 720, targetRoomId: 'nether_lantern_avenue', rowOffset: 1 },
+      { side: 'left', floorY: 1520, targetRoomId: 'nether_mirror_crypt', rowOffset: 3 },
+      { side: 'right', floorY: 1520, targetRoomId: 'nether_east_ossuary', rowOffset: 3 },
+    ];
+    nEast.leftRoomId = undefined;
+    nEast.rightRoomId = undefined;
+    nEast.solidBlocks = [
+      { x: 0, y: 720, w: 400, h: 36 },
+      { x: 0, y: 1520, w: 400, h: 36 },
+      { x: 680, y: 1520, w: 400, h: 36 },
+      { x: 650, y: 1720, w: 210, h: 32 },
+      { x: 650, y: 1340, w: 210, h: 32 },
+      { x: 230, y: 1140, w: 210, h: 32 },
+      { x: 650, y: 940, w: 210, h: 32 },
+      { x: 650, y: 540, w: 210, h: 32 },
+      { x: 230, y: 360, w: 210, h: 32 },
+      { x: 440, y: 180, w: 200, h: 28 },
+    ];
+    nEast.movingPlatforms = [
+      { x1: 450, y1: 1860, x2: 450, y2: 220, w: 180, speed: 1.2, style: 'bronze_lift' },
+    ];
+    nEast.decorProps = [
+      { kind: 'guardian_statue', x: 220, y: 1916, scale: 0.94 },
+      { kind: 'coiled_pillar', x: 860, y: 1916, scale: 0.96 },
+    ];
+    nEast.torches = [
+      { x: 200, y: 644 },
+      { x: 840, y: 1842 },
+    ];
+    nEast.spawns = [
+      { kind: 'bell_gargoyle', x: 540, y: 620 },
+      { kind: 'bronze_guard', x: 260, y: 1520 },
+      { kind: 'demon_wolf', x: 760, y: 1916 },
+    ];
+  }
+
+  const rebuiltTowerIds = new Set([
+    'cloud_star_gallery',
+    'west_cliff_pagoda',
+    'gate_2',
+    'east_outer_tower',
+    'outer_wall_upper',
+    'outer_wall_lower',
+    'nether_west_descent',
+    'nether_east_descent',
+  ]);
+
+  // 4) 自动根据 46×18 网格坐标精确校准其余多层房间侧门的 rowOffset！
   for (const rm of cloned) {
     const doors = getRoomSideDoors(rm);
     if (rm.gridH === 1) {
@@ -10812,7 +11153,7 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
       }
       continue;
     }
-    if (rm.id === 'cloud_star_gallery') continue;
+    if (rebuiltTowerIds.has(rm.id)) continue;
 
     rm.sideDoors = doors.map((d) => {
       const nb = byId.get(d.targetRoomId);
@@ -10842,7 +11183,7 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
 }
 
 /**
- * 适配 56×28 舒展大版图与全面屏横版视口 (`vH = 440` 时 `vW ≈ 955~1045px`)：
+ * 适配 46×18 舒展大版图与全面屏横版视口 (`vH = 440` 时 `vW ≈ 955~1045px`)：
  * 单格窄厅统一拓宽至 ≥ 1080px 消弭右侧黑边，中等走廊适度放宽以体现关卡舒展尺度，
  * 同时保持两端接门地坪与内部跳台相对跨度 100% 像素级精确！
  */

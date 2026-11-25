@@ -37,7 +37,7 @@ export function createFreshSaveSlot(slotIndex: number, mode: GameMode = 'story')
       jinchuang_yao: 2,
       huiqi_dan: 1,
     },
-    mapLayoutVersion: 2,
+    mapLayoutVersion: 3,
     visitedRooms: mode === 'boss_rush' ? [] : ['normal:bamboo_outpost'],
     collectedPickups: [],
     defeatedBosses: [],
