@@ -1183,8 +1183,10 @@ export class UIManager {
           </div>
           <div class="zx-map-legend">
             <span><b style="color:#fde047;">●</b> 当前所在</span>
-            <span><b style="color:#f59e0b;">◆</b> 留档古祠</span>
-            <span><b style="color:#10b981;">◯</b> 乾坤传送阵</span>
+            <span><b style="color:#ef4444;">◆</b> 留档古祠</span>
+            <span><b style="color:#eab308;">◯</b> 乾坤传送阵</span>
+            <span><b style="color:#e11d48;">❖</b> 首领大殿</span>
+            <span><b style="color:#10b981;">■</b> 隐秘/商坊</span>
             <span><b style="color:#fde047;">✦</b> 未取秘宝</span>
             <span><b style="color:#fb7185;">⚑</b> 朱砂标点</span>
             <span style="color:#94a3b8;">轻点殿宇显机关锁需求与标点</span>
@@ -1657,8 +1659,10 @@ export class UIManager {
     const p = this.engine.player;
     const padX = 20;
     const padY = 14;
-    const baseCellW = Math.floor((w - padX * 2) / MAP_GRID_TOTAL_W);
-    const baseCellH = Math.floor((h - padY * 2) / MAP_GRID_TOTAL_H);
+    const rawCellW = Math.floor((w - padX * 2) / MAP_GRID_TOTAL_W);
+    const rawCellH = Math.floor((h - padY * 2) / MAP_GRID_TOTAL_H);
+    const baseCellH = Math.max(4, rawCellH);
+    const baseCellW = Math.max(5, Math.min(rawCellW, Math.round(baseCellH * 1.25)));
     const cellW = Math.max(5, Math.round(baseCellW * zoom));
     const cellH = Math.max(4, Math.round(baseCellH * zoom));
     let ox: number;
@@ -1927,8 +1931,8 @@ export class UIManager {
         ctx.stroke();
       }
     } else {
-      cellW = 11;
-      cellH = 9;
+      cellW = 10;
+      cellH = 8;
       const totalPxW = MAP_GRID_TOTAL_W * cellW;
       const totalPxH = MAP_GRID_TOTAL_H * cellH;
       const idealOx = Math.round(w * 0.5 - playerGridX * cellW);
@@ -1956,38 +1960,35 @@ export class UIManager {
       }
       if (!anyCellVisited) continue;
 
-      let fillCol = 'rgba(37, 99, 235, 0.85)';
+      const isUpperSky =
+        rm.region === 'altar' ||
+        rm.region === 'colosseum' ||
+        rm.region === 'opera' ||
+        rm.region === 'clock_tower';
+      const isDeepSubterranean =
+        rm.region === 'forge' ||
+        rm.region === 'prison' ||
+        rm.region === 'shipyard' ||
+        rm.region === 'catacomb' ||
+        rm.region === 'nether';
+
+      let fillCol = isUpperSky
+        ? 'rgba(34, 82, 184, 0.90)'
+        : isDeepSubterranean
+          ? 'rgba(24, 62, 152, 0.92)'
+          : 'rgba(28, 72, 168, 0.90)';
       if (targetRealm === 'inverted') {
-        fillCol = 'rgba(136, 19, 55, 0.84)';
-      } else if (rm.region === 'main_hall') {
-        fillCol = 'rgba(180, 83, 9, 0.86)';
-      } else if (rm.region === 'alchemy') {
-        fillCol = 'rgba(124, 58, 237, 0.85)';
-      } else if (rm.region === 'colosseum') {
-        fillCol = 'rgba(185, 28, 28, 0.86)';
-      } else if (rm.region === 'forge') {
-        fillCol = 'rgba(194, 65, 12, 0.86)';
-      } else if (rm.region === 'prison') {
-        fillCol = 'rgba(29, 78, 216, 0.86)';
-      } else if (rm.region === 'shipyard') {
-        fillCol = 'rgba(13, 148, 136, 0.87)';
-      } else if (rm.region === 'catacomb') {
-        fillCol = 'rgba(15, 118, 110, 0.88)';
-      } else if (rm.region === 'nether') {
-        fillCol = 'rgba(5, 150, 105, 0.88)';
-      } else if (rm.region === 'library') {
-        fillCol = 'rgba(14, 116, 144, 0.86)';
-      } else if (rm.region === 'opera') {
-        fillCol = 'rgba(190, 24, 93, 0.86)';
-      } else if (rm.region === 'clock_tower') {
-        fillCol = 'rgba(71, 85, 105, 0.88)';
-      } else if (rm.region === 'altar') {
-        fillCol = 'rgba(225, 29, 72, 0.88)';
+        fillCol = isDeepSubterranean
+          ? 'rgba(92, 22, 74, 0.92)'
+          : 'rgba(109, 28, 86, 0.90)';
       }
-      if (rm.isSecretRoom) fillCol = 'rgba(147, 51, 234, 0.94)';
-      else if (rm.special === 'save_shrine') fillCol = 'rgba(217, 119, 6, 0.92)';
-      else if (rm.special === 'warp_bagua') fillCol = 'rgba(5, 150, 105, 0.92)';
-      else if (rm.special === 'boss_room') fillCol = 'rgba(185, 28, 28, 0.94)';
+
+      if (rm.special === 'save_shrine') fillCol = 'rgba(220, 38, 38, 0.96)';
+      else if (rm.special === 'warp_bagua') fillCol = 'rgba(234, 179, 8, 0.96)';
+      else if (rm.special === 'boss_room') fillCol = 'rgba(159, 18, 57, 0.96)';
+      else if (rm.isSecretRoom || rm.id === 'library_shop' || rm.id === 'forge_smithy') {
+        fillCol = 'rgba(16, 185, 129, 0.94)';
+      }
 
       for (let dy = 0; dy < rm.gridH; dy++) {
         for (let dx = 0; dx < rm.gridW; dx++) {
@@ -2126,13 +2127,29 @@ export class UIManager {
         ctx.closePath();
         ctx.fill();
       } else if (rm.special === 'warp_bagua') {
-        ctx.strokeStyle = '#5eead4';
-        ctx.lineWidth = detailed ? 1.8 : 1.2;
+        ctx.strokeStyle = '#1e1b4b';
+        ctx.lineWidth = detailed ? 2.2 : 1.5;
         ctx.beginPath();
         ctx.arc(midRx, midRy, symR * 0.92, 0, Math.PI * 2);
         ctx.stroke();
+        ctx.strokeStyle = '#fef9c3';
+        ctx.lineWidth = detailed ? 1.2 : 0.9;
+        ctx.beginPath();
+        ctx.arc(midRx, midRy, symR * 0.45, 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (rm.special === 'boss_room') {
+        const br = symR * 1.15;
+        ctx.strokeStyle = '#fecdd3';
+        ctx.lineWidth = detailed ? 1.5 : 1.0;
+        ctx.beginPath();
+        ctx.moveTo(midRx, midRy - br);
+        ctx.lineTo(midRx + br, midRy);
+        ctx.lineTo(midRx, midRy + br);
+        ctx.lineTo(midRx - br, midRy);
+        ctx.closePath();
+        ctx.stroke();
       } else if (rm.id === 'library_shop' || rm.id === 'forge_smithy') {
-        ctx.fillStyle = '#fdba74';
+        ctx.fillStyle = '#ecfdf5';
         ctx.beginPath();
         ctx.arc(midRx, midRy, symR * 0.78, 0, Math.PI * 2);
         ctx.fill();
