@@ -6,6 +6,12 @@ import {
   ARMORS,
   CONSUMABLES,
   FAMILIARS,
+  formatWeaponDisplayName,
+  getWeaponRefinedAtk,
+  getWeaponRefinedCritBonus,
+  getWeaponUpgradeCost,
+  getWeaponUpgradeLevel,
+  MAX_WEAPON_UPGRADE,
   SKILLS,
   SUB_WEAPONS,
   WEAPONS,
@@ -35,6 +41,7 @@ import {
   CastleRealm,
   EnemyKind,
   FamiliarId,
+  RegionId,
   SkillId,
   StoryScene,
   SubWeaponId,
@@ -58,6 +65,22 @@ type EquipSlotCategory =
   | 'accessory'
   | 'core'
   | 'potion';
+
+const REGION_MAP_COLORS: Record<RegionId, { normal: string; inverted: string }> = {
+  gatehouse: { normal: '#2b5486', inverted: '#5e234d' },
+  main_hall: { normal: '#24589c', inverted: '#6e2154' },
+  alchemy: { normal: '#1b636a', inverted: '#5c245e' },
+  forge: { normal: '#7c3822', inverted: '#70203a' },
+  prison: { normal: '#1b4969', inverted: '#432458' },
+  library: { normal: '#364b8d', inverted: '#552468' },
+  opera: { normal: '#6d2a5a', inverted: '#751c48' },
+  clock_tower: { normal: '#5e4c22', inverted: '#63354c' },
+  colosseum: { normal: '#723a29', inverted: '#6d233a' },
+  shipyard: { normal: '#16586e', inverted: '#392863' },
+  catacomb: { normal: '#38465a', inverted: '#482652' },
+  nether: { normal: '#3d2f74', inverted: '#5a1954' },
+  altar: { normal: '#434194', inverted: '#721a5f' },
+};
 
 export class UIManager {
   private hudEl: HTMLElement | null = null;
@@ -964,13 +987,14 @@ export class UIManager {
       if (this.hudRefs.mpFill) this.hudRefs.mpFill.style.width = `${mpPct}%`;
     }
 
-    const wKey = `${w.id}:${s.ownedWeapons.length}:${isTouch ? 1 : 0}`;
+    const wUpLv = getWeaponUpgradeLevel(s.weaponUpgrades, w.id);
+    const wKey = `${w.id}:${wUpLv}:${s.ownedWeapons.length}:${isTouch ? 1 : 0}`;
     if (wKey !== this.lastHudWpnKey) {
       this.lastHudWpnKey = wKey;
       if (this.hudRefs.wpnIconWrap) {
         this.hudRefs.wpnIconWrap.innerHTML = getWeaponArtHtml(w.archetype, isTouch ? 44 : 56, w.id);
       }
-      if (this.hudRefs.wpnName) this.hudRefs.wpnName.textContent = w.name;
+      if (this.hudRefs.wpnName) this.hudRefs.wpnName.textContent = formatWeaponDisplayName(w, wUpLv);
       if (this.hudRefs.swapHint) {
         this.hudRefs.swapHint.textContent =
           s.ownedWeapons.length > 1 ? (isTouch ? '' : '[Q]') : '';
@@ -980,7 +1004,8 @@ export class UIManager {
     if (this.hudRefs.minimapCanvas) {
       const qgx = Math.round((r.mapX + (p.x / Math.max(1, r.pixelW)) * r.gridW) * 4);
       const qgy = Math.round((r.mapY + (p.y / Math.max(1, r.pixelH)) * r.gridH) * 4);
-      const minimapKey = `${r.realm}:${r.id}:${qgx}:${qgy}:${s.visitedRooms.length}:${s.brokenSecretWalls.length}`;
+      const mapColorMode = SaveManager.getMeta().mapColorMode || 'classic';
+      const minimapKey = `${r.realm}:${r.id}:${qgx}:${qgy}:${s.visitedRooms.length}:${s.brokenSecretWalls.length}:${s.defeatedBosses.length}:${mapColorMode}`;
       if (minimapKey !== this.lastHudMinimapKey) {
         this.lastHudMinimapKey = minimapKey;
         const mctx = this.hudRefs.minimapCanvas.getContext('2d');
@@ -1137,13 +1162,30 @@ export class UIManager {
     } else if (this.pauseTab === 'map') {
       const pct = WorldMap.calcExplorationPct(s.visitedRooms);
       const curRoomNow = this.engine.room;
-      const curStageLabel = curRoomNow
-        ? curRoomNow.realm === 'inverted'
-          ? INVERTED_REGION_NAMES[curRoomNow.region]
-          : REGION_NAMES[curRoomNow.region]
-        : '';
+      const mapColorMode = SaveManager.getMeta().mapColorMode || 'classic';
+      const inspectedRoom = this.inspectedMapRoomId
+        ? WorldMap.getAllRooms(this.mapViewRealm).find((r) => r.id === this.inspectedMapRoomId) ||
+          null
+        : null;
+      const inspectedMeta = inspectedRoom ? this.describeInspectedRoom(inspectedRoom) : null;
+      const focusRegion: RegionId =
+        inspectedRoom?.region || curRoomNow?.region || 'gatehouse';
+      const regionProg = this.getRegionMapProgress(focusRegion, this.mapViewRealm);
+      const curStageLabel =
+        this.mapViewRealm === 'inverted'
+          ? INVERTED_REGION_NAMES[focusRegion]
+          : REGION_NAMES[focusRegion];
+      const suodiCnt = s.consumables.suodi_talisman || 0;
+      const canDirectWarp = Boolean(
+        inspectedRoom &&
+          inspectedRoom.special === 'warp_bagua' &&
+          suodiCnt > 0 &&
+          !(inspectedRoom.id === curRoomNow?.id && inspectedRoom.realm === curRoomNow?.realm)
+      );
+      const directWarpBtnHtml = `<button class="zx-seal-btn" id="btn-map-direct-warp" style="padding:4px 10px;font-size:12px;border-color:#fde047;color:#fef08a;background:rgba(161,98,7,0.52);${canDirectWarp ? '' : 'display:none;'}">✦ 缩地直传至此阵</button>`;
       const realmSwitchHtml = `<div style="display:flex;gap:6px;flex-wrap:wrap;">
              <button class="zx-seal-btn" id="btn-map-zoom" style="${this.mapZoom > 1 ? 'border-color:#5eead4;color:#5eead4;' : ''}">${this.mapZoom > 1 ? '全览 1×' : '详图 2×'}</button>
+             <button class="zx-seal-btn" id="btn-map-color-mode" style="${mapColorMode === 'region' ? 'border-color:#a78bfa;color:#ddd6fe;background:rgba(91,33,182,0.38);' : ''}">${mapColorMode === 'region' ? '色阶：区域分色' : '色阶：经典蓝图'}</button>
              ${
                s.invertedUnlocked
                  ? `<button class="zx-seal-btn" id="btn-map-normal" style="${this.mapViewRealm === 'normal' ? 'border-color:#fde047;color:#fde047;' : ''}">阳表玄城</button>
@@ -1151,11 +1193,6 @@ export class UIManager {
                  : ''
              }
            </div>`;
-      const inspectedRoom = this.inspectedMapRoomId
-        ? WorldMap.getAllRooms(this.mapViewRealm).find((r) => r.id === this.inspectedMapRoomId) ||
-          null
-        : null;
-      const inspectedMeta = inspectedRoom ? this.describeInspectedRoom(inspectedRoom) : null;
       const pinTargetId =
         this.inspectedMapRoomId ||
         (this.engine.room && this.mapViewRealm === this.engine.room.realm
@@ -1166,7 +1203,6 @@ export class UIManager {
       const pinBtnHtml = pinTargetId
         ? `<button class="zx-seal-btn" id="btn-map-pin" style="padding:4px 10px;font-size:12px;${isPinned ? 'border-color:#fb7185;color:#fecdd3;background:rgba(159,18,57,0.55);' : ''}">${isPinned ? '⚑ 取消标点' : '⚑ 朱砂标点'}</button>`
         : '';
-      const suodiCnt = s.consumables.suodi_talisman || 0;
       const suodiBtnHtml =
         suodiCnt > 0
           ? `<button class="zx-seal-btn" id="btn-map-suodi" style="padding:4px 10px;font-size:12px;border-color:#2dd4bf;color:#fef08a;background:rgba(15,118,110,0.55);">✦ 缩地归阵 ×${suodiCnt}</button>`
@@ -1175,12 +1211,13 @@ export class UIManager {
         <div class="zx-map-pane">
           <div class="zx-map-header">
             <span class="zx-map-title">
-              ${this.mapViewRealm === 'inverted' ? '九幽倒悬里城 · 逆乱堪舆图' : '九幽玄城 · 立体堪舆图'}${curStageLabel ? ` <span style="font-size:12px;color:#fde047;margin-left:6px;">【${curStageLabel}】</span>` : ''}
+              ${this.mapViewRealm === 'inverted' ? '九幽倒悬里城 · 逆乱堪舆图' : '九幽玄城 · 立体堪舆图'}<span id="map-region-progress" style="font-size:12px;color:#fde047;margin-left:6px;letter-spacing:0.5px;">【${curStageLabel} · ${regionProg.visRooms}/${regionProg.totalRooms}室${regionProg.totalTreasures > 0 ? ` · 秘宝 ${regionProg.gotTreasures}/${regionProg.totalTreasures}` : ''}】</span>
             </span>
             <span style="font-size:12.5px;color:var(--jade);font-weight:800;">
               探索度 ${pct}% / 200%+
             </span>
             ${realmSwitchHtml}
+            ${directWarpBtnHtml}
             ${suodiBtnHtml}
             ${pinBtnHtml}
           </div>
@@ -1191,17 +1228,19 @@ export class UIManager {
             <span><b style="color:#fde047;">●</b> 当前所在</span>
             <span><b style="color:#ef4444;">◆</b> 留档古祠</span>
             <span><b style="color:#eab308;">◯</b> 乾坤传送阵</span>
-            <span><b style="color:#e11d48;">❖</b> 首领大殿</span>
+            <span><b style="color:#e11d48;">❖</b> 妖王镇守</span>
+            <span><b style="color:#fbbf24;">✓</b> 已伏首领</span>
             <span><b style="color:#10b981;">■</b> 隐秘/商坊</span>
             <span><b style="color:#fde047;">✦</b> 未取秘宝</span>
+            <span><b style="color:#38bdf8;">▎</b> 未探通道</span>
+            <span><b style="color:#fbbf24;">┃</b> 机关封锁</span>
             <span><b style="color:#fb7185;">⚑</b> 朱砂标点</span>
-            <span style="color:#94a3b8;">轻点殿宇显机关锁需求与标点</span>
           </div>
         </div>
       `;
       footerLeft = inspectedMeta
         ? `【${inspectedMeta.stage}】${inspectedMeta.title}${inspectedMeta.badge ? ` · [${inspectedMeta.badge}]` : ''} — ${inspectedMeta.detail}`
-        : '轻点地图中任意已探明方格即可浮现殿宇名称与机关秘宝详情（点击【详图 2×】可放大拖曳阅览）';
+        : '轻点地图中任意已探明方格即可浮现殿宇名称与机关秘宝详情（双指捏合 /【详图 2×】可放大拖曳阅览）';
     } else if (this.pauseTab === 'bestiary') {
       mainHtml = this.buildBestiaryTabHtml();
       footerLeft = '镇妖司百鬼图鉴：记录妖邪属性、常掉补给、稀世神兵掉宝与本命妖丹';
@@ -1275,9 +1314,9 @@ export class UIManager {
           <div class="zx-card-grid">
             ${CHARACTER_BIOS.map(
               (b) => `
-                <div class="zx-item-row" style="gap:12px;align-items:flex-end;cursor:default;overflow:hidden;padding-bottom:0;">
-                  <div style="flex-shrink:0;line-height:0;">${getSpeakerPortraitSvg(b.name, compact ? 92 : 124)}</div>
-                  <div style="padding-bottom:10px;">
+                <div class="zx-item-row" style="gap:12px;align-items:center;cursor:default;overflow:hidden;padding:10px 12px;">
+                  <div class="zx-bio-portrait-frame" style="width:${compact ? 84 : 112}px;height:${compact ? 92 : 118}px;">${getSpeakerPortraitSvg(b.name, compact ? 84 : 110)}</div>
+                  <div style="min-width:0;flex:1;">
                     <div style="font-size:15px;font-weight:900;color:${b.color};letter-spacing:2px;">${b.name}</div>
                     <div style="font-size:11px;color:var(--bronze);margin:2px 0 4px;">${b.ageTitle}</div>
                     <div style="font-size:12px;color:#cbd5e1;line-height:1.5;">${b.summary}</div>
@@ -1384,6 +1423,13 @@ export class UIManager {
         this.mapPanY = 0;
         this.renderArsenalModal();
       });
+      this.bindFastTap(overlay.querySelector('#btn-map-color-mode'), () => {
+        const cur = SaveManager.getMeta().mapColorMode || 'classic';
+        SaveManager.saveMeta({ mapColorMode: cur === 'region' ? 'classic' : 'region' });
+        this.lastHudMinimapKey = '';
+        AudioFX.playHit(false);
+        this.renderArsenalModal();
+      });
       this.bindFastTap(overlay.querySelector('#btn-map-normal'), () => {
         this.mapViewRealm = 'normal';
         this.inspectedMapRoomId = null;
@@ -1398,7 +1444,37 @@ export class UIManager {
         this.mapPanY = 0;
         this.renderArsenalModal();
       });
-      const syncPinBtnVisual = () => {
+      const syncMapInspectionControls = () => {
+        const inspected = this.inspectedMapRoomId
+          ? WorldMap.getAllRooms(this.mapViewRealm).find(
+              (r) => r.id === this.inspectedMapRoomId
+            ) || null
+          : null;
+        const regEl = overlay.querySelector('#map-region-progress') as HTMLElement | null;
+        if (regEl) {
+          const focusReg: RegionId =
+            inspected?.region || this.engine.room?.region || 'gatehouse';
+          const rp = this.getRegionMapProgress(focusReg, this.mapViewRealm);
+          const stageName =
+            this.mapViewRealm === 'inverted'
+              ? INVERTED_REGION_NAMES[focusReg]
+              : REGION_NAMES[focusReg];
+          regEl.textContent = `【${stageName} · ${rp.visRooms}/${rp.totalRooms}室${rp.totalTreasures > 0 ? ` · 秘宝 ${rp.gotTreasures}/${rp.totalTreasures}` : ''}】`;
+        }
+        const warpBtn = overlay.querySelector('#btn-map-direct-warp') as HTMLButtonElement | null;
+        if (warpBtn) {
+          const suodiCnt = s.consumables.suodi_talisman || 0;
+          const canWarp = Boolean(
+            inspected &&
+              inspected.special === 'warp_bagua' &&
+              suodiCnt > 0 &&
+              !(
+                inspected.id === this.engine.room?.id &&
+                inspected.realm === this.engine.room?.realm
+              )
+          );
+          warpBtn.style.display = canWarp ? '' : 'none';
+        }
         const pinBtn = overlay.querySelector('#btn-map-pin') as HTMLButtonElement | null;
         if (!pinBtn) return;
         const targetId =
@@ -1418,6 +1494,28 @@ export class UIManager {
         pinBtn.style.color = pinned ? '#fecdd3' : '';
         pinBtn.style.background = pinned ? 'rgba(159,18,57,0.55)' : '';
       };
+      this.bindFastTap(overlay.querySelector('#btn-map-direct-warp'), () => {
+        if (!this.inspectedMapRoomId) return;
+        const target = WorldMap.getAllRooms(this.mapViewRealm).find(
+          (r) => r.id === this.inspectedMapRoomId
+        );
+        if (!target || target.special !== 'warp_bagua') return;
+        if ((s.consumables.suodi_talisman || 0) <= 0) {
+          AudioFX.playHurt();
+          return;
+        }
+        if (this.engine.enemies.some((e) => e.profile.isBoss) || this.engine.ambushSealed) {
+          AudioFX.playHurt();
+          this.showBanner('结界封锁', '妖王或封印结界未破，暂不可催动千山缩地符');
+          return;
+        }
+        s.consumables.suodi_talisman--;
+        AudioFX.playRelicBell();
+        NativeApp.haptic('medium');
+        this.closeModal();
+        this.engine.warpToRoom(this.mapViewRealm, target.id);
+        SaveManager.saveSlot(s);
+      });
       this.bindFastTap(overlay.querySelector('#btn-map-suodi'), () => {
         this.engine.useConsumable('suodi_talisman');
       });
@@ -1435,7 +1533,7 @@ export class UIManager {
         else s.mapPins.push(pk);
         SaveManager.saveSlot(s);
         AudioFX.playHit(false);
-        syncPinBtnVisual();
+        syncMapInspectionControls();
         const mc = overlay.querySelector('#full-castle-map-canvas') as HTMLCanvasElement | null;
         const mctx2 = mc?.getContext('2d');
         if (mc && mctx2) {
@@ -1472,22 +1570,63 @@ export class UIManager {
         };
         redraw();
 
+        const activePointers = new Map<number, { x: number; y: number }>();
+        let pinchStartDist = 0;
         let dragging = false;
         let downX = 0;
         let downY = 0;
         let lastX = 0;
         let lastY = 0;
         let moved = false;
+        const zoomBtn = overlay.querySelector('#btn-map-zoom') as HTMLButtonElement | null;
+        const syncZoomBtnUi = () => {
+          if (!zoomBtn) return;
+          zoomBtn.textContent = this.mapZoom > 1 ? '全览 1×' : '详图 2×';
+          zoomBtn.style.borderColor = this.mapZoom > 1 ? '#5eead4' : '';
+          zoomBtn.style.color = this.mapZoom > 1 ? '#5eead4' : '';
+          mapCanvas.style.cursor = this.mapZoom > 1 ? 'grab' : 'pointer';
+        };
         mapCanvas.addEventListener('pointerdown', (ev) => {
+          activePointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+          mapCanvas.setPointerCapture?.(ev.pointerId);
+          if (activePointers.size === 2) {
+            const pts = [...activePointers.values()];
+            pinchStartDist = Math.max(12, Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y));
+            dragging = false;
+            moved = true;
+            return;
+          }
           dragging = true;
           moved = false;
           downX = ev.clientX;
           downY = ev.clientY;
           lastX = ev.clientX;
           lastY = ev.clientY;
-          mapCanvas.setPointerCapture?.(ev.pointerId);
         });
         mapCanvas.addEventListener('pointermove', (ev) => {
+          if (activePointers.has(ev.pointerId)) {
+            activePointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+          }
+          if (activePointers.size >= 2 && pinchStartDist > 0) {
+            const pts = [...activePointers.values()];
+            const d = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+            if (d > pinchStartDist * 1.25 && this.mapZoom === 1) {
+              this.mapZoom = 2;
+              this.mapPanX = 0;
+              this.mapPanY = 0;
+              pinchStartDist = d;
+              syncZoomBtnUi();
+              redraw();
+            } else if (d < pinchStartDist * 0.8 && this.mapZoom > 1) {
+              this.mapZoom = 1;
+              this.mapPanX = 0;
+              this.mapPanY = 0;
+              pinchStartDist = d;
+              syncZoomBtnUi();
+              redraw();
+            }
+            return;
+          }
           if (!dragging) return;
           const totalDist = Math.hypot(ev.clientX - downX, ev.clientY - downY);
           if (totalDist > 7) moved = true;
@@ -1505,7 +1644,9 @@ export class UIManager {
           }
         });
         mapCanvas.addEventListener('pointerup', (ev) => {
-          if (dragging && !moved) {
+          activePointers.delete(ev.pointerId);
+          if (activePointers.size < 2) pinchStartDist = 0;
+          if (dragging && !moved && activePointers.size === 0) {
             const hitRoom = this.hitTestVisitedRoomOnCanvas(
               mapCanvas,
               ev.clientX,
@@ -1533,15 +1674,17 @@ export class UIManager {
                 footerDescEl.textContent = `【${meta.stage}】${meta.title}${meta.badge ? ` · [${meta.badge}]` : ''} — ${meta.detail}`;
               } else {
                 footerDescEl.textContent =
-                  '轻点地图中任意已探明方格即可浮现殿宇名称与机关秘宝详情（点击【详图 2×】可放大拖曳阅览）';
+                  '轻点地图中任意已探明方格即可浮现殿宇名称与机关秘宝详情（双指捏合 /【详图 2×】可放大拖曳阅览）';
               }
             }
-            syncPinBtnVisual();
+            syncMapInspectionControls();
             redraw();
           }
           dragging = false;
         });
-        mapCanvas.addEventListener('pointercancel', () => {
+        mapCanvas.addEventListener('pointercancel', (ev) => {
+          activePointers.delete(ev.pointerId);
+          pinchStartDist = 0;
           dragging = false;
         });
         mapCanvas.addEventListener(
@@ -1822,6 +1965,29 @@ export class UIManager {
     return nearest;
   }
 
+  private getRegionMapProgress(
+    region: RegionId,
+    realm: CastleRealm
+  ): { visRooms: number; totalRooms: number; gotTreasures: number; totalTreasures: number } {
+    const s = this.engine.slot;
+    const all = WorldMap.getAllRooms(realm).filter((r) => r.region === region);
+    if (!s) return { visRooms: 0, totalRooms: all.length, gotTreasures: 0, totalTreasures: 0 };
+    const visitedSet = new Set(s.visitedRooms);
+    const collectedSet = new Set(s.collectedPickups);
+    let visRooms = 0;
+    let totalTreasures = 0;
+    let gotTreasures = 0;
+    for (const r of all) {
+      if (this.isRoomVisitedInSlot(r, realm, visitedSet)) visRooms++;
+      for (const pk of r.pickups) {
+        if (pk.kind === 'consumable') continue;
+        totalTreasures++;
+        if (collectedSet.has(pk.id)) gotTreasures++;
+      }
+    }
+    return { visRooms, totalRooms: all.length, gotTreasures, totalTreasures };
+  }
+
   private describeInspectedRoom(rm: BuiltRoom): {
     title: string;
     stage: string;
@@ -1832,10 +1998,15 @@ export class UIManager {
     const stage =
       rm.realm === 'inverted' ? INVERTED_REGION_NAMES[rm.region] : REGION_NAMES[rm.region];
     const title = rm.warpName || rm.name;
+    const bossDefeated = Boolean(
+      rm.special === 'boss_room' &&
+        rm.bossKind &&
+        s?.defeatedBosses.includes(`${rm.realm}:${rm.bossKind}`)
+    );
     let badge = '';
     if (rm.special === 'save_shrine') badge = '留档古祠';
     else if (rm.special === 'warp_bagua') badge = '乾坤传送阵';
-    else if (rm.special === 'boss_room') badge = '妖王镇守';
+    else if (rm.special === 'boss_room') badge = bossDefeated ? '已伏妖王' : '妖王镇守';
     else if (rm.id === 'forge_smithy') badge = '赤火名剑炉';
     else if (rm.id === 'library_shop') badge = '子夜鬼市';
     else if (rm.isSecretRoom) badge = '隐秘暗室';
@@ -2033,6 +2204,7 @@ export class UIManager {
       }
       if (!anyCellVisited) continue;
 
+      const mapColorMode = SaveManager.getMeta().mapColorMode || 'classic';
       const isUpperSky =
         rm.region === 'altar' ||
         rm.region === 'colosseum' ||
@@ -2045,18 +2217,27 @@ export class UIManager {
         rm.region === 'catacomb' ||
         rm.region === 'nether';
 
-      let fillCol = isUpperSky
-        ? '#2252b8'
-        : isDeepSubterranean
-          ? '#183e98'
-          : '#1c48a8';
-      if (targetRealm === 'inverted') {
-        fillCol = isDeepSubterranean ? '#5c164a' : '#6d1c56';
-      }
+      let fillCol =
+        mapColorMode === 'region'
+          ? REGION_MAP_COLORS[rm.region][targetRealm]
+          : targetRealm === 'inverted'
+            ? isDeepSubterranean
+              ? '#5c164a'
+              : '#6d1c56'
+            : isUpperSky
+              ? '#2252b8'
+              : isDeepSubterranean
+                ? '#183e98'
+                : '#1c48a8';
 
+      const bossDefeated = Boolean(
+        rm.special === 'boss_room' &&
+          rm.bossKind &&
+          s.defeatedBosses.includes(`${targetRealm}:${rm.bossKind}`)
+      );
       if (rm.special === 'save_shrine') fillCol = '#dc2626';
       else if (rm.special === 'warp_bagua') fillCol = '#eab308';
-      else if (rm.special === 'boss_room') fillCol = '#9f1239';
+      else if (rm.special === 'boss_room') fillCol = bossDefeated ? '#4c1d31' : '#9f1239';
       else if (rm.isSecretRoom || rm.id === 'library_shop' || rm.id === 'forge_smithy') {
         fillCol = '#10b981';
       }
@@ -2233,16 +2414,27 @@ export class UIManager {
         ctx.arc(midRx, midRy, symR * 0.45, 0, Math.PI * 2);
         ctx.stroke();
       } else if (rm.special === 'boss_room') {
-        const br = symR * 1.15;
-        ctx.strokeStyle = '#fecdd3';
-        ctx.lineWidth = detailed ? 1.5 : 1.0;
-        ctx.beginPath();
-        ctx.moveTo(midRx, midRy - br);
-        ctx.lineTo(midRx + br, midRy);
-        ctx.lineTo(midRx, midRy + br);
-        ctx.lineTo(midRx - br, midRy);
-        ctx.closePath();
-        ctx.stroke();
+        if (bossDefeated) {
+          const cr = symR * 0.95;
+          ctx.strokeStyle = '#fbbf24';
+          ctx.lineWidth = detailed ? 2.1 : 1.4;
+          ctx.beginPath();
+          ctx.moveTo(midRx - cr * 0.78, midRy + cr * 0.06);
+          ctx.lineTo(midRx - cr * 0.16, midRy + cr * 0.68);
+          ctx.lineTo(midRx + cr * 0.88, midRy - cr * 0.66);
+          ctx.stroke();
+        } else {
+          const br = symR * 1.15;
+          ctx.strokeStyle = '#fecdd3';
+          ctx.lineWidth = detailed ? 1.5 : 1.0;
+          ctx.beginPath();
+          ctx.moveTo(midRx, midRy - br);
+          ctx.lineTo(midRx + br, midRy);
+          ctx.lineTo(midRx, midRy + br);
+          ctx.lineTo(midRx - br, midRy);
+          ctx.closePath();
+          ctx.stroke();
+        }
       } else if (rm.id === 'library_shop' || rm.id === 'forge_smithy') {
         ctx.fillStyle = '#ecfdf5';
         ctx.beginPath();
@@ -2401,7 +2593,11 @@ export class UIManager {
     const compact = window.innerHeight < 540 || window.innerWidth < 900;
     const wpnIconSize = compact ? 54 : 80;
     const slots: { key: EquipSlotCategory; cat: string; cur: string }[] = [
-      { key: 'weapon', cat: compact ? '主兵' : '主手兵刃', cur: curWpn.name },
+      {
+        key: 'weapon',
+        cat: compact ? '主兵' : '主手兵刃',
+        cur: formatWeaponDisplayName(curWpn, getWeaponUpgradeLevel(s.weaponUpgrades, curWpn.id)),
+      },
       {
         key: 'spirit',
         cat: compact ? '护灵' : '随身护灵',
@@ -2429,7 +2625,8 @@ export class UIManager {
 
     if (this.selectedEquipSlot === 'weapon') {
       const focusW = WEAPONS[this.previewItemId || s.equippedWeapon] || curWpn;
-      footerTxt = `【${focusW.name}】${focusW.traitDesc}`;
+      const focusUpLv = getWeaponUpgradeLevel(s.weaponUpgrades, focusW.id);
+      footerTxt = `【${formatWeaponDisplayName(focusW, focusUpLv)}】${focusW.traitDesc}`;
       const archTag = (a: string) =>
         a === 'greatsword'
           ? '重刃破盾'
@@ -2459,13 +2656,20 @@ export class UIManager {
           .map((id) => {
             const w = WEAPONS[id];
             const eq = s.equippedWeapon === id;
+            const upLv = getWeaponUpgradeLevel(s.weaponUpgrades, w.id);
+            const effAtk = getWeaponRefinedAtk(w, upLv);
+            const effCrit = getWeaponRefinedCritBonus(w, upLv);
+            const upBadge =
+              upLv > 0
+                ? `<span style="color:#fb923c;font-size:12px;font-weight:900;margin-left:4px;">+${upLv}</span>`
+                : '';
             return `
           <div class="zx-item-row ${eq ? 'equipped' : ''}" data-pick-id="${id}">
             <div style="display:flex;align-items:center;gap:12px;min-width:0;">
               ${getWeaponArtHtml(w.archetype, wpnIconSize, w.id)}
               <div style="min-width:0;">
-                <div style="font-size:14.5px;font-weight:900;color:var(--rice);">${w.name} ${tierBadge(w.tier)}</div>
-                <div style="font-size:11.5px;color:var(--ash);">杀伤 +${w.atk}${w.critBonus ? ` · 暴击 +${Math.round(w.critBonus * 100)}%` : ''} · ${archTag(w.archetype)}</div>
+                <div style="font-size:14.5px;font-weight:900;color:var(--rice);">${w.name}${upBadge} ${tierBadge(w.tier)}</div>
+                <div style="font-size:11.5px;color:var(--ash);">杀伤 +${effAtk}${effCrit ? ` · 暴击 +${Math.round(effCrit * 100)}%` : ''} · ${archTag(w.archetype)}</div>
               </div>
             </div>
             ${eq ? `<span class="zx-eq-seal">佩挂中</span>` : `<span class="zx-eq-hint">换装</span>`}
@@ -3467,29 +3671,50 @@ export class UIManager {
       return;
     }
 
+    let smithTab: 'refine' | 'forge' = 'refine';
+
     const renderShopOrSmith = () => {
       if (kind === 'smith') {
-        const masterworks = Object.values(WEAPONS).filter((w) => w.smithExclusive);
-        const rows = masterworks
+        const ownedValid = [...new Set(s.ownedWeapons)]
+          .map((id) => WEAPONS[id])
+          .filter((w): w is NonNullable<typeof w> => Boolean(w))
+          .sort((a, b) => {
+            if (a.id === s.equippedWeapon) return -1;
+            if (b.id === s.equippedWeapon) return 1;
+            if (b.tier !== a.tier) return b.tier - a.tier;
+            return b.atk - a.atk;
+          });
+        const refineRows = ownedValid
           .map((w) => {
-            const owned = s.ownedWeapons.includes(w.id);
-            const forgeCost = w.price || 580;
+            const lv = getWeaponUpgradeLevel(s.weaponUpgrades, w.id);
+            const curAtk = getWeaponRefinedAtk(w, lv);
+            const curCrit = getWeaponRefinedCritBonus(w, lv);
+            const eq = s.equippedWeapon === w.id;
+            const maxed = lv >= MAX_WEAPON_UPGRADE;
+            const nextAtk = maxed ? curAtk : getWeaponRefinedAtk(w, lv + 1);
+            const nextCrit = maxed ? curCrit : getWeaponRefinedCritBonus(w, lv + 1);
+            const cost = maxed ? 0 : getWeaponUpgradeCost(w, lv);
+            const canAfford = !maxed && s.gold >= cost;
+            const dispName = formatWeaponDisplayName(w, lv);
+            const statHtml = maxed
+              ? `<div style="font-size:11.5px;color:#5eead4;">杀伤 +${curAtk} · 暴击 +${Math.round(curCrit * 100)}% · 炉火纯青</div>`
+              : `<div style="font-size:11.5px;color:#fbbf24;">杀伤 ${curAtk} → <b style="color:#5eead4;">${nextAtk} (+${nextAtk - curAtk})</b> · 暴击 +${Math.round(curCrit * 100)}% → +${Math.round(nextCrit * 100)}%</div>`;
             return `
-              <div class="zx-item-row" style="cursor:default;flex-wrap:wrap;gap:10px;">
+              <div class="zx-item-row ${eq ? 'equipped' : ''}" style="cursor:default;flex-wrap:wrap;gap:10px;">
                 <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:210px;">
                   <div class="zx-shop-icon-slot">${getWeaponArtHtml(w.archetype, 52, w.id)}</div>
                   <div>
-                    <div style="font-size:15px;font-weight:900;color:var(--rice);">${w.name}</div>
-                    <div style="font-size:11.5px;color:#fbbf24;">杀伤 +${w.atk}${w.critBonus ? ` · 暴击 +${Math.round(w.critBonus * 100)}%` : ''}</div>
+                    <div style="font-size:15px;font-weight:900;color:var(--rice);">${dispName} ${eq ? '<span style="font-size:11px;color:#5eead4;">[佩挂]</span>' : ''}</div>
+                    ${statHtml}
                     <div style="font-size:11.5px;color:var(--ash);margin-top:2px;">${w.desc}</div>
                   </div>
                 </div>
                 <div style="display:flex;gap:8px;align-items:center;">
                   ${
-                    owned
-                      ? `<span class="zx-eq-seal">已铸入囊</span>`
-                      : `<button class="zx-seal-btn" data-forge-id="${w.id}" style="padding:6px 12px;font-size:12.5px;border-color:#fb923c;color:#fde68a;">
-                           开炉秘铸 (${forgeCost}银)
+                    maxed
+                      ? `<span class="zx-eq-seal" style="background:#115e59;">✦ 已臻化境</span>`
+                      : `<button class="zx-seal-btn" data-refine-id="${w.id}" style="padding:6px 12px;font-size:12.5px;border-color:${canAfford ? '#fb923c' : '#475569'};color:${canAfford ? '#fde68a' : '#94a3b8'};">
+                           淬火 +${lv + 1} (${cost}银)
                          </button>`
                   }
                 </div>
@@ -3497,24 +3722,82 @@ export class UIManager {
           })
           .join('');
 
+        const masterworks = Object.values(WEAPONS).filter((w) => w.smithExclusive);
+        const forgeBanner = `
+          <div class="zx-item-row" style="cursor:default;background:rgba(161,98,7,0.12);border-color:rgba(250,204,21,0.32);margin-bottom:8px;">
+            <div style="font-size:12px;color:#fde68a;line-height:1.5;">
+              <b>赤火锻律：</b>凡尘中阶名器可在此开炉秘铸；<b>传世绝品神兵</b>（七星龙渊剑、饕餮开山巨陌刀、破阵紫金方天戟、子母鸳鸯追魂钺、紫电打神雷音鞭、青莲太白剑）皆隐于玄城深窟或由古妖爆落，绝非银两可买！寻获后皆可切至【淬火强化】精炼至 +5。
+            </div>
+          </div>`;
+        const forgeRows =
+          forgeBanner +
+          masterworks
+            .map((w) => {
+              const owned = s.ownedWeapons.includes(w.id);
+              const forgeCost = w.price || 580;
+              return `
+                <div class="zx-item-row" style="cursor:default;flex-wrap:wrap;gap:10px;">
+                  <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:210px;">
+                    <div class="zx-shop-icon-slot">${getWeaponArtHtml(w.archetype, 52, w.id)}</div>
+                    <div>
+                      <div style="font-size:15px;font-weight:900;color:var(--rice);">${w.name}</div>
+                      <div style="font-size:11.5px;color:#fbbf24;">杀伤 +${w.atk}${w.critBonus ? ` · 暴击 +${Math.round(w.critBonus * 100)}%` : ''}</div>
+                      <div style="font-size:11.5px;color:var(--ash);margin-top:2px;">${w.desc}</div>
+                    </div>
+                  </div>
+                  <div style="display:flex;gap:8px;align-items:center;">
+                    ${
+                      owned
+                        ? `<span class="zx-eq-seal">已铸入囊</span>`
+                        : `<button class="zx-seal-btn" data-forge-id="${w.id}" style="padding:6px 12px;font-size:12.5px;border-color:#fb923c;color:#fde68a;">
+                             开炉秘铸 (${forgeCost}银)
+                           </button>`
+                    }
+                  </div>
+                </div>`;
+            })
+            .join('');
+
         overlay.innerHTML = `
           <div class="zx-arsenal-topbar">
-            <span class="zx-modal-heading" style="color:#fb923c;">赤火名剑炉 · 欧冶残独门秘铸</span>
-            <div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">
-              <span style="color:#fde68a;font-weight:800;font-size:13px;">纹银 ${s.gold}</span>
+            <span class="zx-modal-heading" style="color:#fb923c;">赤火名剑炉 · 欧冶残锻坊</span>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <button class="zx-seal-btn" id="btn-smith-refine" style="${smithTab === 'refine' ? 'border-color:#fb923c;color:#fde68a;background:rgba(154,52,18,0.45);' : ''}">淬火强化 (+1~+5)</button>
+              <button class="zx-seal-btn" id="btn-smith-forge" style="${smithTab === 'forge' ? 'border-color:#fb923c;color:#fde68a;background:rgba(154,52,18,0.45);' : ''}">中阶秘铸</button>
+              <span style="color:#fde68a;font-weight:800;font-size:13px;margin-left:4px;">纹银 ${s.gold}</span>
               <button class="zx-seal-btn" id="btn-close-npc">${isTouch ? '告辞' : '收剑告辞 [ESC]'}</button>
             </div>
           </div>
           <div class="zx-npc-modal-body">
             <div class="zx-stage-col zx-npc-side-col">
               <div style="font-size:12.5px;color:#cbd5e1;line-height:1.55;padding:4px 4px 10px;">
-                “凡世神兵一器一魂，从无千篇一律的回炉加点！老夫毕生仅存四卷名器孤本，你若凑足纹银，老夫便为你开炉铸出一世孤品！”
+                “凡尘良兵老夫尚可开炉秘铸；至于传世绝品神兵，皆藏于玄城险窟或由古妖镇守，绝非市井银两可购！然少侠凡寻得任何名刃，皆可携至赤火炉前淬火精炼至 +5！”
               </div>
               ${getSpeakerPortraitSvg('欧冶残', 235)}
             </div>
-            <div class="zx-item-list">${rows}</div>
+            <div class="zx-item-list">${smithTab === 'refine' ? refineRows : forgeRows}</div>
           </div>
         `;
+
+        this.bindFastTap(overlay.querySelector('#btn-smith-refine'), () => {
+          smithTab = 'refine';
+          AudioFX.playHit(false);
+          renderShopOrSmith();
+        });
+        this.bindFastTap(overlay.querySelector('#btn-smith-forge'), () => {
+          smithTab = 'forge';
+          AudioFX.playHit(false);
+          renderShopOrSmith();
+        });
+
+        overlay.querySelectorAll<HTMLElement>('[data-refine-id]').forEach((el) => {
+          el.onclick = () => {
+            const wid = el.dataset.refineId!;
+            if (this.engine.upgradeWeapon(wid)) {
+              renderShopOrSmith();
+            }
+          };
+        });
 
         overlay.querySelectorAll<HTMLElement>('[data-forge-id]').forEach((el) => {
           el.onclick = () => {

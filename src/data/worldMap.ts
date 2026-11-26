@@ -3696,6 +3696,43 @@ function createNormalCastleRooms(): BuiltRoom[] {
     secret_sword_tomb: {
       hazards: [{ kind: 'spikes', x: 205, y: 428, span: 100 }],
     },
+    clock_pendulum_vault: {
+      hazards: [{ kind: 'pendulum', x: 800, y: 36, span: 152, speed: 1.9, phase: 0.5 }],
+      crumbleSlabs: [{ id: 'cs_pend_1', x: 1120, y: 644, w: 115 }],
+    },
+    mine_ember_grotto: {
+      hazards: [
+        { kind: 'fire_vent', x: 620, y: 408, span: 135, speed: 3.3, phase: 0.4 },
+        { kind: 'updraft', x: 1040, y: 408, span: 175, width: 78 },
+      ],
+    },
+    mine_obsidian_hall: {
+      hazards: [
+        { kind: 'fire_vent', x: 940, y: 760, span: 140, speed: 3.4, phase: 0.8 },
+        { kind: 'updraft', x: 1300, y: 760, span: 185, width: 82 },
+      ],
+    },
+    nether_bone_vault: {
+      hazards: [{ kind: 'pendulum', x: 420, y: 36, span: 145, speed: 1.9, phase: 0.7 }],
+      crumbleSlabs: [{ id: 'cs_nbone_1', x: 1120, y: 536, w: 115 }],
+    },
+    dock_reef_descent: {
+      hazards: [{ kind: 'updraft', x: 320, y: 2516, span: 200, width: 84 }],
+      crumbleSlabs: [{ id: 'cs_dock_reef_1', x: 240, y: 1960, w: 115 }],
+    },
+    dock_sunken_galleon: {
+      hazards: [
+        { kind: 'pendulum', x: 940, y: 36, span: 155, speed: 1.85, phase: 0.3 },
+        { kind: 'updraft', x: 1320, y: 760, span: 185, width: 82 },
+      ],
+    },
+    dock_trench_lantern: {
+      hazards: [{ kind: 'updraft', x: 960, y: 408, span: 180, width: 80 }],
+      crumbleSlabs: [{ id: 'cs_trench_1', x: 900, y: 292, w: 115 }],
+    },
+    dock_pearl_grotto: {
+      hazards: [{ kind: 'pendulum', x: 800, y: 36, span: 150, speed: 1.85, phase: 1.1 }],
+    },
   };
 
   const dryNonWaterRoomIds = new Set([
@@ -4365,6 +4402,17 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 420, y: 328 },
         { x: 1220, y: 328 },
       ],
+      secretWalls: [
+        {
+          id: 'sw_hall_west_jg',
+          x: 8,
+          y: 308,
+          w: 44,
+          h: 96,
+          dropKind: 'consumable',
+          dropItemId: 'jingang_dan',
+        },
+      ],
       foregrounds: [],
       lanterns: [],
       npcs: [],
@@ -4782,6 +4830,17 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'guardian_statue', x: 145, y: 416, scale: 0.92 },
         { kind: 'dragon_brazier', x: 960, y: 416, scale: 0.9 },
       ],
+      secretWalls: [
+        {
+          id: 'sw_prison_sluice_hp',
+          x: 632,
+          y: 248,
+          w: 44,
+          h: 96,
+          dropKind: 'max_up',
+          dropItemId: 'hp_vessel',
+        },
+      ],
       pavilions: [],
       archways: [],
       torches: [
@@ -4840,6 +4899,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'dragon_brazier', x: 135, y: 408, scale: 0.9 },
         { kind: 'dragon_brazier', x: 665, y: 408, scale: 0.9 },
       ],
+      steles: [{ id: 'stele_prison_flood', x: 735 }],
       pavilions: [],
       archways: [],
       torches: [
@@ -5531,6 +5591,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'dragon_brazier', x: 420, y: 372, scale: 0.94 },
         { kind: 'dragon_brazier', x: 880, y: 372, scale: 0.94 },
       ],
+      steles: [{ id: 'stele_altar_oath', x: 225 }],
       waterZones: [],
       pavilions: [{ x: 1144, y: 404, w: 184, hasPillars: false }],
       archways: [],
@@ -10309,6 +10370,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'incense_burner', x: 360, y: 760, scale: 0.94 },
         { kind: 'dragon_brazier', x: 1260, y: 760, scale: 0.92 },
       ],
+      steles: [{ id: 'stele_main_hall_bell', x: 240 }],
       waterZones: [],
       pavilions: [{ x: 874, y: 760, w: 194, hasPillars: false }],
       archways: [],
@@ -10323,7 +10385,9 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'bell_gargoyle', x: 780, y: 520 },
         { kind: 'jinwu_mace_guard', x: 1220, y: 760 },
       ],
-      pickups: [{ id: 'pk_exp_bell_mp', kind: 'max_up', itemId: 'mp_vessel', x: 800, y: 368 }],
+      pickups: [
+        { id: 'pk_exp_bell_tiger_tally', kind: 'armor', itemId: 'tiger_tally', x: 800, y: 368 },
+      ],
     },
     {
       id: 'clock_pendulum_vault',
@@ -10373,6 +10437,17 @@ function createNormalCastleRooms(): BuiltRoom[] {
       torches: [
         { x: 420, y: 684 },
         { x: 1180, y: 684 },
+      ],
+      secretWalls: [
+        {
+          id: 'sw_clock_pend_mp',
+          x: 8,
+          y: 664,
+          w: 44,
+          h: 96,
+          dropKind: 'max_up',
+          dropItemId: 'mp_vessel',
+        },
       ],
       foregrounds: [],
       lanterns: [],
@@ -10484,6 +10559,17 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 460, y: 332 },
         { x: 1120, y: 332 },
       ],
+      secretWalls: [
+        {
+          id: 'sw_burial_jz',
+          x: 1548,
+          y: 312,
+          w: 44,
+          h: 96,
+          dropKind: 'consumable',
+          dropItemId: 'jiuzhuan_jin_dan',
+        },
+      ],
       foregrounds: [],
       lanterns: [],
       npcs: [],
@@ -10583,7 +10669,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'bixie_stone_beast', x: 1080, y: 760 },
         { kind: 'wuchang_reaper', x: 860, y: 450 },
       ],
-      pickups: [{ id: 'pk_exp_rib_hp', kind: 'max_up', itemId: 'hp_vessel', x: 860, y: 368 }],
+      pickups: [{ id: 'pk_exp_rib_daggers3', kind: 'weapon', itemId: 'daggers_3', x: 860, y: 368 }],
     },
 
     // Group 3: 左下深层赤熔地火矿区 (cols 0..9, y=21..27, 6 座 — 敦实玄城左翼下盘！)
@@ -10699,6 +10785,17 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 520, y: 684 },
         { x: 1120, y: 684 },
       ],
+      secretWalls: [
+        {
+          id: 'sw_smelter_chicken',
+          x: 8,
+          y: 664,
+          w: 44,
+          h: 96,
+          dropKind: 'consumable',
+          dropItemId: 'beggar_chicken',
+        },
+      ],
       foregrounds: [],
       lanterns: [],
       npcs: [],
@@ -10744,6 +10841,17 @@ function createNormalCastleRooms(): BuiltRoom[] {
       torches: [
         { x: 720, y: 332 },
         { x: 1220, y: 332 },
+      ],
+      secretWalls: [
+        {
+          id: 'sw_ember_wine',
+          x: 1828,
+          y: 312,
+          w: 44,
+          h: 96,
+          dropKind: 'consumable',
+          dropItemId: 'tiger_bone_wine',
+        },
       ],
       foregrounds: [],
       lanterns: [],
@@ -10793,6 +10901,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'coiled_pillar', x: 460, y: 760, scale: 0.96 },
         { kind: 'guardian_statue', x: 1420, y: 760, scale: 0.94 },
       ],
+      steles: [{ id: 'stele_obsidian_vein', x: 260 }],
       waterZones: [],
       pavilions: [],
       archways: [],
@@ -10853,7 +10962,9 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'jinwu_mace_guard', x: 860, y: 408 },
         { kind: 'mine_pickaxe_ghoul', x: 1280, y: 408 },
       ],
-      pickups: [{ id: 'pk_exp_basalt_mp', kind: 'max_up', itemId: 'mp_vessel', x: 380, y: 408 }],
+      pickups: [
+        { id: 'pk_exp_basalt_blood_sw', kind: 'weapon', itemId: 'sword_blood', x: 560, y: 292 },
+      ],
     },
     {
       id: 'mine_deep_reliquary',
@@ -10896,6 +11007,17 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 520, y: 684 },
         { x: 1120, y: 684 },
       ],
+      secretWalls: [
+        {
+          id: 'sw_reliquary_hp',
+          x: 1548,
+          y: 664,
+          w: 44,
+          h: 96,
+          dropKind: 'max_up',
+          dropItemId: 'hp_vessel',
+        },
+      ],
       foregrounds: [],
       lanterns: [],
       npcs: [],
@@ -10905,6 +11027,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       pickups: [
         { id: 'pk_exp_deep_jz', kind: 'consumable', itemId: 'jiuzhuan_jin_dan', x: 1200, y: 760 },
+        { id: 'pk_exp_deep_sword3', kind: 'weapon', itemId: 'sword_3', x: 1090, y: 356 },
       ],
     },
 
@@ -11096,6 +11219,17 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { x: 480, y: 332 },
         { x: 1180, y: 332 },
       ],
+      secretWalls: [
+        {
+          id: 'sw_mirror_cellar_sx',
+          x: 1548,
+          y: 312,
+          w: 44,
+          h: 96,
+          dropKind: 'consumable',
+          dropItemId: 'shenxing_san',
+        },
+      ],
       foregrounds: [],
       lanterns: [],
       npcs: [],
@@ -11190,6 +11324,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'giant_bell', x: 800, y: 185, scale: 1.0 },
         { kind: 'coiled_pillar', x: 320, y: 760, scale: 0.96 },
       ],
+      steles: [{ id: 'stele_west_belfry', x: 200 }],
       waterZones: [],
       pavilions: [{ x: 704, y: 760, w: 194, hasPillars: false }],
       archways: [],
@@ -11204,7 +11339,9 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'celestial_sentinel', x: 780, y: 480 },
         { kind: 'scroll_demon', x: 1160, y: 520 },
       ],
-      pickups: [{ id: 'pk_exp_west_belfry_hp', kind: 'max_up', itemId: 'hp_vessel', x: 800, y: 368 }],
+      pickups: [
+        { id: 'pk_exp_west_belfry_spear3', kind: 'weapon', itemId: 'spear_3', x: 800, y: 368 },
+      ],
     },
     {
       id: 'nether_bone_vault',
@@ -11250,6 +11387,17 @@ function createNormalCastleRooms(): BuiltRoom[] {
       torches: [
         { x: 460, y: 684 },
         { x: 1140, y: 684 },
+      ],
+      secretWalls: [
+        {
+          id: 'sw_bone_vault_hp',
+          x: 8,
+          y: 664,
+          w: 44,
+          h: 96,
+          dropKind: 'max_up',
+          dropItemId: 'hp_vessel',
+        },
       ],
       foregrounds: [],
       lanterns: [],
@@ -11408,6 +11556,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'coiled_pillar', x: 380, y: 760, scale: 0.96 },
         { kind: 'dragon_brazier', x: 1460, y: 760, scale: 0.94 },
       ],
+      steles: [{ id: 'stele_sunken_galleon', x: 240 }],
       waterZones: [],
       pavilions: [],
       archways: [],
@@ -11460,6 +11609,17 @@ function createNormalCastleRooms(): BuiltRoom[] {
       torches: [
         { x: 460, y: 332 },
         { x: 1080, y: 332 },
+      ],
+      secretWalls: [
+        {
+          id: 'sw_barnacle_wine',
+          x: 8,
+          y: 312,
+          w: 44,
+          h: 96,
+          dropKind: 'consumable',
+          dropItemId: 'tiger_bone_wine',
+        },
       ],
       foregrounds: [],
       lanterns: [],
@@ -11620,7 +11780,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
         { kind: 'guixu_water_fiend', x: 760, y: 220 },
         { kind: 'mine_pickaxe_ghoul', x: 1240, y: 408 },
       ],
-      pickups: [{ id: 'pk_exp_trench_mp', kind: 'max_up', itemId: 'mp_vessel', x: 1300, y: 292 }],
+      pickups: [{ id: 'pk_exp_trench_whip3', kind: 'weapon', itemId: 'whip_3', x: 1300, y: 292 }],
     },
     {
       id: 'dock_pearl_grotto',
@@ -11662,6 +11822,17 @@ function createNormalCastleRooms(): BuiltRoom[] {
       torches: [
         { x: 520, y: 684 },
         { x: 1120, y: 684 },
+      ],
+      secretWalls: [
+        {
+          id: 'sw_pearl_mp',
+          x: 8,
+          y: 664,
+          w: 44,
+          h: 96,
+          dropKind: 'max_up',
+          dropItemId: 'mp_vessel',
+        },
       ],
       foregrounds: [],
       lanterns: [],

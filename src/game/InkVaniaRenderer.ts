@@ -182,6 +182,20 @@ export class InkVaniaRenderer {
         true
       );
     }
+    if (engine.perfectDodgeBuffTimer > 0) {
+      drawPaintedVfxDisc(
+        ctx,
+        'vfx_ink_shockwave',
+        engine.player.x,
+        engine.player.y - 32,
+        30 + Math.sin(this.ambientTime * 14) * 4,
+        -this.ambientTime * 3.2,
+        0.48,
+        '#2dd4bf',
+        0.62,
+        true
+      );
+    }
     drawHeroCharacter(ctx, engine, this.ambientTime);
     this.renderActiveSkillWorldVfx(ctx, engine);
     this.renderOrbitingSwordsAndLevelUp(ctx, engine);

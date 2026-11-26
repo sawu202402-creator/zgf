@@ -308,9 +308,8 @@ export const WEAPONS: Record<string, WeaponDef> = {
     color: '#e9d5ff',
     glowColor: '#a855f7',
     price: 1180,
-    smithExclusive: true,
-    desc: '紫金长杆配对称双月牙画戟耳刃，刺挑劈砍皆备，霸王破阵无双神戟。',
-    traitDesc: '【方天戟】超长射程宽幅贯穿 · 戟尖必爆破甲寸劲',
+    desc: '紫金长杆配对称双月牙画戟耳刃，刺挑劈砍皆备；深藏于九幽西陵古阁之中，亦偶由皇陵重戟秦俑守护。',
+    traitDesc: '【方天戟】超长射程宽幅贯穿 · 戟尖必爆破甲寸劲（传世非卖品，可淬火至 +5）',
   },
 
   // ================= 4. 短兵系（4 把造型各异的独立收藏奇门双刃） =================
@@ -449,12 +448,39 @@ export const WEAPONS: Record<string, WeaponDef> = {
     color: '#fef08a',
     glowColor: '#38bdf8',
     price: 1120,
-    smithExclusive: true,
     specialEffect: 'chain_lightning',
-    desc: '鎏金竹节雷纹长鞭，鞭梢吞吐紫电雷芒，一鞭挥出万邪辟易。',
-    traitDesc: '【打神天雷】全角度超远雷鞭 · 命中自动引落连锁紫电轰击群妖',
+    desc: '鎏金竹节雷纹长鞭，鞭梢吞吐紫电雷芒；唯归墟沉舰尽头与百戏魅音花旦方能寻获。',
+    traitDesc: '【打神天雷】全角度超远雷鞭 · 引落连锁紫电轰击（传世非卖品，可淬火至 +5）',
   },
 };
+
+export const MAX_WEAPON_UPGRADE = 5;
+
+export function getWeaponUpgradeLevel(
+  weaponUpgrades: Record<string, number> | undefined,
+  weaponId: string
+): number {
+  const raw = weaponUpgrades?.[weaponId] || 0;
+  return Math.max(0, Math.min(MAX_WEAPON_UPGRADE, Math.floor(raw)));
+}
+
+export function getWeaponRefinedAtk(w: WeaponDef, lv: number): number {
+  const clamped = Math.max(0, Math.min(MAX_WEAPON_UPGRADE, lv));
+  return clamped <= 0 ? w.atk : Math.round(w.atk * (1 + clamped * 0.11)) + clamped * 2;
+}
+
+export function getWeaponRefinedCritBonus(w: WeaponDef, lv: number): number {
+  const clamped = Math.max(0, Math.min(MAX_WEAPON_UPGRADE, lv));
+  return w.critBonus + clamped * 0.015;
+}
+
+export function getWeaponUpgradeCost(w: WeaponDef, currentLv: number): number {
+  return Math.round((140 + w.tier * 65) * Math.pow(1.62, Math.max(0, currentLv)));
+}
+
+export function formatWeaponDisplayName(w: WeaponDef, lv: number): string {
+  return lv > 0 ? `${w.name} +${lv}` : w.name;
+}
 
 export const SUB_WEAPONS: Record<SubWeaponId, SubWeaponDef> = {
   dagger_throw: {

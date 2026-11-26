@@ -1,3 +1,4 @@
+import { MAP_LAYOUT_VERSION } from '../data/worldMap';
 import { GameMode, GlobalMetaUnlock, SaveSlotData } from '../types';
 
 const SLOT_KEY_PREFIX = 'xuancheng_vs_slot_v2_';
@@ -25,6 +26,7 @@ export function createFreshSaveSlot(slotIndex: number, mode: GameMode = 'story')
     equippedAccessory: 'broken_jade',
     equippedYaoCore: '',
     ownedWeapons: isXiao ? ['spear_2', 'sword_2'] : ['sword_0'],
+    weaponUpgrades: {},
     ownedSubWeapons: isXiao ? ['dagger_throw', 'bagua_cross', 'holy_fire'] : ['dagger_throw'],
     ownedArmors: isXiao ? ['mingguang_armor', 'broken_jade'] : ['cloth_tunic', 'broken_jade'],
     ownedYaoCores: [],
@@ -38,7 +40,7 @@ export function createFreshSaveSlot(slotIndex: number, mode: GameMode = 'story')
       huiqi_dan: 1,
       suodi_talisman: 2,
     },
-    mapLayoutVersion: 4,
+    mapLayoutVersion: MAP_LAYOUT_VERSION,
     visitedRooms: mode === 'boss_rush' ? [] : ['normal:bamboo_outpost'],
     collectedPickups: [],
     defeatedBosses: [],
@@ -58,6 +60,7 @@ class SaveSystem {
     bestBossRushSec: null,
     controlStyle: 'joystick',
     padScale: 1.0,
+    mapColorMode: 'classic',
     sfxMuted: false,
     bgmMuted: false,
   };
@@ -66,7 +69,12 @@ class SaveSystem {
     try {
       const raw = localStorage.getItem(META_KEY);
       if (raw) {
-        this.meta = { ...this.meta, ...JSON.parse(raw) };
+        const parsed = JSON.parse(raw);
+        this.meta = {
+          ...this.meta,
+          ...parsed,
+          mapColorMode: parsed?.mapColorMode === 'region' ? 'region' : 'classic',
+        };
       }
     } catch {
       // ignore storage errors

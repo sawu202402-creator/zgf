@@ -13,6 +13,11 @@ import {
   ARMORS,
   CONSUMABLES,
   FAMILIARS,
+  getWeaponRefinedAtk,
+  getWeaponRefinedCritBonus,
+  getWeaponUpgradeCost,
+  getWeaponUpgradeLevel,
+  MAX_WEAPON_UPGRADE,
   SKILLS,
   SUB_WEAPONS,
   WEAPONS,
@@ -567,6 +572,8 @@ export class GameEngine {
     const cId = overrides?.coreId ?? s.equippedYaoCore;
 
     const weapon = WEAPONS[wId] || WEAPONS.sword_0;
+    const upLv = getWeaponUpgradeLevel(s.weaponUpgrades, weapon.id);
+    const wpnAtk = getWeaponRefinedAtk(weapon, upLv);
     const armor = ARMORS[aId] || ARMORS.cloth_tunic;
     const acc = ARMORS[accId] || ARMORS.broken_jade;
     const core = cId ? YAO_CORES[cId] : undefined;
@@ -580,7 +587,7 @@ export class GameEngine {
     const maxHp = 100 + lv * 8 + s.maxHpBonus + armor.hpBonus + acc.hpBonus;
     const maxMp = 64 + lv * 5 + s.maxMpBonus + armor.mpBonus + acc.mpBonus;
     const wineMult = this.activeBuffs.berserk_wine > 0 ? 1.28 : 1;
-    let atk = Math.round((weapon.atk + str * 1.05) * (1 + (core?.atkPct || 0)) * wineMult);
+    let atk = Math.round((wpnAtk + str * 1.05) * (1 + (core?.atkPct || 0)) * wineMult);
     if (s.mode === 'xiaoduanshui') atk = Math.round(atk * 1.18);
     const rawDef = 3 + Math.floor(lv * 0.65) + armor.def + acc.def;
     const def = Math.round(rawDef * (1 + (core?.defPct || 0)));
@@ -593,6 +600,7 @@ export class GameEngine {
     if (!s) return;
 
     const weapon = WEAPONS[s.equippedWeapon] || WEAPONS.sword_0;
+    const upLv = getWeaponUpgradeLevel(s.weaponUpgrades, weapon.id);
     const armor = ARMORS[s.equippedArmor] || ARMORS.cloth_tunic;
     const acc = ARMORS[s.equippedAccessory] || ARMORS.broken_jade;
     const core = s.equippedYaoCore ? YAO_CORES[s.equippedYaoCore] : undefined;
@@ -610,7 +618,7 @@ export class GameEngine {
     const windSpd = this.activeBuffs.wind_crit > 0 ? 0.14 : 0;
     this.player.critChance = Math.min(
       0.85,
-      0.06 + weapon.critBonus + st.lck * 0.004 + (core?.critPct || 0) + windCrit
+      0.06 + getWeaponRefinedCritBonus(weapon, upLv) + st.lck * 0.004 + (core?.critPct || 0) + windCrit
     );
     const baseSpd =
       weapon.archetype === 'greatsword'
@@ -5715,22 +5723,26 @@ export class GameEngine {
             e.slashHitPlayer = false;
             if (e.profile.kind === 'boss_xiao_duanshui') {
               const ang = Math.atan2(p.y - 38 - (e.y - 46), p.x - e.x);
-              this.projectiles.push({
-                fromPlayer: false,
-                kind: 'dagger',
-                enemyFx: 'thunder_lance',
-                x: e.x + e.facing * 24,
-                y: e.y - 46,
-                vx: Math.cos(ang) * 425,
-                vy: Math.sin(ang) * 425,
-                r: 11,
-                dmg: Math.round(e.profile.atk * 0.92),
-                color: '#fde047',
-                life: 1.7,
-                maxLife: 1.7,
-                pierce: 1,
-                hitIds: new Set(),
-              });
+              const invAngles = room.realm === 'inverted' ? [0, -0.26, 0.26] : [0];
+              for (const offA of invAngles) {
+                const a = ang + offA;
+                this.projectiles.push({
+                  fromPlayer: false,
+                  kind: 'dagger',
+                  enemyFx: 'thunder_lance',
+                  x: e.x + e.facing * 24,
+                  y: e.y - 46,
+                  vx: Math.cos(a) * 425,
+                  vy: Math.sin(a) * 425,
+                  r: 11,
+                  dmg: Math.round(e.profile.atk * 0.92),
+                  color: offA === 0 ? '#fde047' : '#c084fc',
+                  life: 1.7,
+                  maxLife: 1.7,
+                  pierce: 1,
+                  hitIds: new Set(),
+                });
+              }
               if (enraged) {
                 this.projectiles.push({
                   fromPlayer: false,
@@ -5892,7 +5904,10 @@ export class GameEngine {
               e.profile.accentColor,
               useLava
             );
-            if (e.profile.kind === 'boss_dragon_warden') {
+            if (
+              e.profile.kind === 'boss_dragon_warden' ||
+              (room.realm === 'inverted' && e.profile.kind !== 'boss_zhuyin')
+            ) {
               for (const dir of [-1, 1]) {
                 this.projectiles.push({
                   fromPlayer: false,
@@ -5900,11 +5915,11 @@ export class GameEngine {
                   enemyFx: 'magma_bomb',
                   x: e.x + dir * 28,
                   y: gY - 28,
-                  vx: dir * 225,
+                  vx: dir * (room.realm === 'inverted' ? 245 : 225),
                   vy: -380,
                   r: 13,
                   dmg: Math.round(e.profile.atk * 0.85),
-                  color: '#f43f5e',
+                  color: e.profile.kind === 'boss_dragon_warden' ? '#f43f5e' : '#c084fc',
                   life: 1.7,
                   maxLife: 1.7,
                   pierce: 1,
@@ -5991,15 +6006,18 @@ export class GameEngine {
           e.y = (e.bossTargetY ?? 260) + Math.sin(prog * Math.PI) * 52;
           e.bossAuxTimer = (e.bossAuxTimer || 0) - dt;
           if ((e.bossAuxTimer || 0) <= 0) {
-            e.bossAuxTimer = e.profile.kind === 'boss_thunder_yaksha' ? 0.2 : 0.25;
+            const baseAux = e.profile.kind === 'boss_thunder_yaksha' ? 0.2 : 0.25;
+            const isInvVariant = room.realm === 'inverted' && e.profile.kind !== 'boss_zhuyin';
+            e.bossAuxTimer = isInvVariant ? baseAux * 0.84 : baseAux;
             if (e.profile.kind === 'boss_scroll_king') {
+              const vxMain = (p.x - e.x) * 0.45;
               this.projectiles.push({
                 fromPlayer: false,
                 kind: 'dagger',
                 enemyFx: 'cursed_talisman',
                 x: e.x,
                 y: e.y - 24,
-                vx: (p.x - e.x) * 0.45,
+                vx: vxMain,
                 vy: 295,
                 r: 10,
                 dmg: Math.round(e.profile.atk * 0.86),
@@ -6009,6 +6027,24 @@ export class GameEngine {
                 pierce: 1,
                 hitIds: new Set(),
               });
+              if (isInvVariant) {
+                this.projectiles.push({
+                  fromPlayer: false,
+                  kind: 'dagger',
+                  enemyFx: 'cursed_talisman',
+                  x: e.x,
+                  y: e.y - 24,
+                  vx: -vxMain * 0.65 + e.facing * 135,
+                  vy: 315,
+                  r: 10,
+                  dmg: Math.round(e.profile.atk * 0.8),
+                  color: '#c084fc',
+                  life: 1.6,
+                  maxLife: 1.6,
+                  pierce: 1,
+                  hitIds: new Set(),
+                });
+              }
             } else if (e.profile.kind === 'boss_opera_god') {
               for (const off of [-0.25, 0.25]) {
                 this.projectiles.push({
@@ -6045,14 +6081,33 @@ export class GameEngine {
                 pierce: 1,
                 hitIds: new Set(),
               });
+              if (isInvVariant) {
+                this.projectiles.push({
+                  fromPlayer: false,
+                  kind: 'dagger',
+                  enemyFx: 'thunder_lance',
+                  x: e.x,
+                  y: e.y - 24,
+                  vx: e.facing * 155,
+                  vy: 325,
+                  r: 11,
+                  dmg: Math.round(e.profile.atk * 0.82),
+                  color: '#f43f5e',
+                  life: 1.6,
+                  maxLife: 1.6,
+                  pierce: 1,
+                  hitIds: new Set(),
+                });
+              }
             } else if (e.profile.kind === 'boss_thunder_yaksha') {
+              const vxY = (p.x - e.x) * 0.35;
               this.projectiles.push({
                 fromPlayer: false,
                 kind: 'dagger',
                 enemyFx: 'thunder_lance',
                 x: e.x,
                 y: e.y - 26,
-                vx: (p.x - e.x) * 0.35,
+                vx: vxY,
                 vy: 380,
                 r: 11,
                 dmg: Math.round(e.profile.atk * 0.88),
@@ -6062,6 +6117,24 @@ export class GameEngine {
                 pierce: 1,
                 hitIds: new Set(),
               });
+              if (isInvVariant) {
+                this.projectiles.push({
+                  fromPlayer: false,
+                  kind: 'dagger',
+                  enemyFx: 'thunder_lance',
+                  x: e.x,
+                  y: e.y - 26,
+                  vx: -vxY * 0.6 + e.facing * 140,
+                  vy: 365,
+                  r: 11,
+                  dmg: Math.round(e.profile.atk * 0.82),
+                  color: '#c084fc',
+                  life: 1.5,
+                  maxLife: 1.5,
+                  pierce: 1,
+                  hitIds: new Set(),
+                });
+              }
             } else {
               const isVenom = Math.floor(prog * 10) % 2 === 1;
               this.projectiles.push({
@@ -6444,6 +6517,33 @@ export class GameEngine {
         e.vy = 0;
         AudioFX.playParryClang();
         this.screenShake = Math.max(this.screenShake, e.profile.isBoss ? 7 : 4.5);
+        this.floats.push({
+          x: e.x,
+          y: e.y - e.profile.h * 1.18,
+          vy: -52,
+          text: '破势!',
+          color: '#facc15',
+          size: 16,
+          life: 0.78,
+        });
+        this.slashImpacts.push({
+          x: e.x,
+          y: e.y - e.profile.h * 0.52,
+          angle: 0,
+          length: 68,
+          thickness: 6,
+          color: '#facc15',
+          ringRadius: e.profile.isBoss ? 54 : 36,
+          life: 0.24,
+          maxLife: 0.24,
+        });
+        this.spawnInkBurst(
+          e.x,
+          e.y - e.profile.h * 0.55,
+          '#fde047',
+          '#b45309',
+          e.profile.isBoss ? 14 : 8
+        );
       } else if (!e.profile.isBoss && e.aiState === 'stalk') {
         this.stepGroundEnemyX(e, this.player.facing * 8);
       }
@@ -6532,14 +6632,18 @@ export class GameEngine {
         ? '#fde047'
         : '#e2e8f0';
 
+    if (hitWeakness) {
+      this.spawnInkBurst(e.x, e.y - e.profile.h * 0.58, floatColor, '#0f172a', 7);
+    }
+
     this.floats.push({
       x: e.x + (Math.random() - 0.5) * 12,
       y: e.y - e.profile.h * 1.06,
       vy: -38,
-      text: `${weakPrefix}${finalDmg}`,
+      text: `${weakPrefix}${finalDmg}${hitWeakness ? '!' : ''}`,
       color: floatColor,
-      size: hitWeakness || isCrit ? 14 : 11.5,
-      life: hitWeakness ? 0.62 : 0.48,
+      size: hitWeakness ? 15 : isCrit ? 14 : 11.5,
+      life: hitWeakness ? 0.68 : 0.48,
     });
 
     if (e.hp <= 0) {
@@ -7064,7 +7168,22 @@ export class GameEngine {
         if (!s.ownedSubWeapons.includes(subId)) s.ownedSubWeapons.push(subId);
         s.equippedSubWeapon = subId;
       } else {
-        if (!s.ownedWeapons.includes(d.itemId)) s.ownedWeapons.push(d.itemId);
+        if (!s.ownedWeapons.includes(d.itemId)) {
+          s.ownedWeapons.push(d.itemId);
+        } else {
+          const wDef = WEAPONS[d.itemId];
+          const dupGold = wDef ? Math.max(180, Math.round((wDef.price || 600) * 0.35)) : 220;
+          s.gold += dupGold;
+          this.floats.push({
+            x: this.player.x,
+            y: this.player.y - 72,
+            vy: -36,
+            text: `+${dupGold} 银 (已藏此刃)`,
+            color: '#fde047',
+            size: 13,
+            life: 0.9,
+          });
+        }
       }
     } else if (d.kind === 'armor') {
       const arm = ARMORS[d.itemId];
@@ -7084,6 +7203,27 @@ export class GameEngine {
     } else if (d.kind === 'consumable') {
       s.consumables[d.itemId] = (s.consumables[d.itemId] || 0) + 1;
     }
+  }
+
+  public upgradeWeapon(weaponId: string): boolean {
+    const s = this.slot;
+    const w = WEAPONS[weaponId];
+    if (!s || !w || !s.ownedWeapons.includes(weaponId)) return false;
+    const curLv = getWeaponUpgradeLevel(s.weaponUpgrades, weaponId);
+    if (curLv >= MAX_WEAPON_UPGRADE) return false;
+    const cost = getWeaponUpgradeCost(w, curLv);
+    if (s.gold < cost) {
+      AudioFX.playHurt();
+      return false;
+    }
+    s.gold -= cost;
+    if (!s.weaponUpgrades) s.weaponUpgrades = {};
+    s.weaponUpgrades[weaponId] = curLv + 1;
+    this.recalcStats(false);
+    SaveManager.saveSlot(s);
+    AudioFX.playParryClang();
+    AudioFX.playRelicBell();
+    return true;
   }
 
   public cycleWeapon(): void {

@@ -279,6 +279,7 @@ export interface SaveSlotData {
   equippedAccessory: string;
   equippedYaoCore: string;
   ownedWeapons: string[];
+  weaponUpgrades?: Record<string, number>;
   ownedSubWeapons: SubWeaponId[];
   ownedArmors: string[];
   ownedYaoCores: string[];
@@ -312,6 +313,7 @@ export interface GlobalMetaUnlock {
   controlStyle: 'joystick' | 'dpad';
   padScale?: number;
   lastActiveSlot?: number;
+  mapColorMode?: 'classic' | 'region';
   sfxMuted: boolean;
   bgmMuted: boolean;
 }
