@@ -1,3 +1,8 @@
+import {
+  DEFAULT_SKILL_HOTKEYS,
+  getUnlockedSkillsForLevel,
+  normalizeSkillHotkeys,
+} from '../data/itemsAndSkills';
 import { MAP_LAYOUT_VERSION } from '../data/worldMap';
 import { GameMode, GlobalMetaUnlock, SaveSlotData } from '../types';
 
@@ -7,12 +12,13 @@ export const MAX_SAVE_SLOTS = 4;
 
 export function createFreshSaveSlot(slotIndex: number, mode: GameMode = 'story'): SaveSlotData {
   const isXiao = mode === 'xiaoduanshui';
+  const initLevel = isXiao ? 12 : 1;
   return {
     slotIndex,
     updatedAt: Date.now(),
     mode,
     heroName: isXiao ? '萧断水' : '李逸承',
-    level: isXiao ? 12 : 1,
+    level: initLevel,
     exp: 0,
     gold: isXiao ? 500 : 80,
     talismanHearts: isXiao ? 40 : 15,
@@ -30,8 +36,8 @@ export function createFreshSaveSlot(slotIndex: number, mode: GameMode = 'story')
     ownedSubWeapons: isXiao ? ['dagger_throw', 'bagua_cross', 'holy_fire'] : ['dagger_throw'],
     ownedArmors: isXiao ? ['mingguang_armor', 'broken_jade'] : ['cloth_tunic', 'broken_jade'],
     ownedYaoCores: [],
-    // 基础武学秘技随身掌握，第5式禁术在禁阁习得
-    learnedSkills: ['shuofeng_wave', 'shunying_flash', 'jinghong_rising', 'taiji_parry'],
+    // 随境界等级逐阶领悟真气绝学（Lv.1 朔风 -> Lv.3 瞬影 -> Lv.5 升龙 -> Lv.8 太极 -> Lv.12/禁卷 噬魂）
+    learnedSkills: getUnlockedSkillsForLevel(initLevel),
     abilities: isXiao
       ? ['double_jump', 'ground_slam', 'mist_dash', 'grapple_hook', 'wall_jump']
       : [],
@@ -61,6 +67,7 @@ class SaveSystem {
     controlStyle: 'joystick',
     padScale: 1.0,
     mapColorMode: 'classic',
+    skillHotkeys: { ...DEFAULT_SKILL_HOTKEYS },
     sfxMuted: false,
     bgmMuted: false,
   };
@@ -74,6 +81,7 @@ class SaveSystem {
           ...this.meta,
           ...parsed,
           mapColorMode: parsed?.mapColorMode === 'region' ? 'region' : 'classic',
+          skillHotkeys: normalizeSkillHotkeys(parsed?.skillHotkeys),
         };
       }
     } catch {

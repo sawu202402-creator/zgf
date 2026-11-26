@@ -13,6 +13,8 @@ import {
   ARMORS,
   CONSUMABLES,
   FAMILIARS,
+  formatKeyCodeLabel,
+  getUnlockedSkillsForLevel,
   getWeaponRefinedAtk,
   getWeaponRefinedCritBonus,
   getWeaponUpgradeCost,
@@ -71,6 +73,7 @@ export interface ActiveSlash {
   weaponId?: string;
   comboStep: number;
   pogoDown: boolean;
+  crouching?: boolean;
   progress: number; // 0..1 (0..0.28 前摇蓄势, 0.28..0.82 刀光挥斩判定, 0.82..1 收刀余韵)
   duration: number;
   reachX: number;
@@ -515,6 +518,12 @@ export class GameEngine {
     slot.equippedWeapon = migrateWeaponId(slot.equippedWeapon);
     if (slot.equippedYaoCore === 'core_bat') slot.equippedYaoCore = 'core_crow';
     slot.ownedYaoCores = slot.ownedYaoCores.map((c) => (c === 'core_bat' ? 'core_crow' : c));
+    this.input.setSkillHotkeys(SaveManager.getMeta().skillHotkeys);
+    for (const skId of getUnlockedSkillsForLevel(slot.level)) {
+      if (!slot.learnedSkills.includes(skId)) {
+        slot.learnedSkills.push(skId);
+      }
+    }
     if (WorldMap.migrateSlotVisitedCells(slot)) {
       SaveManager.saveSlot(slot);
     }
@@ -843,6 +852,15 @@ export class GameEngine {
     addKey(resolveWeaponAssetKey(curWpn.archetype, curWpn.id));
     if (s.equippedFamiliar) addKey(resolveFamiliarAssetKey(s.equippedFamiliar));
     queueRoomAssets(nextRoom);
+    if (s.mode === 'boss_rush' || nextRoom.id === 'boss_rush_arena') {
+      for (const bk of BOSS_RUSH_ORDER) {
+        for (const k of resolveEnemyAssetKeys(bk)) addKey(k);
+      }
+      for (const k of resolveEnemyAssetKeys('opera_puppet')) addKey(k);
+      for (const k of resolveEnemyAssetKeys('scroll_demon')) addKey(k);
+    } else if (s.mode === 'xiaoduanshui') {
+      for (const k of resolveEnemyAssetKeys('boss_xiao_duanshui')) addKey(k);
+    }
     const neighborIds = new Set<string>([
       ...getRoomSideDoors(nextRoom).map((d) => d.targetRoomId),
       ...nextRoom.shafts.map((sh) => sh.targetRoomId),
@@ -1069,6 +1087,7 @@ export class GameEngine {
   }
 
   private spawnEnemy(kind: EnemyKind, x: number, y: number): void {
+    Assets.ensurePriorityKeys(resolveEnemyAssetKeys(kind));
     const baseProf = ENEMY_PROFILES[kind];
     const scale =
       this.room && !baseProf.isBoss
@@ -1655,7 +1674,40 @@ export class GameEngine {
       this.castSubWeapon();
     }
 
-    // 移动端 RT 绝技键 / 键盘 O,R 键：一键施放战术真气武学（空中自动衔接朔风剑气，瞬影/升龙严格限制地面立足施展！）
+    // 自定义绝技快捷键 / 底部快捷栏施法
+    const hotkeySkill = inp.consumeHotkeySkill();
+    if (hotkeySkill) {
+      if (inp.moveX !== 0) {
+        p.facing = Math.sign(inp.moveX) as 1 | -1;
+      }
+      const skDef = SKILLS[hotkeySkill];
+      if (!this.slot!.learnedSkills.includes(hotkeySkill)) {
+        AudioFX.playHit(false);
+        this.floats.push({
+          x: p.x,
+          y: p.y - 76,
+          vy: -34,
+          text: `境${skDef.unlockLevel}领悟 · ${skDef.name}`,
+          color: '#fbbf24',
+          size: 16,
+          life: 1.05,
+        });
+      } else if (!this.tryCastMartialSkill(hotkeySkill)) {
+        if (p.skillCooldown <= 0) {
+          this.floats.push({
+            x: p.x,
+            y: p.y - 76,
+            vy: -32,
+            text: p.mp < skDef.mpCost ? '真气不足' : '需立足地面',
+            color: '#94a3b8',
+            size: 15,
+            life: 0.8,
+          });
+        }
+      }
+    }
+
+    // 移动端 RT 绝技键 / 键盘 O,R 键：一键施放战术真气武学（未达境界绝学自动回退至已习得之朔风破空斩！）
     if (inp.consumeQuickSkill()) {
       if (inp.moveX !== 0) {
         p.facing = Math.sign(inp.moveX) as 1 | -1;
@@ -1676,7 +1728,12 @@ export class GameEngine {
       } else if (Math.abs(inp.moveX) > 0.35) {
         targetSkill = p.onGround ? 'shunying_flash' : 'shuofeng_wave';
       }
-      this.tryCastMartialSkill(targetSkill);
+      if (!this.slot!.learnedSkills.includes(targetSkill)) {
+        targetSkill = 'shuofeng_wave';
+      }
+      if (this.slot!.learnedSkills.includes(targetSkill)) {
+        this.tryCastMartialSkill(targetSkill);
+      }
     }
 
     // 跳跃、下穿木阁楼与踏云步二段空翻
@@ -1768,14 +1825,19 @@ export class GameEngine {
       p.vy *= 0.62;
     }
 
-    // 地面按住 ↓ 进入低姿下蹲（可躲避书妖符弹与高处横斩，按斩使出低身刺剑！）
-    p.crouching = p.onGround && inp.moveY > 0.55 && p.slideTimer <= 0 && !this.isOnPavilionDeck();
+    // 地面按住 ↓ 进入低姿下蹲（含阁楼木台，蹲姿挥斩维持低身段躲避高处飞行弹道与横扫）
+    p.crouching =
+      p.onGround &&
+      p.slideTimer <= 0 &&
+      p.dropThroughTimer <= 0 &&
+      (inp.moveY > 0.55 || Boolean(this.activeSlash?.crouching));
 
     // 攻击、重刃长按蓄力【霸王破甲重劈】、靠近人物/古祠/法阵按【斩】交互，以及【↑ + 斩】奇门副器与手搓绝学
     const eqWpnNow = WEAPONS[this.slot!.equippedWeapon] || WEAPONS.sword_0;
     if (
       eqWpnNow.archetype === 'greatsword' &&
       inp.attackHeld &&
+      !p.crouching &&
       !this.activeSlash &&
       p.hurtStunTimer <= 0 &&
       p.mistDashTimer <= 0
@@ -2329,12 +2391,14 @@ export class GameEngine {
     const p = this.player;
     const w = WEAPONS[this.slot.equippedWeapon] || WEAPONS.sword_0;
     const arch = w.archetype;
+    const isCrouchAtk = Boolean(p.crouching && p.onGround && !chargedHeavy);
 
     const maxSteps = 3;
     p.comboStep = chargedHeavy ? 2 : (p.comboStep + 1) % maxSteps;
     p.comboResetTimer = 0.85;
     const isFinisher = p.comboStep === 2;
-    const isSpearLunge = arch === 'spear' && (isFinisher || this.input.moveX * p.facing > 0.35);
+    const isSpearLunge =
+      !isCrouchAtk && arch === 'spear' && (isFinisher || this.input.moveX * p.facing > 0.35);
 
     let duration = 0.24;
     let cd = 0.2;
@@ -2345,7 +2409,7 @@ export class GameEngine {
       duration = isFinisher ? 0.22 : 0.16;
       cd = isFinisher ? 0.17 : 0.12;
       if (!p.onGround && p.vy > -45) p.vy = -52; // 双刺空中乱舞短暂滞空！
-      if (isFinisher) {
+      if (isFinisher && !isCrouchAtk) {
         // 双刺终结技【幻影掠步】：赋予 0.20s 贴身闪身无敌帧与残影步！
         p.invulnTimer = Math.max(p.invulnTimer, 0.2);
         this.afterImages.push({ x: p.x, y: p.y, facing: p.facing, color: w.glowColor, alpha: 0.78 });
@@ -2359,6 +2423,10 @@ export class GameEngine {
     } else if (isFinisher) {
       duration = 0.31;
       cd = 0.23;
+    }
+    if (isCrouchAtk) {
+      duration = Math.max(0.15, Number((duration * 0.84).toFixed(3)));
+      cd = Math.max(0.11, Number((cd * 0.84).toFixed(3)));
     }
     p.attackCooldown = cd;
 
@@ -2385,13 +2453,13 @@ export class GameEngine {
                 : isFinisher
                   ? 225
                   : 105;
-      p.vx = p.facing * stepV;
+      p.vx = p.facing * (isCrouchAtk ? Math.min(55, stepV * 0.3) : stepV);
       if (isSpearLunge) {
         this.afterImages.push({ x: p.x, y: p.y, facing: p.facing, color: w.glowColor, alpha: 0.66 });
       }
     }
 
-    const pogoDown = arch === 'sword' && !p.onGround && this.input.moveY > 0.5;
+    const pogoDown = !isCrouchAtk && arch === 'sword' && !p.onGround && this.input.moveY > 0.5;
 
     // 重刃长按满蓄【霸王破甲重劈】：额外震出一段裂地罡气重波！
     if (chargedHeavy && arch === 'greatsword') {
@@ -2416,7 +2484,7 @@ export class GameEngine {
     }
 
     // 终极三阶名剑【七星龙渊剑】第三式普攻自带一道剑芒破空！
-    if (w.id === 'sword_3' && isFinisher) {
+    if (w.id === 'sword_3' && isFinisher && !isCrouchAtk) {
       this.projectiles.push({
         fromPlayer: true,
         kind: 'qi_wave',
@@ -2448,7 +2516,17 @@ export class GameEngine {
       );
     }
 
-    const reachMult = chargedHeavy ? 1.32 : isSpearLunge ? 1.26 : isFinisher ? 1.18 : 1.0;
+    const reachMult = isCrouchAtk
+      ? arch === 'sword' || arch === 'spear'
+        ? 1.08
+        : 1.0
+      : chargedHeavy
+        ? 1.32
+        : isSpearLunge
+          ? 1.26
+          : isFinisher
+            ? 1.18
+            : 1.0;
     const baseReachY = Math.round(
       Math.max(w.reachY + 14, arch === 'greatsword' ? 105 : 48) * (isFinisher ? 1.12 : 1)
     );
@@ -2456,7 +2534,7 @@ export class GameEngine {
     this.slashHitIds.clear();
     this.activeSlash = {
       x: p.x,
-      y: p.y - 40,
+      y: isCrouchAtk ? p.y - 22 : p.y - 40,
       facing: p.facing,
       aimX: this.input.moveX !== 0 ? this.input.moveX : p.facing,
       aimY: this.input.moveY,
@@ -2464,10 +2542,11 @@ export class GameEngine {
       weaponId: w.id,
       comboStep: p.comboStep,
       pogoDown,
+      crouching: isCrouchAtk,
       progress: 0,
       duration,
       reachX: Math.round(Math.max(w.reachX + 20, arch === 'greatsword' ? 128 : 74) * reachMult),
-      reachY: finalReachY,
+      reachY: isCrouchAtk ? Math.max(36, Math.round(finalReachY * 0.72)) : finalReachY,
       color: chargedHeavy ? '#fde047' : w.color,
       glowColor: chargedHeavy ? '#ef4444' : isFinisher && w.tier >= 3 ? '#fde047' : w.glowColor,
       slammedGround: false,
@@ -3094,7 +3173,7 @@ export class GameEngine {
 
     const p = this.player;
     sl.x = p.x;
-    sl.y = p.y - 40;
+    sl.y = sl.crouching ? p.y - 22 : p.y - 40;
     sl.progress += dt / sl.duration;
 
     const activeStart =
@@ -3103,6 +3182,7 @@ export class GameEngine {
 
     if (
       sl.archetype === 'greatsword' &&
+      !sl.crouching &&
       sl.comboStep === 1 &&
       sl.progress >= 0.56 &&
       !sl.slammedGround &&
@@ -3125,6 +3205,12 @@ export class GameEngine {
         by = p.y - 18;
         bw = 68;
         bh = 64;
+      } else if (sl.crouching) {
+        bx = sl.facing === 1 ? p.x - 10 : p.x - sl.reachX;
+        const lowH = Math.max(44, sl.reachY);
+        by = p.y - lowH + 4;
+        bw = sl.reachX + 10;
+        bh = lowH + 6;
       } else if (sl.archetype === 'greatsword') {
         bx = sl.facing === 1 ? p.x - 36 : p.x - sl.reachX;
         by = p.y - sl.reachY - 12;
@@ -6665,7 +6751,11 @@ export class GameEngine {
     const nextKind = BOSS_RUSH_ORDER[this.bossRushWave];
     this.bossRushWave++;
     this.bossFightTookDamage = false;
-    this.spawnEnemy(nextKind, this.room.pixelW * 0.72, this.room.focalY);
+    const spawnX =
+      this.player.x < this.room.pixelW * 0.5
+        ? Math.min(this.room.pixelW - 200, Math.max(660, this.player.x + 380))
+        : Math.max(200, Math.min(this.room.pixelW - 660, this.player.x - 380));
+    this.spawnEnemy(nextKind, spawnX, sampleGroundY(this.room, spawnX));
     this.cb.onShowBanner(
       `镇妖塔 第 ${this.bossRushWave}/${BOSS_RUSH_ORDER.length} 层`,
       ENEMY_PROFILES[nextKind].name
@@ -6764,12 +6854,32 @@ export class GameEngine {
         s.level++;
         needExp = this.getExpForNextLevel(s.level);
       }
+      const newlyLearned = getUnlockedSkillsForLevel(s.level).filter(
+        (id) => !s.learnedSkills.includes(id)
+      );
+      for (const id of newlyLearned) {
+        s.learnedSkills.push(id);
+      }
       this.recalcStats(false);
       this.player.hp = Math.min(this.player.maxHp, this.player.hp + Math.round(this.player.maxHp * 0.25));
       this.player.mp = Math.min(this.player.maxMp, this.player.mp + Math.round(this.player.maxMp * 0.25));
       this.levelUpPillarTimer = 1.05;
       AudioFX.playRelicBell();
       this.spawnInkBurst(this.player.x, this.player.y - 40, '#fde047', '#090d16', 20);
+      if (newlyLearned.length > 0) {
+        const firstSk = SKILLS[newlyLearned[0]];
+        const hk = formatKeyCodeLabel(this.input.skillHotkeys[newlyLearned[0]]);
+        this.skillBanner = {
+          name: `✦ 境${s.level}突破 · 领悟【${firstSk.name}】 ✦`,
+          subtext:
+            newlyLearned.length > 1
+              ? `共领悟 ${newlyLearned.length} 式真气武学 · 可在剑诀中设置快捷键`
+              : `已入剑诀 · 按 [${hk}] 或点底部快捷栏即可施展`,
+          timer: 3.0,
+          color: '#fde047',
+        };
+        SaveManager.saveSlot(s);
+      }
     }
 
     // 大幅收紧日常小怪基础银两与灵符掉落率（76% 小怪斩杀无额外杂落，使每一份收获更显珍贵！）

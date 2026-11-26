@@ -248,11 +248,10 @@ export function selectHeroSpriteFrame(opts: {
     }
   }
 
-  // 0. 经典体术帧：贴地滑铲踢 (`↓ + 跃`) / 凌空下踢 (`二段跳后 ↓ + 跃`) / 下蹲低斩！
+  // 0. 经典体术帧：贴地滑铲踢 (`↓ + 跃`) / 凌空下踢 (`二段跳后 ↓ + 跃`) / 下蹲与蹲姿低斩！
   if (sliding) return 'h18_slide';
   if (diveKicking) return 'h18_divekick';
-  if (crouching && onGround) {
-    if (slash && !isHeavy) return slash.progress > 0.35 ? 'h18_spear_thrust' : 'h18_crouch';
+  if ((crouching || slash?.crouching) && onGround) {
     return 'h18_crouch';
   }
 
@@ -519,14 +518,15 @@ function drawEquippedWeaponInHeroHands(
       ? transformSpinePoint(sock.lx, sock.ly, metrics, joints)
       : null;
 
-  // 0. 重刃系：跑动/跳跃/下蹲时重兵背负于背；站立备战、蓄力举刀与劈斩 smashing 全程手握实兵贴图随弧线挥舞！
+  // 0. 重刃系：跑动/跳跃/下蹲时重兵背负于背；站立备战、蹲姿挥扫、蓄力举刀与劈斩全程手握实兵贴图随弧线挥舞！
   if (wDef.archetype === 'greatsword') {
     if (
       frameKey !== 'h18_heavy_guard' &&
       frameKey !== 'h18_heavy_windup' &&
       frameKey !== 'h18_heavy_cleave' &&
       frameKey !== 'h18_atk_slash_up' &&
-      frameKey !== 'h18_atk_slash_down'
+      frameKey !== 'h18_atk_slash_down' &&
+      !(frameKey === 'h18_crouch' && slash)
     ) {
       return;
     }
@@ -538,6 +538,11 @@ function drawEquippedWeaponInHeroHands(
     const gripY = lHand ? (rHand.y + lHand.y) * 0.5 : rHand.y;
 
     const evalHeavyAngle = (pr: number): number => {
+      if (slash?.crouching) {
+        if (pr < 0.28) return -0.58 - easeOutCubic(pr / 0.28) * 0.22;
+        const k = easeOutCubic((pr - 0.28) / 0.56);
+        return -0.8 + k * 1.12;
+      }
       const step = slash?.comboStep ?? 0;
       if (wDef.id === 'greatsword_sunder') {
         if (pr < 0.34) return -2.42 - easeOutCubic(pr / 0.34) * 0.36;
@@ -636,24 +641,31 @@ function drawEquippedWeaponInHeroHands(
       ctx.restore();
     };
 
-    const isEmeiSpin = wDef.id === 'daggers_2' && Boolean(slash);
-    const isTwinBoomerang = wDef.id === 'daggers_3' && slash?.comboStep === 2;
+    const isEmeiSpin = wDef.id === 'daggers_2' && Boolean(slash) && !slash?.crouching;
+    const isTwinBoomerang = wDef.id === 'daggers_3' && slash?.comboStep === 2 && !slash?.crouching;
     const pr = slash ? slash.progress : 0;
-    const sweepOffset = slash
-      ? pr < 0.2
-        ? -(pr / 0.2) * 0.55
-        : -0.55 + easeOutCubic((pr - 0.2) / 0.65) * 1.95
-      : 0;
+    const sweepOffset = slash?.crouching
+      ? 0
+      : slash
+        ? pr < 0.2
+          ? -(pr / 0.2) * 0.55
+          : -0.55 + easeOutCubic((pr - 0.2) / 0.65) * 1.95
+        : 0;
+    const crouchFwd = slash?.crouching ? Math.sin(Math.min(1, pr * 1.1) * Math.PI) * 18 : 0;
     const spinA = isEmeiSpin ? pr * Math.PI * 6 : isTwinBoomerang ? pr * Math.PI * 5 : 0;
     const boomDist = isTwinBoomerang ? Math.sin(Math.min(1, pr * 1.05) * Math.PI) * 58 : 0;
 
     if (lHand && sock.lAngle !== undefined) {
       ctx.save();
       ctx.translate(
-        lHand.x + boomDist * 0.85,
-        lHand.y - Math.sin(pr * Math.PI) * (isTwinBoomerang ? 12 : 4)
+        lHand.x + boomDist * 0.85 + crouchFwd * 0.65,
+        lHand.y - Math.sin(pr * Math.PI) * (isTwinBoomerang ? 12 : slash?.crouching ? 0 : 4)
       );
-      ctx.rotate(sock.lAngle + lHand.angle - sweepOffset * 0.72);
+      ctx.rotate(
+        slash?.crouching
+          ? 0.06 + lHand.angle
+          : sock.lAngle + lHand.angle - sweepOffset * 0.72
+      );
       if (slash && !isEmeiSpin && !isTwinBoomerang && wDef.tier > 1) {
         drawHandDagger(true, -0.35, 0.26);
       }
@@ -664,11 +676,12 @@ function drawEquippedWeaponInHeroHands(
 
     ctx.save();
     ctx.translate(
-      rHand.x + boomDist,
+      rHand.x + boomDist + crouchFwd,
       rHand.y + Math.sin(pr * Math.PI) * (isTwinBoomerang ? 10 : 0)
     );
-    const rAng =
-      slash && slash.pogoDown
+    const rAng = slash?.crouching
+      ? 0.04 + rHand.angle
+      : slash && slash.pogoDown
         ? 1.22 + rHand.angle
         : sock.rAngle + rHand.angle + (slash?.comboStep === 1 ? -sweepOffset : sweepOffset);
     ctx.rotate(rAng);
@@ -693,8 +706,8 @@ function drawEquippedWeaponInHeroHands(
     ctx.save();
     if (slash) {
       const pr = slash.progress;
-      const isHalberdRise = wDef.id === 'spear_3' && slash.comboStep === 1;
-      const isHalberdSweep = wDef.id === 'spear_3' && slash.comboStep === 2;
+      const isHalberdRise = !slash.crouching && wDef.id === 'spear_3' && slash.comboStep === 1;
+      const isHalberdSweep = !slash.crouching && wDef.id === 'spear_3' && slash.comboStep === 2;
       if (isHalberdRise || isHalberdSweep) {
         const startA = isHalberdRise ? 0.95 : -2.18;
         const endA = isHalberdRise ? -1.48 : 1.12;
@@ -721,7 +734,13 @@ function drawEquippedWeaponInHeroHands(
         );
       } else {
         const aimAng =
-          (slash.pogoDown ? 1.15 : slash.aimY < -0.35 ? -0.46 : -0.14) + rHand.angle * 0.4;
+          (slash.crouching
+            ? 0.03
+            : slash.pogoDown
+              ? 1.15
+              : slash.aimY < -0.35
+                ? -0.46
+                : -0.14) + rHand.angle * (slash.crouching ? 0.25 : 0.4);
         if (pr < 0.22) {
           const cockBack = easeOutCubic(pr / 0.22) * 12;
           ctx.translate(gripX - cockBack + 4, gripY + 2);
@@ -729,7 +748,7 @@ function drawEquippedWeaponInHeroHands(
           ctx.drawImage(spImg, -spLen * 0.36, -spH * 0.5, spLen, spH);
         } else {
           const p = Math.min(1, (pr - 0.22) / 0.72);
-          const thrust = Math.sin(Math.min(1, p * 1.15) * Math.PI) * 30;
+          const thrust = Math.sin(Math.min(1, p * 1.15) * Math.PI) * (slash.crouching ? 32 : 30);
           const snakeOsc =
             wDef.id === 'spear_thunder' ? Math.sin(p * Math.PI * 5) * 0.075 : 0;
           if (wDef.id === 'spear_2' && slash.comboStep === 2) {
@@ -825,7 +844,8 @@ function drawEquippedWeaponInHeroHands(
         }
       } else {
         const aimAng =
-          (slash.aimY < -0.35 ? -0.62 : slash.aimY > 0.35 ? 0.38 : 0) + rHand.angle;
+          (slash.crouching ? 0.04 : slash.aimY < -0.35 ? -0.62 : slash.aimY > 0.35 ? 0.38 : 0) +
+          rHand.angle;
         ctx.rotate(aimAng);
         drawWhipGripSprite(20);
       }
@@ -859,6 +879,26 @@ function drawEquippedWeaponInHeroHands(
     if (slash.pogoDown) {
       const a = 1.05 + Math.sin(pr * Math.PI) * 0.35 + rHand.angle;
       drawWeaponWithMotionTrail(ctx, swImg, rHand.x, rHand.y, 0.18, swLen, swH, [a, a - 0.35], [1, 0.35]);
+    } else if (slash.crouching) {
+      const ext =
+        pr < 0.18
+          ? -easeOutCubic(pr / 0.18) * 6
+          : Math.sin(Math.min(1, (pr - 0.18) / 0.72) * Math.PI) * 24;
+      const ang = -0.02 + rHand.angle;
+      if (isPhantom) {
+        drawWeaponWithMotionTrail(
+          ctx,
+          swImg,
+          rHand.x + ext * 0.78,
+          rHand.y,
+          0.18,
+          swLen * 0.94,
+          swH * 0.94,
+          [ang - 0.18],
+          [0.32]
+        );
+      }
+      drawWeaponWithMotionTrail(ctx, swImg, rHand.x + ext, rHand.y, 0.18, swLen, swH, [ang], [1]);
     } else if (isThrustFinisher) {
       const ext = pr < 0.2 ? -easeOutCubic(pr / 0.2) * 8 : Math.sin(Math.min(1, (pr - 0.2) / 0.72) * Math.PI) * 26;
       const ang = -0.1 + rHand.angle;
@@ -1096,7 +1136,7 @@ export function renderModularLiYichengRig(
     isHeavy &&
     !opts.slash &&
     (!opts.skillAnim || opts.skillAnim.kind === 'taiji_parry') &&
-    (!opts.onGround || speedRatio > 0.12);
+    (!opts.onGround || speedRatio > 0.12 || Boolean(opts.crouching));
   if (carryingHeavyWhileMoving) {
     drawBackCarriedWeapon(
       ctx,
@@ -1410,6 +1450,27 @@ export function renderHeroWeaponSlashVfx(
     const k = easeOutCubic(p);
     const fade = Math.max(0, 1 - p * 0.65);
 
+    if (sl.crouching) {
+      const d = sl.reachX * 1.28 * (0.88 + k * 0.16);
+      const lowTint =
+        wId === 'greatsword_1'
+          ? '#94a3b8'
+          : wId === 'greatsword_2'
+            ? '#ea580c'
+            : wId === 'greatsword_sunder'
+              ? '#d97706'
+              : '#dc2626';
+      drawPaintedVfxSprite(ctx, 'vfx_slash_heavy_cleave', sl.x + sl.facing * 12, sl.y + 4, d, d * 0.56, {
+        rotation: sl.facing * (-0.18 + k * 0.44),
+        flipX: sl.facing === -1,
+        alpha: fade * (wId === 'greatsword_1' ? 0.48 : 0.74),
+        tintHex: lowTint,
+        tintAlpha: wId === 'greatsword_1' ? 0.18 : 0.42,
+        additive: false,
+      });
+      return;
+    }
+
     if (wId === 'greatsword_1') {
       const d = sl.reachX * 1.28 * (0.88 + k * 0.16);
       drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * 10, sl.y + 2, d, d, {
@@ -1509,7 +1570,7 @@ export function renderHeroWeaponSlashVfx(
     const k = easeOutCubic(p);
     const fade = Math.max(0, 1 - p * 0.65);
 
-    if (wId === 'spear_3' && sl.comboStep === 1) {
+    if (!sl.crouching && wId === 'spear_3' && sl.comboStep === 1) {
       const d = sl.reachX * 1.12;
       drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * 24, sl.y - 10, d, d, {
         rotation: sl.facing * (0.42 - k * 1.35),
@@ -1523,7 +1584,7 @@ export function renderHeroWeaponSlashVfx(
       return;
     }
 
-    if (wId === 'spear_3' && sl.comboStep === 2) {
+    if (!sl.crouching && wId === 'spear_3' && sl.comboStep === 2) {
       const d = sl.reachX * 1.3;
       drawPaintedVfxSprite(ctx, 'vfx_slash_crescent', sl.x + sl.facing * 22, sl.y - 4, d, d, {
         rotation: sl.facing * (-0.32 + k * 0.88),
@@ -1537,7 +1598,7 @@ export function renderHeroWeaponSlashVfx(
     }
 
     const thrustExt = Math.sin(Math.min(1, p * 1.15) * Math.PI);
-    const aimAng = sl.aimY < -0.35 ? -0.46 : 0;
+    const aimAng = sl.crouching ? 0 : sl.aimY < -0.35 ? -0.46 : 0;
     const len = sl.reachX * (0.85 + thrustExt * 0.5);
 
     if (wId === 'spear_1') {
@@ -1614,6 +1675,18 @@ export function renderHeroWeaponSlashVfx(
     const k = easeOutCubic(p);
     const fade = Math.max(0, 1 - p * 0.55);
 
+    if (sl.crouching) {
+      drawPaintedVfxSprite(ctx, 'vfx_iaido_flash_cut', sl.x + sl.facing * 18, sl.y, Math.max(60, sl.reachX * 0.88), 20, {
+        flipX: sl.facing === -1,
+        alpha: fade * (wDef.tier === 1 ? 0.44 : 0.7),
+        tintHex: wDef.tier === 1 ? '#cbd5e1' : glowCol,
+        tintAlpha: wDef.tier === 1 ? 0.16 : 0.4,
+        additive: wDef.tier >= 3,
+        anchorX: 0.2,
+      });
+      return;
+    }
+
     if (wId === 'daggers_1') {
       drawPaintedVfxSprite(ctx, 'vfx_iaido_flash_cut', sl.x + sl.facing * 20, sl.y - 2, 56, 15, {
         rotation: sl.facing * (sl.comboStep % 2 === 0 ? 0.3 : -0.3),
@@ -1682,14 +1755,14 @@ export function renderHeroWeaponSlashVfx(
     if (sl.progress < 0.24) return;
     const p = Math.min(1, (sl.progress - 0.24) / 0.74);
     const snap = Math.sin(Math.min(1, p * 1.25) * Math.PI);
-    const aimAng = sl.aimY < -0.35 ? -0.62 : sl.aimY > 0.35 ? 0.38 : 0;
+    const aimAng = sl.crouching ? 0 : sl.aimY < -0.35 ? -0.62 : sl.aimY > 0.35 ? 0.38 : 0;
     const maxLen = sl.reachX * (0.38 + snap * 0.68);
     const waveAmp = (1 - snap * 0.78) * 14;
     const tipWave = Math.sin(Math.PI * 2.5 - p * 9) * waveAmp;
     const tipTangent = Math.cos(Math.PI * 2.5 - p * 9) * (waveAmp * 0.04);
 
     ctx.save();
-    ctx.translate(sl.x + sl.facing * 28, sl.y - 14);
+    ctx.translate(sl.x + sl.facing * 28, sl.crouching ? sl.y - 2 : sl.y - 14);
     ctx.scale(sl.facing, 1);
     ctx.rotate(aimAng);
 
@@ -1743,6 +1816,25 @@ export function renderHeroWeaponSlashVfx(
   const p = sl.progress;
   const k = easeOutCubic(p);
   const fade = Math.max(0, 1 - p * 0.55);
+  if (sl.crouching) {
+    drawPaintedVfxSprite(
+      ctx,
+      'vfx_iaido_flash_cut',
+      sl.x + sl.facing * 16,
+      sl.y,
+      Math.max(66, sl.reachX * 0.92),
+      22,
+      {
+        flipX: sl.facing === -1,
+        alpha: fade * (wDef.tier === 1 ? 0.46 : 0.72),
+        tintHex: wDef.tier === 1 ? '#cbd5e1' : glowCol,
+        tintAlpha: wDef.tier === 1 ? 0.16 : 0.38,
+        additive: wDef.tier >= 3,
+        anchorX: 0.18,
+      }
+    );
+    return;
+  }
   const flip = sl.comboStep === 1;
   const slashRot = sl.facing * (flip ? 0.35 - k * 1.05 : -0.35 + k * 0.95);
 
@@ -2099,6 +2191,24 @@ export function drawMonsterOrBoss(
       ctx.fill();
       ctx.restore();
     }
+  } else {
+    Assets.ensurePriorityKeys([spriteKey]);
+    ctx.save();
+    const pulse = 0.65 + Math.sin(t * 6 + e.id) * 0.2;
+    const aura = ctx.createRadialGradient(0, -h * 0.52, 4, 0, -h * 0.52, Math.max(w, h) * 0.72);
+    aura.addColorStop(0, 'rgba(15, 23, 42, 0.88)');
+    aura.addColorStop(0.62, 'rgba(30, 41, 59, 0.52)');
+    aura.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = aura;
+    ctx.beginPath();
+    ctx.ellipse(0, -h * 0.52, w * 0.56, h * 0.58, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = e.profile.accentColor || '#f43f5e';
+    ctx.globalAlpha = pulse;
+    ctx.beginPath();
+    ctx.arc(e.facing * w * 0.16, -h * 0.66, e.profile.isBoss ? 3.5 : 2.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
   }
 
   // 玄冥寒魄霜冻迟缓与赤练/碧蟾持续灼毒视觉反馈！

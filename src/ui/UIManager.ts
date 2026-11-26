@@ -5,13 +5,18 @@ import {
   ALL_FAMILIAR_IDS,
   ARMORS,
   CONSUMABLES,
+  DEFAULT_SKILL_HOTKEYS,
   FAMILIARS,
+  formatKeyCodeLabel,
   formatWeaponDisplayName,
+  getUnlockedSkillsForLevel,
   getWeaponRefinedAtk,
   getWeaponRefinedCritBonus,
   getWeaponUpgradeCost,
   getWeaponUpgradeLevel,
   MAX_WEAPON_UPGRADE,
+  normalizeSkillHotkeys,
+  SKILL_ORDER,
   SKILLS,
   SUB_WEAPONS,
   WEAPONS,
@@ -99,7 +104,9 @@ export class UIManager {
     lvSeal?: HTMLElement;
     hpTrail?: HTMLElement;
     hpFill?: HTMLElement;
+    hpText?: HTMLElement;
     mpFill?: HTMLElement;
+    mpText?: HTMLElement;
     resRow?: HTMLElement;
     wpnIconWrap?: HTMLElement;
     wpnName?: HTMLElement;
@@ -108,10 +115,12 @@ export class UIManager {
     minimapLabel?: HTMLElement;
     bossWrap?: HTMLElement;
     bossName?: HTMLElement;
+    bossHpText?: HTMLElement;
     bossTrail?: HTMLElement;
     bossFill?: HTMLElement;
     bossPoise?: HTMLElement;
     interactBtn?: HTMLElement;
+    skillDock?: HTMLElement;
   } = {};
 
   private pauseTab: 'equip' | 'skills' | 'map' | 'bestiary' | 'lore' | 'settings' = 'equip';
@@ -122,10 +131,14 @@ export class UIManager {
   private inspectedMapRoomId: string | null = null;
   private selectedEquipSlot: EquipSlotCategory = 'weapon';
   private previewItemId: string | null = null;
+  private rebindingSkillId: SkillId | null = null;
+  private rebindNotice = '';
+  private rebindKeyHandler: ((e: KeyboardEvent) => void) | null = null;
   private lastHudWpnKey = '';
   private lastHudLv = -1;
   private lastHudResKey = '';
   private lastHudHpKey = '';
+  private lastHudSkillDockKey = '';
   private lastHudMinimapKey = '';
   private lastHudLabelKey = '';
   private lastHudBossKey = '';
@@ -339,6 +352,7 @@ export class UIManager {
       AudioFX.resume();
       const rushSlot = createFreshSaveSlot(0, 'boss_rush');
       rushSlot.level = 14;
+      rushSlot.learnedSkills = getUnlockedSkillsForLevel(rushSlot.level);
       rushSlot.ownedWeapons = ['sword_2', 'greatsword_2', 'spear_2', 'daggers_2', 'whip_2'];
       rushSlot.equippedWeapon = 'sword_2';
       rushSlot.ownedArmors = ['mingguang_armor', 'tiger_tally'];
@@ -701,15 +715,24 @@ export class UIManager {
         <button class="zx-seal-btn" id="btn-close-guide">返回</button>
       </div>
       <div class="zx-scroll-pane" style="line-height:1.75;font-size:14px;">
-        <p style="margin:0 0 8px;"><strong>键鼠操控：</strong><code>A / D</code> 疾奔，<code>J / Z</code> 挥斩与近身交谈，<code>K / 空格</code> 腾跃，<code>L / Shift</code> 闪避，<code>Q</code> 换兵，<code>U</code> 副器，<code>H</code> 服药，<code>B</code> 兵匣。</p>
-        <p style="margin:0 0 12px;"><strong>触屏手柄：</strong>左摇杆/十字键移动与搓招；靠近人物或石祠时按右侧【X 谈/香】直接交互，右上角点击【兵匣】换装。</p>
+        <p style="margin:0 0 8px;"><strong>键鼠操控：</strong><code>A / D</code> 疾奔，<code>S / ↓</code> 蹲伏（<code>↓ + J</code> 蹲姿低斩），<code>J / Z</code> 挥斩与交谈，<code>K / 空格</code> 腾跃，<code>L / Shift</code> 闪避，<code>1-5</code>（可在剑诀自定义）绝技快捷键，<code>Q</code> 换兵，<code>U</code> 副器，<code>H</code> 服药，<code>B</code> 兵匣。</p>
+        <p style="margin:0 0 12px;"><strong>触屏手柄：</strong>左摇杆/十字键移动与蹲伏搓招；靠近人物或石祠时按右侧【X 谈/香】直接交互，底部快捷栏可直接点按释放已领悟绝技。</p>
         <div class="zx-card-grid">
-          ${this.buildSkillCardsHtml()}
+          ${this.buildSkillCardsHtml(false)}
         </div>
       </div>
     `;
     this.uiLayer.appendChild(overlay);
     overlay.querySelector('#btn-close-guide')?.addEventListener('click', () => overlay.remove());
+  }
+
+  private stopSkillRebind(): void {
+    this.rebindingSkillId = null;
+    this.engine.input.capturingHotkey = false;
+    if (this.rebindKeyHandler) {
+      window.removeEventListener('keydown', this.rebindKeyHandler, true);
+      this.rebindKeyHandler = null;
+    }
   }
 
   private renderCmdBadges(cmdText: string): string {
@@ -723,21 +746,48 @@ export class UIManager {
       .join('')}</span>`;
   }
 
-  private buildSkillCardsHtml(): string {
-    return (Object.keys(SKILLS) as SkillId[])
-      .map((id) => {
-        const sk = SKILLS[id];
-        return `
-        <div class="zx-item-row" style="flex-direction:column;align-items:flex-start;gap:6px;cursor:default;">
-          <div style="width:100%;display:flex;justify-content:space-between;align-items:center;">
-            <strong style="font-size:16px;color:var(--bronze-light);letter-spacing:2px;">${sk.name}</strong>
-            <span style="font-size:11.5px;color:var(--jade);">耗气 ${sk.mpCost}</span>
+  private buildSkillCardsHtml(interactive = false): string {
+    const slot = this.engine.slot;
+    const level = slot?.level ?? 1;
+    const learnedSet = new Set(slot?.learnedSkills ?? getUnlockedSkillsForLevel(level));
+    const hotkeys = normalizeSkillHotkeys(SaveManager.getMeta().skillHotkeys);
+
+    return SKILL_ORDER.map((id) => {
+      const sk = SKILLS[id];
+      const unlocked = learnedSet.has(id);
+      const keyCode = hotkeys[id];
+      const keyLabel = formatKeyCodeLabel(keyCode);
+      const isListening = interactive && this.rebindingSkillId === id;
+      const unlockTag = unlocked
+        ? `<span style="font-size:11px;color:#4ade80;font-weight:800;">✦ 已习得（境${sk.unlockLevel}）</span>`
+        : `<span style="font-size:11px;color:#fbbf24;font-weight:800;">🔒 境${sk.unlockLevel} 领悟${id === 'jiuyou_soulsteal' ? ' / 禁卷' : ''}</span>`;
+      return `
+        <div class="zx-item-row ${unlocked ? 'equipped' : ''}" style="flex-direction:column;align-items:flex-start;gap:6px;cursor:default;opacity:${unlocked ? 1 : 0.62};">
+          <div style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+            <strong style="font-size:16px;color:${unlocked ? sk.color : 'var(--bronze-light)'};letter-spacing:2px;">${sk.name}</strong>
+            <div style="display:flex;align-items:center;gap:10px;">
+              ${unlockTag}
+              <span style="font-size:11.5px;color:var(--jade);">耗气 ${sk.mpCost}</span>
+            </div>
           </div>
-          ${this.renderCmdBadges(sk.commandText)}
+          <div style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+            ${this.renderCmdBadges(sk.commandText)}
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="font-size:11px;color:#fde68a;">快捷键 <b>[${keyLabel}]</b></span>
+              ${
+                interactive
+                  ? `<button type="button" class="zx-skill-key-btn ${isListening ? 'listening' : ''}" data-rebind-skill="${id}">${isListening ? '请按键…(ESC)' : '设键'}</button>${
+                      keyCode
+                        ? `<button type="button" class="zx-skill-key-btn" data-clear-skill-key="${id}" title="清除快捷键">清</button>`
+                        : ''
+                    }`
+                  : ''
+              }
+            </div>
+          </div>
           <div style="font-size:12.5px;color:#cbd5e1;line-height:1.5;">${sk.desc}</div>
         </div>`;
-      })
-      .join('');
+    }).join('');
   }
 
   private launchGame(slot: ReturnType<typeof createFreshSaveSlot>, isPrologueWalkIn = false): void {
@@ -796,6 +846,7 @@ export class UIManager {
 
   private clearAllUI(): void {
     this.stopStageLoop();
+    this.stopSkillRebind();
     if (this.prologueCleanup) {
       this.prologueCleanup();
       this.prologueCleanup = null;
@@ -816,6 +867,7 @@ export class UIManager {
     this.lastHudLv = -1;
     this.lastHudResKey = '';
     this.lastHudHpKey = '';
+    this.lastHudSkillDockKey = '';
     this.lastHudMinimapKey = '';
     this.lastHudLabelKey = '';
     this.lastHudBossKey = '';
@@ -833,12 +885,18 @@ export class UIManager {
           <span>壹</span>
         </div>
         <div class="zx-gauges">
-          <div class="zx-hp-track">
-            <div class="zx-hp-trail" id="hud-hp-trail" style="width:100%"></div>
-            <div class="zx-hp-fill" id="hud-hp-fill" style="width:100%"></div>
+          <div class="zx-gauge-row">
+            <div class="zx-hp-track">
+              <div class="zx-hp-trail" id="hud-hp-trail" style="width:100%"></div>
+              <div class="zx-hp-fill" id="hud-hp-fill" style="width:100%"></div>
+            </div>
+            <span class="zx-hp-num" id="hud-hp-text">110 / 110</span>
           </div>
-          <div class="zx-mp-track">
-            <div class="zx-mp-fill" id="hud-mp-fill" style="width:100%"></div>
+          <div class="zx-gauge-row">
+            <div class="zx-mp-track">
+              <div class="zx-mp-fill" id="hud-mp-fill" style="width:100%"></div>
+            </div>
+            <span class="zx-mp-num" id="hud-mp-text">65 / 65</span>
           </div>
           <div class="zx-hud-res-row" id="hud-res-row"></div>
           <div class="zx-weapon-sheath" id="hud-wpn-sheath" title="点击或按 [Q] 切换主手兵刃">
@@ -873,7 +931,10 @@ export class UIManager {
     bossBar.className = 'zx-boss-bar';
     bossBar.style.display = 'none';
     bossBar.innerHTML = `
-      <div class="zx-boss-title" id="boss-hud-name">万卷妖宗 · 墨千秋</div>
+      <div class="zx-boss-title">
+        <span id="boss-hud-name">万卷妖宗 · 墨千秋</span>
+        <span class="zx-boss-hp-num" id="boss-hud-hp"></span>
+      </div>
       <div class="zx-boss-track">
         <div class="zx-boss-trail" id="boss-hud-trail" style="width:100%"></div>
         <div class="zx-boss-fill" id="boss-hud-fill" style="width:100%"></div>
@@ -883,6 +944,10 @@ export class UIManager {
       </div>
     `;
 
+    const skillDock = document.createElement('div');
+    skillDock.className = 'zx-skill-dock';
+    skillDock.id = 'hud-skill-dock';
+
     const interactBtn = document.createElement('button');
     interactBtn.className = 'interact-prompt';
     interactBtn.style.display = 'none';
@@ -890,6 +955,7 @@ export class UIManager {
 
     this.uiLayer.appendChild(hud);
     this.uiLayer.appendChild(bossBar);
+    this.uiLayer.appendChild(skillDock);
     this.uiLayer.appendChild(interactBtn);
 
     this.hudEl = hud;
@@ -897,7 +963,9 @@ export class UIManager {
       lvSeal: hud.querySelector('#hud-lv-seal') as HTMLElement,
       hpTrail: hud.querySelector('#hud-hp-trail') as HTMLElement,
       hpFill: hud.querySelector('#hud-hp-fill') as HTMLElement,
+      hpText: hud.querySelector('#hud-hp-text') as HTMLElement,
       mpFill: hud.querySelector('#hud-mp-fill') as HTMLElement,
+      mpText: hud.querySelector('#hud-mp-text') as HTMLElement,
       resRow: hud.querySelector('#hud-res-row') as HTMLElement,
       wpnIconWrap: hud.querySelector('#hud-wpn-icon') as HTMLElement,
       wpnName: hud.querySelector('#hud-wpn-name') as HTMLElement,
@@ -906,10 +974,12 @@ export class UIManager {
       minimapLabel: hud.querySelector('#hud-minimap-label') as HTMLElement,
       bossWrap: bossBar,
       bossName: bossBar.querySelector('#boss-hud-name') as HTMLElement,
+      bossHpText: bossBar.querySelector('#boss-hud-hp') as HTMLElement,
       bossTrail: bossBar.querySelector('#boss-hud-trail') as HTMLElement,
       bossFill: bossBar.querySelector('#boss-hud-fill') as HTMLElement,
       bossPoise: bossBar.querySelector('#boss-hud-poise') as HTMLElement,
       interactBtn,
+      skillDock,
     };
 
     const guardGhostClick = () => performance.now() - this.modalClosedAt < 180;
@@ -944,6 +1014,14 @@ export class UIManager {
       if (guardGhostClick()) return;
       this.engine.input.triggerInteractFromUI();
     });
+    skillDock.addEventListener('click', (ev) => {
+      if (guardGhostClick()) return;
+      const chip = (ev.target as HTMLElement | null)?.closest?.('[data-cast-skill]') as
+        | HTMLElement
+        | null;
+      const skId = chip?.dataset.castSkill as SkillId | undefined;
+      if (skId) this.engine.input.triggerSkillFromUI(skId);
+    });
   }
 
   public syncHud(): void {
@@ -976,15 +1054,46 @@ export class UIManager {
       }
     }
 
+    const hpNow = Math.max(0, Math.ceil(p.hp));
+    const mpNow = Math.max(0, Math.floor(p.mp));
     const hpPct = Math.round(Math.max(0, Math.min(100, (p.hp / Math.max(1, p.maxHp)) * 100)) * 10) / 10;
     const trailPct = Math.round(Math.max(0, Math.min(100, (p.hpTrail / Math.max(1, p.maxHp)) * 100)) * 10) / 10;
     const mpPct = Math.round(Math.max(0, Math.min(100, (p.mp / Math.max(1, p.maxMp)) * 100)) * 10) / 10;
-    const hpKey = `${hpPct}:${trailPct}:${mpPct}`;
+    const hpKey = `${hpPct}:${trailPct}:${mpPct}:${hpNow}:${p.maxHp}:${mpNow}:${p.maxMp}`;
     if (hpKey !== this.lastHudHpKey) {
       this.lastHudHpKey = hpKey;
       if (this.hudRefs.hpFill) this.hudRefs.hpFill.style.width = `${hpPct}%`;
       if (this.hudRefs.hpTrail) this.hudRefs.hpTrail.style.width = `${trailPct}%`;
+      if (this.hudRefs.hpText) {
+        this.hudRefs.hpText.textContent = `${hpNow} / ${p.maxHp}`;
+        this.hudRefs.hpText.classList.toggle('low', hpNow / Math.max(1, p.maxHp) <= 0.25);
+      }
       if (this.hudRefs.mpFill) this.hudRefs.mpFill.style.width = `${mpPct}%`;
+      if (this.hudRefs.mpText) {
+        this.hudRefs.mpText.textContent = `${mpNow} / ${p.maxMp}`;
+      }
+    }
+
+    if (this.hudRefs.skillDock) {
+      const dockHidden = this.engine.storyDialogueActive || this.isAnyOverlayOpen();
+      this.hudRefs.skillDock.style.display = dockHidden ? 'none' : '';
+      const learned = SKILL_ORDER.filter((id) => s.learnedSkills.includes(id));
+      const hotkeys = this.engine.input.skillHotkeys;
+      const cdStr = p.skillCooldown > 0.05 ? p.skillCooldown.toFixed(1) : '';
+      const readyMask = learned.map((id) => (p.mp >= SKILLS[id].mpCost && !cdStr ? '1' : '0')).join('');
+      const keySig = learned.map((id) => `${id}=${hotkeys[id] || ''}`).join(',');
+      const dockKey = `${keySig}|${readyMask}|${cdStr}`;
+      if (dockKey !== this.lastHudSkillDockKey) {
+        this.lastHudSkillDockKey = dockKey;
+        this.hudRefs.skillDock.innerHTML = learned
+          .map((id) => {
+            const sk = SKILLS[id];
+            const kLbl = formatKeyCodeLabel(hotkeys[id]);
+            const canCast = p.mp >= sk.mpCost && !cdStr;
+            return `<button type="button" class="zx-skill-chip ${canCast ? 'ready' : 'dim'}" data-cast-skill="${id}" title="${sk.name}（耗气 ${sk.mpCost}，按 [${kLbl}] 释放）"><span class="k">${kLbl}</span><span class="n">${cdStr ? `${cdStr}s` : sk.shortName}</span><span class="mp">${sk.mpCost}</span></button>`;
+          })
+          .join('');
+      }
     }
 
     const wUpLv = getWeaponUpgradeLevel(s.weaponUpgrades, w.id);
@@ -1030,14 +1139,18 @@ export class UIManager {
 
     const boss = this.engine.enemies.find((e) => e.profile.isBoss);
     if (this.hudRefs.bossWrap) {
+      const bossHpNow = boss ? Math.max(0, Math.ceil(boss.hp)) : 0;
       const bossKey = boss
-        ? `1:${boss.profile.name}:${Math.round((boss.hp / Math.max(1, boss.maxHp)) * 200)}:${Math.round((boss.hpTrail / Math.max(1, boss.maxHp)) * 200)}:${boss.aiState === 'staggered' ? -1 : Math.round((boss.poise / Math.max(1, boss.maxPoise)) * 200)}`
+        ? `1:${boss.profile.name}:${bossHpNow}:${boss.maxHp}:${Math.round((boss.hpTrail / Math.max(1, boss.maxHp)) * 200)}:${boss.aiState === 'staggered' ? -1 : Math.round((boss.poise / Math.max(1, boss.maxPoise)) * 200)}`
         : '0';
       if (bossKey !== this.lastHudBossKey) {
         this.lastHudBossKey = bossKey;
         if (boss) {
           this.hudRefs.bossWrap.style.display = 'block';
           if (this.hudRefs.bossName) this.hudRefs.bossName.textContent = boss.profile.name;
+          if (this.hudRefs.bossHpText) {
+            this.hudRefs.bossHpText.textContent = `${bossHpNow} / ${boss.maxHp}`;
+          }
           if (this.hudRefs.bossFill) {
             this.hudRefs.bossFill.style.width = `${Math.max(0, (boss.hp / boss.maxHp) * 100)}%`;
           }
@@ -1099,7 +1212,7 @@ export class UIManager {
   // ==================== 《恶魔城 × 斩妖行》真人动态持兵舞台装备界面 ====================
   private renderArsenalModal(): void {
     if (!this.engine.slot || !this.engine.room) return;
-    this.closeModal();
+    this.closeModal(true);
 
     const s = this.engine.slot;
     const overlay = document.createElement('div');
@@ -1147,11 +1260,22 @@ export class UIManager {
         })
         .join('');
 
+      const safeNotice = this.rebindNotice
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      const noticeHtml = this.rebindNotice
+        ? `<div style="margin-bottom:10px;padding:7px 11px;border-radius:6px;border:1px solid rgba(216,178,108,0.45);background:rgba(46,35,19,0.55);color:var(--gold);font-size:12px;">${safeNotice}</div>`
+        : '';
       mainHtml = `
         <div class="zx-scroll-pane">
-          <div style="font-size:13px;color:var(--bronze);letter-spacing:1.5px;margin-bottom:8px;">真气武学（触屏一键 <b>RT 绝技</b> / 键盘 <b>O 键</b>：直按朔风 · 左右瞬影 · ↑升龙 · ↓太极，亦支持经典搓招）</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+            <div style="font-size:13px;color:var(--bronze);letter-spacing:1px;">真气武学（随境界 Lv.1/3/5/8/12 逐一领悟 · 点击下方键位或按自定义快捷键直接施放，亦支持 <b>O键</b> / 搓招）</div>
+            <button class="zx-btn" id="btn-reset-skill-keys" style="padding:5px 11px;font-size:11px;">恢复默认快捷键 (1-5)</button>
+          </div>
+          ${noticeHtml}
           <div class="zx-card-grid">
-            ${this.buildSkillCardsHtml()}
+            ${this.buildSkillCardsHtml(true)}
           </div>
           <div style="font-size:13px;color:var(--bronze);letter-spacing:2px;margin:14px 0 8px;">镇司奇宝 · 古武轻功与破妄双信物</div>
           <div class="zx-card-grid">${abCards}</div>
@@ -1405,6 +1529,8 @@ export class UIManager {
     this.bindFastTap(overlay.querySelector('#btn-close-pause'), () => this.closeModal());
     overlay.querySelectorAll<HTMLButtonElement>('[data-ptab]').forEach((b) => {
       b.onclick = () => {
+        this.stopSkillRebind();
+        this.rebindNotice = '';
         this.pauseTab = b.dataset.ptab as typeof this.pauseTab;
         this.previewItemId = null;
         if (this.pauseTab === 'map') {
@@ -1416,6 +1542,88 @@ export class UIManager {
 
     if (this.pauseTab === 'equip') {
       this.bindEquipEventsAndLiveStage(overlay);
+    } else if (this.pauseTab === 'skills') {
+      const reservedCodes = new Set([
+        'Tab', 'Enter', 'Space',
+        'KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+        'KeyJ', 'KeyZ', 'KeyK', 'KeyX', 'KeyB', 'KeyI', 'KeyM', 'KeyQ', 'KeyH', 'KeyE', 'KeyU', 'KeyL', 'KeyV',
+        'ShiftLeft', 'ShiftRight', 'ControlLeft', 'ControlRight', 'AltLeft', 'AltRight', 'MetaLeft', 'MetaRight',
+      ]);
+      overlay.querySelectorAll<HTMLButtonElement>('[data-rebind-skill]').forEach((btn) => {
+        btn.onclick = () => {
+          const targetId = btn.dataset.rebindSkill as SkillId;
+          if (!targetId) return;
+          if (this.rebindingSkillId === targetId) {
+            this.stopSkillRebind();
+            this.rebindNotice = '已取消快捷键设置';
+            this.renderArsenalModal();
+            return;
+          }
+          this.stopSkillRebind();
+          this.rebindingSkillId = targetId;
+          this.rebindNotice = `请按下要绑定给【${SKILLS[targetId].name}】的键盘按键（按 Esc 取消，避免移动/攻防基础键）`;
+          this.engine.input.capturingHotkey = true;
+          this.rebindKeyHandler = (e: KeyboardEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            if (e.code === 'Escape') {
+              this.stopSkillRebind();
+              this.rebindNotice = '已取消快捷键修改';
+              this.renderArsenalModal();
+              return;
+            }
+            if (reservedCodes.has(e.code)) {
+              AudioFX.playHurt();
+              this.stopSkillRebind();
+              this.rebindNotice = `键位 [${formatKeyCodeLabel(e.code)}] 为基础操控保留键，请改按数字键 1-9 或 R/T/F/C/Y 等键`;
+              this.renderArsenalModal();
+              return;
+            }
+            const cur = normalizeSkillHotkeys(SaveManager.loadMeta().skillHotkeys);
+            const prevKey = cur[targetId];
+            for (const otherId of SKILL_ORDER) {
+              if (otherId !== targetId && cur[otherId] === e.code) {
+                cur[otherId] = prevKey;
+              }
+            }
+            cur[targetId] = e.code;
+            SaveManager.saveMeta({ skillHotkeys: cur });
+            this.engine.input.setSkillHotkeys(cur);
+            this.lastHudSkillDockKey = '';
+            this.rebindNotice = `已将【${SKILLS[targetId].name}】快捷键设为 [${formatKeyCodeLabel(e.code)}]`;
+            AudioFX.playRelicBell();
+            this.stopSkillRebind();
+            this.renderArsenalModal();
+          };
+          window.addEventListener('keydown', this.rebindKeyHandler, { capture: true });
+          this.renderArsenalModal();
+        };
+      });
+      overlay.querySelectorAll<HTMLButtonElement>('[data-clear-skill-key]').forEach((btn) => {
+        btn.onclick = () => {
+          const targetId = btn.dataset.clearSkillKey as SkillId;
+          if (!targetId) return;
+          this.stopSkillRebind();
+          const cur = normalizeSkillHotkeys(SaveManager.loadMeta().skillHotkeys);
+          cur[targetId] = '';
+          SaveManager.saveMeta({ skillHotkeys: cur });
+          this.engine.input.setSkillHotkeys(cur);
+          this.lastHudSkillDockKey = '';
+          this.rebindNotice = `已清除【${SKILLS[targetId].name}】的自定义快捷键`;
+          this.renderArsenalModal();
+        };
+      });
+      this.bindFastTap(overlay.querySelector('#btn-reset-skill-keys'), () => {
+        this.stopSkillRebind();
+        const def = { ...DEFAULT_SKILL_HOTKEYS };
+        SaveManager.saveMeta({ skillHotkeys: def });
+        this.engine.input.setSkillHotkeys(def);
+        this.lastHudSkillDockKey = '';
+        this.rebindNotice = '已恢复全部绝技默认快捷键（1 ~ 5）';
+        AudioFX.playRelicBell();
+        this.renderArsenalModal();
+      });
     } else if (this.pauseTab === 'map') {
       this.bindFastTap(overlay.querySelector('#btn-map-zoom'), () => {
         this.mapZoom = this.mapZoom > 1 ? 1 : 2;
@@ -4038,7 +4246,11 @@ export class UIManager {
     renderShopOrSmith();
   }
 
-  public closeModal(): void {
+  public closeModal(preserveSkillRebind = false): void {
+    if (!preserveSkillRebind) {
+      this.stopSkillRebind();
+      this.rebindNotice = '';
+    }
     this.stopStageLoop();
     if (this.warpModalCleanup) {
       this.warpModalCleanup();

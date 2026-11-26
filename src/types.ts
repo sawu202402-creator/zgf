@@ -141,6 +141,8 @@ export interface ConsumableDef {
 export interface SkillDef {
   id: SkillId;
   name: string;
+  shortName: string;
+  unlockLevel: number;
   commandText: string;
   mpCost: number;
   dmgMult: number;
@@ -314,6 +316,7 @@ export interface GlobalMetaUnlock {
   padScale?: number;
   lastActiveSlot?: number;
   mapColorMode?: 'classic' | 'region';
+  skillHotkeys?: Partial<Record<SkillId, string>>;
   sfxMuted: boolean;
   bgmMuted: boolean;
 }

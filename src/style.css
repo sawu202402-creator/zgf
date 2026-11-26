@@ -320,7 +320,39 @@ html.is-standalone-webapp #game-root {
   gap: 5px;
 }
 
-/* 泼墨斜锋血槽（含白金延迟残血层！） */
+/* 泼墨斜锋血槽（含白金延迟残血层 + 实时剩余数值！） */
+.zx-gauge-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.zx-hp-num {
+  font-size: 12px;
+  font-weight: 800;
+  color: #fee2e2;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 4px #000, 0 0 8px rgba(0, 0, 0, 0.8);
+  letter-spacing: 0.4px;
+  line-height: 1;
+  white-space: nowrap;
+}
+.zx-hp-num.low {
+  color: #f87171;
+  animation: zxLowHpPulse 0.85s ease-in-out infinite;
+}
+.zx-mp-num {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #99f6e4;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 3px #000;
+  line-height: 1;
+  white-space: nowrap;
+}
+@keyframes zxLowHpPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
 .zx-hp-track {
   position: relative;
   width: 220px;
@@ -449,12 +481,23 @@ html.is-standalone-webapp #game-root {
   text-align: center;
 }
 .zx-boss-title {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 10px;
   font-size: 15px;
   font-weight: 900;
   letter-spacing: 4px;
   color: #fef2f2;
   text-shadow: 0 2px 10px #000;
   margin-bottom: 5px;
+}
+.zx-boss-hp-num {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #fca5a5;
+  font-variant-numeric: tabular-nums;
 }
 .zx-boss-track {
   position: relative;
@@ -473,6 +516,99 @@ html.is-standalone-webapp #game-root {
   position: relative;
   height: 100%;
   background: linear-gradient(90deg, #7f1d1d, #dc2626, #f87171);
+}
+
+/* 底部真气绝技快捷栏（随境界领悟逐个点亮，展示自定义键位且支持触屏点按！） */
+.zx-skill-dock {
+  position: absolute;
+  bottom: calc(14px + var(--safe-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 12;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: rgba(6, 9, 16, 0.72);
+  border: 1px solid rgba(198, 154, 69, 0.34);
+  border-radius: 99px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.65);
+}
+.zx-skill-dock:empty {
+  display: none;
+}
+.zx-skill-chip {
+  cursor: pointer;
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px 3px 6px;
+  background: rgba(15, 23, 42, 0.78);
+  border: 1px solid rgba(198, 154, 69, 0.42);
+  border-radius: 99px;
+  color: #f8fafc;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 800;
+  transition: transform 0.1s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+.zx-skill-chip:active {
+  transform: scale(0.94);
+}
+.zx-skill-chip.ready {
+  border-color: rgba(45, 212, 191, 0.68);
+  box-shadow: 0 0 10px rgba(45, 212, 191, 0.18);
+}
+.zx-skill-chip.dim {
+  opacity: 0.48;
+}
+.zx-skill-chip .k {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 99px;
+  background: rgba(198, 154, 69, 0.22);
+  border: 1px solid rgba(250, 204, 21, 0.55);
+  color: #fde68a;
+  font-family: sans-serif;
+  font-size: 10px;
+  font-weight: 900;
+}
+.zx-skill-chip .n {
+  letter-spacing: 0.8px;
+}
+.zx-skill-chip .mp {
+  font-size: 10px;
+  color: #5eead4;
+  font-family: sans-serif;
+}
+
+.zx-skill-key-btn {
+  cursor: pointer;
+  background: rgba(15, 23, 42, 0.88);
+  border: 1px solid rgba(198, 154, 69, 0.55);
+  color: var(--bronze-light);
+  padding: 3px 10px;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 800;
+  border-radius: 4px;
+  transition: all 0.14s ease;
+}
+.zx-skill-key-btn:hover {
+  border-color: #fde047;
+  color: #fef08a;
+}
+.zx-skill-key-btn.listening {
+  border-color: #2dd4bf;
+  color: #2dd4bf;
+  background: rgba(13, 148, 136, 0.25);
+  animation: zxLowHpPulse 0.8s ease-in-out infinite;
 }
 
 /* 场景互动提示条 */
@@ -1339,12 +1475,18 @@ html.is-standalone-webapp #game-root {
     right: calc(12px + var(--safe-right));
   }
   .zx-hp-track {
-    width: 176px;
+    width: 152px;
     height: 9px;
   }
+  .zx-hp-num {
+    font-size: 10.5px;
+  }
   .zx-mp-track {
-    width: 142px;
+    width: 124px;
     height: 6px;
+  }
+  .zx-mp-num {
+    font-size: 9.5px;
   }
   .zx-hud-res-row {
     gap: 9px;
@@ -1369,8 +1511,33 @@ html.is-standalone-webapp #game-root {
     width: 112px;
     height: 44px;
   }
+  .zx-skill-dock {
+    bottom: calc(6px + var(--safe-bottom));
+    gap: 4px;
+    padding: 3px 6px;
+    max-width: calc(100vw - 260px);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .zx-skill-dock::-webkit-scrollbar {
+    display: none;
+  }
+  .zx-skill-chip {
+    padding: 2px 7px 2px 4px;
+    font-size: 10px;
+    gap: 3px;
+    flex-shrink: 0;
+  }
+  .zx-skill-chip .k {
+    min-width: 14px;
+    height: 14px;
+    font-size: 9px;
+  }
+  .zx-skill-chip .mp {
+    display: none;
+  }
   .interact-prompt {
-    bottom: calc(18px + var(--safe-bottom));
+    bottom: calc(52px + var(--safe-bottom));
     padding: 4px 16px;
     font-size: 12px;
     border-radius: 99px;

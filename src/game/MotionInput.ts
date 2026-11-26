@@ -1,3 +1,4 @@
+import { DEFAULT_SKILL_HOTKEYS, normalizeSkillHotkeys } from '../data/itemsAndSkills';
 import { NativeApp } from '../platform/NativeAppBridge';
 import { SkillId } from '../types';
 
@@ -32,6 +33,8 @@ export class InputController {
   public controlStyle: 'joystick' | 'dpad' = 'joystick';
   public padScale = 1.0;
   public uiBlocked = false;
+  public capturingHotkey = false;
+  public skillHotkeys: Record<SkillId, string> = { ...DEFAULT_SKILL_HOTKEYS };
 
   // 边沿触发按键状态
   private attackJustPressed = false;
@@ -41,12 +44,17 @@ export class InputController {
   private dashJustPressed = false;
   private subJustPressed = false;
   private skillJustPressed = false;
+  private pendingHotkeySkill: SkillId | null = null;
   private interactJustPressed = false;
   private potionJustPressed = false;
   private weaponSwapJustPressed = false;
   private familiarSwapJustPressed = false;
   private mapJustPressed = false;
   private pauseJustPressed = false;
+
+  public setSkillHotkeys(map?: Partial<Record<SkillId, string>>): void {
+    this.skillHotkeys = normalizeSkillHotkeys(map);
+  }
 
   private keys = new Set<string>();
   private dirHistory: RawDirSample[] = [];
@@ -228,6 +236,7 @@ export class InputController {
     this.dashJustPressed = false;
     this.subJustPressed = false;
     this.skillJustPressed = false;
+    this.pendingHotkeySkill = null;
     this.interactJustPressed = false;
     this.potionJustPressed = false;
     this.weaponSwapJustPressed = false;
@@ -278,6 +287,7 @@ export class InputController {
 
   private installKeyboard(): void {
     window.addEventListener('keydown', (e) => {
+      if (this.capturingHotkey) return;
       if (e.repeat) return;
       const code = e.code;
       this.keys.add(code);
@@ -290,6 +300,14 @@ export class InputController {
       }
 
       if (this.uiBlocked) return;
+
+      for (const [skillId, boundCode] of Object.entries(this.skillHotkeys)) {
+        if (boundCode && boundCode === code) {
+          this.pendingHotkeySkill = skillId as SkillId;
+          this.syncAxesFromKeyboard();
+          return;
+        }
+      }
 
       if (code === 'KeyJ' || code === 'KeyZ') {
         this.attackJustPressed = true;
@@ -656,6 +674,16 @@ export class InputController {
     const v = this.skillJustPressed;
     this.skillJustPressed = false;
     return v;
+  }
+
+  public consumeHotkeySkill(): SkillId | null {
+    const v = this.pendingHotkeySkill;
+    this.pendingHotkeySkill = null;
+    return v;
+  }
+
+  public triggerSkillFromUI(skillId: SkillId): void {
+    this.pendingHotkeySkill = skillId;
   }
 
   public consumeInteract(): boolean {

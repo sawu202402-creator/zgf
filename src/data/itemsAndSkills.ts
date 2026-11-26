@@ -1119,11 +1119,29 @@ export const CONSUMABLES: Record<string, ConsumableDef> = {
   },
 };
 
+export const SKILL_ORDER: SkillId[] = [
+  'shuofeng_wave',
+  'shunying_flash',
+  'jinghong_rising',
+  'taiji_parry',
+  'jiuyou_soulsteal',
+];
+
+export const DEFAULT_SKILL_HOTKEYS: Record<SkillId, string> = {
+  shuofeng_wave: 'Digit1',
+  shunying_flash: 'Digit2',
+  jinghong_rising: 'Digit3',
+  taiji_parry: 'Digit4',
+  jiuyou_soulsteal: 'Digit5',
+};
+
 export const SKILLS: Record<SkillId, SkillDef> = {
   shuofeng_wave: {
     id: 'shuofeng_wave',
     name: '朔风破空斩',
-    commandText: '↓ ↘ → + 攻 (或直按 RT)',
+    shortName: '朔风',
+    unlockLevel: 1,
+    commandText: '↓ ↘ → + 攻 (或直按 RT / 快捷键)',
     mpCost: 18,
     dmgMult: 1.85,
     color: '#48c9b0',
@@ -1132,7 +1150,9 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   shunying_flash: {
     id: 'shunying_flash',
     name: '瞬影一闪',
-    commandText: '← → + 攻 (或左右 + RT)',
+    shortName: '瞬影',
+    unlockLevel: 3,
+    commandText: '← → + 攻 (或左右 + RT / 快捷键)',
     mpCost: 20,
     dmgMult: 2.1,
     color: '#f7d788',
@@ -1141,7 +1161,9 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   jinghong_rising: {
     id: 'jinghong_rising',
     name: '惊鸿升龙破',
-    commandText: '↓ ↑ + 攻 (或 ↑ + RT)',
+    shortName: '升龙',
+    unlockLevel: 5,
+    commandText: '↓ ↑ + 攻 (或 ↑ + RT / 快捷键)',
     mpCost: 18,
     dmgMult: 1.95,
     color: '#38bdf8',
@@ -1150,7 +1172,9 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   taiji_parry: {
     id: 'taiji_parry',
     name: '太极震气诀',
-    commandText: '↓ ↙ ← + 攻 (或 ↓ + RT)',
+    shortName: '太极',
+    unlockLevel: 8,
+    commandText: '↓ ↙ ← + 攻 (或 ↓ + RT / 快捷键)',
     mpCost: 20,
     dmgMult: 2.25,
     color: '#fde047',
@@ -1159,13 +1183,54 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   jiuyou_soulsteal: {
     id: 'jiuyou_soulsteal',
     name: '九幽噬魂引',
-    commandText: '← ↙ ↓ ↘ → + 攻 (需习得禁卷)',
+    shortName: '噬魂',
+    unlockLevel: 12,
+    commandText: '← ↙ ↓ ↘ → + 攻 (境12 / 禁卷)',
     mpCost: 38,
     dmgMult: 2.6,
     color: '#ef4444',
-    desc: '天机秘阁禁卷绝学：引动玄阴墨煞锁魂轰击周身群妖并大量汲取生命气血（调息 4.5 秒）。',
+    desc: '天机秘阁禁卷绝学（境12 领悟，或寻获藏经秘卷提前习得）：引动玄阴墨煞锁魂轰击周身群妖并大量汲取生命气血（调息 4.5 秒）。',
   },
 };
+
+export function getUnlockedSkillsForLevel(level: number): SkillId[] {
+  return SKILL_ORDER.filter((id) => SKILLS[id].unlockLevel <= level);
+}
+
+export function normalizeSkillHotkeys(
+  saved?: Partial<Record<SkillId, string>>
+): Record<SkillId, string> {
+  const out = { ...DEFAULT_SKILL_HOTKEYS };
+  if (!saved) return out;
+  for (const id of SKILL_ORDER) {
+    const val = saved[id];
+    if (typeof val === 'string') {
+      out[id] = val;
+    }
+  }
+  return out;
+}
+
+export function formatKeyCodeLabel(code?: string): string {
+  if (!code) return '未设';
+  if (code.startsWith('Digit')) return code.slice(5);
+  if (code.startsWith('Key')) return code.slice(3);
+  if (code.startsWith('Numpad')) return `Num${code.slice(6)}`;
+  const special: Record<string, string> = {
+    Minus: '-',
+    Equal: '=',
+    BracketLeft: '[',
+    BracketRight: ']',
+    Backquote: '`',
+    Backslash: '\\',
+    Semicolon: ';',
+    Quote: "'",
+    Comma: ',',
+    Period: '.',
+    Slash: '/',
+  };
+  return special[code] || code;
+}
 
 export const ABILITIES_META: Record<
   AbilityKey,
