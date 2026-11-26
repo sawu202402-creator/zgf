@@ -14,7 +14,7 @@ export const CELL_PIXEL_W = 800;
 export const CELL_PIXEL_H = 440;
 export const MAP_GRID_TOTAL_W = 54;
 export const MAP_GRID_TOTAL_H = 30;
-export const MAP_LAYOUT_VERSION = 5;
+export const MAP_LAYOUT_VERSION = 6;
 
 export interface GroundNode {
   x: number;
@@ -11843,12 +11843,102 @@ function createNormalCastleRooms(): BuiltRoom[] {
       ],
       pickups: [{ id: 'pk_exp_pearl_jz', kind: 'consumable', itemId: 'jiuzhuan_jin_dan', x: 380, y: 760 }],
     },
+    {
+      id: 'colosseum_pre_save',
+      name: '演武前庭古祠',
+      subtitle: '校场战前留档祠',
+      region: 'colosseum',
+      bgKey: 'bg_martial_colosseum',
+      realm: 'normal',
+      indoor: true,
+      mapX: 10,
+      mapY: 2,
+      gridW: 1,
+      gridH: 1,
+      pixelW: 1080,
+      pixelH: 460,
+      special: 'save_shrine',
+      focalX: 240,
+      focalY: 372,
+      groundNodes: [
+        { x: 0, y: 396, style: 'marble' },
+        { x: 110, y: 396, style: 'stairs' },
+        { x: 155, y: 372, style: 'marble' },
+        { x: 325, y: 372, style: 'stairs' },
+        { x: 370, y: 396, style: 'marble' },
+        { x: 1080, y: 396, style: 'marble' },
+      ],
+      solidBlocks: [],
+      ceilingSpans: [{ x1: 0, x2: 1080, bottomY: 36, style: 'palace_timber' }],
+      shafts: [],
+      decorProps: [
+        { kind: 'incense_burner', x: 175, y: 372, scale: 0.88 },
+        { kind: 'incense_burner', x: 305, y: 372, scale: 0.88 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 155, y: 312 },
+        { x: 880, y: 312 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [],
+      pickups: [],
+    },
+    {
+      id: 'dock_pre_save',
+      name: '闸口镇涛古祠',
+      subtitle: '沉舰船坞战前留档祠',
+      region: 'shipyard',
+      bgKey: 'bg_sunken_shipyard',
+      realm: 'normal',
+      indoor: true,
+      mapX: 38,
+      mapY: 11,
+      gridW: 1,
+      gridH: 1,
+      pixelW: 1080,
+      pixelH: 460,
+      special: 'save_shrine',
+      focalX: 240,
+      focalY: 372,
+      groundNodes: [
+        { x: 0, y: 396, style: 'crypt_stone' },
+        { x: 110, y: 396, style: 'stairs' },
+        { x: 155, y: 372, style: 'marble' },
+        { x: 325, y: 372, style: 'stairs' },
+        { x: 370, y: 396, style: 'crypt_stone' },
+        { x: 1080, y: 396, style: 'crypt_stone' },
+      ],
+      solidBlocks: [],
+      ceilingSpans: [{ x1: 0, x2: 1080, bottomY: 36, style: 'crypt_vault' }],
+      shafts: [],
+      decorProps: [
+        { kind: 'incense_burner', x: 175, y: 372, scale: 0.88 },
+        { kind: 'incense_burner', x: 305, y: 372, scale: 0.88 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 155, y: 312 },
+        { x: 880, y: 312 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [],
+      pickups: [],
+    },
   ];
 
-  // 全城 54×30《恶魔城》均衡金字塔树状枝蔓骨架布局 [mapX, mapY, gridW, gridH]（共 183 座殿宇，密度 42.0%！上塔收束+左右宽阔地心矿渊/沉舰下盘+高低错落偏阁！）
+  // 全城 54×30《恶魔城》均衡金字塔树状枝蔓骨架布局 [mapX, mapY, gridW, gridH]（共 185 座殿宇，全首领前皆设独立 1×1 古祠！）
   const DISPERSED_WORLD_LAYOUT: Record<string, readonly [number, number, number, number]> = {
     // 1. 凌霄祭天坛孤峰 (y=0..2；东端收束为双层钟殿+星库塔尖)
-    altar_save:                [38,  0, 1, 1],
+    altar_save:                [37,  0, 1, 1],
     sky_altar:                 [39,  0, 4, 2],
     outer_wall_upper:          [43,  0, 1, 6],
     cloud_star_gallery:        [30,  1, 3, 3],
@@ -11860,9 +11950,9 @@ function createNormalCastleRooms(): BuiltRoom[] {
     celestial_star_vault:      [46,  2, 2, 1],
 
     // 2. 神武演武校场 & 百戏梨园上层脊廊 (y=2..3)
+    colosseum_pre_save:        [10,  2, 1, 1],
     colosseum_grand_arena:     [12,  2, 4, 2],
     opera_boss_stage:          [24,  2, 3, 2],
-    opera_save:                [27,  2, 1, 1],
     chapel_cloud_stair:        [ 6,  3, 4, 3],
     colosseum_west_gate:       [10,  3, 2, 1],
     colosseum_save:            [16,  3, 1, 1],
@@ -11875,7 +11965,6 @@ function createNormalCastleRooms(): BuiltRoom[] {
     // 3. 钦天炼丹司 / 百戏下层 / 万卷藏书阁 / 钟楼 (y=4..8)
     west_cliff_watchtower:     [10,  4, 1, 3],
     xiao_boss_hall:            [12,  4, 3, 2],
-    alchemy_save:              [15,  4, 1, 1],
     alchemy_fire_sanctum:      [17,  4, 2, 2],
     library_automaton_loft:    [19,  4, 4, 1],
     library_warp:              [23,  4, 1, 1],
@@ -11883,6 +11972,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
     opera_gallery:             [25,  4, 4, 1],
     opera_foyer:               [29,  4, 4, 1],
     relic_double_jump:         [11,  5, 1, 1],
+    opera_save:                [27,  5, 1, 1],
     library_grand_hall:        [29,  5, 3, 2],
     upper_library:             [32,  5, 2, 2],
     secret_archive:            [35,  5, 1, 1],
@@ -11910,9 +12000,11 @@ function createNormalCastleRooms(): BuiltRoom[] {
     // 4. 中庭错层偏阁 (y=7..10) & 观星东翼 & 正阳皇城门 (y=9..11)
     gate_2:                    [18,  7, 3, 5],
     entrance_watch_loft:       [10,  7, 2, 2],
-    clock_save:                [38,  7, 1, 1],
+    alchemy_save:              [16,  7, 1, 1],
+    clock_save:                [37,  7, 1, 1],
     secret_thunder_vault:      [42,  7, 1, 1],
     outer_wall_battlement:     [47,  7, 2, 2],
+    bridge_save:               [13,  8, 1, 1],
     hall_bell_tower:           [26,  8, 2, 2],
     observatory_bridge:        [35,  8, 5, 1],
     observatory_pavilion:      [40,  8, 1, 1],
@@ -11925,7 +12017,6 @@ function createNormalCastleRooms(): BuiltRoom[] {
     entrance_imperial_plaza:   [13,  9, 4, 3],
     east_warp:                 [35, 10, 1, 1],
     cliff_pine_trail:          [ 3, 10, 3, 1],
-    bridge_save:               [ 8, 10, 1, 1],
     gate_1:                    [ 9, 10, 4, 2],
     entrance_guard_pavilion:   [17, 10, 1, 1],
     outer_city_warp:           [21, 10, 1, 1],
@@ -11940,7 +12031,8 @@ function createNormalCastleRooms(): BuiltRoom[] {
     hall_save:                 [32, 11, 1, 1],
     hall_east_vestibule:       [33, 11, 1, 1],
 
-    // 5. 地宫上脉 + 巨型铸剑/寒潭/沉舰大殿 (y=12..14)
+    // 5. 地宫上脉 + 巨型铸剑/寒潭/沉舰大殿 (y=11..14)
+    dock_pre_save:             [38, 11, 1, 1],
     sunken_ferry_shaft:        [ 3, 12, 1, 4],
     bamboo_cliff_grotto:       [ 4, 12, 2, 1],
     moat_west_tunnel:          [ 6, 12, 6, 1],
@@ -11961,16 +12053,16 @@ function createNormalCastleRooms(): BuiltRoom[] {
     sunken_water_shrine:       [ 8, 13, 1, 1],
     sunken_sluice_cavern:      [ 9, 13, 2, 1],
     forge_boss_arena:          [11, 13, 5, 2],
-    forge_prison_conduit:      [16, 13, 3, 1],
-    prison_sluice_entry:       [19, 13, 2, 1],
+    forge_save:                [17, 13, 1, 1],
+    prison_sluice_entry:       [19, 13, 2, 2],
     prison_waterway:           [21, 13, 6, 1],
     prison_cellblock:          [27, 13, 1, 1],
     prison_boss_hall:          [28, 13, 5, 2],
     relic_mist_vault:          [33, 13, 1, 1],
     secret_ice_spring:         [34, 13, 1, 1],
     dock_flooded_hold:         [35, 13, 4, 1],
-    forge_save:                [16, 14, 1, 1],
-    prison_pre_save:           [27, 14, 1, 1],
+    forge_prison_conduit:      [16, 14, 3, 1],
+    prison_pre_save:           [26, 14, 1, 1],
     abyss_ascension_shaft:     [34, 14, 1, 6],
 
     // 6. 古矿脉 / 九幽帝陵 / 潜渊双层海道 (y=15..19 错落起伏！)
@@ -12032,7 +12124,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
     nether_mirror_cellar:      [26, 26, 2, 1],
     nether_bone_vault:         [32, 26, 2, 2],
     dragon_west_belfry:        [11, 27, 2, 2],
-    dragon_tomb_save:          [19, 28, 1, 1],
+    dragon_tomb_save:          [18, 28, 1, 1],
     dragon_tomb_heart:         [20, 28, 5, 2],
     dragon_tomb_warp:          [25, 28, 1, 1],
     dragon_west_crypt:         [11, 29, 3, 1],
@@ -12704,9 +12796,71 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     'forge_antechamber',
     'relic_ground_slam',
     'relic_wall_vault',
+    'altar_save',
+    'opera_save',
+    'alchemy_save',
+    'clock_save',
+    'bridge_save',
+    'forge_save',
+    'prison_pre_save',
+    'dragon_tomb_save',
+    'colosseum_west_gate',
+    'opera_gallery',
+    'clock_bell_gallery',
+    'forge_molten_hall',
+    'prison_waterway',
+    'dock_sluice_passage',
   ]) {
     widenInPlace(wid);
   }
+
+  const configureVerticalSavePocket = (
+    id: string,
+    targetRoomId: string,
+    dir: 'up' | 'down',
+    ceilingStyle: 'gate_tunnel' | 'palace_timber' | 'crypt_vault'
+  ) => {
+    const rm = byId.get(id);
+    if (!rm) return;
+    rm.sideDoors = undefined;
+    rm.leftRoomId = undefined;
+    rm.rightRoomId = undefined;
+    rm.leftDoorFloorY = undefined;
+    rm.rightDoorFloorY = undefined;
+    rm.leftDoorSecretId = undefined;
+    rm.rightDoorSecretId = undefined;
+    rm.pixelW = 1080;
+    rm.pixelH = 460;
+    rm.focalX = 240;
+    rm.focalY = 372;
+    const floorStyle = ceilingStyle === 'crypt_vault' ? 'crypt_stone' : 'marble';
+    rm.groundNodes = [
+      { x: 0, y: 396, style: floorStyle },
+      { x: 110, y: 396, style: 'stairs' },
+      { x: 155, y: 372, style: 'marble' },
+      { x: 325, y: 372, style: 'stairs' },
+      { x: 370, y: 396, style: floorStyle },
+      { x: 1080, y: 396, style: floorStyle },
+    ];
+    rm.decorProps = [
+      { kind: 'incense_burner', x: 175, y: 372, scale: 0.88 },
+      { kind: 'incense_burner', x: 305, y: 372, scale: 0.88 },
+    ];
+    rm.torches = [
+      { x: 155, y: 312 },
+      { x: 880, y: 312 },
+    ];
+    rm.solidBlocks = [];
+    rm.pavilions = [];
+    rm.shafts = [];
+    if (dir === 'down') {
+      rm.shafts = [{ x1: 450, x2: 630, dir: 'down', targetRoomId }];
+      rm.pavilions = [{ x: 444, y: 396, w: 192, hasPillars: false }];
+      syncCeilingsWithUpShafts(id, ceilingStyle);
+    } else {
+      setColAlignedUpShaft(id, targetRoomId, 450, 630, ceilingStyle, [390, 510, 440]);
+    }
+  };
 
   // 1) 剪除西崖错层、三行地下岩隙(y=16..18)及极渊断层(y=20..25)冗余直通竖井
   dropShaft('cliff_hermit_shrine', 'down', 'cliff_pine_trail');
@@ -12772,13 +12926,20 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
   }
   const tombWest = byId.get('dragon_tomb_west');
   if (tombWest) {
-    tombWest.shafts = [{ x1: 160, x2: 340, dir: 'up', targetRoomId: 'nether_west_descent' }];
+    // 3000px, cols 14..19: nWest at col 14 [160..340], dragon_tomb_save@col 18 [2200..2380] (dry east shore > 2060!)
+    tombWest.shafts = [
+      { x1: 160, x2: 340, dir: 'up', targetRoomId: 'nether_west_descent' },
+      { x1: 2200, x2: 2380, dir: 'up', targetRoomId: 'dragon_tomb_save' },
+    ];
     syncCeilingsWithUpShafts('dragon_tomb_west', 'crypt_vault');
     tombWest.solidBlocks = [
       { x: 145, y: 318, w: 165, h: 30 },
       { x: 245, y: 222, w: 165, h: 28 },
       { x: 165, y: 126, w: 160, h: 26 },
       { x: 1580, y: 356, w: 240, h: 32 },
+      { x: 2150, y: 326, w: 165, h: 30 },
+      { x: 2280, y: 234, w: 165, h: 30 },
+      { x: 2190, y: 142, w: 165, h: 28 },
     ];
   }
   const tombSanc = byId.get('dragon_tomb_sanctuary');
@@ -12793,24 +12954,41 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     ];
   }
 
-  // 2) 全 9 座古祠与全 5 座乾坤传送阵彻底化为独立 1×1 悬臂死胡同耳室（红金分明，零穿堂）
-  // Save 1: altar_save (L off sky_altar@0)
-  setSimpleSideDoors('altar_save', undefined, 'sky_altar');
+  // 2) 全 11 座古祠与全 5 座乾坤传送阵彻底化为独立 1×1 悬臂死胡同耳室（红金分明，零穿堂，全首领战前直达！）
+  // Save 1: altar_save [37,0] <-> altar_forecourt (east of illusion_fox gate)
+  configureVerticalSavePocket('altar_save', 'altar_forecourt', 'down', 'palace_timber');
   setSimpleSideDoors('altar_forecourt', 'cloud_star_gallery', 'sky_altar');
 
-  // Save 2: opera_save (R off opera_boss_stage@0; opera_gallery -> opera_boss_stage)
-  setSimpleSideDoors('opera_save', 'opera_boss_stage', undefined);
-  const operaSave = byId.get('opera_save');
-  if (operaSave) {
-    operaSave.shafts = [];
-    operaSave.pavilions = [];
-    operaSave.focalX = 540;
+  // Save 2: colosseum_pre_save [10,2] <-> colosseum_west_gate (before colosseum_grand_arena)
+  configureVerticalSavePocket('colosseum_pre_save', 'colosseum_west_gate', 'down', 'palace_timber');
+  const colWest = byId.get('colosseum_west_gate');
+  if (colWest) {
+    // 1600px, cols 10..11: DOWN watchtower [310..490], UP colosseum_pre_save@col 10.8 = [540..720]
+    colWest.shafts = [
+      { x1: 310, x2: 490, dir: 'down', targetRoomId: 'west_cliff_watchtower' },
+      { x1: 540, x2: 720, dir: 'up', targetRoomId: 'colosseum_pre_save' },
+    ];
+    colWest.pavilions = [{ x: 304, y: 408, w: 192, hasPillars: false }];
+    syncCeilingsWithUpShafts('colosseum_west_gate', 'palace_timber');
+    colWest.solidBlocks = [
+      { x: 640, y: 296, w: 165, h: 30 },
+      { x: 520, y: 206, w: 165, h: 30 },
+      { x: 600, y: 122, w: 160, h: 28 },
+    ];
   }
+
+  // Save 3: opera_save [27,5] <-> opera_gallery (before opera_boss_stage)
+  configureVerticalSavePocket('opera_save', 'opera_gallery', 'up', 'palace_timber');
   setSimpleSideDoors('opera_moon_pavilion', 'opera_boss_stage', 'cloud_star_gallery');
   const opGal = byId.get('opera_gallery');
   if (opGal) {
-    opGal.shafts = [{ x1: 735, x2: 915, dir: 'up', targetRoomId: 'opera_boss_stage' }];
+    // 2200px, cols 25..28: UP opera_boss_stage [735..915], DOWN opera_save@col 27.3 = [1160..1340]
+    opGal.shafts = [
+      { x1: 735, x2: 915, dir: 'up', targetRoomId: 'opera_boss_stage' },
+      { x1: 1160, x2: 1340, dir: 'down', targetRoomId: 'opera_save' },
+    ];
     syncCeilingsWithUpShafts('opera_gallery', 'palace_timber');
+    opGal.pavilions.push({ x: 1154, y: 424, w: 192, hasPillars: false });
     opGal.solidBlocks = [
       { x: 640, y: 312, w: 175, h: 32 },
       { x: 755, y: 224, w: 175, h: 30 },
@@ -12818,19 +12996,17 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     ];
   }
 
-  // Save 3: alchemy_save (R off xiao_boss_hall@0; alchemy_lab -> xiao_boss_hall)
-  setSimpleSideDoors('alchemy_save', 'xiao_boss_hall', undefined);
-  const alchSave = byId.get('alchemy_save');
-  if (alchSave) {
-    alchSave.shafts = [];
-    alchSave.pavilions = [];
-    alchSave.focalX = 540;
-  }
+  // Save 4: alchemy_save [16,7] <-> alchemy_lab (before xiao_boss_hall)
+  configureVerticalSavePocket('alchemy_save', 'alchemy_lab', 'up', 'palace_timber');
   const alchLab = byId.get('alchemy_lab');
   if (alchLab) {
-    // 1880px, cols 12..14, xiao_boss_hall overlaps col 12 -> x=313px [223..403] (dry left shore!)
-    alchLab.shafts = [{ x1: 223, x2: 403, dir: 'up', targetRoomId: 'xiao_boss_hall' }];
+    // 1880px, cols 14..16: UP xiao_boss_hall [223..403], DOWN alchemy_save@col 16.5 = [1477..1657] (dry east shore!)
+    alchLab.shafts = [
+      { x1: 223, x2: 403, dir: 'up', targetRoomId: 'xiao_boss_hall' },
+      { x1: 1477, x2: 1657, dir: 'down', targetRoomId: 'alchemy_save' },
+    ];
     syncCeilingsWithUpShafts('alchemy_lab', 'palace_timber');
+    alchLab.pavilions = [{ x: 1470, y: 424, w: 194, hasPillars: false }];
     alchLab.solidBlocks = [
       { x: 165, y: 332, w: 185, h: 32 },
       { x: 265, y: 244, w: 185, h: 32 },
@@ -12840,22 +13016,51 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     alchLab.pickups = alchLab.pickups.map((pk) => ({ ...pk, x: 1185, y: 168 }));
   }
 
-  // Save 4: clock_save (L off clock_boss_spire@1)
-  setSimpleSideDoors('clock_save', undefined, 'clock_boss_spire');
+  // Save 5: clock_save [37,7] <-> clock_bell_gallery (before clock_boss_spire)
+  configureVerticalSavePocket('clock_save', 'clock_bell_gallery', 'up', 'palace_timber');
   setSimpleSideDoors('clock_bell_gallery', 'clock_gear_hall', 'clock_boss_spire');
+  const clockBell = byId.get('clock_bell_gallery');
+  if (clockBell) {
+    // 1600px, cols 37..38: DOWN clock_save@col 37.6 = [420..600] (east of mist gate@240, y=376 marble dais!)
+    clockBell.shafts = [{ x1: 420, x2: 600, dir: 'down', targetRoomId: 'clock_save' }];
+    clockBell.pavilions = [{ x: 414, y: 376, w: 192, hasPillars: false }];
+  }
 
-  // Save 5: bridge_save (L off gate_1@0)
-  setSimpleSideDoors('bridge_save', undefined, 'gate_1');
+  // Save 6: bridge_save [13,8] <-> entrance_imperial_plaza (Stage 0 + Inverted gate_1 approach)
+  configureVerticalSavePocket('bridge_save', 'entrance_imperial_plaza', 'down', 'gate_tunnel');
   setSimpleSideDoors('entrance_bamboo_woods', 'bamboo_outpost', 'gate_1');
 
-  // Save 6: forge_save (R off forge_boss_arena@1; forge_slag_bridge -> forge_boss_arena)
-  setSimpleSideDoors('forge_save', 'forge_boss_arena', undefined);
-  const forgeSave = byId.get('forge_save');
-  if (forgeSave) {
-    forgeSave.shafts = [];
-    syncCeilingsWithUpShafts('forge_save', 'crypt_vault');
-    forgeSave.solidBlocks = [];
-    forgeSave.focalX = 540;
+  // Save 7: forge_save [17,13] <-> forge_molten_hall (before forge_boss_arena)
+  configureVerticalSavePocket('forge_save', 'forge_molten_hall', 'up', 'crypt_vault');
+  const forgeMolten = byId.get('forge_molten_hall');
+  if (forgeMolten) {
+    // 1600px, cols 16..17: dry right stone shelf [1200..1445] strictly left of heavy_weapon gate@1445 -> DOWN forge_save@col 17.6 = [1215..1395]
+    forgeMolten.groundNodes = [
+      { x: 0, y: 408, style: 'crypt_stone' },
+      { x: 220, y: 408, style: 'stairs' },
+      { x: 280, y: 448, style: 'crypt_stone' },
+      { x: 680, y: 448, style: 'stairs' },
+      { x: 740, y: 392, style: 'crypt_stone' },
+      { x: 920, y: 392, style: 'stairs' },
+      { x: 980, y: 448, style: 'crypt_stone' },
+      { x: 1150, y: 448, style: 'stairs' },
+      { x: 1200, y: 408, style: 'crypt_stone' },
+      { x: 1600, y: 408, style: 'crypt_stone' },
+    ];
+    forgeMolten.waterZones = [
+      { x1: 255, x2: 705, surfaceY: 416, liquidKind: 'lava' },
+      { x1: 955, x2: 1175, surfaceY: 416, liquidKind: 'lava' },
+    ];
+    forgeMolten.movingPlatforms = [
+      { x1: 290, y1: 356, x2: 550, y2: 356, w: 130, speed: 1.05, style: 'bronze_lift' },
+      { x1: 980, y1: 356, x2: 1055, y2: 356, w: 130, speed: 1.05, phase: 2.1, style: 'bronze_lift' },
+    ];
+    forgeMolten.solidBlocks = [
+      { x: 735, y: 288, w: 195, h: 32 },
+      { x: 1040, y: 302, w: 140, h: 32 },
+    ];
+    forgeMolten.shafts = [{ x1: 1215, x2: 1395, dir: 'down', targetRoomId: 'forge_save' }];
+    forgeMolten.pavilions = [{ x: 1209, y: 408, w: 192, hasPillars: false }];
   }
   setSimpleSideDoors('forge_prison_conduit', 'forge_boss_arena', 'prison_sluice_entry');
   const slagBridge = byId.get('forge_slag_bridge');
@@ -12864,19 +13069,33 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     slagBridge.pavilions = [{ x: 444, y: 408, w: 192, hasPillars: false }];
   }
 
-  // Save 7: prison_pre_save (L off prison_boss_hall@1)
-  setSimpleSideDoors('prison_pre_save', undefined, 'prison_boss_hall');
+  // Save 8: prison_pre_save [26,14] <-> prison_waterway (before prison_boss_hall)
+  configureVerticalSavePocket('prison_pre_save', 'prison_waterway', 'up', 'crypt_vault');
   setSimpleSideDoors('prison_cellblock', 'prison_waterway', 'prison_boss_hall');
-
-  // Save 8: dock_save (DOWN below dock_coral_grotto dry right shore)
-  const dockSave = byId.get('dock_save');
-  if (dockSave) {
-    dockSave.sideDoors = undefined;
-    dockSave.leftRoomId = undefined;
-    dockSave.rightRoomId = undefined;
-    dockSave.focalX = 240;
-    setColAlignedUpShaft('dock_save', 'dock_coral_grotto', 450, 630, 'crypt_vault', [260, 410, 480]);
+  const prisWater = byId.get('prison_waterway');
+  if (prisWater) {
+    // 2840px, cols 21..26: DOWN prison_pre_save@col 26.5 = [2510..2690] (dry east shore > water 2070!)
+    prisWater.shafts = [{ x1: 2510, x2: 2690, dir: 'down', targetRoomId: 'prison_pre_save' }];
+    prisWater.pavilions.push({ x: 2504, y: 416, w: 192, hasPillars: false });
   }
+
+  // Save 9: dock_pre_save [38,11] <-> dock_sluice_passage (east of tortoise gate@380, before dock_shipyard_hall)
+  configureVerticalSavePocket('dock_pre_save', 'dock_sluice_passage', 'down', 'crypt_vault');
+  const dockSluice = byId.get('dock_sluice_passage');
+  if (dockSluice) {
+    // 2200px, cols 35..38: UP dock_pre_save@col 38.5 = [1835..2015] (dry east shore > water 1600 & tortoise gate@380!)
+    dockSluice.shafts = [{ x1: 1835, x2: 2015, dir: 'up', targetRoomId: 'dock_pre_save' }];
+    syncCeilingsWithUpShafts('dock_sluice_passage', 'crypt_vault');
+    dockSluice.solidBlocks = [
+      ...(dockSluice.solidBlocks || []),
+      { x: 1740, y: 324, w: 170, h: 30 },
+      { x: 1880, y: 232, w: 170, h: 30 },
+      { x: 1790, y: 140, w: 170, h: 28 },
+    ];
+  }
+
+  // Save 10: dock_save [43,17] (DOWN below dock_coral_grotto dry right shore)
+  configureVerticalSavePocket('dock_save', 'dock_coral_grotto', 'up', 'crypt_vault');
   setSimpleSideDoors('dock_underwater_tunnel', 'abyss_ascension_shaft', 'dock_coral_grotto');
   setSimpleSideDoors('dock_coral_grotto', 'dock_underwater_tunnel', undefined);
   const dockCoralNew = byId.get('dock_coral_grotto');
@@ -12886,8 +13105,8 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     dockCoralNew.pavilions.push({ x: 1829, y: 412, w: 192, hasPillars: false });
   }
 
-  // Save 9: dragon_tomb_save (L off dragon_tomb_heart@0) & 延展太古西陵龙室
-  setSimpleSideDoors('dragon_tomb_save', undefined, 'dragon_tomb_heart');
+  // Save 11: dragon_tomb_save [18,28] <-> dragon_tomb_west (before dragon_tomb_heart)
+  configureVerticalSavePocket('dragon_tomb_save', 'dragon_tomb_west', 'down', 'crypt_vault');
   setSimpleSideDoors('dragon_tomb_west', 'dragon_west_crypt', 'dragon_tomb_heart');
 
   // Warp 1: central_warp (UP pocket above hall_courtyard@21, keeping hall_courtyard -> central_underpass right of gate!)
@@ -13009,17 +13228,37 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
       { x: 390, y: 146, w: 160, h: 28 },
     ];
   }
-  const prisSluice = byId.get('prison_sluice_entry');
-  if (prisSluice) {
-    // 1600px, cols 17..18 -> col 17.85 [600..780] sits right above stone bridge {460..680}
-    prisSluice.shafts = [{ x1: 600, x2: 780, dir: 'up', targetRoomId: 'forge_antechamber' }];
-    syncCeilingsWithUpShafts('prison_sluice_entry', 'crypt_vault');
-    prisSluice.solidBlocks = [
-      { x: 460, y: 344, w: 220, h: 104 },
-      { x: 530, y: 256, w: 165, h: 30 },
-      { x: 610, y: 170, w: 165, h: 28 },
-    ];
+  const prisSluiceRaw = byId.get('prison_sluice_entry');
+  if (prisSluiceRaw) {
+    prisSluiceRaw.solidBlocks = [{ x: 460, y: 344, w: 220, h: 104 }];
+    prisSluiceRaw.secretWalls = prisSluiceRaw.secretWalls?.map((sw) => ({ ...sw, y: sw.y + 340 }));
   }
+  upgradeRoomToGrandTwoStoryHall(
+    'prison_sluice_entry',
+    1600,
+    840,
+    [
+      { side: 'left', floorY: 756, targetRoomId: 'forge_prison_conduit', rowOffset: 1 },
+      { side: 'right', floorY: 356, targetRoomId: 'prison_waterway', rowOffset: 0 },
+    ],
+    {
+      balconyRight: 340,
+      extraShafts: [{ x1: 110, x2: 290, dir: 'up', targetRoomId: 'forge_antechamber' }],
+      extraLeftSteps: [
+        { x: 80, y: 650, w: 185, h: 30 },
+        { x: 220, y: 540, w: 185, h: 30 },
+        { x: 90, y: 430, w: 185, h: 30 },
+        { x: 210, y: 320, w: 185, h: 30 },
+        { x: 100, y: 210, w: 185, h: 30 },
+        { x: 165, y: 120, w: 170, h: 28 },
+      ],
+      extraRightSteps: [
+        { x: 1020, y: 650, w: 200, h: 30 },
+        { x: 1180, y: 540, w: 200, h: 30 },
+        { x: 1040, y: 440, w: 200, h: 30 },
+      ],
+    }
+  );
   const alchFoy = byId.get('alchemy_foyer');
   if (alchFoy) {
     // 1880px, cols 15..17: up alchemy_fire_sanctum@col16 = 940px, down gate_2@col17 = 1567px
@@ -13064,10 +13303,21 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
   }
   const altarFore = byId.get('altar_forecourt');
   if (altarFore) {
-    // 2840px, cols 31..36 -> down altar_vestibule@col35 = 1990px [1900..2080], keep fox gate@2280 on right!
-    altarFore.shafts = [{ x1: 1900, x2: 2080, dir: 'down', targetRoomId: 'altar_vestibule' }];
+    // 2840px, cols 33..38 -> down altar_vestibule@col37 [1900..2080], fox gate@2145, up altar_save@col37.8 [2200..2370]
+    altarFore.shafts = [
+      { x1: 1900, x2: 2080, dir: 'down', targetRoomId: 'altar_vestibule' },
+      { x1: 2200, x2: 2370, dir: 'up', targetRoomId: 'altar_save' },
+    ];
+    syncCeilingsWithUpShafts('altar_forecourt', 'palace_timber');
     altarFore.pavilions = [{ x: 1894, y: 404, w: 192, hasPillars: false }];
-    if (altarFore.ironGate) altarFore.ironGate = { ...altarFore.ironGate, x: 2280 };
+    if (altarFore.ironGate) {
+      altarFore.ironGate = { ...altarFore.ironGate, x: 2145, topY: 0 };
+    }
+    altarFore.solidBlocks = [
+      { x: 2210, y: 312, w: 165, h: 30 },
+      { x: 2320, y: 222, w: 165, h: 30 },
+      { x: 2215, y: 136, w: 160, h: 28 },
+    ];
   }
   const mineLava = byId.get('mine_lava_bridge');
   if (mineLava) {
@@ -13309,18 +13559,11 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     2200,
     880,
     [
-      { side: 'left', floorY: 356, targetRoomId: 'altar_save', rowOffset: 0 },
       { side: 'left', floorY: 784, targetRoomId: 'altar_forecourt', rowOffset: 1 },
       { side: 'right', floorY: 356, targetRoomId: 'outer_wall_upper', rowOffset: 0 },
     ],
     {
-      balconyLeft: 320,
       balconyRight: 320,
-      extraLeftSteps: [
-        { x: 240, y: 676, w: 185, h: 30 },
-        { x: 160, y: 568, w: 185, h: 30 },
-        { x: 250, y: 460, w: 185, h: 30 },
-      ],
       extraRightSteps: [
         { x: 1780, y: 604, w: 185, h: 30 },
         { x: 1880, y: 482, w: 185, h: 30 },
@@ -13348,18 +13591,11 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     880,
     [
       { side: 'left', floorY: 808, targetRoomId: 'relic_grapple_vault', rowOffset: 1 },
-      { side: 'right', floorY: 356, targetRoomId: 'opera_save', rowOffset: 0 },
       { side: 'right', floorY: 808, targetRoomId: 'opera_moon_pavilion', rowOffset: 1 },
     ],
     {
-      balconyRight: 320,
       extraShafts: [{ x1: 1477, x2: 1657, dir: 'down', targetRoomId: 'opera_gallery' }],
       extraPavilions: [{ x: 1470, y: 808, w: 194, hasPillars: false }],
-      extraRightSteps: [
-        { x: 1660, y: 696, w: 185, h: 30 },
-        { x: 1520, y: 582, w: 185, h: 30 },
-        { x: 1650, y: 468, w: 185, h: 30 },
-      ],
     }
   );
 
@@ -13369,19 +13605,10 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     840,
     [
       { side: 'left', floorY: 764, targetRoomId: 'relic_double_jump', rowOffset: 1 },
-      { side: 'right', floorY: 356, targetRoomId: 'alchemy_save', rowOffset: 0 },
     ],
     {
-      balconyRight: 320,
       extraShafts: [{ x1: 1477, x2: 1657, dir: 'down', targetRoomId: 'alchemy_lab' }],
       extraPavilions: [{ x: 1470, y: 764, w: 194, hasPillars: false }],
-      // Stage 0 单跳阶梯（dy<=86px）供攀往 alchemy_save，中场彻底留空！
-      extraRightSteps: [
-        { x: 1660, y: 678, w: 175, h: 30 },
-        { x: 1460, y: 592, w: 175, h: 30 },
-        { x: 1650, y: 506, w: 175, h: 30 },
-        { x: 1480, y: 422, w: 175, h: 30 },
-      ],
     }
   );
 
@@ -13453,7 +13680,6 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     ];
     clockBoss.sideDoors = [
       { side: 'left', floorY: 148, targetRoomId: 'clock_bell_gallery', rowOffset: 0 },
-      { side: 'left', floorY: 804, targetRoomId: 'clock_save', rowOffset: 1 },
       {
         side: 'right',
         floorY: 804,
@@ -13503,18 +13729,9 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     2200,
     880,
     [
-      { side: 'left', floorY: 356, targetRoomId: 'bridge_save', rowOffset: 0 },
       { side: 'left', floorY: 804, targetRoomId: 'entrance_bamboo_woods', rowOffset: 1 },
       { side: 'right', floorY: 804, targetRoomId: 'entrance_imperial_plaza', rowOffset: 1 },
-    ],
-    {
-      balconyLeft: 250,
-      extraLeftSteps: [
-        { x: 190, y: 696, w: 155, h: 28 },
-        { x: 40, y: 584, w: 155, h: 28 },
-        { x: 180, y: 470, w: 155, h: 28 },
-      ],
-    }
+    ]
   );
   if (gate1) {
     gate1.focalX = 485;
@@ -13523,19 +13740,17 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     );
   }
 
-  // forge_boss_arena: 5x2 (2520x880), cols 9..13 -> U: forge_slag_bridge@13 (2268px), D: relic_ground_slam@10 (756px)
+  // forge_boss_arena: 5x2 (2520x880), cols 11..15 -> U: forge_slag_bridge@15 (2268px), D: relic_ground_slam@12 (756px)
   upgradeRoomToGrandTwoStoryHall(
     'forge_boss_arena',
     2520,
     880,
     [
       { side: 'left', floorY: 356, targetRoomId: 'sunken_sluice_cavern', rowOffset: 0 },
-      { side: 'right', floorY: 356, targetRoomId: 'forge_prison_conduit', rowOffset: 0 },
-      { side: 'right', floorY: 808, targetRoomId: 'forge_save', rowOffset: 1 },
+      { side: 'right', floorY: 808, targetRoomId: 'forge_prison_conduit', rowOffset: 1 },
     ],
     {
       balconyLeft: 340,
-      balconyRight: 340,
       extraShafts: [
         { x1: 2178, x2: 2358, dir: 'up', targetRoomId: 'forge_slag_bridge' },
         { x1: 666, x2: 846, dir: 'down', targetRoomId: 'relic_ground_slam', requireBossClear: true },
@@ -13550,20 +13765,20 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
         { x: 2200, y: 682, w: 185, h: 30 },
         { x: 2070, y: 560, w: 185, h: 30 },
         { x: 2190, y: 452, w: 185, h: 30 },
+        { x: 2090, y: 352, w: 195, h: 30 },
         { x: 2140, y: 252, w: 185, h: 30 },
         { x: 2220, y: 148, w: 185, h: 28 },
       ],
     }
   );
 
-  // prison_boss_hall: 5x2 (2520x880), cols 26..30 -> D: catacomb_hall@26 (252px dry shore, seal_prison_catacomb!)
+  // prison_boss_hall: 5x2 (2520x880), cols 28..32 -> D: catacomb_hall@28 (252px dry shore, seal_prison_catacomb!)
   upgradeRoomToGrandTwoStoryHall(
     'prison_boss_hall',
     2520,
     880,
     [
       { side: 'left', floorY: 356, targetRoomId: 'prison_cellblock', rowOffset: 0 },
-      { side: 'left', floorY: 808, targetRoomId: 'prison_pre_save', rowOffset: 1 },
       { side: 'right', floorY: 356, targetRoomId: 'relic_mist_vault', rowOffset: 0 },
     ],
     {
@@ -13586,25 +13801,18 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     }
   );
 
-  // dragon_tomb_heart: 5x2 (3800x880), cols 18..22 -> 太古祖龙心殿
+  // dragon_tomb_heart: 5x2 (3800x880), cols 20..24 -> 太古祖龙心殿
   upgradeRoomToGrandTwoStoryHall(
     'dragon_tomb_heart',
     3800,
     880,
     [
-      { side: 'left', floorY: 356, targetRoomId: 'dragon_tomb_save', rowOffset: 0 },
       { side: 'left', floorY: 780, targetRoomId: 'dragon_tomb_west', rowOffset: 1 },
       { side: 'right', floorY: 356, targetRoomId: 'dragon_tomb_warp', rowOffset: 0 },
       { side: 'right', floorY: 780, targetRoomId: 'dragon_tomb_sanctuary', rowOffset: 1 },
     ],
     {
-      balconyLeft: 340,
       balconyRight: 340,
-      extraLeftSteps: [
-        { x: 240, y: 676, w: 185, h: 30 },
-        { x: 140, y: 568, w: 185, h: 30 },
-        { x: 260, y: 460, w: 185, h: 30 },
-      ],
       extraRightSteps: [
         { x: 3360, y: 676, w: 185, h: 30 },
         { x: 3460, y: 568, w: 185, h: 30 },
@@ -13798,8 +14006,12 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     ];
     plaza.leftRoomId = undefined;
     plaza.rightRoomId = undefined;
-    // 11..14, entrance_moat_cavern@col 11 -> 12.5% = 400px [310..490] (dry left shore!)
-    plaza.shafts = [{ x1: 310, x2: 490, dir: 'down', targetRoomId: 'entrance_moat_cavern' }];
+    // 13..16, entrance_moat_cavern@col 13 -> 12.5% = 400px [310..490], UP bridge_save@col 13.8 = 650px [560..740]
+    plaza.shafts = [
+      { x1: 310, x2: 490, dir: 'down', targetRoomId: 'entrance_moat_cavern' },
+      { x1: 560, x2: 740, dir: 'up', targetRoomId: 'bridge_save' },
+    ];
+    syncCeilingsWithUpShafts('entrance_imperial_plaza', 'palace_timber');
     plaza.pavilions = [{ x: 304, y: 1104, w: 194, hasPillars: false }];
     plaza.decorProps = plaza.decorProps?.map((dp) =>
       dp.y > 460 ? { ...dp, y: dp.y + 300 } : dp
@@ -13832,6 +14044,10 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
       { x: 2380, y: 902, w: 230, h: 34 },
       { x: 2200, y: 810, w: 230, h: 34 },
       { x: 2450, y: 720, w: 750, h: 36 },
+      // 西上桥廊祠天阶 (y=356 -> 274 -> 192 -> 112 -> bridge_save)
+      { x: 460, y: 274, w: 180, h: 30 },
+      { x: 640, y: 192, w: 180, h: 30 },
+      { x: 520, y: 112, w: 180, h: 28 },
     ];
   }
 
@@ -14425,6 +14641,7 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     'clock_boss_spire',
     'gate_1',
     'forge_boss_arena',
+    'prison_sluice_entry',
     'prison_boss_hall',
     'catacomb_hall',
     'dock_underwater_tunnel',
