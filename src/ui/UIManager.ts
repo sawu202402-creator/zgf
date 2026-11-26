@@ -2046,23 +2046,28 @@ export class UIManager {
         rm.region === 'nether';
 
       let fillCol = isUpperSky
-        ? 'rgba(34, 82, 184, 0.90)'
+        ? '#2252b8'
         : isDeepSubterranean
-          ? 'rgba(24, 62, 152, 0.92)'
-          : 'rgba(28, 72, 168, 0.90)';
+          ? '#183e98'
+          : '#1c48a8';
       if (targetRealm === 'inverted') {
-        fillCol = isDeepSubterranean
-          ? 'rgba(92, 22, 74, 0.92)'
-          : 'rgba(109, 28, 86, 0.90)';
+        fillCol = isDeepSubterranean ? '#5c164a' : '#6d1c56';
       }
 
-      if (rm.special === 'save_shrine') fillCol = 'rgba(220, 38, 38, 0.96)';
-      else if (rm.special === 'warp_bagua') fillCol = 'rgba(234, 179, 8, 0.96)';
-      else if (rm.special === 'boss_room') fillCol = 'rgba(159, 18, 57, 0.96)';
+      if (rm.special === 'save_shrine') fillCol = '#dc2626';
+      else if (rm.special === 'warp_bagua') fillCol = '#eab308';
+      else if (rm.special === 'boss_room') fillCol = '#9f1239';
       else if (rm.isSecretRoom || rm.id === 'library_shop' || rm.id === 'forge_smithy') {
-        fillCol = 'rgba(16, 185, 129, 0.94)';
+        fillCol = '#10b981';
       }
 
+      const rx = ox + rm.mapX * cellW + 0.5;
+      const ry = oy + rm.mapY * cellH + 0.5;
+      const rw = rm.gridW * cellW - 1;
+      const rh = rm.gridH * cellH - 1;
+
+      const visitedCells: [number, number][] = [];
+      let allCellsVisited = true;
       for (let dy = 0; dy < rm.gridH; dy++) {
         for (let dx = 0; dx < rm.gridW; dx++) {
           const gx = rm.mapX + dx;
@@ -2071,15 +2076,32 @@ export class UIManager {
             visitedSet.has(`cell:${targetRealm}:${gx},${gy}`) ||
             (targetRealm === 'normal' && visitedSet.has(`cell:${gx},${gy}`)) ||
             ((rm.gridH === 1 || rm.pixelH <= 560) && roomVisited);
-          ctx.fillStyle = cellVis ? fillCol : 'rgba(30, 41, 59, 0.42)';
-          ctx.fillRect(ox + gx * cellW + 0.5, oy + gy * cellH + 0.5, cellW - 1, cellH - 1);
+          if (cellVis) {
+            visitedCells.push([gx, gy]);
+          } else {
+            allCellsVisited = false;
+          }
         }
       }
 
-      const rx = ox + rm.mapX * cellW + 0.5;
-      const ry = oy + rm.mapY * cellH + 0.5;
-      const rw = rm.gridW * cellW - 1;
-      const rh = rm.gridH * cellH - 1;
+      if (allCellsVisited) {
+        ctx.fillStyle = fillCol;
+        ctx.fillRect(rx, ry, rw, rh);
+      } else {
+        ctx.fillStyle = '#182235';
+        ctx.fillRect(rx, ry, rw, rh);
+        if (visitedCells.length > 0) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(rx, ry, rw, rh);
+          ctx.clip();
+          ctx.fillStyle = fillCol;
+          for (const [gx, gy] of visitedCells) {
+            ctx.fillRect(ox + gx * cellW, oy + gy * cellH, cellW + 0.5, cellH + 0.5);
+          }
+          ctx.restore();
+        }
+      }
       const doorGap = Math.max(3, Math.floor(cellH * 0.36));
       const isHere = rm.id === curRoom.id && rm.realm === curRoom.realm;
 

@@ -12,9 +12,9 @@ import {
 export const TILE_SIZE = 40;
 export const CELL_PIXEL_W = 800;
 export const CELL_PIXEL_H = 440;
-export const MAP_GRID_TOTAL_W = 49;
-export const MAP_GRID_TOTAL_H = 28;
-export const MAP_LAYOUT_VERSION = 4;
+export const MAP_GRID_TOTAL_W = 54;
+export const MAP_GRID_TOTAL_H = 30;
+export const MAP_LAYOUT_VERSION = 5;
 
 export interface GroundNode {
   x: number;
@@ -262,35 +262,35 @@ export interface BuiltRoom {
 }
 
 export const REGION_NAMES: Record<RegionId, string> = {
-  gatehouse: '第一幕 · 正阳皇城门',
-  main_hall: '第二幕 · 奉天盘龙殿',
-  alchemy: '第三幕 · 钦天炼丹司',
-  colosseum: '第四幕 · 神武演武校场',
-  forge: '第五幕 · 赤火铸剑坊',
-  prison: '第六幕 · 九曲寒潭',
-  shipyard: '第七幕 · 归墟艨艟船坞',
-  catacomb: '第八幕 · 九幽荒冢',
-  nether: '第九幕 · 九幽忘川极渊',
-  library: '第十幕 · 万卷藏书阁',
-  opera: '第十一幕 · 百戏梨园',
-  clock_tower: '第十二幕 · 东垣望月塔',
-  altar: '终幕 · 凌霄祭天坛',
+  gatehouse: '正阳皇城门',
+  main_hall: '奉天盘龙殿',
+  alchemy: '钦天炼丹司',
+  colosseum: '神武演武校场',
+  forge: '赤火铸剑坊',
+  prison: '九曲寒潭',
+  shipyard: '归墟艨艟船坞',
+  catacomb: '九幽荒冢',
+  nether: '九幽忘川极渊',
+  library: '万卷藏书阁',
+  opera: '百戏梨园',
+  clock_tower: '东垣望月塔',
+  altar: '凌霄祭天坛',
 };
 
 export const INVERTED_REGION_NAMES: Record<RegionId, string> = {
-  gatehouse: '终局逆城 · 倒悬苦竹渡',
-  main_hall: '逆城 · 倒悬盘龙殿',
-  alchemy: '逆城 · 倒悬炼丹司',
-  colosseum: '逆城 · 倒悬神武场',
-  forge: '逆城 · 倒悬铸剑坊',
-  prison: '逆城 · 倒悬寒潭狱',
-  shipyard: '逆城 · 倒悬沉舰坞',
-  catacomb: '逆城 · 倒悬守陵冢',
-  nether: '逆城 · 倒悬忘川渊',
-  library: '逆城 · 倒悬藏书阁',
-  opera: '逆城 · 倒悬百戏台',
-  clock_tower: '逆城 · 倒悬望月塔',
-  altar: '逆城起点 · 倒悬祭天坛',
+  gatehouse: '倒悬 · 苦竹渡',
+  main_hall: '倒悬 · 盘龙殿',
+  alchemy: '倒悬 · 炼丹司',
+  colosseum: '倒悬 · 神武场',
+  forge: '倒悬 · 铸剑坊',
+  prison: '倒悬 · 寒潭狱',
+  shipyard: '倒悬 · 沉舰坞',
+  catacomb: '倒悬 · 守陵冢',
+  nether: '倒悬 · 忘川渊',
+  library: '倒悬 · 藏书阁',
+  opera: '倒悬 · 百戏台',
+  clock_tower: '倒悬 · 望月塔',
+  altar: '倒悬 · 祭天坛',
 };
 
 export function getRoomSideDoors(room: BuiltRoom, side?: 'left' | 'right'): SideDoor[] {
@@ -10225,180 +10225,1657 @@ function createNormalCastleRooms(): BuiltRoom[] {
     },
   ];
 
-  // 全城 49×28《恶魔城》树状枝蔓骨架布局 [mapX, mapY, gridW, gridH]（密度 ~40.7%，三层中庭/海崖/地下岩隙/忘川极渊大留白 + 全 14 处独立 1×1 留档/传送耳室 + 10 座多层首领大殿！）
+  // 54×30 版图下盘夯实与长廊立体化扩展群（共 28 座错落偏殿、矿道地窟、忘川钟阁与沉舰礁穴！）
+  const silhouetteExpansionRooms: BuiltRoom[] = [
+    // Group 1: 中上层平直长廊立体化偏阁 (3 座)
+    {
+      id: 'entrance_watch_loft',
+      name: '城楼望哨阁',
+      subtitle: '朱雀城堞之上 · 居高俯瞰箭楼飞檐的戍守重阁',
+      region: 'gatehouse',
+      bgKey: 'bg_gatehouse_interior',
+      realm: 'normal',
+      indoor: true,
+      mapX: 10,
+      mapY: 7,
+      gridW: 2,
+      gridH: 2,
+      pixelW: 1600,
+      pixelH: 840,
+      special: 'none',
+      focalX: 800,
+      focalY: 760,
+      groundNodes: [
+        { x: 0, y: 760, style: 'flagstone' },
+        { x: 1600, y: 760, style: 'flagstone' },
+      ],
+      solidBlocks: [
+        { x: 520, y: 620, w: 220, h: 32 },
+        { x: 860, y: 492, w: 220, h: 32 },
+        { x: 460, y: 356, w: 460, h: 34 },
+      ],
+      ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 36, style: 'gate_tunnel' }],
+      shafts: [{ x1: 710, x2: 890, dir: 'down', targetRoomId: 'entrance_battlement_tower' }],
+      decorProps: [
+        { kind: 'weapon_rack', x: 340, y: 760, scale: 0.94 },
+        { kind: 'dragon_brazier', x: 1260, y: 760, scale: 0.94 },
+      ],
+      waterZones: [],
+      pavilions: [{ x: 704, y: 760, w: 194, hasPillars: false }],
+      archways: [],
+      torches: [
+        { x: 440, y: 684 },
+        { x: 1160, y: 684 },
+      ],
+      foregrounds: [],
+      lanterns: [{ x: 800, y: 210 }],
+      npcs: [],
+      spawns: [
+        { kind: 'bone_archer', x: 640, y: 356 },
+        { kind: 'bell_gargoyle', x: 1020, y: 540 },
+      ],
+      pickups: [{ id: 'pk_exp_watch_hp', kind: 'max_up', itemId: 'hp_vessel', x: 690, y: 356 }],
+    },
+    {
+      id: 'hall_bell_tower',
+      name: '奉天悬钟楼',
+      subtitle: '西厢穹顶悬垂千斤铜钟 · 撞响铜钟可震彻玄城尘封暗壁',
+      region: 'main_hall',
+      bgKey: 'bg_main_hall',
+      realm: 'normal',
+      indoor: true,
+      mapX: 26,
+      mapY: 8,
+      gridW: 2,
+      gridH: 2,
+      pixelW: 1600,
+      pixelH: 840,
+      special: 'none',
+      focalX: 800,
+      focalY: 760,
+      groundNodes: [
+        { x: 0, y: 760, style: 'marble' },
+        { x: 1600, y: 760, style: 'marble' },
+      ],
+      solidBlocks: [
+        { x: 480, y: 624, w: 220, h: 32 },
+        { x: 880, y: 496, w: 220, h: 32 },
+        { x: 560, y: 368, w: 480, h: 34 },
+      ],
+      ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 36, style: 'palace_timber' }],
+      shafts: [{ x1: 880, x2: 1060, dir: 'down', targetRoomId: 'hall_west_gallery' }],
+      decorProps: [
+        { kind: 'giant_bell', x: 800, y: 185, scale: 1.02 },
+        { kind: 'incense_burner', x: 360, y: 760, scale: 0.94 },
+        { kind: 'dragon_brazier', x: 1260, y: 760, scale: 0.92 },
+      ],
+      waterZones: [],
+      pavilions: [{ x: 874, y: 760, w: 194, hasPillars: false }],
+      archways: [],
+      torches: [
+        { x: 520, y: 684 },
+        { x: 1120, y: 684 },
+      ],
+      foregrounds: [],
+      lanterns: [{ x: 460, y: 220 }],
+      npcs: [],
+      spawns: [
+        { kind: 'bell_gargoyle', x: 780, y: 520 },
+        { kind: 'jinwu_mace_guard', x: 1220, y: 760 },
+      ],
+      pickups: [{ id: 'pk_exp_bell_mp', kind: 'max_up', itemId: 'mp_vessel', x: 800, y: 368 }],
+    },
+    {
+      id: 'clock_pendulum_vault',
+      name: '星枢摆钟秘室',
+      subtitle: '观星长桥底部的黄铜齿轮摆室 · 巨轮咬合星仪秘宝',
+      region: 'clock_tower',
+      bgKey: 'bg_tower_interior',
+      realm: 'normal',
+      indoor: true,
+      mapX: 37,
+      mapY: 9,
+      gridW: 2,
+      gridH: 2,
+      pixelW: 1600,
+      pixelH: 840,
+      special: 'none',
+      focalX: 800,
+      focalY: 760,
+      groundNodes: [
+        { x: 0, y: 760, style: 'marble' },
+        { x: 1600, y: 760, style: 'marble' },
+      ],
+      solidBlocks: [
+        { x: 500, y: 644, w: 200, h: 32 },
+        { x: 960, y: 536, w: 200, h: 32 },
+        { x: 760, y: 428, w: 200, h: 32 },
+        { x: 1040, y: 324, w: 200, h: 30 },
+        { x: 900, y: 224, w: 190, h: 30 },
+        { x: 1050, y: 132, w: 180, h: 28 },
+      ],
+      ceilingSpans: [
+        { x1: 0, x2: 1030, bottomY: 36, style: 'palace_timber' },
+        { x1: 1210, x2: 1600, bottomY: 36, style: 'palace_timber' },
+      ],
+      shafts: [{ x1: 1030, x2: 1210, dir: 'up', targetRoomId: 'observatory_bridge' }],
+      clockGears: [
+        { x: 420, y: 320, radius: 72, speed: 0.48, hasOrbitPlatforms: false },
+        { x: 1180, y: 360, radius: 76, speed: -0.45, hasOrbitPlatforms: false },
+      ],
+      decorProps: [
+        { kind: 'guardian_statue', x: 300, y: 760, scale: 0.94 },
+        { kind: 'dragon_brazier', x: 1300, y: 760, scale: 0.94 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 420, y: 684 },
+        { x: 1180, y: 684 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'clockwork_mantis', x: 1080, y: 760 },
+        { kind: 'bronze_gear_wisp', x: 800, y: 460 },
+      ],
+      pickups: [
+        { id: 'pk_exp_pend_suodi', kind: 'consumable', itemId: 'suodi_talisman', x: 340, y: 760 },
+        { id: 'pk_exp_pend_sx', kind: 'consumable', itemId: 'shenxing_san', x: 1240, y: 760 },
+      ],
+    },
+
+    // Group 2: 中下层裂谷错落坑室与化石玄殿 (y=16..19, 4 座)
+    {
+      id: 'mine_shaft_pocket',
+      name: '古矿绞车暗坑',
+      subtitle: '沉木矿道底部的废弃卷扬竖穴 · 地脉晶石幽光闪烁',
+      region: 'forge',
+      bgKey: 'bg_molten_forge',
+      realm: 'normal',
+      indoor: true,
+      mapX: 7,
+      mapY: 16,
+      gridW: 2,
+      gridH: 2,
+      pixelW: 1600,
+      pixelH: 840,
+      special: 'none',
+      focalX: 800,
+      focalY: 760,
+      groundNodes: [
+        { x: 0, y: 760, style: 'crypt_stone' },
+        { x: 1600, y: 760, style: 'crypt_stone' },
+      ],
+      solidBlocks: [
+        { x: 540, y: 644, w: 200, h: 32 },
+        { x: 880, y: 536, w: 200, h: 32 },
+        { x: 660, y: 428, w: 200, h: 32 },
+        { x: 960, y: 324, w: 200, h: 30 },
+        { x: 780, y: 224, w: 190, h: 30 },
+        { x: 920, y: 132, w: 180, h: 28 },
+      ],
+      ceilingSpans: [
+        { x1: 0, x2: 890, bottomY: 36, style: 'crypt_vault' },
+        { x1: 1070, x2: 1600, bottomY: 36, style: 'crypt_vault' },
+      ],
+      shafts: [{ x1: 890, x2: 1070, dir: 'up', targetRoomId: 'mine_timber_gallery' }],
+      decorProps: [
+        { kind: 'dragon_brazier', x: 320, y: 760, scale: 0.94 },
+        { kind: 'weapon_rack', x: 1280, y: 760, scale: 0.94 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 440, y: 684 },
+        { x: 1140, y: 684 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'magma_crucible_golem', x: 1060, y: 760 },
+        { kind: 'mine_pickaxe_ghoul', x: 540, y: 760 },
+      ],
+      pickups: [{ id: 'pk_exp_mine_pocket_hp', kind: 'max_up', itemId: 'hp_vessel', x: 380, y: 760 }],
+    },
+    {
+      id: 'catacomb_burial_niche',
+      name: '玄陵陪葬耳室',
+      subtitle: '赤焰隧道南侧凿出的皇陵耳窟 · 藏有前朝镇墓符龛',
+      region: 'catacomb',
+      bgKey: 'bg_catacomb_tomb',
+      realm: 'normal',
+      indoor: true,
+      mapX: 17,
+      mapY: 16,
+      gridW: 2,
+      gridH: 1,
+      pixelW: 1600,
+      pixelH: 480,
+      special: 'none',
+      focalX: 800,
+      focalY: 408,
+      groundNodes: [
+        { x: 0, y: 408, style: 'crypt_stone' },
+        { x: 1600, y: 408, style: 'crypt_stone' },
+      ],
+      solidBlocks: [
+        { x: 650, y: 318, w: 170, h: 30 },
+        { x: 790, y: 230, w: 170, h: 30 },
+        { x: 690, y: 146, w: 170, h: 28 },
+      ],
+      ceilingSpans: [
+        { x1: 0, x2: 710, bottomY: 36, style: 'crypt_vault' },
+        { x1: 890, x2: 1600, bottomY: 36, style: 'crypt_vault' },
+      ],
+      shafts: [{ x1: 710, x2: 890, dir: 'up', targetRoomId: 'forge_catacomb_tunnel' }],
+      decorProps: [
+        { kind: 'guardian_statue', x: 320, y: 408, scale: 0.94 },
+        { kind: 'coiled_pillar', x: 1280, y: 408, scale: 0.94 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 460, y: 332 },
+        { x: 1120, y: 332 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'terracotta_halberdier', x: 1080, y: 408 },
+        { kind: 'bone_archer', x: 440, y: 408 },
+      ],
+      pickups: [{ id: 'pk_exp_niche_mp', kind: 'max_up', itemId: 'mp_vessel', x: 1200, y: 408 }],
+    },
+    {
+      id: 'abyss_fossil_alcove',
+      name: '龙骨化石灵窟',
+      subtitle: '西镇龙脉上方嵌满巨龙椎骨的高岩秘窟',
+      region: 'catacomb',
+      bgKey: 'bg_catacomb_tomb',
+      realm: 'normal',
+      indoor: true,
+      mapX: 18,
+      mapY: 19,
+      gridW: 2,
+      gridH: 1,
+      pixelW: 1600,
+      pixelH: 480,
+      special: 'none',
+      focalX: 800,
+      focalY: 408,
+      groundNodes: [
+        { x: 0, y: 408, style: 'crypt_stone' },
+        { x: 1600, y: 408, style: 'crypt_stone' },
+      ],
+      solidBlocks: [{ x: 420, y: 292, w: 280, h: 32 }],
+      ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 36, style: 'crypt_vault' }],
+      shafts: [{ x1: 1250, x2: 1430, dir: 'down', targetRoomId: 'abyss_dragon_vein_west' }],
+      decorProps: [
+        { kind: 'coiled_pillar', x: 300, y: 408, scale: 0.96 },
+        { kind: 'dragon_brazier', x: 960, y: 408, scale: 0.94 },
+      ],
+      waterZones: [],
+      pavilions: [{ x: 1244, y: 408, w: 194, hasPillars: false }],
+      archways: [],
+      torches: [
+        { x: 540, y: 332 },
+        { x: 1120, y: 332 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'corpse_soldier', x: 760, y: 408 },
+        { kind: 'wuchang_reaper', x: 560, y: 210 },
+      ],
+      pickups: [{ id: 'pk_exp_fossil_jz', kind: 'consumable', itemId: 'jiuzhuan_jin_dan', x: 560, y: 292 }],
+    },
+    {
+      id: 'abyss_rib_vault',
+      name: '镇龙肋骨玄殿',
+      subtitle: '太古龙脊正上方耸立的拱骨祭殿 · 阴风啸聚龙角石柱',
+      region: 'catacomb',
+      bgKey: 'bg_catacomb_tomb',
+      realm: 'normal',
+      indoor: true,
+      mapX: 28,
+      mapY: 18,
+      gridW: 2,
+      gridH: 2,
+      pixelW: 1600,
+      pixelH: 840,
+      special: 'none',
+      focalX: 800,
+      focalY: 760,
+      groundNodes: [
+        { x: 0, y: 760, style: 'crypt_stone' },
+        { x: 1600, y: 760, style: 'crypt_stone' },
+      ],
+      solidBlocks: [
+        { x: 580, y: 626, w: 220, h: 32 },
+        { x: 900, y: 496, w: 220, h: 32 },
+        { x: 640, y: 368, w: 460, h: 34 },
+      ],
+      ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 36, style: 'crypt_vault' }],
+      shafts: [{ x1: 310, x2: 490, dir: 'down', targetRoomId: 'abyss_dragon_spine' }],
+      decorProps: [
+        { kind: 'coiled_pillar', x: 760, y: 760, scale: 0.98 },
+        { kind: 'guardian_statue', x: 1280, y: 760, scale: 0.94 },
+      ],
+      waterZones: [],
+      pavilions: [{ x: 304, y: 760, w: 194, hasPillars: false }],
+      archways: [],
+      torches: [
+        { x: 760, y: 684 },
+        { x: 1180, y: 684 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'bixie_stone_beast', x: 1080, y: 760 },
+        { kind: 'wuchang_reaper', x: 860, y: 450 },
+      ],
+      pickups: [{ id: 'pk_exp_rib_hp', kind: 'max_up', itemId: 'hp_vessel', x: 860, y: 368 }],
+    },
+
+    // Group 3: 左下深层赤熔地火矿区 (cols 0..9, y=21..27, 6 座 — 敦实玄城左翼下盘！)
+    {
+      id: 'mine_magma_shaft',
+      name: '赤熔深井天梯',
+      subtitle: '直落岩浆地心七层矿井 · 青铜升降机穿行四座古炉秘窟',
+      region: 'forge',
+      bgKey: 'bg_molten_forge',
+      realm: 'normal',
+      indoor: true,
+      mapX: 6,
+      mapY: 21,
+      gridW: 1,
+      gridH: 7,
+      pixelW: 1080,
+      pixelH: 2600,
+      special: 'none',
+      focalX: 540,
+      focalY: 2516,
+      sideDoors: [
+        { side: 'left', floorY: 540, targetRoomId: 'mine_smelter_vault', rowOffset: 1 },
+        { side: 'right', floorY: 920, targetRoomId: 'mine_ember_grotto', rowOffset: 2 },
+        { side: 'left', floorY: 1720, targetRoomId: 'mine_obsidian_hall', rowOffset: 4 },
+        { side: 'right', floorY: 2120, targetRoomId: 'mine_deep_reliquary', rowOffset: 5 },
+      ],
+      groundNodes: [
+        { x: 0, y: 2516, style: 'crypt_stone' },
+        { x: 1080, y: 2516, style: 'crypt_stone' },
+      ],
+      solidBlocks: [
+        { x: 0, y: 540, w: 400, h: 36 },
+        { x: 680, y: 920, w: 400, h: 36 },
+        { x: 0, y: 1720, w: 400, h: 36 },
+        { x: 680, y: 2120, w: 400, h: 36 },
+        { x: 640, y: 2320, w: 210, h: 32 },
+        { x: 230, y: 2120, w: 210, h: 32 },
+        { x: 230, y: 1920, w: 210, h: 32 },
+        { x: 640, y: 1500, w: 210, h: 32 },
+        { x: 230, y: 1280, w: 210, h: 32 },
+        { x: 640, y: 1100, w: 210, h: 32 },
+        { x: 640, y: 720, w: 210, h: 32 },
+        { x: 230, y: 360, w: 210, h: 32 },
+        { x: 440, y: 185, w: 200, h: 28 },
+      ],
+      movingPlatforms: [
+        { x1: 450, y1: 2450, x2: 450, y2: 240, w: 180, speed: 1.3, style: 'bronze_lift' },
+      ],
+      ceilingSpans: [
+        { x1: 0, x2: 450, bottomY: 36, style: 'crypt_vault' },
+        { x1: 630, x2: 1080, bottomY: 36, style: 'crypt_vault' },
+      ],
+      shafts: [{ x1: 450, x2: 630, dir: 'up', targetRoomId: 'mine_deep_vein' }],
+      decorProps: [
+        { kind: 'dragon_brazier', x: 240, y: 2516, scale: 0.94 },
+        { kind: 'coiled_pillar', x: 840, y: 2516, scale: 0.96 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 200, y: 464 },
+        { x: 840, y: 2440 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'bell_gargoyle', x: 540, y: 660 },
+        { kind: 'magma_crucible_golem', x: 820, y: 2120 },
+        { kind: 'mine_pickaxe_ghoul', x: 320, y: 2516 },
+      ],
+      pickups: [],
+    },
+    {
+      id: 'mine_smelter_vault',
+      name: '千钧赤炉地窖',
+      subtitle: '两层高耸青铜锻造地窖 · 铁砧余烬尚温',
+      region: 'forge',
+      bgKey: 'bg_molten_forge',
+      realm: 'normal',
+      indoor: true,
+      mapX: 4,
+      mapY: 22,
+      gridW: 2,
+      gridH: 2,
+      pixelW: 1600,
+      pixelH: 840,
+      special: 'none',
+      focalX: 800,
+      focalY: 760,
+      sideDoors: [{ side: 'right', floorY: 356, targetRoomId: 'mine_magma_shaft', rowOffset: 0 }],
+      groundNodes: [
+        { x: 0, y: 760, style: 'crypt_stone' },
+        { x: 1600, y: 760, style: 'crypt_stone' },
+      ],
+      solidBlocks: [
+        { x: 1180, y: 356, w: 420, h: 36 },
+        { x: 960, y: 626, w: 220, h: 32 },
+        { x: 700, y: 492, w: 240, h: 32 },
+        { x: 420, y: 356, w: 240, h: 32 },
+      ],
+      ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 36, style: 'crypt_vault' }],
+      shafts: [],
+      decorProps: [
+        { kind: 'dragon_brazier', x: 340, y: 760, scale: 0.96 },
+        { kind: 'weapon_rack', x: 1320, y: 760, scale: 0.96 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 520, y: 684 },
+        { x: 1120, y: 684 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'magma_crucible_golem', x: 640, y: 760 },
+        { kind: 'alchemy_homunculus', x: 1160, y: 760 },
+      ],
+      pickups: [{ id: 'pk_exp_smelter_sx', kind: 'consumable', itemId: 'shenxing_san', x: 540, y: 356 }],
+    },
+    {
+      id: 'mine_ember_grotto',
+      name: '赤烬地火岩廊',
+      subtitle: '赤熔深井东侧延伸的天然硫火岩道',
+      region: 'forge',
+      bgKey: 'bg_molten_forge',
+      realm: 'normal',
+      indoor: true,
+      mapX: 7,
+      mapY: 23,
+      gridW: 3,
+      gridH: 1,
+      pixelW: 1880,
+      pixelH: 480,
+      special: 'none',
+      focalX: 940,
+      focalY: 408,
+      leftRoomId: 'mine_magma_shaft',
+      leftDoorFloorY: 408,
+      groundNodes: [
+        { x: 0, y: 408, style: 'crypt_stone' },
+        { x: 1880, y: 408, style: 'crypt_stone' },
+      ],
+      solidBlocks: [{ x: 860, y: 292, w: 260, h: 32 }],
+      ceilingSpans: [{ x1: 0, x2: 1880, bottomY: 36, style: 'crypt_vault' }],
+      shafts: [],
+      decorProps: [
+        { kind: 'dragon_brazier', x: 460, y: 408, scale: 0.94 },
+        { kind: 'dragon_brazier', x: 1460, y: 408, scale: 0.94 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 720, y: 332 },
+        { x: 1220, y: 332 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'mine_pickaxe_ghoul', x: 780, y: 408 },
+        { kind: 'magma_crucible_golem', x: 1340, y: 408 },
+      ],
+      pickups: [{ id: 'pk_exp_ember_hp', kind: 'max_up', itemId: 'hp_vessel', x: 1580, y: 408 }],
+    },
+    {
+      id: 'mine_obsidian_hall',
+      name: '玄曜黑石巨窟',
+      subtitle: '漆黑曜岩雕琢的双层矿殿 · 连通地心玄武尽窟',
+      region: 'forge',
+      bgKey: 'bg_molten_forge',
+      realm: 'normal',
+      indoor: true,
+      mapX: 3,
+      mapY: 25,
+      gridW: 3,
+      gridH: 2,
+      pixelW: 1880,
+      pixelH: 840,
+      special: 'none',
+      focalX: 940,
+      focalY: 760,
+      sideDoors: [
+        { side: 'right', floorY: 356, targetRoomId: 'mine_magma_shaft', rowOffset: 0 },
+        { side: 'left', floorY: 760, targetRoomId: 'mine_basalt_spur', rowOffset: 1 },
+      ],
+      groundNodes: [
+        { x: 0, y: 760, style: 'crypt_stone' },
+        { x: 1880, y: 760, style: 'crypt_stone' },
+      ],
+      solidBlocks: [
+        { x: 1460, y: 356, w: 420, h: 36 },
+        { x: 1180, y: 626, w: 220, h: 32 },
+        { x: 960, y: 492, w: 220, h: 32 },
+        { x: 660, y: 360, w: 560, h: 34 },
+        { x: 340, y: 492, w: 220, h: 32 },
+        { x: 180, y: 626, w: 220, h: 32 },
+      ],
+      ceilingSpans: [{ x1: 0, x2: 1880, bottomY: 36, style: 'crypt_vault' }],
+      shafts: [],
+      decorProps: [
+        { kind: 'coiled_pillar', x: 460, y: 760, scale: 0.96 },
+        { kind: 'guardian_statue', x: 1420, y: 760, scale: 0.94 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 640, y: 684 },
+        { x: 1280, y: 684 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'magma_crucible_golem', x: 760, y: 760 },
+        { kind: 'lantern_ghost', x: 1080, y: 410 },
+      ],
+      pickups: [],
+    },
+    {
+      id: 'mine_basalt_spur',
+      name: '地心玄武尽窟',
+      subtitle: '九幽玄城最西南角玄武岩崖尽头 · 古矿源脉遗宝安卧于此',
+      region: 'forge',
+      bgKey: 'bg_molten_forge',
+      realm: 'normal',
+      indoor: true,
+      mapX: 0,
+      mapY: 26,
+      gridW: 3,
+      gridH: 1,
+      pixelW: 1880,
+      pixelH: 480,
+      special: 'none',
+      focalX: 940,
+      focalY: 408,
+      rightRoomId: 'mine_obsidian_hall',
+      rightDoorFloorY: 408,
+      groundNodes: [
+        { x: 0, y: 408, style: 'crypt_stone' },
+        { x: 1880, y: 408, style: 'crypt_stone' },
+      ],
+      solidBlocks: [{ x: 420, y: 292, w: 280, h: 32 }],
+      ceilingSpans: [{ x1: 0, x2: 1880, bottomY: 36, style: 'crypt_vault' }],
+      shafts: [],
+      decorProps: [
+        { kind: 'guardian_statue', x: 320, y: 408, scale: 0.94 },
+        { kind: 'dragon_brazier', x: 1420, y: 408, scale: 0.94 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 520, y: 332 },
+        { x: 1220, y: 332 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'jinwu_mace_guard', x: 860, y: 408 },
+        { kind: 'mine_pickaxe_ghoul', x: 1280, y: 408 },
+      ],
+      pickups: [{ id: 'pk_exp_basalt_mp', kind: 'max_up', itemId: 'mp_vessel', x: 380, y: 408 }],
+    },
+    {
+      id: 'mine_deep_reliquary',
+      name: '炎脉古剑藏室',
+      subtitle: '深藏于熔井最底层的两层古兵秘殿 · 封存上古炼丹金丸',
+      region: 'forge',
+      bgKey: 'bg_molten_forge',
+      realm: 'normal',
+      indoor: true,
+      mapX: 7,
+      mapY: 26,
+      gridW: 2,
+      gridH: 2,
+      pixelW: 1600,
+      pixelH: 840,
+      special: 'none',
+      focalX: 800,
+      focalY: 760,
+      sideDoors: [{ side: 'left', floorY: 356, targetRoomId: 'mine_magma_shaft', rowOffset: 0 }],
+      groundNodes: [
+        { x: 0, y: 760, style: 'crypt_stone' },
+        { x: 1600, y: 760, style: 'crypt_stone' },
+      ],
+      solidBlocks: [
+        { x: 0, y: 356, w: 420, h: 36 },
+        { x: 460, y: 626, w: 220, h: 32 },
+        { x: 700, y: 492, w: 220, h: 32 },
+        { x: 960, y: 356, w: 260, h: 32 },
+      ],
+      ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 36, style: 'crypt_vault' }],
+      shafts: [],
+      decorProps: [
+        { kind: 'weapon_rack', x: 340, y: 760, scale: 0.96 },
+        { kind: 'dragon_brazier', x: 1260, y: 760, scale: 0.94 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 520, y: 684 },
+        { x: 1120, y: 684 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'magma_crucible_golem', x: 780, y: 760 },
+        { kind: 'bronze_guard', x: 1180, y: 760 },
+      ],
+      pickups: [
+        { id: 'pk_exp_deep_jz', kind: 'consumable', itemId: 'jiuzhuan_jin_dan', x: 1200, y: 760 },
+      ],
+    },
+
+    // Group 4: 中下层忘川冥府与太古祖龙陵立体错层 (8 座)
+    {
+      id: 'nether_weeping_hall',
+      name: '幽泣魂灯偏殿',
+      subtitle: '西落渊井侧畔的双层冥殿 · 鬼火幽灯悬照石阶',
+      region: 'nether',
+      bgKey: 'bg_nether_abyss',
+      realm: 'normal',
+      indoor: true,
+      mapX: 12,
+      mapY: 22,
+      gridW: 2,
+      gridH: 2,
+      pixelW: 1600,
+      pixelH: 840,
+      special: 'none',
+      focalX: 800,
+      focalY: 760,
+      sideDoors: [{ side: 'right', floorY: 356, targetRoomId: 'nether_west_descent', rowOffset: 0 }],
+      groundNodes: [
+        { x: 0, y: 760, style: 'crypt_stone' },
+        { x: 1600, y: 760, style: 'crypt_stone' },
+      ],
+      solidBlocks: [
+        { x: 1180, y: 356, w: 420, h: 36 },
+        { x: 960, y: 626, w: 220, h: 32 },
+        { x: 700, y: 492, w: 220, h: 32 },
+        { x: 420, y: 356, w: 240, h: 32 },
+      ],
+      ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 36, style: 'crypt_vault' }],
+      shafts: [],
+      decorProps: [
+        { kind: 'coiled_pillar', x: 320, y: 760, scale: 0.96 },
+        { kind: 'dragon_brazier', x: 1260, y: 760, scale: 0.94 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 520, y: 684 },
+        { x: 1120, y: 684 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'wuchang_reaper', x: 720, y: 500 },
+        { kind: 'demon_wolf', x: 1020, y: 760 },
+      ],
+      pickups: [{ id: 'pk_exp_weeping_mp', kind: 'max_up', itemId: 'mp_vessel', x: 380, y: 760 }],
+    },
+    {
+      id: 'nether_ferry_loft',
+      name: '忘川渡口瞭阁',
+      subtitle: '横跨黄泉冥河长桥中央的了望石亭 · 缩地归阵符静候渡人',
+      region: 'nether',
+      bgKey: 'bg_nether_abyss',
+      realm: 'normal',
+      indoor: true,
+      mapX: 17,
+      mapY: 22,
+      gridW: 2,
+      gridH: 1,
+      pixelW: 1600,
+      pixelH: 480,
+      special: 'none',
+      focalX: 800,
+      focalY: 408,
+      groundNodes: [
+        { x: 0, y: 408, style: 'crypt_stone' },
+        { x: 1600, y: 408, style: 'crypt_stone' },
+      ],
+      solidBlocks: [{ x: 460, y: 288, w: 260, h: 32 }],
+      ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 36, style: 'crypt_vault' }],
+      shafts: [{ x1: 1090, x2: 1270, dir: 'down', targetRoomId: 'nether_soul_bridge' }],
+      decorProps: [
+        { kind: 'guardian_statue', x: 300, y: 408, scale: 0.94 },
+        { kind: 'incense_burner', x: 860, y: 408, scale: 0.92 },
+      ],
+      waterZones: [],
+      pavilions: [{ x: 1084, y: 408, w: 194, hasPillars: false }],
+      archways: [],
+      torches: [
+        { x: 440, y: 332 },
+        { x: 1000, y: 332 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'scroll_demon', x: 760, y: 210 },
+        { kind: 'terracotta_halberdier', x: 640, y: 408 },
+      ],
+      pickups: [
+        { id: 'pk_exp_ferry_suodi', kind: 'consumable', itemId: 'suodi_talisman', x: 560, y: 288 },
+      ],
+    },
+    {
+      id: 'nether_wisp_belfry',
+      name: '冥火引魂钟阁',
+      subtitle: '引魂灯街上方双层孤阁 · 高悬黄泉惊魂铜钟',
+      region: 'nether',
+      bgKey: 'bg_nether_abyss',
+      realm: 'normal',
+      indoor: true,
+      mapX: 25,
+      mapY: 21,
+      gridW: 2,
+      gridH: 2,
+      pixelW: 1600,
+      pixelH: 840,
+      special: 'none',
+      focalX: 800,
+      focalY: 760,
+      groundNodes: [
+        { x: 0, y: 760, style: 'crypt_stone' },
+        { x: 1600, y: 760, style: 'crypt_stone' },
+      ],
+      solidBlocks: [
+        { x: 520, y: 626, w: 220, h: 32 },
+        { x: 860, y: 496, w: 220, h: 32 },
+        { x: 560, y: 368, w: 480, h: 34 },
+      ],
+      ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 36, style: 'crypt_vault' }],
+      shafts: [{ x1: 710, x2: 890, dir: 'down', targetRoomId: 'nether_lantern_avenue' }],
+      decorProps: [
+        { kind: 'giant_bell', x: 800, y: 185, scale: 1.0 },
+        { kind: 'coiled_pillar', x: 320, y: 760, scale: 0.96 },
+        { kind: 'dragon_brazier', x: 1280, y: 760, scale: 0.94 },
+      ],
+      waterZones: [],
+      pavilions: [{ x: 704, y: 760, w: 194, hasPillars: false }],
+      archways: [],
+      torches: [
+        { x: 460, y: 684 },
+        { x: 1140, y: 684 },
+      ],
+      foregrounds: [],
+      lanterns: [{ x: 480, y: 220 }],
+      npcs: [],
+      spawns: [
+        { kind: 'celestial_sentinel', x: 780, y: 480 },
+        { kind: 'scroll_demon', x: 1160, y: 540 },
+      ],
+      pickups: [{ id: 'pk_exp_wisp_hp', kind: 'max_up', itemId: 'hp_vessel', x: 800, y: 368 }],
+    },
+    {
+      id: 'nether_mirror_cellar',
+      name: '玄镜沉影暗窖',
+      subtitle: '孽镜冥殿下方私藏秘窖 · 青丘灵石掩映镜影丹鼎',
+      region: 'nether',
+      bgKey: 'bg_nether_abyss',
+      realm: 'normal',
+      indoor: true,
+      mapX: 26,
+      mapY: 26,
+      gridW: 2,
+      gridH: 1,
+      pixelW: 1600,
+      pixelH: 480,
+      special: 'none',
+      focalX: 800,
+      focalY: 408,
+      groundNodes: [
+        { x: 0, y: 408, style: 'crypt_stone' },
+        { x: 1600, y: 408, style: 'crypt_stone' },
+      ],
+      solidBlocks: [
+        { x: 780, y: 318, w: 170, h: 30 },
+        { x: 920, y: 230, w: 170, h: 30 },
+        { x: 820, y: 146, w: 170, h: 28 },
+      ],
+      ceilingSpans: [
+        { x1: 0, x2: 840, bottomY: 36, style: 'crypt_vault' },
+        { x1: 1020, x2: 1600, bottomY: 36, style: 'crypt_vault' },
+      ],
+      shafts: [{ x1: 840, x2: 1020, dir: 'up', targetRoomId: 'nether_mirror_crypt' }],
+      decorProps: [
+        { kind: 'dragon_brazier', x: 340, y: 408, scale: 0.94 },
+        { kind: 'guardian_statue', x: 1320, y: 408, scale: 0.94 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 480, y: 332 },
+        { x: 1180, y: 332 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'drowned_corpse_bride', x: 540, y: 240 },
+        { kind: 'bixie_stone_beast', x: 1180, y: 408 },
+      ],
+      pickups: [{ id: 'pk_exp_mirror_jz', kind: 'consumable', itemId: 'jiuzhuan_jin_dan', x: 360, y: 408 }],
+    },
+    {
+      id: 'dragon_west_crypt',
+      name: '太古西陵龙室',
+      subtitle: '祖龙西翼长陵以外的古老配室 · 顶通西陵镇魂高阁',
+      region: 'nether',
+      bgKey: 'bg_nether_abyss',
+      realm: 'normal',
+      indoor: true,
+      mapX: 11,
+      mapY: 29,
+      gridW: 3,
+      gridH: 1,
+      pixelW: 1880,
+      pixelH: 480,
+      special: 'none',
+      focalX: 940,
+      focalY: 408,
+      rightRoomId: 'dragon_tomb_west',
+      rightDoorFloorY: 408,
+      groundNodes: [
+        { x: 0, y: 408, style: 'crypt_stone' },
+        { x: 1880, y: 408, style: 'crypt_stone' },
+      ],
+      solidBlocks: [
+        { x: 470, y: 318, w: 170, h: 30 },
+        { x: 610, y: 230, w: 170, h: 30 },
+        { x: 520, y: 146, w: 170, h: 28 },
+      ],
+      ceilingSpans: [
+        { x1: 0, x2: 540, bottomY: 36, style: 'crypt_vault' },
+        { x1: 720, x2: 1880, bottomY: 36, style: 'crypt_vault' },
+      ],
+      shafts: [{ x1: 540, x2: 720, dir: 'up', targetRoomId: 'dragon_west_belfry' }],
+      decorProps: [
+        { kind: 'coiled_pillar', x: 300, y: 408, scale: 0.96 },
+        { kind: 'guardian_statue', x: 1480, y: 408, scale: 0.94 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 420, y: 332 },
+        { x: 1300, y: 332 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'terracotta_halberdier', x: 1020, y: 408 },
+        { kind: 'demon_wolf', x: 1520, y: 408 },
+      ],
+      pickups: [],
+    },
+    {
+      id: 'dragon_west_belfry',
+      name: '西陵镇魂高阁',
+      subtitle: '太古龙陵西巅双层守墓高阁 · 镇魂钟鸣震慑九幽亡魂',
+      region: 'nether',
+      bgKey: 'bg_nether_abyss',
+      realm: 'normal',
+      indoor: true,
+      mapX: 11,
+      mapY: 27,
+      gridW: 2,
+      gridH: 2,
+      pixelW: 1600,
+      pixelH: 840,
+      special: 'none',
+      focalX: 800,
+      focalY: 760,
+      groundNodes: [
+        { x: 0, y: 760, style: 'crypt_stone' },
+        { x: 1600, y: 760, style: 'crypt_stone' },
+      ],
+      solidBlocks: [
+        { x: 540, y: 626, w: 220, h: 32 },
+        { x: 860, y: 496, w: 220, h: 32 },
+        { x: 560, y: 368, w: 480, h: 34 },
+      ],
+      ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 36, style: 'crypt_vault' }],
+      shafts: [{ x1: 710, x2: 890, dir: 'down', targetRoomId: 'dragon_west_crypt' }],
+      decorProps: [
+        { kind: 'giant_bell', x: 800, y: 185, scale: 1.0 },
+        { kind: 'coiled_pillar', x: 320, y: 760, scale: 0.96 },
+      ],
+      waterZones: [],
+      pavilions: [{ x: 704, y: 760, w: 194, hasPillars: false }],
+      archways: [],
+      torches: [
+        { x: 460, y: 684 },
+        { x: 1140, y: 684 },
+      ],
+      foregrounds: [],
+      lanterns: [{ x: 460, y: 220 }],
+      npcs: [],
+      spawns: [
+        { kind: 'celestial_sentinel', x: 780, y: 480 },
+        { kind: 'scroll_demon', x: 1160, y: 520 },
+      ],
+      pickups: [{ id: 'pk_exp_west_belfry_hp', kind: 'max_up', itemId: 'hp_vessel', x: 800, y: 368 }],
+    },
+    {
+      id: 'nether_bone_vault',
+      name: '万骨沉渊秘库',
+      subtitle: '埋骨长廊南坠的两层白骨幽库 · 冥兵残甲堆叠如山',
+      region: 'nether',
+      bgKey: 'bg_nether_abyss',
+      realm: 'normal',
+      indoor: true,
+      mapX: 32,
+      mapY: 26,
+      gridW: 2,
+      gridH: 2,
+      pixelW: 1600,
+      pixelH: 840,
+      special: 'none',
+      focalX: 800,
+      focalY: 760,
+      groundNodes: [
+        { x: 0, y: 760, style: 'crypt_stone' },
+        { x: 1600, y: 760, style: 'crypt_stone' },
+      ],
+      solidBlocks: [
+        { x: 500, y: 644, w: 200, h: 32 },
+        { x: 860, y: 536, w: 200, h: 32 },
+        { x: 520, y: 428, w: 200, h: 32 },
+        { x: 840, y: 324, w: 200, h: 30 },
+        { x: 640, y: 224, w: 190, h: 30 },
+        { x: 780, y: 132, w: 180, h: 28 },
+      ],
+      ceilingSpans: [
+        { x1: 0, x2: 710, bottomY: 36, style: 'crypt_vault' },
+        { x1: 890, x2: 1600, bottomY: 36, style: 'crypt_vault' },
+      ],
+      shafts: [{ x1: 710, x2: 890, dir: 'up', targetRoomId: 'nether_east_ossuary' }],
+      decorProps: [
+        { kind: 'guardian_statue', x: 320, y: 760, scale: 0.94 },
+        { kind: 'dragon_brazier', x: 1280, y: 760, scale: 0.94 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 460, y: 684 },
+        { x: 1140, y: 684 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'bixie_stone_beast', x: 1060, y: 760 },
+        { kind: 'wuchang_reaper', x: 560, y: 500 },
+      ],
+      pickups: [{ id: 'pk_exp_bone_mp', kind: 'max_up', itemId: 'mp_vessel', x: 340, y: 760 }],
+    },
+    {
+      id: 'dragon_east_annex',
+      name: '东陵祖龙祀廊',
+      subtitle: '太古玄鸟祭坛东侧延展的祀龙古殿 · 长明青铜火炬未熄',
+      region: 'nether',
+      bgKey: 'bg_nether_abyss',
+      realm: 'normal',
+      indoor: true,
+      mapX: 31,
+      mapY: 29,
+      gridW: 3,
+      gridH: 1,
+      pixelW: 1880,
+      pixelH: 480,
+      special: 'none',
+      focalX: 940,
+      focalY: 408,
+      leftRoomId: 'dragon_tomb_sanctuary',
+      leftDoorFloorY: 408,
+      groundNodes: [
+        { x: 0, y: 408, style: 'crypt_stone' },
+        { x: 1880, y: 408, style: 'crypt_stone' },
+      ],
+      solidBlocks: [{ x: 1120, y: 292, w: 260, h: 32 }],
+      ceilingSpans: [{ x1: 0, x2: 1880, bottomY: 36, style: 'crypt_vault' }],
+      shafts: [],
+      decorProps: [
+        { kind: 'coiled_pillar', x: 480, y: 408, scale: 0.96 },
+        { kind: 'dragon_brazier', x: 1520, y: 408, scale: 0.94 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 640, y: 332 },
+        { x: 1280, y: 332 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'terracotta_halberdier', x: 860, y: 408 },
+        { kind: 'wuchang_reaper', x: 1240, y: 210 },
+      ],
+      pickups: [{ id: 'pk_exp_east_annex_jz', kind: 'consumable', itemId: 'jiuzhuan_jin_dan', x: 1620, y: 408 }],
+    },
+
+    // Group 5: 右下深海沉舰鬼礁大翼 (cols 41..53, y=21..27, 7 座 — 敦实玄城右翼下盘！)
+    {
+      id: 'dock_reef_descent',
+      name: '归墟海礁深井',
+      subtitle: '纵贯东海归墟海沟的七层沉舰水井 · 连通珊瑚窟、幽冥巨舰与海珠洞',
+      region: 'shipyard',
+      bgKey: 'bg_sunken_shipyard',
+      realm: 'normal',
+      indoor: true,
+      mapX: 43,
+      mapY: 21,
+      gridW: 1,
+      gridH: 7,
+      pixelW: 1080,
+      pixelH: 2600,
+      special: 'none',
+      focalX: 540,
+      focalY: 2516,
+      sideDoors: [
+        { side: 'left', floorY: 356, targetRoomId: 'dock_treasure_vault', rowOffset: 0 },
+        { side: 'right', floorY: 740, targetRoomId: 'dock_sunken_galleon', rowOffset: 1 },
+        { side: 'left', floorY: 1120, targetRoomId: 'dock_barnacle_crypt', rowOffset: 2 },
+        { side: 'right', floorY: 1760, targetRoomId: 'dock_leviathan_rib', rowOffset: 4 },
+        { side: 'left', floorY: 2140, targetRoomId: 'dock_pearl_grotto', rowOffset: 5 },
+      ],
+      groundNodes: [
+        { x: 0, y: 2516, style: 'crypt_stone' },
+        { x: 1080, y: 2516, style: 'crypt_stone' },
+      ],
+      solidBlocks: [
+        { x: 0, y: 356, w: 400, h: 36 },
+        { x: 680, y: 740, w: 400, h: 36 },
+        { x: 0, y: 1120, w: 400, h: 36 },
+        { x: 680, y: 1760, w: 400, h: 36 },
+        { x: 0, y: 2140, w: 400, h: 36 },
+        { x: 640, y: 2340, w: 210, h: 32 },
+        { x: 640, y: 1960, w: 210, h: 32 },
+        { x: 230, y: 1560, w: 210, h: 32 },
+        { x: 640, y: 1340, w: 210, h: 32 },
+        { x: 640, y: 940, w: 210, h: 32 },
+        { x: 230, y: 550, w: 210, h: 32 },
+      ],
+      movingPlatforms: [
+        { x1: 450, y1: 2450, x2: 450, y2: 390, w: 180, speed: 1.3, style: 'bronze_lift' },
+      ],
+      ceilingSpans: [{ x1: 0, x2: 1080, bottomY: 36, style: 'crypt_vault' }],
+      shafts: [],
+      decorProps: [
+        { kind: 'guardian_statue', x: 240, y: 2516, scale: 0.94 },
+        { kind: 'coiled_pillar', x: 840, y: 2516, scale: 0.96 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 220, y: 280 },
+        { x: 840, y: 2440 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'guixu_water_fiend', x: 540, y: 880 },
+        { kind: 'armored_tortoise', x: 820, y: 1760 },
+      ],
+      pickups: [],
+    },
+    {
+      id: 'dock_sunken_galleon',
+      name: '沉海艨艟船舱',
+      subtitle: '横卧归墟海底的两层古代大福船遗骸 · 舱底宝匣犹存',
+      region: 'shipyard',
+      bgKey: 'bg_sunken_shipyard',
+      realm: 'normal',
+      indoor: true,
+      mapX: 44,
+      mapY: 22,
+      gridW: 3,
+      gridH: 2,
+      pixelW: 1880,
+      pixelH: 840,
+      special: 'none',
+      focalX: 940,
+      focalY: 760,
+      sideDoors: [{ side: 'left', floorY: 356, targetRoomId: 'dock_reef_descent', rowOffset: 0 }],
+      groundNodes: [
+        { x: 0, y: 760, style: 'crypt_stone' },
+        { x: 1880, y: 760, style: 'crypt_stone' },
+      ],
+      solidBlocks: [
+        { x: 0, y: 356, w: 420, h: 36 },
+        { x: 460, y: 626, w: 220, h: 32 },
+        { x: 700, y: 492, w: 220, h: 32 },
+        { x: 960, y: 356, w: 260, h: 32 },
+      ],
+      ceilingSpans: [{ x1: 0, x2: 1880, bottomY: 36, style: 'crypt_vault' }],
+      shafts: [],
+      decorProps: [
+        { kind: 'coiled_pillar', x: 380, y: 760, scale: 0.96 },
+        { kind: 'dragon_brazier', x: 1460, y: 760, scale: 0.94 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 540, y: 684 },
+        { x: 1260, y: 684 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'guixu_water_fiend', x: 860, y: 480 },
+        { kind: 'frost_chain_jailer', x: 1320, y: 760 },
+      ],
+      pickups: [{ id: 'pk_exp_galleon_hp', kind: 'max_up', itemId: 'hp_vessel', x: 1540, y: 760 }],
+    },
+    {
+      id: 'dock_barnacle_crypt',
+      name: '珊瑚暗礁石窟',
+      subtitle: '海礁深井西侧贝壳附生的阴湿海窟',
+      region: 'shipyard',
+      bgKey: 'bg_cavern_waterfall',
+      realm: 'normal',
+      indoor: true,
+      mapX: 41,
+      mapY: 23,
+      gridW: 2,
+      gridH: 1,
+      pixelW: 1600,
+      pixelH: 480,
+      special: 'none',
+      focalX: 800,
+      focalY: 408,
+      rightRoomId: 'dock_reef_descent',
+      rightDoorFloorY: 408,
+      groundNodes: [
+        { x: 0, y: 408, style: 'crypt_stone' },
+        { x: 1600, y: 408, style: 'crypt_stone' },
+      ],
+      solidBlocks: [{ x: 420, y: 292, w: 260, h: 32 }],
+      ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 36, style: 'crypt_vault' }],
+      shafts: [],
+      decorProps: [
+        { kind: 'guardian_statue', x: 320, y: 408, scale: 0.94 },
+        { kind: 'dragon_brazier', x: 1180, y: 408, scale: 0.92 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 460, y: 332 },
+        { x: 1080, y: 332 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'drowned_corpse_bride', x: 640, y: 220 },
+        { kind: 'armored_tortoise', x: 1020, y: 408 },
+      ],
+      pickups: [{ id: 'pk_exp_barnacle_sx', kind: 'consumable', itemId: 'shenxing_san', x: 520, y: 292 }],
+    },
+    {
+      id: 'dock_leviathan_rib',
+      name: '沧溟巨鲸骨廊',
+      subtitle: '上古鲲鲸遗骨筑成的海渊长廊 · 西连海礁井 · 东通幽冥楼船巨艏',
+      region: 'shipyard',
+      bgKey: 'bg_sunken_shipyard',
+      realm: 'normal',
+      indoor: true,
+      mapX: 44,
+      mapY: 25,
+      gridW: 4,
+      gridH: 1,
+      pixelW: 2200,
+      pixelH: 480,
+      special: 'none',
+      focalX: 1100,
+      focalY: 408,
+      leftRoomId: 'dock_reef_descent',
+      leftDoorFloorY: 408,
+      rightRoomId: 'dock_abyssal_prow',
+      rightDoorFloorY: 408,
+      groundNodes: [
+        { x: 0, y: 408, style: 'crypt_stone' },
+        { x: 2200, y: 408, style: 'crypt_stone' },
+      ],
+      solidBlocks: [
+        { x: 760, y: 300, w: 220, h: 32 },
+        { x: 1220, y: 300, w: 220, h: 32 },
+      ],
+      ceilingSpans: [{ x1: 0, x2: 2200, bottomY: 36, style: 'crypt_vault' }],
+      shafts: [],
+      decorProps: [
+        { kind: 'coiled_pillar', x: 480, y: 408, scale: 0.96 },
+        { kind: 'coiled_pillar', x: 1720, y: 408, scale: 0.96 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 640, y: 332 },
+        { x: 1560, y: 332 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'guixu_water_fiend', x: 960, y: 220 },
+        { kind: 'shenji_musketeer', x: 1460, y: 408 },
+      ],
+      pickups: [],
+    },
+    {
+      id: 'dock_abyssal_prow',
+      name: '幽冥楼船巨艏',
+      subtitle: '高耸两层的宝船舰艏残躯 · 底层延伸至归墟尽头灯礁',
+      region: 'shipyard',
+      bgKey: 'bg_sunken_shipyard',
+      realm: 'normal',
+      indoor: true,
+      mapX: 48,
+      mapY: 25,
+      gridW: 3,
+      gridH: 2,
+      pixelW: 1880,
+      pixelH: 840,
+      special: 'none',
+      focalX: 940,
+      focalY: 760,
+      sideDoors: [
+        { side: 'left', floorY: 356, targetRoomId: 'dock_leviathan_rib', rowOffset: 0 },
+        { side: 'right', floorY: 760, targetRoomId: 'dock_trench_lantern', rowOffset: 1 },
+      ],
+      groundNodes: [
+        { x: 0, y: 760, style: 'crypt_stone' },
+        { x: 1880, y: 760, style: 'crypt_stone' },
+      ],
+      solidBlocks: [
+        { x: 0, y: 356, w: 420, h: 36 },
+        { x: 460, y: 626, w: 220, h: 32 },
+        { x: 700, y: 492, w: 220, h: 32 },
+        { x: 660, y: 360, w: 560, h: 34 },
+        { x: 1320, y: 486, w: 220, h: 32 },
+        { x: 1480, y: 626, w: 220, h: 32 },
+      ],
+      ceilingSpans: [{ x1: 0, x2: 1880, bottomY: 36, style: 'crypt_vault' }],
+      shafts: [],
+      decorProps: [
+        { kind: 'dragon_brazier', x: 380, y: 760, scale: 0.94 },
+        { kind: 'guardian_statue', x: 1460, y: 760, scale: 0.94 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 540, y: 684 },
+        { x: 1260, y: 684 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'drowned_corpse_bride', x: 860, y: 440 },
+        { kind: 'armored_tortoise', x: 1300, y: 760 },
+      ],
+      pickups: [],
+    },
+    {
+      id: 'dock_trench_lantern',
+      name: '归墟尽头灯礁',
+      subtitle: '玄城最东南角孤悬深海的石灯角 · 东海沉船遗宝长眠于斯',
+      region: 'shipyard',
+      bgKey: 'bg_sunken_shipyard',
+      realm: 'normal',
+      indoor: true,
+      mapX: 51,
+      mapY: 26,
+      gridW: 3,
+      gridH: 1,
+      pixelW: 1880,
+      pixelH: 480,
+      special: 'none',
+      focalX: 940,
+      focalY: 408,
+      leftRoomId: 'dock_abyssal_prow',
+      leftDoorFloorY: 408,
+      groundNodes: [
+        { x: 0, y: 408, style: 'crypt_stone' },
+        { x: 1880, y: 408, style: 'crypt_stone' },
+      ],
+      solidBlocks: [{ x: 1180, y: 292, w: 280, h: 32 }],
+      ceilingSpans: [{ x1: 0, x2: 1880, bottomY: 36, style: 'crypt_vault' }],
+      shafts: [],
+      decorProps: [
+        { kind: 'dragon_brazier', x: 460, y: 408, scale: 0.94 },
+        { kind: 'coiled_pillar', x: 1520, y: 408, scale: 0.96 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 640, y: 332 },
+        { x: 1320, y: 332 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'guixu_water_fiend', x: 760, y: 220 },
+        { kind: 'mine_pickaxe_ghoul', x: 1240, y: 408 },
+      ],
+      pickups: [{ id: 'pk_exp_trench_mp', kind: 'max_up', itemId: 'mp_vessel', x: 1300, y: 292 }],
+    },
+    {
+      id: 'dock_pearl_grotto',
+      name: '沧海明珠秘洞',
+      subtitle: '海礁深井底层西侧双层珍珠秘窟 · 贝壳生辉',
+      region: 'shipyard',
+      bgKey: 'bg_cavern_waterfall',
+      realm: 'normal',
+      indoor: true,
+      mapX: 41,
+      mapY: 26,
+      gridW: 2,
+      gridH: 2,
+      pixelW: 1600,
+      pixelH: 840,
+      special: 'none',
+      focalX: 800,
+      focalY: 760,
+      sideDoors: [{ side: 'right', floorY: 356, targetRoomId: 'dock_reef_descent', rowOffset: 0 }],
+      groundNodes: [
+        { x: 0, y: 760, style: 'crypt_stone' },
+        { x: 1600, y: 760, style: 'crypt_stone' },
+      ],
+      solidBlocks: [
+        { x: 1180, y: 356, w: 420, h: 36 },
+        { x: 960, y: 626, w: 220, h: 32 },
+        { x: 700, y: 492, w: 220, h: 32 },
+        { x: 420, y: 356, w: 240, h: 32 },
+      ],
+      ceilingSpans: [{ x1: 0, x2: 1600, bottomY: 36, style: 'crypt_vault' }],
+      shafts: [],
+      decorProps: [
+        { kind: 'guardian_statue', x: 340, y: 760, scale: 0.94 },
+        { kind: 'incense_burner', x: 1280, y: 760, scale: 0.94 },
+      ],
+      waterZones: [],
+      pavilions: [],
+      archways: [],
+      torches: [
+        { x: 520, y: 684 },
+        { x: 1120, y: 684 },
+      ],
+      foregrounds: [],
+      lanterns: [],
+      npcs: [],
+      spawns: [
+        { kind: 'drowned_corpse_bride', x: 780, y: 480 },
+        { kind: 'armored_tortoise', x: 560, y: 760 },
+      ],
+      pickups: [{ id: 'pk_exp_pearl_jz', kind: 'consumable', itemId: 'jiuzhuan_jin_dan', x: 380, y: 760 }],
+    },
+  ];
+
+  // 全城 54×30《恶魔城》均衡金字塔树状枝蔓骨架布局 [mapX, mapY, gridW, gridH]（共 183 座殿宇，密度 42.0%！上塔收束+左右宽阔地心矿渊/沉舰下盘+高低错落偏阁！）
   const DISPERSED_WORLD_LAYOUT: Record<string, readonly [number, number, number, number]> = {
-    // 1. 凌霄祭天坛孤峰 (y=0..2)
-    altar_save:                [36,  0, 1, 1],
-    sky_altar:                 [37,  0, 4, 2],
-    outer_wall_upper:          [41,  0, 1, 6],
-    cloud_star_gallery:        [28,  1, 3, 3],
-    altar_forecourt:           [31,  1, 6, 1],
-    altar_cloud_bridge:        [32,  2, 3, 1],
-    altar_vestibule:           [35,  2, 1, 1],
-    altar_east_terrace:        [36,  2, 5, 1],
-    celestial_bell_sanctum:    [42,  2, 4, 1],
-    celestial_star_vault:      [46,  2, 3, 1],
+    // 1. 凌霄祭天坛孤峰 (y=0..2；东端收束为双层钟殿+星库塔尖)
+    altar_save:                [38,  0, 1, 1],
+    sky_altar:                 [39,  0, 4, 2],
+    outer_wall_upper:          [43,  0, 1, 6],
+    cloud_star_gallery:        [30,  1, 3, 3],
+    altar_forecourt:           [33,  1, 6, 1],
+    altar_cloud_bridge:        [34,  2, 3, 1],
+    altar_vestibule:           [37,  2, 1, 1],
+    altar_east_terrace:        [38,  2, 5, 1],
+    celestial_bell_sanctum:    [44,  1, 2, 2],
+    celestial_star_vault:      [46,  2, 2, 1],
 
     // 2. 神武演武校场 & 百戏梨园上层脊廊 (y=2..3)
-    colosseum_grand_arena:     [10,  2, 4, 2],
-    opera_boss_stage:          [22,  2, 3, 2],
-    opera_save:                [25,  2, 1, 1],
-    chapel_cloud_stair:        [ 4,  3, 4, 3],
-    colosseum_west_gate:       [ 8,  3, 2, 1],
-    colosseum_save:            [14,  3, 1, 1],
-    colosseum_east_armory:     [15,  3, 3, 1],
-    colosseum_sky_bridge:      [18,  3, 3, 1],
-    relic_grapple_vault:       [21,  3, 1, 1],
-    opera_moon_pavilion:       [25,  3, 3, 1],
-    east_outer_tower:          [32,  3, 1, 10],
+    colosseum_grand_arena:     [12,  2, 4, 2],
+    opera_boss_stage:          [24,  2, 3, 2],
+    opera_save:                [27,  2, 1, 1],
+    chapel_cloud_stair:        [ 6,  3, 4, 3],
+    colosseum_west_gate:       [10,  3, 2, 1],
+    colosseum_save:            [16,  3, 1, 1],
+    colosseum_east_armory:     [17,  3, 3, 1],
+    colosseum_sky_bridge:      [20,  3, 3, 1],
+    relic_grapple_vault:       [23,  3, 1, 1],
+    opera_moon_pavilion:       [27,  3, 3, 1],
+    east_outer_tower:          [34,  3, 1, 10],
 
     // 3. 钦天炼丹司 / 百戏下层 / 万卷藏书阁 / 钟楼 (y=4..8)
-    west_cliff_watchtower:     [ 8,  4, 1, 3],
-    xiao_boss_hall:            [10,  4, 3, 2],
-    alchemy_save:              [13,  4, 1, 1],
-    alchemy_fire_sanctum:      [15,  4, 2, 2],
-    library_automaton_loft:    [17,  4, 4, 1],
-    library_warp:              [21,  4, 1, 1],
-    opera_dressing_room:       [22,  4, 1, 1],
-    opera_gallery:             [23,  4, 4, 1],
-    opera_foyer:               [27,  4, 4, 1],
-    relic_double_jump:         [ 9,  5, 1, 1],
-    library_grand_hall:        [27,  5, 3, 2],
-    upper_library:             [30,  5, 2, 2],
-    secret_archive:            [33,  5, 1, 1],
-    clock_sky_aqueduct:        [34,  5, 5, 1],
-    relic_wall_vault:          [39,  5, 1, 1],
-    outer_wall_armory:         [40,  5, 1, 1],
-    cliff_hermit_shrine:       [ 1,  6, 2, 1],
-    cliff_wind_pavilion:       [ 3,  6, 1, 1],
-    west_cliff_pagoda:         [ 4,  6, 1, 5],
-    west_cliff_skybridge:      [ 5,  6, 3, 1],
-    secret_armory_vault:       [10,  6, 1, 1],
-    west_armory:               [11,  6, 1, 1],
-    alchemy_lab:               [12,  6, 3, 1],
-    alchemy_foyer:             [15,  6, 3, 1],
-    alchemy_herb_garden:       [18,  6, 1, 1],
-    alchemy_library_bridge:    [19,  6, 5, 1],
-    secret_library_study:      [24,  6, 1, 1],
-    library_shop:              [25,  6, 1, 1],
-    library_save:              [26,  6, 1, 1],
-    clock_gear_hall:           [33,  6, 2, 1],
-    clock_bell_gallery:        [35,  6, 2, 1],
-    clock_boss_spire:          [37,  6, 3, 2],
-    outer_wall_lower:          [41,  6, 1, 7],
+    west_cliff_watchtower:     [10,  4, 1, 3],
+    xiao_boss_hall:            [12,  4, 3, 2],
+    alchemy_save:              [15,  4, 1, 1],
+    alchemy_fire_sanctum:      [17,  4, 2, 2],
+    library_automaton_loft:    [19,  4, 4, 1],
+    library_warp:              [23,  4, 1, 1],
+    opera_dressing_room:       [24,  4, 1, 1],
+    opera_gallery:             [25,  4, 4, 1],
+    opera_foyer:               [29,  4, 4, 1],
+    relic_double_jump:         [11,  5, 1, 1],
+    library_grand_hall:        [29,  5, 3, 2],
+    upper_library:             [32,  5, 2, 2],
+    secret_archive:            [35,  5, 1, 1],
+    clock_sky_aqueduct:        [36,  5, 5, 1],
+    relic_wall_vault:          [41,  5, 1, 1],
+    outer_wall_armory:         [42,  5, 1, 1],
+    cliff_hermit_shrine:       [ 3,  6, 2, 1],
+    cliff_wind_pavilion:       [ 5,  6, 1, 1],
+    west_cliff_pagoda:         [ 6,  6, 1, 5],
+    west_cliff_skybridge:      [ 7,  6, 3, 1],
+    secret_armory_vault:       [12,  6, 1, 1],
+    west_armory:               [13,  6, 1, 1],
+    alchemy_lab:               [14,  6, 3, 1],
+    alchemy_foyer:             [17,  6, 3, 1],
+    alchemy_herb_garden:       [20,  6, 1, 1],
+    alchemy_library_bridge:    [21,  6, 5, 1],
+    secret_library_study:      [26,  6, 1, 1],
+    library_shop:              [27,  6, 1, 1],
+    library_save:              [28,  6, 1, 1],
+    clock_gear_hall:           [35,  6, 2, 1],
+    clock_bell_gallery:        [37,  6, 2, 1],
+    clock_boss_spire:          [39,  6, 3, 2],
+    outer_wall_lower:          [43,  6, 1, 7],
 
-    // 4. 中庭大留白 (y=7..9) & 观星东翼 & 正阳皇城门 (y=9..11)
-    gate_2:                    [16,  7, 3, 5],
-    clock_save:                [36,  7, 1, 1],
-    secret_thunder_vault:      [40,  7, 1, 1],
-    outer_wall_battlement:     [46,  7, 3, 2],
-    observatory_bridge:        [33,  8, 5, 1],
-    observatory_pavilion:      [38,  8, 1, 1],
-    secret_sword_tomb:         [39,  8, 1, 1],
-    clock_east_bastion:        [40,  8, 1, 1],
-    outer_wall_telescope:      [42,  8, 3, 1],
-    outer_wall_save:           [45,  8, 1, 1],
-    entrance_battlement_tower: [ 5,  9, 6, 1],
-    entrance_imperial_plaza:   [11,  9, 4, 3],
-    east_warp:                 [33, 10, 1, 1],
-    cliff_pine_trail:          [ 1, 10, 3, 1],
-    bridge_save:               [ 6, 10, 1, 1],
-    gate_1:                    [ 7, 10, 4, 2],
-    entrance_guard_pavilion:   [15, 10, 1, 1],
-    outer_city_warp:           [19, 10, 1, 1],
-    central_warp:              [21, 10, 1, 1],
-    hall_west_gallery:         [23, 10, 3, 1],
-    hall_corridor:             [26, 10, 4, 2],
-    bamboo_outpost:            [ 0, 11, 1, 1],
-    entrance_bamboo_woods:     [ 1, 11, 6, 1],
-    entrance_mid_save:         [15, 11, 1, 1],
-    gate_save:                 [19, 11, 1, 1],
-    hall_courtyard:            [20, 11, 6, 1],
-    hall_save:                 [30, 11, 1, 1],
-    hall_east_vestibule:       [31, 11, 1, 1],
+    // 4. 中庭错层偏阁 (y=7..10) & 观星东翼 & 正阳皇城门 (y=9..11)
+    gate_2:                    [18,  7, 3, 5],
+    entrance_watch_loft:       [10,  7, 2, 2],
+    clock_save:                [38,  7, 1, 1],
+    secret_thunder_vault:      [42,  7, 1, 1],
+    outer_wall_battlement:     [47,  7, 2, 2],
+    hall_bell_tower:           [26,  8, 2, 2],
+    observatory_bridge:        [35,  8, 5, 1],
+    observatory_pavilion:      [40,  8, 1, 1],
+    secret_sword_tomb:         [41,  8, 1, 1],
+    clock_east_bastion:        [42,  8, 1, 1],
+    outer_wall_telescope:      [44,  8, 2, 1],
+    outer_wall_save:           [46,  8, 1, 1],
+    clock_pendulum_vault:      [37,  9, 2, 2],
+    entrance_battlement_tower: [ 7,  9, 6, 1],
+    entrance_imperial_plaza:   [13,  9, 4, 3],
+    east_warp:                 [35, 10, 1, 1],
+    cliff_pine_trail:          [ 3, 10, 3, 1],
+    bridge_save:               [ 8, 10, 1, 1],
+    gate_1:                    [ 9, 10, 4, 2],
+    entrance_guard_pavilion:   [17, 10, 1, 1],
+    outer_city_warp:           [21, 10, 1, 1],
+    central_warp:              [23, 10, 1, 1],
+    hall_west_gallery:         [25, 10, 3, 1],
+    hall_corridor:             [28, 10, 4, 2],
+    bamboo_outpost:            [ 2, 11, 1, 1],
+    entrance_bamboo_woods:     [ 3, 11, 6, 1],
+    entrance_mid_save:         [17, 11, 1, 1],
+    gate_save:                 [21, 11, 1, 1],
+    hall_courtyard:            [22, 11, 6, 1],
+    hall_save:                 [32, 11, 1, 1],
+    hall_east_vestibule:       [33, 11, 1, 1],
 
     // 5. 地宫上脉 + 巨型铸剑/寒潭/沉舰大殿 (y=12..14)
-    sunken_ferry_shaft:        [ 1, 12, 1, 4],
-    bamboo_cliff_grotto:       [ 2, 12, 2, 1],
-    moat_west_tunnel:          [ 4, 12, 6, 1],
-    entrance_moat_cavern:      [10, 12, 2, 1],
-    forge_moat_sluice:         [12, 12, 1, 1],
-    forge_slag_bridge:         [13, 12, 1, 1],
-    forge_molten_hall:         [14, 12, 2, 1],
-    forge_smithy:              [16, 12, 1, 1],
-    forge_antechamber:         [17, 12, 1, 1],
-    central_underpass:         [18, 12, 5, 1],
-    imperial_aqueduct_west:    [23, 12, 4, 1],
-    imperial_aqueduct_east:    [27, 12, 4, 1],
-    prison_save:               [31, 12, 1, 1],
-    dock_sluice_passage:       [33, 12, 4, 1],
-    dock_shipyard_hall:        [37, 12, 4, 3],
-    dock_east_beacon:          [42, 12, 4, 1],
-    sunken_reed_wharf:         [ 2, 13, 4, 1],
-    sunken_water_shrine:       [ 6, 13, 1, 1],
-    sunken_sluice_cavern:      [ 7, 13, 2, 1],
-    forge_boss_arena:          [ 9, 13, 5, 2],
-    forge_prison_conduit:      [14, 13, 3, 1],
-    prison_sluice_entry:       [17, 13, 2, 1],
-    prison_waterway:           [19, 13, 6, 1],
-    prison_cellblock:          [25, 13, 1, 1],
-    prison_boss_hall:          [26, 13, 5, 2],
-    relic_mist_vault:          [31, 13, 1, 1],
-    secret_ice_spring:         [32, 13, 1, 1],
-    dock_flooded_hold:         [33, 13, 4, 1],
-    forge_save:                [14, 14, 1, 1],
-    prison_pre_save:           [25, 14, 1, 1],
-    abyss_ascension_shaft:     [32, 14, 1, 5],
+    sunken_ferry_shaft:        [ 3, 12, 1, 4],
+    bamboo_cliff_grotto:       [ 4, 12, 2, 1],
+    moat_west_tunnel:          [ 6, 12, 6, 1],
+    entrance_moat_cavern:      [12, 12, 2, 1],
+    forge_moat_sluice:         [14, 12, 1, 1],
+    forge_slag_bridge:         [15, 12, 1, 1],
+    forge_molten_hall:         [16, 12, 2, 1],
+    forge_smithy:              [18, 12, 1, 1],
+    forge_antechamber:         [19, 12, 1, 1],
+    central_underpass:         [20, 12, 5, 1],
+    imperial_aqueduct_west:    [25, 12, 4, 1],
+    imperial_aqueduct_east:    [29, 12, 4, 1],
+    prison_save:               [33, 12, 1, 1],
+    dock_sluice_passage:       [35, 12, 4, 1],
+    dock_shipyard_hall:        [39, 12, 4, 3],
+    dock_east_beacon:          [44, 12, 3, 1],
+    sunken_reed_wharf:         [ 4, 13, 4, 1],
+    sunken_water_shrine:       [ 8, 13, 1, 1],
+    sunken_sluice_cavern:      [ 9, 13, 2, 1],
+    forge_boss_arena:          [11, 13, 5, 2],
+    forge_prison_conduit:      [16, 13, 3, 1],
+    prison_sluice_entry:       [19, 13, 2, 1],
+    prison_waterway:           [21, 13, 6, 1],
+    prison_cellblock:          [27, 13, 1, 1],
+    prison_boss_hall:          [28, 13, 5, 2],
+    relic_mist_vault:          [33, 13, 1, 1],
+    secret_ice_spring:         [34, 13, 1, 1],
+    dock_flooded_hold:         [35, 13, 4, 1],
+    forge_save:                [16, 14, 1, 1],
+    prison_pre_save:           [27, 14, 1, 1],
+    abyss_ascension_shaft:     [34, 14, 1, 6],
 
-    // 6. 古矿脉 / 九幽帝陵 / 潜渊海道 (y=15)
-    mine_vertical_pit:         [ 2, 15, 1, 5],
-    mine_timber_gallery:       [ 3, 15, 5, 1],
-    mine_crystal_cavern:       [ 8, 15, 2, 1],
-    relic_ground_slam:         [10, 15, 1, 1],
-    secret_forge_smeltery:     [11, 15, 1, 1],
-    forge_catacomb_tunnel:     [12, 15, 6, 1],
-    secret_catacomb_treasury:  [18, 15, 1, 1],
-    catacomb_west_crypt:       [19, 15, 1, 1],
-    catacomb_entry:            [20, 15, 1, 1],
-    catacomb_save:             [21, 15, 1, 1],
-    catacomb_hall:             [22, 15, 5, 1],
-    catacomb_shrine:           [27, 15, 2, 1],
-    catacomb_prison_vault:     [29, 15, 3, 1],
-    dock_underwater_tunnel:    [33, 15, 8, 1],
-    dock_coral_grotto:         [41, 15, 5, 1],
+    // 6. 古矿脉 / 九幽帝陵 / 潜渊双层海道 (y=15..19 错落起伏！)
+    mine_vertical_pit:         [ 4, 15, 1, 6],
+    mine_timber_gallery:       [ 5, 15, 5, 1],
+    mine_crystal_cavern:       [10, 15, 2, 1],
+    relic_ground_slam:         [12, 15, 1, 1],
+    secret_forge_smeltery:     [13, 15, 1, 1],
+    forge_catacomb_tunnel:     [14, 15, 6, 1],
+    secret_catacomb_treasury:  [20, 15, 1, 1],
+    catacomb_west_crypt:       [21, 15, 1, 1],
+    catacomb_entry:            [22, 15, 1, 1],
+    catacomb_save:             [23, 15, 1, 1],
+    catacomb_hall:             [24, 15, 5, 2],
+    catacomb_shrine:           [29, 15, 2, 1],
+    catacomb_prison_vault:     [31, 15, 3, 1],
+    dock_underwater_tunnel:    [35, 15, 5, 2],
+    dock_coral_grotto:         [40, 16, 4, 1],
+    mine_shaft_pocket:         [ 7, 16, 2, 2],
+    catacomb_burial_niche:     [17, 16, 2, 1],
+    dock_save:                 [43, 17, 1, 1],
+    mine_warp:                 [ 3, 17, 1, 1],
+    abyss_rib_vault:           [29, 18, 2, 2],
+    abyss_fossil_alcove:       [18, 19, 2, 1],
 
-    // 7. 地下岩层三行玄石空洞 (y=16..18) + 归墟留档下井 & 古矿传送耳室
-    dock_save:                 [45, 16, 1, 1],
-    mine_warp:                 [ 1, 17, 1, 1],
+    // 7. 极渊上脉：深矿脉 / 镇龙渊 / 双层归墟海沟 (y=20..22)
+    mine_secret_geode:         [ 3, 20, 1, 1],
+    mine_deep_vein:            [ 5, 20, 6, 1],
+    mine_lava_bridge:          [11, 20, 5, 1],
+    abyss_dragon_vein_west:    [16, 20, 6, 1],
+    abyss_sanctum_save:        [22, 20, 1, 1],
+    abyss_dragon_spine:        [23, 20, 7, 1],
+    abyss_east_corridor:       [30, 20, 5, 1],
+    dock_abyss_trench:         [35, 20, 4, 2],
+    dock_treasure_vault:       [39, 21, 4, 1],
+    dock_warp:                 [38, 22, 1, 1],
 
-    // 8. 极渊上脉：深矿脉 / 镇龙渊 / 归墟海沟 (y=19)
-    mine_secret_geode:         [ 1, 19, 1, 1],
-    mine_deep_vein:            [ 3, 19, 6, 1],
-    mine_lava_bridge:          [ 9, 19, 5, 1],
-    abyss_dragon_vein_west:    [14, 19, 6, 1],
-    abyss_sanctum_save:        [20, 19, 1, 1],
-    abyss_dragon_spine:        [21, 19, 7, 1],
-    abyss_east_corridor:       [28, 19, 5, 1],
-    dock_abyss_trench:         [33, 19, 7, 1],
-    dock_treasure_vault:       [40, 19, 4, 1],
+    // 8. 左下深熔岩矿翼 & 右下归墟沉舰礁翼 & 中央九幽忘川冥府 (y=21..29)
+    mine_magma_shaft:          [ 6, 21, 1, 7],
+    mine_smelter_vault:        [ 4, 22, 2, 2],
+    mine_ember_grotto:         [ 7, 23, 3, 1],
+    mine_obsidian_hall:        [ 3, 25, 3, 2],
+    mine_basalt_spur:          [ 0, 26, 3, 1],
+    mine_deep_reliquary:       [ 7, 26, 2, 2],
 
-    // 9. 九幽忘川冥府 & 太古祖龙心殿 (y=20..27；y=20, 21, 23, 25 为四层深渊断层，仅由双七层落渊竖井贯通！)
-    dock_warp:                 [39, 20, 1, 1],
-    nether_west_descent:       [12, 20, 1, 7],
-    nether_east_descent:       [28, 20, 1, 7],
-    nether_soul_bridge:        [13, 22, 7, 1],
-    nether_ferry_save:         [20, 22, 1, 1],
-    nether_lantern_avenue:     [21, 22, 7, 1],
-    nether_pillar_hall:        [13, 24, 5, 1],
-    nether_trial_colosseum:    [18, 24, 5, 1],
-    nether_mirror_crypt:       [23, 24, 5, 1],
-    nether_east_ossuary:       [29, 24, 5, 1],
-    nether_ancient_stele_room: [34, 24, 3, 1],
-    dragon_tomb_save:          [17, 26, 1, 1],
-    dragon_tomb_heart:         [18, 26, 5, 2],
-    dragon_tomb_warp:          [23, 26, 1, 1],
-    dragon_tomb_west:          [12, 27, 6, 1],
-    dragon_tomb_sanctuary:     [23, 27, 6, 1],
+    nether_west_descent:       [14, 21, 1, 8],
+    nether_east_descent:       [30, 21, 1, 8],
+    nether_wisp_belfry:        [25, 21, 2, 2],
+    nether_weeping_hall:       [12, 22, 2, 2],
+    nether_ferry_loft:         [17, 22, 2, 1],
+    nether_soul_bridge:        [15, 23, 7, 1],
+    nether_ferry_save:         [22, 23, 1, 1],
+    nether_lantern_avenue:     [23, 23, 7, 1],
+    nether_pillar_hall:        [15, 25, 5, 1],
+    nether_trial_colosseum:    [20, 24, 5, 2],
+    nether_mirror_crypt:       [25, 25, 5, 1],
+    nether_east_ossuary:       [31, 25, 5, 1],
+    nether_ancient_stele_room: [36, 25, 2, 2],
+    nether_mirror_cellar:      [26, 26, 2, 1],
+    nether_bone_vault:         [32, 26, 2, 2],
+    dragon_west_belfry:        [11, 27, 2, 2],
+    dragon_tomb_save:          [19, 28, 1, 1],
+    dragon_tomb_heart:         [20, 28, 5, 2],
+    dragon_tomb_warp:          [25, 28, 1, 1],
+    dragon_west_crypt:         [11, 29, 3, 1],
+    dragon_tomb_west:          [14, 29, 6, 1],
+    dragon_tomb_sanctuary:     [25, 29, 6, 1],
+    dragon_east_annex:         [31, 29, 3, 1],
+
+    dock_reef_descent:         [43, 21, 1, 7],
+    dock_sunken_galleon:       [44, 22, 3, 2],
+    dock_barnacle_crypt:       [41, 23, 2, 1],
+    dock_leviathan_rib:        [44, 25, 4, 1],
+    dock_abyssal_prow:         [48, 25, 3, 2],
+    dock_pearl_grotto:         [41, 26, 2, 2],
+    dock_trench_lantern:       [51, 26, 3, 1],
   };
 
   const baseRooms: BuiltRoom[] = [
@@ -10409,6 +11886,7 @@ function createNormalCastleRooms(): BuiltRoom[] {
     ...interlockingRooms,
     ...sotnWingsPart1,
     ...sotnWingsPart2,
+    ...silhouetteExpansionRooms,
   ].map((rm) => {
     const geom = DISPERSED_WORLD_LAYOUT[rm.id];
     const extra = roomHazardLayouts[rm.id];
@@ -11028,12 +12506,27 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     'dock_save',
     'dock_warp',
     'entrance_bamboo_woods',
+    'entrance_battlement_tower',
     'cliff_pine_trail',
+    'hall_west_gallery',
     'library_automaton_loft',
     'opera_foyer',
+    'observatory_bridge',
     'altar_forecourt',
+    'mine_timber_gallery',
+    'forge_catacomb_tunnel',
+    'mine_deep_vein',
     'mine_lava_bridge',
+    'abyss_dragon_vein_west',
+    'abyss_dragon_spine',
     'abyss_east_corridor',
+    'dock_abyss_trench',
+    'dock_treasure_vault',
+    'nether_soul_bridge',
+    'nether_lantern_avenue',
+    'nether_mirror_crypt',
+    'nether_east_ossuary',
+    'dragon_tomb_west',
     'dragon_tomb_sanctuary',
     'colosseum_east_armory',
     'forge_slag_bridge',
@@ -11217,14 +12710,14 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
   setSimpleSideDoors('dock_coral_grotto', 'dock_underwater_tunnel', undefined);
   const dockCoralNew = byId.get('dock_coral_grotto');
   if (dockCoralNew) {
-    // 2520px, cols 41..45, dock_save at col 45 -> 90% = 2268px [2178..2358] (dry right shore!)
-    dockCoralNew.shafts = [{ x1: 2178, x2: 2358, dir: 'down', targetRoomId: 'dock_save' }];
-    dockCoralNew.pavilions.push({ x: 2172, y: 412, w: 192, hasPillars: false });
+    // 2200px, cols 40..43, dock_save at col 43 -> 87.5% = 1925px [1835..2015] (dry right shore > water 1700!)
+    dockCoralNew.shafts = [{ x1: 1835, x2: 2015, dir: 'down', targetRoomId: 'dock_save' }];
+    dockCoralNew.pavilions.push({ x: 1829, y: 412, w: 192, hasPillars: false });
   }
 
-  // Save 9: dragon_tomb_save (L off dragon_tomb_heart@0)
+  // Save 9: dragon_tomb_save (L off dragon_tomb_heart@0) & 延展太古西陵龙室
   setSimpleSideDoors('dragon_tomb_save', undefined, 'dragon_tomb_heart');
-  setSimpleSideDoors('dragon_tomb_west', undefined, 'dragon_tomb_heart');
+  setSimpleSideDoors('dragon_tomb_west', 'dragon_west_crypt', 'dragon_tomb_heart');
 
   // Warp 1: central_warp (UP pocket above hall_courtyard@21, keeping hall_courtyard -> central_underpass right of gate!)
   const centralWarp = byId.get('central_warp');
@@ -11275,7 +12768,7 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
   setSimpleSideDoors('mine_deep_vein', 'mine_vertical_pit', 'mine_lava_bridge');
   setSimpleSideDoors('mine_lava_bridge', 'mine_deep_vein', 'abyss_dragon_vein_west');
 
-  // Warp 4: dock_warp (DOWN below dock_abyss_trench dry right shore)
+  // Warp 4: dock_warp (DOWN below dock_abyss_trench dry right shore) & 东接归墟海礁深井
   const dockWarp = byId.get('dock_warp');
   if (dockWarp) {
     dockWarp.sideDoors = undefined;
@@ -11284,18 +12777,11 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     dockWarp.focalX = 240;
     setColAlignedUpShaft('dock_warp', 'dock_abyss_trench', 450, 630, 'crypt_vault', [260, 410, 480]);
   }
-  setSimpleSideDoors('dock_abyss_trench', 'abyss_east_corridor', 'dock_treasure_vault');
-  setSimpleSideDoors('dock_treasure_vault', 'dock_abyss_trench', undefined);
-  const dockTrench = byId.get('dock_abyss_trench');
-  if (dockTrench) {
-    // 3800px, cols 33..39, dock_warp at col 39 -> 92.8% = 3528px [3438..3618] (dry right shore!)
-    dockTrench.shafts = [{ x1: 3438, x2: 3618, dir: 'down', targetRoomId: 'dock_warp' }];
-    dockTrench.pavilions.push({ x: 3432, y: 420, w: 192, hasPillars: false });
-  }
+  setSimpleSideDoors('dock_treasure_vault', 'dock_abyss_trench', 'dock_reef_descent');
 
-  // Warp 5: dragon_tomb_warp (R off dragon_tomb_heart@0)
+  // Warp 5: dragon_tomb_warp (R off dragon_tomb_heart@0) & 东接东陵祖龙祀廊
   setSimpleSideDoors('dragon_tomb_warp', 'dragon_tomb_heart', undefined);
-  setSimpleSideDoors('dragon_tomb_sanctuary', 'dragon_tomb_heart', undefined);
+  setSimpleSideDoors('dragon_tomb_sanctuary', 'dragon_tomb_heart', 'dragon_east_annex');
 
   // 3) 对齐全城其余单层室垂直井道列坐标，杜绝穿墙错位与水中竖井
   const entWoods = byId.get('entrance_bamboo_woods');
@@ -11432,16 +12918,76 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
       sb.y < 340 ? { ...sb, x: sb.x + 410 } : sb
     );
   }
-  const catHall = byId.get('catacomb_hall');
-  if (catHall) {
-    // 2520px, cols 22..26 -> up prison_boss_hall@col 26 = 2268px [2178..2358] (dry right floor, right of pool!)
-    setColAlignedUpShaft('catacomb_hall', 'prison_boss_hall', 2178, 2358, 'crypt_vault', [2070, 2190, 2120]);
+  // 3b) 为中上层与中下层平直长廊接驳上下错层偏殿与地火矿脉竖井
+  const entBattlement = byId.get('entrance_battlement_tower');
+  if (entBattlement) {
+    // 2840px, cols 7..12 -> entrance_watch_loft [10..11] col 11.0 = 1893px [1800..1980]（右离拉杆门@970）
+    setColAlignedUpShaft('entrance_battlement_tower', 'entrance_watch_loft', 1800, 1980, 'gate_tunnel', [1710, 1840, 1760]);
   }
-  const dockTun = byId.get('dock_underwater_tunnel');
-  if (dockTun) {
-    // 3200px, cols 33..40 -> up dock_shipyard_hall@col 40.32 = 2930px [2840..3020] (dry right shore!)
-    setColAlignedUpShaft('dock_underwater_tunnel', 'dock_shipyard_hall', 2840, 3020, 'crypt_vault', [2730, 2860, 2790]);
+  const hallGal2 = byId.get('hall_west_gallery');
+  if (hallGal2) {
+    // 1880px, cols 25..27 -> hall_bell_tower [26..27] col 27.22 = 1390px [1300..1480]
+    setColAlignedUpShaft('hall_west_gallery', 'hall_bell_tower', 1300, 1480, 'palace_timber', [1210, 1340, 1260]);
   }
+  const obsBridge = byId.get('observatory_bridge');
+  if (obsBridge) {
+    // 2520px, cols 35..39 -> clock_pendulum_vault [37..38] col 38.40 = 1713px [1623..1803]（右离高台@1040..1480）
+    obsBridge.shafts = [...obsBridge.shafts, { x1: 1623, x2: 1803, dir: 'down', targetRoomId: 'clock_pendulum_vault' }];
+    obsBridge.pavilions.push({ x: 1617, y: 412, w: 192, hasPillars: false });
+  }
+  const mineTim = byId.get('mine_timber_gallery');
+  if (mineTim) {
+    // 2520px, cols 5..9 -> mine_shaft_pocket [7..8] col 8.23 = 1628px [1540..1720]
+    mineTim.shafts = [...mineTim.shafts, { x1: 1540, x2: 1720, dir: 'down', targetRoomId: 'mine_shaft_pocket' }];
+    mineTim.pavilions.push({ x: 1534, y: 412, w: 192, hasPillars: false });
+  }
+  const forgeCat = byId.get('forge_catacomb_tunnel');
+  if (forgeCat) {
+    // 2840px, cols 14..19 -> catacomb_burial_niche [17..18] col 18.0 = 1893px [1800..1980]（右离 mist_only@1400 与岩浆@935..1275）
+    forgeCat.shafts = [...forgeCat.shafts, { x1: 1800, x2: 1980, dir: 'down', targetRoomId: 'catacomb_burial_niche' }];
+    forgeCat.pavilions.push({ x: 1794, y: 408, w: 192, hasPillars: false });
+  }
+  const abyssVeinW = byId.get('abyss_dragon_vein_west');
+  if (abyssVeinW) {
+    // 3000px, cols 16..21 -> abyss_fossil_alcove [18..19] col 19.68 = 1840px [1750..1930]（右离水面 740..1640）
+    setColAlignedUpShaft('abyss_dragon_vein_west', 'abyss_fossil_alcove', 1750, 1930, 'crypt_vault', [1670, 1790, 1715]);
+  }
+  const abyssSp = byId.get('abyss_dragon_spine');
+  if (abyssSp) {
+    // 3800px, cols 23..29 -> abyss_rib_vault [29..30] col 29.50 = 3528px [3438..3618]（右离狐幻闸 3360，干岸！）
+    setColAlignedUpShaft('abyss_dragon_spine', 'abyss_rib_vault', 3438, 3618, 'crypt_vault', [3390, 3490, 3440]);
+  }
+  const mineDeep = byId.get('mine_deep_vein');
+  if (mineDeep) {
+    // 3000px, cols 5..10 -> mine_magma_shaft [6, 21, 1, 7] col 6.26 = 630px [540..720]（左离岩浆池 760..1640）
+    mineDeep.shafts = [...mineDeep.shafts, { x1: 540, x2: 720, dir: 'down', targetRoomId: 'mine_magma_shaft' }];
+    mineDeep.pavilions.push({ x: 534, y: 416, w: 192, hasPillars: false });
+  }
+  const netherBridge = byId.get('nether_soul_bridge');
+  if (netherBridge) {
+    // 3800px, cols 15..21 -> nether_ferry_loft [17..18] col 18.48 = 1890px [1800..1980]（落于两岸水泽之间的中央石墩 1640..2160）
+    netherBridge.solidBlocks = (netherBridge.solidBlocks || []).filter((sb) => sb.y < 200 || sb.y > 330);
+    setColAlignedUpShaft('nether_soul_bridge', 'nether_ferry_loft', 1800, 1980, 'crypt_vault', [1710, 1840, 1760]);
+  }
+  const netherAv = byId.get('nether_lantern_avenue');
+  if (netherAv) {
+    // 3160px, cols 23..29 -> nether_wisp_belfry [25..26] col 26.0 = 1354px [1264..1444]（左离狐幻闸 2640）
+    netherAv.solidBlocks = [];
+    setColAlignedUpShaft('nether_lantern_avenue', 'nether_wisp_belfry', 1264, 1444, 'crypt_vault', [1170, 1300, 1220]);
+  }
+  const netherMirror = byId.get('nether_mirror_crypt');
+  if (netherMirror) {
+    // 2520px, cols 25..29 -> nether_mirror_cellar [26..27] col 27.16 = 1090px [1000..1180]（右离狐幻闸 720）
+    netherMirror.shafts = [...netherMirror.shafts, { x1: 1000, x2: 1180, dir: 'down', targetRoomId: 'nether_mirror_cellar' }];
+    netherMirror.pavilions.push({ x: 994, y: 416, w: 192, hasPillars: false });
+  }
+  const netherOss = byId.get('nether_east_ossuary');
+  if (netherOss) {
+    // 3000px, cols 31..35 -> nether_bone_vault [32..33] col 33.0 = 1200px [1110..1290]
+    netherOss.shafts = [...netherOss.shafts, { x1: 1110, x2: 1290, dir: 'down', targetRoomId: 'nether_bone_vault' }];
+    netherOss.pavilions.push({ x: 1104, y: 416, w: 192, hasPillars: false });
+  }
+
   const groundSlam = byId.get('relic_ground_slam');
   if (groundSlam) {
     groundSlam.shafts = [{ x1: 450, x2: 630, dir: 'up', targetRoomId: 'forge_boss_arena' }];
@@ -11456,7 +13002,137 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     ];
   }
 
-  // 4) 扩建全 10 座首领决战大殿 + 万卷藏书阁 + 九转真火炉殿为真实双层/三层巨殿（含精确 focalY & 无跌落阶梯）
+  // 4) 扩建全 10 座首领决战大殿 + 万卷藏书阁 + 九转真火炉殿 + 6 座地下/穹顶跨层巨室为真实双层/三层巨殿（含精确 focalY & 无跌落阶梯）
+  upgradeRoomToGrandTwoStoryHall(
+    'celestial_bell_sanctum',
+    2200,
+    840,
+    [
+      { side: 'left', floorY: 760, targetRoomId: 'outer_wall_upper', rowOffset: 1 },
+      { side: 'right', floorY: 760, targetRoomId: 'celestial_star_vault', rowOffset: 1 },
+    ],
+    {
+      // ambushSeal 伏魔房：仅设净空悬廊，不放铁闸/机关/水池/实心阻挡墩
+      extraLeftSteps: [
+        { x: 420, y: 610, w: 240, h: 30 },
+        { x: 640, y: 460, w: 260, h: 30 },
+      ],
+      extraRightSteps: [
+        { x: 1540, y: 610, w: 240, h: 30 },
+        { x: 1300, y: 460, w: 260, h: 30 },
+      ],
+    }
+  );
+
+  upgradeRoomToGrandTwoStoryHall(
+    'catacomb_hall',
+    2520,
+    840,
+    [
+      { side: 'left', floorY: 356, targetRoomId: 'catacomb_save', rowOffset: 0 },
+      { side: 'right', floorY: 356, targetRoomId: 'catacomb_shrine', rowOffset: 0 },
+    ],
+    {
+      balconyLeft: 420,
+      balconyRight: 420,
+      keepExistingShafts: false,
+      extraShafts: [{ x1: 2178, x2: 2358, dir: 'up', targetRoomId: 'prison_boss_hall' }],
+      extraLeftSteps: [
+        { x: 260, y: 630, w: 200, h: 32 },
+        { x: 380, y: 492, w: 200, h: 32 },
+      ],
+      extraRightSteps: [
+        { x: 2080, y: 630, w: 200, h: 32 },
+        { x: 1960, y: 492, w: 200, h: 32 },
+        { x: 2080, y: 248, w: 190, h: 30 },
+        { x: 2170, y: 140, w: 185, h: 28 },
+      ],
+    }
+  );
+
+  upgradeRoomToGrandTwoStoryHall(
+    'dock_underwater_tunnel',
+    3000,
+    840,
+    [
+      { side: 'left', floorY: 356, targetRoomId: 'abyss_ascension_shaft', rowOffset: 0 },
+      { side: 'right', floorY: 756, targetRoomId: 'dock_coral_grotto', rowOffset: 1 },
+    ],
+    {
+      balconyLeft: 420,
+      keepExistingShafts: false,
+      extraShafts: [{ x1: 2610, x2: 2790, dir: 'up', targetRoomId: 'dock_shipyard_hall' }],
+      extraLeftSteps: [
+        { x: 460, y: 626, w: 210, h: 32 },
+        { x: 320, y: 492, w: 210, h: 32 },
+      ],
+      extraRightSteps: [
+        { x: 2360, y: 626, w: 210, h: 32 },
+        { x: 2580, y: 492, w: 210, h: 32 },
+        { x: 2440, y: 360, w: 210, h: 30 },
+        { x: 2640, y: 244, w: 200, h: 30 },
+        { x: 2610, y: 132, w: 190, h: 28 },
+      ],
+    }
+  );
+  const dockTunDual = byId.get('dock_underwater_tunnel');
+  if (dockTunDual) {
+    dockTunDual.solidBlocks = (dockTunDual.solidBlocks || []).filter((sb) => sb.y >= 110);
+  }
+
+  upgradeRoomToGrandTwoStoryHall(
+    'dock_abyss_trench',
+    3800,
+    840,
+    [
+      { side: 'left', floorY: 356, targetRoomId: 'abyss_east_corridor', rowOffset: 0 },
+      { side: 'right', floorY: 740, targetRoomId: 'dock_treasure_vault', rowOffset: 1 },
+    ],
+    {
+      balconyLeft: 440,
+      keepExistingShafts: false,
+      extraShafts: [{ x1: 3438, x2: 3618, dir: 'down', targetRoomId: 'dock_warp' }],
+      extraPavilions: [{ x: 3432, y: 740, w: 192, hasPillars: false }],
+      extraLeftSteps: [
+        { x: 440, y: 618, w: 210, h: 32 },
+        { x: 320, y: 486, w: 210, h: 32 },
+      ],
+    }
+  );
+
+  upgradeRoomToGrandTwoStoryHall(
+    'nether_trial_colosseum',
+    2520,
+    840,
+    [
+      { side: 'left', floorY: 756, targetRoomId: 'nether_pillar_hall', rowOffset: 1 },
+      { side: 'right', floorY: 756, targetRoomId: 'nether_mirror_crypt', rowOffset: 1 },
+    ],
+    {
+      extraLeftSteps: [
+        { x: 460, y: 610, w: 240, h: 30 },
+        { x: 740, y: 460, w: 260, h: 30 },
+      ],
+      extraRightSteps: [
+        { x: 1820, y: 610, w: 240, h: 30 },
+        { x: 1520, y: 460, w: 260, h: 30 },
+      ],
+    }
+  );
+
+  upgradeRoomToGrandTwoStoryHall(
+    'nether_ancient_stele_room',
+    1880,
+    840,
+    [{ side: 'left', floorY: 356, targetRoomId: 'nether_east_ossuary', rowOffset: 0 }],
+    {
+      balconyLeft: 420,
+      extraLeftSteps: [
+        { x: 480, y: 626, w: 210, h: 32 },
+        { x: 340, y: 492, w: 210, h: 32 },
+      ],
+    }
+  );
   upgradeRoomToGrandTwoStoryHall(
     'sky_altar',
     2200,
@@ -12295,15 +13971,15 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     ];
   }
 
-  // mine_vertical_pit: 1x5 (1080x2000, y=15..19)，严保 sec_mine_geode & mine_warp 左耳室！
+  // mine_vertical_pit: 1x6 (1080x2280, y=15..20)，严保 sec_mine_geode & mine_warp 左耳室！
   const minePit = byId.get('mine_vertical_pit');
   if (minePit) {
     minePit.pixelW = 1080;
-    minePit.pixelH = 2000;
-    minePit.focalY = 1916;
+    minePit.pixelH = 2280;
+    minePit.focalY = 2196;
     minePit.groundNodes = [
-      { x: 0, y: 1916, style: 'crypt_stone' },
-      { x: 1080, y: 1916, style: 'crypt_stone' },
+      { x: 0, y: 2196, style: 'crypt_stone' },
+      { x: 1080, y: 2196, style: 'crypt_stone' },
     ];
     minePit.sideDoors = [
       { side: 'left', floorY: 356, targetRoomId: 'sunken_ferry_shaft', rowOffset: 0 },
@@ -12311,12 +13987,12 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
       { side: 'left', floorY: 1120, targetRoomId: 'mine_warp', rowOffset: 2 },
       {
         side: 'left',
-        floorY: 1916,
+        floorY: 2196,
         targetRoomId: 'mine_secret_geode',
-        rowOffset: 4,
+        rowOffset: 5,
         secretWallId: 'sec_mine_geode',
       },
-      { side: 'right', floorY: 1916, targetRoomId: 'mine_deep_vein', rowOffset: 4 },
+      { side: 'right', floorY: 2196, targetRoomId: 'mine_deep_vein', rowOffset: 5 },
     ];
     minePit.leftRoomId = undefined;
     minePit.rightRoomId = undefined;
@@ -12327,20 +14003,21 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
       { x: 645, y: 730, w: 215, h: 32 },
       { x: 210, y: 920, w: 215, h: 32 },
       { x: 0, y: 1120, w: 400, h: 36 },
-      { x: 645, y: 1320, w: 215, h: 32 },
-      { x: 210, y: 1520, w: 215, h: 32 },
-      { x: 645, y: 1720, w: 215, h: 32 },
+      { x: 645, y: 1340, w: 215, h: 32 },
+      { x: 210, y: 1560, w: 215, h: 32 },
+      { x: 645, y: 1780, w: 215, h: 32 },
+      { x: 210, y: 2000, w: 215, h: 32 },
     ];
     minePit.movingPlatforms = [
-      { x1: 450, y1: 1870, x2: 450, y2: 396, w: 175, speed: 1.25, style: 'bronze_lift' },
+      { x1: 450, y1: 2150, x2: 450, y2: 396, w: 175, speed: 1.25, style: 'bronze_lift' },
     ];
     minePit.spawns = [
       { kind: 'bell_gargoyle', x: 540, y: 980 },
-      { kind: 'bronze_guard', x: 540, y: 1916 },
+      { kind: 'bronze_guard', x: 540, y: 2196 },
     ];
   }
 
-  // dock_shipyard_hall: 4x3 (3200x1200, y=12..14) 三层沉舰干船坞巨殿，井口落右岸 col 40 避开积水！
+  // dock_shipyard_hall: 4x3 (3200x1200, y=12..14) 三层沉舰干船坞巨殿，井口落左岸 col 39.50 对齐 dock_underwater_tunnel！
   const shipyard = byId.get('dock_shipyard_hall');
   if (shipyard) {
     shipyard.pixelW = 3200;
@@ -12355,8 +14032,8 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     ];
     shipyard.leftRoomId = undefined;
     shipyard.rightRoomId = undefined;
-    // 37..40, dock_underwater_tunnel@col 40.32 -> 2660px [2580..2740] (dry right shore, strictly LEFT of lever gate@2920!)
-    shipyard.shafts = [{ x1: 2580, x2: 2740, dir: 'down', targetRoomId: 'dock_underwater_tunnel' }];
+    // cols 39..42, dock_underwater_tunnel [35..39] overlaps col 39 -> 400px [310..490] (dry left shore!)
+    shipyard.shafts = [{ x1: 310, x2: 490, dir: 'down', targetRoomId: 'dock_underwater_tunnel' }];
     shipyard.ironGate = {
       id: 'gate_shipyard_east_lever',
       x: 2920,
@@ -12365,7 +14042,7 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
       gateKind: 'lever_shortcut',
       leverSide: 'left',
     };
-    shipyard.pavilions = [{ x: 2574, y: 1124, w: 174, hasPillars: false }];
+    shipyard.pavilions = [{ x: 304, y: 1124, w: 192, hasPillars: false }];
     shipyard.solidBlocks = [
       { x: 0, y: 356, w: 380, h: 36 },
       { x: 2940, y: 356, w: 260, h: 36 },
@@ -12394,15 +14071,15 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     }));
   }
 
-  // abyss_ascension_shaft: 1x5 (1080x2000, y=14..18), 严保 gate_ascension_ice(ice_phoenix)@y=720!
+  // abyss_ascension_shaft: 1x6 (1080x2280, y=14..19), 严保 gate_ascension_ice(ice_phoenix)@y=720!
   const ascShaft = byId.get('abyss_ascension_shaft');
   if (ascShaft) {
     ascShaft.pixelW = 1080;
-    ascShaft.pixelH = 2000;
-    ascShaft.focalY = 1916;
+    ascShaft.pixelH = 2280;
+    ascShaft.focalY = 2196;
     ascShaft.groundNodes = [
-      { x: 0, y: 1916, style: 'crypt_stone' },
-      { x: 1080, y: 1916, style: 'crypt_stone' },
+      { x: 0, y: 2196, style: 'crypt_stone' },
+      { x: 1080, y: 2196, style: 'crypt_stone' },
     ];
     ascShaft.sideDoors = [
       { side: 'left', floorY: 720, targetRoomId: 'catacomb_prison_vault', rowOffset: 1 },
@@ -12422,7 +14099,7 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
       bottomY: 720,
       gateKind: 'ice_phoenix',
     };
-    ascShaft.pavilions = [{ x: 444, y: 1916, w: 194, hasPillars: false }];
+    ascShaft.pavilions = [{ x: 444, y: 2196, w: 194, hasPillars: false }];
     // 全登攀踏石仅排布于 gate_ascension_ice (x=680) 左侧，杜绝不解寒凰印锁直跃东侧归墟水洞！
     ascShaft.solidBlocks = [
       { x: 0, y: 720, w: 430, h: 36 },
@@ -12434,25 +14111,26 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
       { x: 635, y: 1180, w: 215, h: 32 },
       { x: 210, y: 1400, w: 215, h: 32 },
       { x: 635, y: 1620, w: 215, h: 32 },
-      { x: 210, y: 1780, w: 215, h: 32 },
+      { x: 210, y: 1840, w: 215, h: 32 },
+      { x: 635, y: 2040, w: 215, h: 32 },
     ];
     ascShaft.movingPlatforms = [
-      { x1: 450, y1: 1870, x2: 450, y2: 760, w: 165, speed: 1.25, style: 'bronze_lift' },
+      { x1: 450, y1: 2140, x2: 450, y2: 760, w: 165, speed: 1.25, style: 'bronze_lift' },
     ];
-    ascShaft.decorProps = [{ kind: 'guardian_statue', x: 180, y: 1916, scale: 0.94 }];
+    ascShaft.decorProps = [{ kind: 'guardian_statue', x: 180, y: 2196, scale: 0.94 }];
     ascShaft.torches = [{ x: 820, y: 644 }];
   }
 
-  // nether_west_descent & nether_east_descent: 1x7 (1080x2560, y=20..26) 极渊双七层竖井
+  // nether_west_descent & nether_east_descent: 1x8 (1080x2960, y=21..28) 极渊双八层竖井
   const nWest = byId.get('nether_west_descent');
   if (nWest) {
     nWest.pixelW = 1080;
-    nWest.pixelH = 2560;
+    nWest.pixelH = 2960;
     nWest.focalX = 540;
-    nWest.focalY = 2476;
+    nWest.focalY = 2876;
     nWest.groundNodes = [
-      { x: 0, y: 2476, style: 'crypt_stone' },
-      { x: 1080, y: 2476, style: 'crypt_stone' },
+      { x: 0, y: 2876, style: 'crypt_stone' },
+      { x: 1080, y: 2876, style: 'crypt_stone' },
     ];
     nWest.ceilingSpans = [
       { x1: 0, x2: 450, bottomY: 34, style: 'crypt_vault' },
@@ -12462,40 +14140,44 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
       { x1: 450, x2: 630, dir: 'up', targetRoomId: 'mine_lava_bridge' },
       { x1: 450, x2: 630, dir: 'down', targetRoomId: 'dragon_tomb_west' },
     ];
-    nWest.pavilions = [{ x: 444, y: 2476, w: 192, hasPillars: false }];
+    nWest.pavilions = [{ x: 444, y: 2876, w: 192, hasPillars: false }];
     nWest.sideDoors = [
+      { side: 'left', floorY: 540, targetRoomId: 'nether_weeping_hall', rowOffset: 1 },
       { side: 'right', floorY: 920, targetRoomId: 'nether_soul_bridge', rowOffset: 2 },
       { side: 'right', floorY: 1720, targetRoomId: 'nether_pillar_hall', rowOffset: 4 },
     ];
     nWest.leftRoomId = undefined;
     nWest.rightRoomId = undefined;
     nWest.solidBlocks = [
+      { x: 0, y: 540, w: 400, h: 36 },
       { x: 680, y: 920, w: 400, h: 36 },
       { x: 680, y: 1720, w: 400, h: 36 },
+      { x: 220, y: 2680, w: 210, h: 32 },
+      { x: 640, y: 2480, w: 210, h: 32 },
       { x: 220, y: 2280, w: 210, h: 32 },
       { x: 640, y: 2080, w: 210, h: 32 },
       { x: 220, y: 1900, w: 210, h: 32 },
       { x: 220, y: 1500, w: 210, h: 32 },
       { x: 640, y: 1300, w: 210, h: 32 },
       { x: 220, y: 1120, w: 210, h: 32 },
-      { x: 220, y: 680, w: 210, h: 32 },
-      { x: 640, y: 440, w: 210, h: 32 },
+      { x: 220, y: 720, w: 210, h: 32 },
+      { x: 640, y: 400, w: 210, h: 32 },
       { x: 440, y: 200, w: 200, h: 28 },
     ];
     nWest.movingPlatforms = [
-      { x1: 450, y1: 2420, x2: 450, y2: 240, w: 180, speed: 1.3, style: 'bronze_lift' },
+      { x1: 450, y1: 2810, x2: 450, y2: 240, w: 180, speed: 1.3, style: 'bronze_lift' },
     ];
     nWest.decorProps = [
-      { kind: 'coiled_pillar', x: 220, y: 2476, scale: 0.96 },
-      { kind: 'dragon_brazier', x: 860, y: 2476, scale: 0.94 },
+      { kind: 'coiled_pillar', x: 220, y: 2876, scale: 0.96 },
+      { kind: 'dragon_brazier', x: 860, y: 2876, scale: 0.94 },
     ];
     nWest.torches = [
       { x: 880, y: 844 },
-      { x: 840, y: 2402 },
+      { x: 840, y: 2802 },
     ];
     nWest.spawns = [
       { kind: 'bell_gargoyle', x: 540, y: 620 },
-      { kind: 'demon_wolf', x: 320, y: 2476 },
+      { kind: 'demon_wolf', x: 320, y: 2876 },
       { kind: 'bronze_guard', x: 820, y: 1720 },
     ];
   }
@@ -12503,12 +14185,12 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
   const nEast = byId.get('nether_east_descent');
   if (nEast) {
     nEast.pixelW = 1080;
-    nEast.pixelH = 2560;
+    nEast.pixelH = 2960;
     nEast.focalX = 540;
-    nEast.focalY = 2476;
+    nEast.focalY = 2876;
     nEast.groundNodes = [
-      { x: 0, y: 2476, style: 'crypt_stone' },
-      { x: 1080, y: 2476, style: 'crypt_stone' },
+      { x: 0, y: 2876, style: 'crypt_stone' },
+      { x: 1080, y: 2876, style: 'crypt_stone' },
     ];
     nEast.ceilingSpans = [
       { x1: 0, x2: 450, bottomY: 34, style: 'crypt_vault' },
@@ -12518,7 +14200,7 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
       { x1: 450, x2: 630, dir: 'up', targetRoomId: 'abyss_east_corridor' },
       { x1: 450, x2: 630, dir: 'down', targetRoomId: 'dragon_tomb_sanctuary' },
     ];
-    nEast.pavilions = [{ x: 444, y: 2476, w: 192, hasPillars: false }];
+    nEast.pavilions = [{ x: 444, y: 2876, w: 192, hasPillars: false }];
     nEast.sideDoors = [
       { side: 'left', floorY: 920, targetRoomId: 'nether_lantern_avenue', rowOffset: 2 },
       { side: 'left', floorY: 1720, targetRoomId: 'nether_mirror_crypt', rowOffset: 4 },
@@ -12530,6 +14212,8 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
       { x: 0, y: 920, w: 400, h: 36 },
       { x: 0, y: 1720, w: 400, h: 36 },
       { x: 680, y: 1720, w: 400, h: 36 },
+      { x: 650, y: 2680, w: 210, h: 32 },
+      { x: 230, y: 2480, w: 210, h: 32 },
       { x: 650, y: 2280, w: 210, h: 32 },
       { x: 230, y: 2080, w: 210, h: 32 },
       { x: 650, y: 1900, w: 210, h: 32 },
@@ -12541,25 +14225,26 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
       { x: 440, y: 200, w: 200, h: 28 },
     ];
     nEast.movingPlatforms = [
-      { x1: 450, y1: 2420, x2: 450, y2: 240, w: 180, speed: 1.3, style: 'bronze_lift' },
+      { x1: 450, y1: 2810, x2: 450, y2: 240, w: 180, speed: 1.3, style: 'bronze_lift' },
     ];
     nEast.decorProps = [
-      { kind: 'guardian_statue', x: 220, y: 2476, scale: 0.94 },
-      { kind: 'coiled_pillar', x: 860, y: 2476, scale: 0.96 },
+      { kind: 'guardian_statue', x: 220, y: 2876, scale: 0.94 },
+      { kind: 'coiled_pillar', x: 860, y: 2876, scale: 0.96 },
     ];
     nEast.torches = [
       { x: 200, y: 844 },
-      { x: 840, y: 2402 },
+      { x: 840, y: 2802 },
     ];
     nEast.spawns = [
       { kind: 'bell_gargoyle', x: 540, y: 620 },
       { kind: 'bronze_guard', x: 260, y: 1720 },
-      { kind: 'demon_wolf', x: 760, y: 2476 },
+      { kind: 'demon_wolf', x: 760, y: 2876 },
     ];
   }
 
   const rebuiltMultiStoryIds = new Set([
     'sky_altar',
+    'celestial_bell_sanctum',
     'colosseum_grand_arena',
     'opera_boss_stage',
     'xiao_boss_hall',
@@ -12570,6 +14255,11 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     'gate_1',
     'forge_boss_arena',
     'prison_boss_hall',
+    'catacomb_hall',
+    'dock_underwater_tunnel',
+    'dock_abyss_trench',
+    'nether_trial_colosseum',
+    'nether_ancient_stele_room',
     'dragon_tomb_heart',
     'cloud_star_gallery',
     'chapel_cloud_stair',
@@ -12586,9 +14276,26 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     'abyss_ascension_shaft',
     'nether_west_descent',
     'nether_east_descent',
+    'entrance_watch_loft',
+    'hall_bell_tower',
+    'clock_pendulum_vault',
+    'mine_shaft_pocket',
+    'abyss_rib_vault',
+    'mine_magma_shaft',
+    'mine_smelter_vault',
+    'mine_obsidian_hall',
+    'mine_deep_reliquary',
+    'nether_weeping_hall',
+    'nether_wisp_belfry',
+    'dragon_west_belfry',
+    'nether_bone_vault',
+    'dock_reef_descent',
+    'dock_sunken_galleon',
+    'dock_abyssal_prow',
+    'dock_pearl_grotto',
   ]);
 
-  // 6) 自动根据 49×28 网格坐标精确校准其余多层房间侧门的 rowOffset（含 hall_corridor & outer_wall_battlement）
+  // 6) 自动根据 54×30 网格坐标精确校准其余多层房间侧门的 rowOffset（含 hall_corridor & outer_wall_battlement）
   const out = Array.from(byId.values());
   for (const rm of out) {
     const doors = getRoomSideDoors(rm);
