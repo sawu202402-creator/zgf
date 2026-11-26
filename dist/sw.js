@@ -1,4 +1,4 @@
-const CACHE_NAME = 'xuancheng-pwa-v21';
+const CACHE_NAME = 'xuancheng-pwa-v22';
 const PRECACHE_URLS = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {

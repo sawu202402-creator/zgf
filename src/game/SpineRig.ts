@@ -264,6 +264,7 @@ class HeroSpineController {
     animTime: number;
     landSquash: number;
     crouching?: boolean;
+    slashCrouching?: boolean;
     sliding?: boolean;
     diveKicking?: boolean;
     hurtRecoil?: number; // 0..1 恶魔城式受击仰身击退硬直度
@@ -354,7 +355,27 @@ class HeroSpineController {
       const step = opts.slashComboStep ?? 0;
       const isHeavy = arch === 'greatsword';
 
-      if (wId === 'greatsword_sunder') {
+      if (opts.slashCrouching) {
+        if (p < 0.2) {
+          const w = p / 0.2;
+          targetLean = -8.5 * Math.sin(w * Math.PI * 0.5);
+          chestLift = 4.5 * w;
+          ribExpand = 0.96;
+          shoulderTwist = -0.15 * w;
+        } else if (p < 0.65) {
+          const s = (p - 0.2) / 0.45;
+          const punch = Math.sin(s * Math.PI * 0.72);
+          targetLean = (isHeavy ? 22 : arch === 'spear' ? 20 : 18) * punch;
+          chestLift = 6.5 * punch;
+          ribExpand = 1.07;
+          shoulderTwist = (isHeavy ? 0.22 : 0.17) * punch;
+        } else {
+          const r = 1 - (p - 0.65) / 0.35;
+          targetLean = 8 * r * r;
+          chestLift = 3.5 * r;
+          shoulderTwist = 0.05 * r;
+        }
+      } else if (wId === 'greatsword_sunder') {
         if (p < 0.34) {
           const w = p / 0.34;
           targetLean = -15.5 * Math.sin(w * Math.PI * 0.5);
@@ -496,7 +517,8 @@ class HeroSpineController {
     this.smoothLean += this.leanVel * dt;
 
     // 着陆屈膝缓冲弹簧
-    const targetKnee = opts.landSquash * 9.5 + (opts.crouching ? 5.5 : 0);
+    const targetKnee =
+      opts.landSquash * 9.5 + (opts.slashCrouching ? 11.5 : opts.crouching ? 5.5 : 0);
     const kAcc = (targetKnee - this.kneeBounce) * 240 - this.kneeVel * 20;
     this.kneeVel += kAcc * dt;
     this.kneeBounce += this.kneeVel * dt;

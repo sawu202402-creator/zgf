@@ -39,6 +39,7 @@ import {
   getRoomSideDoors,
   INVERTED_REGION_NAMES,
   isGroundRestingSolidBlock,
+  isInsideDownShaft,
   REGION_NAMES,
   sampleCeilingY,
   sampleEntitySurfaceY,
@@ -459,6 +460,10 @@ export class GameEngine {
     walkVx: number;
     walkVy: number;
     postVy?: number;
+    emergeMode?: 'door' | 'shaft_up' | 'shaft_down';
+    emergeStartY?: number;
+    emergeTargetFloor?: number;
+    emergeLaunched?: boolean;
   } | null = null;
   public ambushSealed = false;
   public storyDialogueActive = false;
@@ -723,31 +728,99 @@ export class GameEngine {
 
   private markCurrentMapCellVisited(): void {
     if (!this.slot || !this.room || this.room.id === 'boss_rush_arena') return;
+    const room = this.room;
+    const cellW = Math.max(1, room.pixelW / Math.max(1, room.gridW));
+    const cellH = Math.max(1, room.pixelH / Math.max(1, room.gridH));
     const localGx = Math.max(
       0,
-      Math.min(this.room.gridW - 1, Math.floor((this.player.x / Math.max(1, this.room.pixelW)) * this.room.gridW))
+      Math.min(room.gridW - 1, Math.floor((this.player.x / Math.max(1, room.pixelW)) * room.gridW))
     );
     const localGyFoot = Math.max(
       0,
-      Math.min(this.room.gridH - 1, Math.floor((this.player.y / Math.max(1, this.room.pixelH)) * this.room.gridH))
+      Math.min(room.gridH - 1, Math.floor((this.player.y / Math.max(1, room.pixelH)) * room.gridH))
     );
     const localGyHead = Math.max(
       0,
       Math.min(
-        this.room.gridH - 1,
-        Math.floor((Math.max(0, this.player.y - this.player.h) / Math.max(1, this.room.pixelH)) * this.room.gridH)
+        room.gridH - 1,
+        Math.floor((Math.max(0, this.player.y - this.player.h) / Math.max(1, room.pixelH)) * room.gridH)
       )
     );
-    const gyList: number[] =
-      this.room.pixelH <= 560 && this.room.gridH > 1
-        ? Array.from({ length: this.room.gridH }, (_, idx) => idx)
-        : localGyHead === localGyFoot
-          ? [localGyFoot]
-          : [localGyFoot, localGyHead];
+
+    const coords = new Set<string>();
+    const addCoord = (gx: number, gy: number) => {
+      if (gx >= 0 && gx < room.gridW && gy >= 0 && gy < room.gridH) {
+        coords.add(`${gx},${gy}`);
+      }
+    };
+
+    for (let gy = localGyHead; gy <= localGyFoot; gy++) {
+      addCoord(localGx, gy);
+    }
+
+    if ((room.pixelH <= 560 && room.gridH > 1) || (room.gridH === 2 && room.pixelH <= 920)) {
+      for (let gy = 0; gy < room.gridH; gy++) {
+        addCoord(localGx, gy);
+      }
+    } else if (room.gridH >= 3) {
+      const viewHalfW = 430;
+      const viewHalfH = 260;
+      const vx1 = this.camX - viewHalfW;
+      const vx2 = this.camX + viewHalfW;
+      const vy1 = this.camY - viewHalfH;
+      const vy2 = this.camY + viewHalfH;
+      for (let gx = 0; gx < room.gridW; gx++) {
+        const cx1 = gx * cellW;
+        const cx2 = (gx + 1) * cellW;
+        if (cx2 < vx1 || cx1 > vx2) continue;
+        for (let gy = 0; gy < room.gridH; gy++) {
+          const cy1 = gy * cellH;
+          const cy2 = (gy + 1) * cellH;
+          if (cy2 >= vy1 && cy1 <= vy2) {
+            addCoord(gx, gy);
+          }
+        }
+      }
+
+      // 对于纯挑空无建筑/门井/秘宝的上层天幕方格，踩过本列下方地面时亦同步点亮，避免留出无意义黑洞！
+      const colX1 = localGx * cellW;
+      const colX2 = (localGx + 1) * cellW;
+      const sideDoors = getRoomSideDoors(room);
+      for (let gy = 0; gy < localGyHead; gy++) {
+        const cy1 = gy * cellH;
+        const cy2 = (gy + 1) * cellH;
+        const hasSb = (room.solidBlocks || []).some(
+          (sb) => sb.x + sb.w >= colX1 - 8 && sb.x <= colX2 + 8 && sb.y + sb.h >= cy1 && sb.y <= cy2
+        );
+        const hasPav = room.pavilions.some(
+          (pv) => pv.x + pv.w >= colX1 - 8 && pv.x <= colX2 + 8 && pv.y >= cy1 && pv.y <= cy2
+        );
+        const hasPick = room.pickups.some((pk) => {
+          const py = pk.y ?? room.focalY;
+          return pk.x >= colX1 - 12 && pk.x <= colX2 + 12 && py >= cy1 && py <= cy2;
+        });
+        const hasShaft = room.shafts.some(
+          (sh) =>
+            sh.dir === 'up' &&
+            gy === 0 &&
+            sh.x2 >= colX1 - 8 &&
+            sh.x1 <= colX2 + 8
+        );
+        const hasDoor = sideDoors.some(
+          (d) =>
+            d.rowOffset === gy &&
+            ((d.side === 'left' && localGx === 0) || (d.side === 'right' && localGx === room.gridW - 1))
+        );
+        if (!hasSb && !hasPav && !hasPick && !hasShaft && !hasDoor) {
+          addCoord(localGx, gy);
+        }
+      }
+    }
 
     let changed = false;
-    for (const gy of gyList) {
-      const cellKey = `cell:${this.room.realm}:${this.room.mapX + localGx},${this.room.mapY + gy}`;
+    for (const pair of coords) {
+      const [gxStr, gyStr] = pair.split(',');
+      const cellKey = `cell:${room.realm}:${room.mapX + Number(gxStr)},${room.mapY + Number(gyStr)}`;
       if (!this.slot.visitedRooms.includes(cellKey)) {
         this.slot.visitedRooms.push(cellKey);
         changed = true;
@@ -804,12 +877,12 @@ export class GameEngine {
       this.player.vx = 0;
       this.player.vy = 0;
     }
-    this.markCurrentMapCellVisited();
     this.camLookX = 0;
     this.camAnchorY = this.player.y;
     this.camX = this.player.x;
     this.camY =
       nextRoom.pixelH <= 520 ? nextRoom.pixelH - 210 : this.player.y - 95;
+    this.markCurrentMapCellVisited();
 
     this.enemies = [];
     this.dyingSouls = [];
@@ -1302,7 +1375,7 @@ export class GameEngine {
     if (this.roomFadeTimer > 0) {
       this.roomFadeTimer = Math.max(0, this.roomFadeTimer - dt);
     }
-    if (this.pendingTransition && this.pendingTransition.phase === 'in') {
+    if (this.input.uiBlocked && this.pendingTransition && this.pendingTransition.phase === 'in') {
       this.pendingTransition.timer -= dt;
       if (this.pendingTransition.timer <= 0) {
         this.pendingTransition = null;
@@ -1384,23 +1457,108 @@ export class GameEngine {
       const tr = this.pendingTransition;
       if (tr.phase === 'out') {
         tr.timer -= dt;
-        this.player.x += tr.walkVx * dt;
-        this.player.y += tr.walkVy * dt;
-        if (Math.abs(tr.walkVx) > 10) {
-          this.player.runCycle += dt * 11;
+        this.player.animTime += dt;
+        if (tr.emergeMode === 'shaft_up') {
+          this.player.vx *= Math.pow(0.08, dt);
+          this.player.vy = tr.walkVy;
+          this.player.onGround = false;
+          this.player.y += tr.walkVy * dt;
+        } else if (tr.emergeMode === 'shaft_down') {
+          this.player.vy = tr.walkVy;
+          this.player.onGround = false;
+          this.player.y += tr.walkVy * dt;
+        } else {
+          this.player.x += tr.walkVx * dt;
+          this.player.y += tr.walkVy * dt;
+          if (Math.abs(tr.walkVx) > 10) {
+            this.player.runCycle += dt * 11;
+          }
+        }
+        this.updateActiveFamiliar(dt);
+        if (tr.timer <= 0) {
+          this.loadRoom(tr.nextRoom, tr.nextX, tr.nextY, tr.emergeMode === 'door');
+          if (tr.emergeMode === 'shaft_up') {
+            const floorY = tr.emergeTargetFloor ?? sampleSolidGroundY(tr.nextRoom, tr.nextX);
+            this.camAnchorY = floorY;
+            this.camY = tr.nextRoom.pixelH <= 520 ? tr.nextRoom.pixelH - 208 : floorY - 96;
+            this.player.vy = -320;
+            this.player.onGround = false;
+            this.player.crouching = false;
+            this.player.dropThroughTimer = 0;
+            this.player.airJumpsLeft = this.hasAbility('double_jump') ? 1 : 0;
+            this.player.invulnTimer = Math.max(this.player.invulnTimer, 0.45);
+            tr.emergeStartY = this.player.y;
+            tr.emergeTargetFloor = floorY;
+            tr.emergeLaunched = false;
+            tr.phase = 'in';
+            tr.timer = 0.22;
+            tr.duration = 0.22;
+          } else if (tr.emergeMode === 'shaft_down') {
+            this.player.vy = tr.postVy ?? 150;
+            this.player.onGround = false;
+            this.player.invulnTimer = Math.max(this.player.invulnTimer, 0.35);
+            tr.phase = 'in';
+            tr.timer = 0.2;
+            tr.duration = 0.2;
+          } else {
+            if (tr.postVy !== undefined) {
+              this.player.vy = tr.postVy;
+              this.player.onGround = false;
+            }
+            tr.phase = 'in';
+            tr.timer = 0.24;
+            tr.duration = 0.24;
+          }
+        }
+        this.updateParticles(dt);
+        return;
+      } else {
+        tr.timer -= dt;
+        if (tr.emergeMode === 'shaft_up' && this.room) {
+          if (tr.timer > 0.08) {
+            const u = Math.max(0, Math.min(1, 1 - (tr.timer - 0.08) / 0.14));
+            const easeOut = 1 - Math.pow(1 - u, 3);
+            this.player.y = (tr.emergeStartY ?? this.player.y) - easeOut * 62;
+            this.player.vy = -300;
+            this.player.onGround = false;
+            this.player.x = Math.max(
+              36,
+              Math.min(this.room.pixelW - 36, this.player.x + this.input.moveX * 150 * dt)
+            );
+            this.player.animTime += dt;
+            this.updateActiveFamiliar(dt);
+            this.updateCamera(dt);
+            this.updateParticles(dt);
+            this.markCurrentMapCellVisited();
+            return;
+          }
+          if (!tr.emergeLaunched) {
+            tr.emergeLaunched = true;
+            const rm = this.room;
+            const floorY = tr.emergeTargetFloor ?? sampleSolidGroundY(rm, this.player.x);
+            this.spawnInkBurst(this.player.x, floorY - 2, '#94a3b8', '#0f172a', 8);
+            this.player.vy = tr.postVy ?? -220;
+            this.player.onGround = false;
+            const hasCover = rm.pavilions.some(
+              (pv) =>
+                this.player.x >= pv.x - 4 &&
+                this.player.x <= pv.x + pv.w + 4 &&
+                Math.abs(pv.y - floorY) <= 42
+            );
+            if (
+              !hasCover &&
+              isInsideDownShaft(rm, this.player.x, this.slot.brokenSecretWalls) &&
+              Math.abs(this.input.moveX) < 0.2
+            ) {
+              const leftSpace = this.player.x - 48;
+              const rightSpace = rm.pixelW - 48 - this.player.x;
+              const side = rightSpace >= leftSpace ? 1 : -1;
+              this.player.vx = side * 195;
+            }
+          }
         }
         if (tr.timer <= 0) {
-          this.loadRoom(tr.nextRoom, tr.nextX, tr.nextY, true);
-          if (tr.postVy !== undefined) {
-            this.player.vy = tr.postVy;
-            this.player.onGround = false;
-          }
-          tr.phase = 'in';
-          tr.timer = 0.24;
-          tr.duration = 0.24;
-        } else {
-          this.updateParticles(dt);
-          return;
+          this.pendingTransition = null;
         }
       }
     }
@@ -2454,6 +2612,21 @@ export class GameEngine {
                   ? 225
                   : 105;
       p.vx = p.facing * (isCrouchAtk ? Math.min(55, stepV * 0.3) : stepV);
+      if (isCrouchAtk && p.onGround) {
+        for (let i = 0; i < 4; i++) {
+          this.particles.push({
+            kind: 'ink',
+            x: p.x - p.facing * (10 + i * 3),
+            y: p.y - 3,
+            vx: -p.facing * (45 + Math.random() * 45),
+            vy: -12 - Math.random() * 16,
+            size: 2.6,
+            color: 'rgba(148, 163, 184, 0.55)',
+            life: 0.22,
+            maxLife: 0.22,
+          });
+        }
+      }
       if (isSpearLunge) {
         this.afterImages.push({ x: p.x, y: p.y, facing: p.facing, color: w.glowColor, alpha: 0.66 });
       }
@@ -7822,6 +7995,7 @@ export class GameEngine {
             this.spawnInkBurst((sh.x1 + sh.x2) * 0.5, p.y - 6, '#fbbf24', '#1e293b', 28);
             this.skillBanner = { name: '千斤破封 · 地脉暗井贯通', timer: 1.4, color: '#fb923c' };
             p.x = Math.max(sh.x1 + 22, Math.min(sh.x2 - 22, p.x));
+            p.dropThroughTimer = 0.34;
             p.onGround = false;
             p.vy = 340;
             break;
@@ -7871,19 +8045,24 @@ export class GameEngine {
     nextY: number,
     walkVx: number,
     walkVy: number,
-    postVy?: number
+    postVy?: number,
+    emergeMode: 'door' | 'shaft_up' | 'shaft_down' = 'door',
+    emergeTargetFloor?: number
   ): void {
     if (this.pendingTransition) return;
+    const duration = emergeMode === 'door' ? 0.16 : 0.13;
     this.pendingTransition = {
       nextRoom,
       nextX,
       nextY,
       phase: 'out',
-      timer: 0.16,
-      duration: 0.16,
+      timer: duration,
+      duration,
       walkVx,
       walkVy,
       postVy,
+      emergeMode,
+      emergeTargetFloor,
     };
   }
 
@@ -7952,7 +8131,7 @@ export class GameEngine {
         this.slot.brokenSecretWalls
       );
       if (downTr) {
-        this.beginSmoothRoomTransition(downTr.nextRoom, downTr.nextX, downTr.nextY, 0, 260);
+        this.beginSmoothRoomTransition(downTr.nextRoom, downTr.nextX, 46, 0, 260, 150, 'shaft_down');
         return;
       }
       // 兜底防掉出界
@@ -7974,13 +8153,16 @@ export class GameEngine {
       if (upTr) {
         p.dropThroughTimer = 0;
         const targetFloor = sampleSolidGroundY(upTr.nextRoom, upTr.nextX);
+        const startY = Math.min(upTr.nextRoom.pixelH - 18, targetFloor + 20);
         this.beginSmoothRoomTransition(
           upTr.nextRoom,
           upTr.nextX,
-          targetFloor + 32,
+          startY,
           0,
-          -240,
-          -560
+          -280,
+          -220,
+          'shaft_up',
+          targetFloor
         );
       } else if (room.shafts.some((sh) => sh.dir === 'up' && p.x >= sh.x1 - 6 && p.x <= sh.x2 + 6)) {
         const blockedSeal = WorldMap.resolveVerticalShaft(

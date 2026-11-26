@@ -12904,10 +12904,18 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
   }
   dropShaft('dock_treasure_vault', 'up', 'dock_coral_grotto');
   syncCeilingsWithUpShafts('dock_treasure_vault', 'crypt_vault');
+  const dockVaultRoom = byId.get('dock_treasure_vault');
+  if (dockVaultRoom) {
+    dockVaultRoom.solidBlocks = [];
+  }
 
   dropShaft('prison_sluice_entry', 'down', 'catacomb_entry');
   dropShaft('catacomb_entry', 'up', 'prison_sluice_entry');
   syncCeilingsWithUpShafts('catacomb_entry', 'crypt_vault');
+  const catacombEntryRoom = byId.get('catacomb_entry');
+  if (catacombEntryRoom) {
+    catacombEntryRoom.solidBlocks = [];
+  }
 
   dropShaft('abyss_dragon_spine', 'down', 'nether_lantern_avenue');
   dropShaft('nether_lantern_avenue', 'up', 'abyss_dragon_spine');
@@ -13210,7 +13218,9 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
   const moatCav = byId.get('entrance_moat_cavern');
   if (moatCav) {
     // 1600px, cols 10..11 -> col 11 dry right shore [1370..1530] aligns plaza@col 11 [310..490]
-    moatCav.solidBlocks = (moatCav.solidBlocks || []).filter((sb) => !(sb.x === 1240 && sb.y === 328));
+    moatCav.solidBlocks = (moatCav.solidBlocks || []).filter(
+      (sb) => !(sb.x === 1240 && sb.y === 328) && !(sb.x <= 460 && sb.y <= 330)
+    );
     setColAlignedUpShaft('entrance_moat_cavern', 'entrance_imperial_plaza', 1370, 1530, 'crypt_vault', [1190, 1340, 1390]);
   }
   const forgeAnte = byId.get('forge_antechamber');
@@ -13299,6 +13309,9 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
       gateKind: 'lever_shortcut',
       leverSide: 'right',
     };
+    libLoft.solidBlocks = (libLoft.solidBlocks || []).filter(
+      (sb) => !(sb.x >= 800 && sb.x <= 920 && sb.y <= 325)
+    );
     setColAlignedUpShaft('library_automaton_loft', 'colosseum_east_armory', 385, 555, 'palace_timber', [355, 425, 375]);
   }
   const altarFore = byId.get('altar_forecourt');
@@ -13371,11 +13384,17 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
   const abyssVeinW = byId.get('abyss_dragon_vein_west');
   if (abyssVeinW) {
     // 3000px, cols 16..21 -> abyss_fossil_alcove [18..19] col 19.68 = 1840px [1750..1930]（右离水面 740..1640）
+    abyssVeinW.solidBlocks = (abyssVeinW.solidBlocks || []).filter(
+      (sb) => !(sb.x <= 320 && sb.y <= 345)
+    );
     setColAlignedUpShaft('abyss_dragon_vein_west', 'abyss_fossil_alcove', 1750, 1930, 'crypt_vault', [1670, 1790, 1715]);
   }
   const abyssSp = byId.get('abyss_dragon_spine');
   if (abyssSp) {
     // 3800px, cols 23..29 -> abyss_rib_vault [29..30] col 29.50 = 3528px [3438..3618]（右离狐幻闸 3360，干岸！）
+    abyssSp.solidBlocks = (abyssSp.solidBlocks || []).filter(
+      (sb) => !(sb.x >= 2600 && sb.x <= 2750 && sb.y <= 345)
+    );
     setColAlignedUpShaft('abyss_dragon_spine', 'abyss_rib_vault', 3438, 3618, 'crypt_vault', [3390, 3490, 3440]);
   }
   const mineDeep = byId.get('mine_deep_vein');
@@ -13400,7 +13419,7 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
   if (netherMirror) {
     // 2520px, cols 25..29 -> nether_mirror_cellar [26..27] col 27.16 = 1090px [1000..1180]（右离狐幻闸 720）
     netherMirror.shafts = [...netherMirror.shafts, { x1: 1000, x2: 1180, dir: 'down', targetRoomId: 'nether_mirror_cellar' }];
-    netherMirror.pavilions.push({ x: 994, y: 416, w: 192, hasPillars: false });
+    netherMirror.pavilions.push({ x: 994, y: 376, w: 192, hasPillars: false });
   }
   const netherOss = byId.get('nether_east_ossuary');
   if (netherOss) {
@@ -13417,14 +13436,11 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
   const wallVault = byId.get('relic_wall_vault');
   if (wallVault) {
     wallVault.shafts = [{ x1: 450, x2: 630, dir: 'down', targetRoomId: 'clock_boss_spire' }];
-    wallVault.pavilions = [
-      ...wallVault.pavilions.filter((pv) => pv.y < 300),
-      { x: 444, y: 396, w: 192, hasPillars: false },
-    ];
+    wallVault.pavilions = [{ x: 444, y: 396, w: 192, hasPillars: false }];
   }
 
   // 4) 扩建全 10 座首领决战大殿 + 万卷藏书阁 + 九转真火炉殿 + 6 座地下/穹顶跨层巨室为真实双层/三层巨殿（含精确 focalY & 无跌落阶梯）
-  upgradeRoomToGrandTwoStoryHall(
+  const celBellHall = upgradeRoomToGrandTwoStoryHall(
     'celestial_bell_sanctum',
     2200,
     840,
@@ -13444,6 +13460,15 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
       ],
     }
   );
+  if (celBellHall) {
+    celBellHall.pickups.push({
+      id: 'pk_celestial_upper',
+      kind: 'consumable',
+      itemId: 'shenxing_san',
+      x: 770,
+      y: 460,
+    });
+  }
 
   upgradeRoomToGrandTwoStoryHall(
     'catacomb_hall',
@@ -13521,7 +13546,7 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     }
   );
 
-  upgradeRoomToGrandTwoStoryHall(
+  const netherTrial = upgradeRoomToGrandTwoStoryHall(
     'nether_trial_colosseum',
     2520,
     840,
@@ -13540,6 +13565,15 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
       ],
     }
   );
+  if (netherTrial) {
+    netherTrial.pickups.push({
+      id: 'pk_nether_trial_upper',
+      kind: 'consumable',
+      itemId: 'osmanthus_wine',
+      x: 870,
+      y: 460,
+    });
+  }
 
   upgradeRoomToGrandTwoStoryHall(
     'nether_ancient_stele_room',
@@ -13571,7 +13605,7 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     }
   );
 
-  upgradeRoomToGrandTwoStoryHall(
+  const colArena = upgradeRoomToGrandTwoStoryHall(
     'colosseum_grand_arena',
     2200,
     880,
@@ -13584,8 +13618,17 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
       extraRightSteps: [{ x: 1840, y: 580, w: 220, h: 32 }, { x: 1740, y: 400, w: 240, h: 32 }],
     }
   );
+  if (colArena) {
+    colArena.pickups.push({
+      id: 'pk_colosseum_upper',
+      kind: 'consumable',
+      itemId: 'jiuzhuan_jin_dan',
+      x: 340,
+      y: 400,
+    });
+  }
 
-  upgradeRoomToGrandTwoStoryHall(
+  const opBossStage = upgradeRoomToGrandTwoStoryHall(
     'opera_boss_stage',
     1880,
     880,
@@ -13596,10 +13639,27 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     {
       extraShafts: [{ x1: 1477, x2: 1657, dir: 'down', targetRoomId: 'opera_gallery' }],
       extraPavilions: [{ x: 1470, y: 808, w: 194, hasPillars: false }],
+      extraLeftSteps: [
+        { x: 90, y: 650, w: 195, h: 28 },
+        { x: 310, y: 495, w: 215, h: 28 },
+      ],
+      extraRightSteps: [
+        { x: 1250, y: 650, w: 195, h: 28 },
+        { x: 1015, y: 495, w: 215, h: 28 },
+      ],
     }
   );
+  if (opBossStage) {
+    opBossStage.pickups.push({
+      id: 'pk_opera_stage_wine',
+      kind: 'consumable',
+      itemId: 'osmanthus_wine',
+      x: 415,
+      y: 495,
+    });
+  }
 
-  upgradeRoomToGrandTwoStoryHall(
+  const xiaoHall = upgradeRoomToGrandTwoStoryHall(
     'xiao_boss_hall',
     1880,
     840,
@@ -13609,8 +13669,25 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     {
       extraShafts: [{ x1: 1477, x2: 1657, dir: 'down', targetRoomId: 'alchemy_lab' }],
       extraPavilions: [{ x: 1470, y: 764, w: 194, hasPillars: false }],
+      extraLeftSteps: [
+        { x: 90, y: 615, w: 190, h: 28 },
+        { x: 305, y: 470, w: 210, h: 28 },
+      ],
+      extraRightSteps: [
+        { x: 1255, y: 615, w: 195, h: 28 },
+        { x: 1020, y: 470, w: 210, h: 28 },
+      ],
     }
   );
+  if (xiaoHall) {
+    xiaoHall.pickups.push({
+      id: 'pk_xiao_hall_chicken',
+      kind: 'consumable',
+      itemId: 'beggar_chicken',
+      x: 410,
+      y: 470,
+    });
+  }
 
   upgradeRoomToGrandTwoStoryHall(
     'alchemy_fire_sanctum',
@@ -13630,7 +13707,7 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     }
   );
 
-  upgradeRoomToGrandTwoStoryHall(
+  const libGrandHall = upgradeRoomToGrandTwoStoryHall(
     'library_grand_hall',
     1880,
     840,
@@ -13644,6 +13721,15 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
       extraRightSteps: [{ x: 1120, y: 410, w: 300, h: 28 }, { x: 1360, y: 560, w: 260, h: 28 }],
     }
   );
+  if (libGrandHall) {
+    libGrandHall.pickups.push({
+      id: 'pk_lib_grand_upper',
+      kind: 'consumable',
+      itemId: 'tiger_bone_wine',
+      x: 630,
+      y: 410,
+    });
+  }
   const upLib = byId.get('upper_library');
   if (upLib) {
     upLib.sideDoors = [
@@ -13723,7 +13809,7 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     ];
   }
 
-  // gate_1: 4x2 (2200x880) 正阳护城石拱古桥（里城最终头目烛阴冥坛！）
+  // gate_1: 4x2 (2200x880) 正阳护城石拱古桥（两侧设错落眺望悬廊与高空秘酿，支柱互不穿透，中央开阔保留予里城最终头目烛阴冥坛！）
   const gate1 = upgradeRoomToGrandTwoStoryHall(
     'gate_1',
     2200,
@@ -13731,13 +13817,30 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
     [
       { side: 'left', floorY: 804, targetRoomId: 'entrance_bamboo_woods', rowOffset: 1 },
       { side: 'right', floorY: 804, targetRoomId: 'entrance_imperial_plaza', rowOffset: 1 },
-    ]
+    ],
+    {
+      extraLeftSteps: [
+        { x: 75, y: 695, w: 195, h: 28 },
+        { x: 295, y: 560, w: 220, h: 28 },
+      ],
+      extraRightSteps: [
+        { x: 1930, y: 695, w: 195, h: 28 },
+        { x: 1685, y: 560, w: 220, h: 28 },
+      ],
+    }
   );
   if (gate1) {
     gate1.focalX = 485;
     gate1.decorProps = gate1.decorProps?.map((dp) =>
       dp.kind === 'dragon_brazier' && dp.x < 600 ? { ...dp, x: 470 } : dp
     );
+    gate1.pickups.push({
+      id: 'pk_gate1_upper_wine',
+      kind: 'consumable',
+      itemId: 'osmanthus_wine',
+      x: 405,
+      y: 560,
+    });
   }
 
   // forge_boss_arena: 5x2 (2520x880), cols 11..15 -> U: forge_slag_bridge@15 (2268px), D: relic_ground_slam@12 (756px)
@@ -14247,7 +14350,7 @@ function applyDispersedWorldLayout(rooms: BuiltRoom[]): BuiltRoom[] {
       { x: 0, y: 2116, style: 'marble' },
       { x: 1080, y: 2116, style: 'marble' },
     ];
-    outerUpper.pavilions = [{ x: 444, y: 2116, w: 192, hasPillars: false }];
+    outerUpper.pavilions = [{ x: 304, y: 2116, w: 192, hasPillars: false }];
     outerUpper.sideDoors = [
       { side: 'left', floorY: 356, targetRoomId: 'sky_altar', rowOffset: 0 },
       { side: 'left', floorY: 960, targetRoomId: 'altar_east_terrace', rowOffset: 2 },
@@ -15053,22 +15156,52 @@ function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
       waterZones: flippedWaterZones,
     } as BuiltRoom;
 
+    const invPickups = (invertedUpgradePickups[rm.id] || []).map((pk) => ({
+      ...pk,
+      x: rm.gridW === 1 ? pk.x + 140 : pk.x,
+    }));
+
     const mergedSolidBlocks: SolidBlock[] = rm.solidBlocks
-      ? rm.solidBlocks.map((sb) => {
+      ? rm.solidBlocks.flatMap((sb) => {
           const fx = W - sb.x - sb.w;
+          const midX = fx + sb.w * 0.5;
           const wasResting = isGroundRestingSolidBlock(rm, sb);
-          const fGround = sampleSolidGroundY(tempFlippedRoom, fx + sb.w * 0.5);
+          const fGround = sampleSolidGroundY(tempFlippedRoom, midX);
+          const isFromFlippedUpShaft =
+            flippedShafts.some((sh) => sh.dir === 'down' && midX >= sh.x1 - 180 && midX <= sh.x2 + 180) &&
+            !flippedShafts.some((sh) => sh.dir === 'up' && midX >= sh.x1 - 180 && midX <= sh.x2 + 180);
+          const isFromNormalOnlyPickup =
+            rm.pickups.some(
+              (pk) => (pk.y ?? fGround) < fGround - 55 && Math.abs((W - pk.x) - midX) <= 180
+            ) && invPickups.length === 0;
+          if (
+            rm.gridH === 1 &&
+            !wasResting &&
+            sb.y < fGround - 65 &&
+            (isFromFlippedUpShaft || isFromNormalOnlyPickup) &&
+            !invPickups.some(
+              (pk) => Math.abs(pk.x - midX) <= 160 && (pk.y ?? fGround) < fGround - 40
+            ) &&
+            !flippedSideDoors.some(
+              (d) =>
+                d.floorY < fGround - 60 && Math.abs((d.side === 'left' ? 0 : W) - midX) < 340
+            )
+          ) {
+            return [];
+          }
           const fh =
             wasResting && fGround - sb.y <= 76
               ? Math.max(38, Math.round(fGround - sb.y + 6))
               : Math.min(sb.h, 38);
-          return {
-            x: fx,
-            y: sb.y,
-            w: sb.w,
-            h: fh,
-            blocking: false,
-          };
+          return [
+            {
+              x: fx,
+              y: sb.y,
+              w: sb.w,
+              h: fh,
+              blocking: false,
+            },
+          ];
         })
       : [];
 
@@ -15308,10 +15441,7 @@ function createInvertedCastleRooms(normalRooms: BuiltRoom[]): BuiltRoom[] {
       lanterns: rm.lanterns.map((ln) => ({ x: W - ln.x, y: ln.y })),
       npcs: [],
       spawns: eliteSpawns,
-      pickups: (invertedUpgradePickups[rm.id] || []).map((pk) => ({
-        ...pk,
-        x: rm.gridW === 1 ? pk.x + 140 : pk.x,
-      })),
+      pickups: invPickups,
     };
   });
 }
